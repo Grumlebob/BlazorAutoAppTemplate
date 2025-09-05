@@ -15,13 +15,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Movie>(entity =>
-        {
-            entity.HasKey(m => m.Id);
-            entity.Property(m => m.Title).IsRequired().HasMaxLength(200);
-            entity.Property(m => m.Director).HasMaxLength(200);
-            entity.Property(m => m.Rating).IsRequired();
-        });
+        // Apply per-feature configurations
+        modelBuilder.ApplyConfiguration(new Features.Movies.MovieEntityTypeConfiguration());
     }
 }
-

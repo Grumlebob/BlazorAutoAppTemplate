@@ -20,7 +20,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: BlazorAutoApp/docker/Dockerfile
+      dockerfile: BlazorAutoApp/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       # Optional: override via env instead of appsettings.Docker.json

@@ -3,10 +3,10 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 
-namespace BlazorAutoApp.Infrastructure.Validation;
+namespace BlazorAutoApp.Features.Movies;
 
-//uses Validator.TryValidateObject to enforce [Required], [StringLength], [Range].  
-public class ValidateFilter<T> : IEndpointFilter where T : class
+// Movies-specific validation filter using DataAnnotations on request DTOs
+public class MoviesValidateFilter<T> : IEndpointFilter where T : class
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
