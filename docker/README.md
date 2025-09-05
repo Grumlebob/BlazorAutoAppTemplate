@@ -19,6 +19,8 @@ Steps
 3) App URLs:
    - HTTP:  http://localhost:8080
    - HTTPS: https://localhost:8443 (uses the exported dev cert)
+- Seq
+   - UI: http://localhost:8081 (view logs)
 
 Notes
 -----

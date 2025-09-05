@@ -3,11 +3,25 @@ using BlazorAutoApp.Data;
 using BlazorAutoApp.Features.Movies;
 using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Core.Features.Movies;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Optional: include Docker-specific configuration when running in containers
-builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: true);
+if (builder.Environment.IsEnvironment("Docker"))
+{
+    builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: true);
+}
+
+// Configure Serilog
+builder.Host.UseSerilog((ctx, services, config) =>
+{
+    config
+        .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithEnvironmentName()
+        .Enrich.WithProperty("Application", "BlazorAutoApp");
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -23,6 +37,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
