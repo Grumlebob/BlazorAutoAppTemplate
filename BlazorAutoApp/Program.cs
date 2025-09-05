@@ -1,4 +1,3 @@
-using BlazorAutoApp.Client.Pages;
 using BlazorAutoApp.Components;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Features.Movies;
@@ -6,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Core.Features.Movies;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Optional: include Docker-specific configuration when running in containers
+builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: true);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

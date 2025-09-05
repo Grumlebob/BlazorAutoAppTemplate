@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+      dockerfile: BlazorAutoApp/docker/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      # Optional: override via env instead of appsettings.Docker.json
+      # ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=app;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - ./docker/https:/https:ro
+
+volumes:
+  pgdata:
+
