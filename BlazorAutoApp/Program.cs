@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Core.Features.Movies;
 using Serilog;
 using Serilog.Events;
+using Serilog.Debugging;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,34 +17,24 @@ if (builder.Environment.IsEnvironment("Docker"))
 }
 
 // SERILOG CONFIGURATION ---
-
 builder.Host.UseSerilog((ctx, services, config) =>
 {
-    // Start with a clean configuration, defining everything explicitly here.
-    config
-        .MinimumLevel.Information()
-        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-        .MinimumLevel.Override("System", LogEventLevel.Warning)
-        .Enrich.FromLogContext()
-        .Enrich.WithProperty("Application", "BlazorAutoApp")
-        .Enrich.WithEnvironmentName()
-        .WriteTo.Console(); // Always write to the console for local debugging.
+    // Surface sink errors if anything goes wrong
+    SelfLog.Enable(m => Console.Error.WriteLine($"[Serilog SelfLog] {m}"));
 
-    // Get the Seq server URL injected by .NET Aspire
-    var seqServerUrl = ctx.Configuration["Seq:ServerUrl"];
+    // Prefer configuration-driven setup (appsettings.json + appsettings.Docker.json)
+    config.ReadFrom.Configuration(ctx.Configuration)
+          .Enrich.FromLogContext()
+          .Enrich.WithEnvironmentName()
+          .Enrich.WithProperty("Application", "BlazorAutoApp");
 
-    // Check if the URL is available and add the Seq sink
-    if (!string.IsNullOrEmpty(seqServerUrl))
+    // Tighten: if running in Docker and the configuration didn't add a Seq sink, add a safe default
+    var hasSeqSink = ctx.Configuration.GetSection("Serilog:WriteTo").GetChildren()
+        .Any(c => string.Equals(c["Name"], "Seq", StringComparison.OrdinalIgnoreCase));
+    if (ctx.HostingEnvironment.IsEnvironment("Docker") && !hasSeqSink)
     {
-        // Use WriteLine here for startup diagnostics, as logging might not be fully initialized.
-        Console.WriteLine($"[Startup] Sending logs to Seq at: {seqServerUrl}");
-        config.WriteTo.Seq(
-            serverUrl: seqServerUrl,
-            period: TimeSpan.FromSeconds(2));
-    }
-    else
-    {
-        Console.WriteLine("[Startup] Seq:ServerUrl not found. Seq logging is disabled.");
+        Console.WriteLine("[Startup] No Seq sink found in configuration; adding default http://seq:5341 for Docker.");
+        config.WriteTo.Seq("http://seq:5341", period: TimeSpan.FromSeconds(2));
     }
 });
 
@@ -53,21 +45,39 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 // EF Core with PostgreSQL
-// Prefer Aspire-injected connection string key ("app") and fall back to DefaultConnection, then localhost
-var connString = builder.Configuration.GetConnectionString("app")
-                 ?? builder.Configuration.GetConnectionString("DefaultConnection")
+// Use DefaultConnection (overridden by Docker environment via appsettings.Docker.json)
+var connString = builder.Configuration.GetConnectionString("DefaultConnection")
                  ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres";
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connString));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
 
 var app = builder.Build();
 
-// This middleware is crucial for logging request details.
-app.UseSerilogRequestLogging();
+// Concise per-request logging
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+
+    // Adjust log level (e.g., demote health checks)
+    options.GetLevel = (http, elapsed, ex) =>
+    {
+        if (http.Request.Path.StartsWithSegments("/health")) return LogEventLevel.Verbose;
+        return ex is null && http.Response.StatusCode < 500 ? LogEventLevel.Information : LogEventLevel.Error;
+    };
+
+    // Attach common properties
+    options.EnrichDiagnosticContext = (ctx, http) =>
+    {
+        ctx.Set("RequestId", http.TraceIdentifier);
+        ctx.Set("RemoteIp", http.Connection.RemoteIpAddress?.ToString());
+        ctx.Set("UserName", http.User?.Identity?.Name);
+        ctx.Set("QueryString", http.Request.QueryString.HasValue ? http.Request.QueryString.Value : "");
+    };
+});
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
