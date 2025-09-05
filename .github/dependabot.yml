@@ -1,20 +1,20 @@
-﻿version: 2
+﻿# This file must be located at .github/dependabot.yml
+
+# `version` and `updates` must have no indentation (0 spaces).
+version: 2
 updates:
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 5
 
-  # Docker
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 5
 
-  # NuGet
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
