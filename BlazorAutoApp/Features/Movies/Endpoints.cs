@@ -2,6 +2,7 @@ using BlazorAutoApp.Core.Features.Movies;
 using BlazorAutoApp.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using BlazorAutoApp.Infrastructure.Validation;
 
 namespace BlazorAutoApp.Features.Movies;
 
@@ -31,7 +32,8 @@ public static class MovieEndpoints
         {
             var response = await movies.CreateAsync(dto);
             return Results.Created($"/api/movies/{response.Id}", response);
-        });
+        })
+        .AddEndpointFilter(new ValidateFilter<CreateMovieRequest>());
 
         group.MapPut("/{id:int}", async (int id, UpdateMovieRequest req, IMoviesApi movies) =>
         {
@@ -45,7 +47,8 @@ public static class MovieEndpoints
                 return Results.NotFound();
             }
             return Results.NoContent();
-        });
+        })
+        .AddEndpointFilter(new ValidateFilter<UpdateMovieRequest>());
 
         group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, IMoviesApi movies) =>
         {
