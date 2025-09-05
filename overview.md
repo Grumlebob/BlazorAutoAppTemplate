@@ -11,7 +11,7 @@ This solution enables Auto render mode across pages without duplicating UI code 
     - `IMoviesApi` interface: unified Movies operations
 
 - Server (SSR/prerender):
-  - EF Core with SQLite via `AppDbContext`
+  - EF Core with PostgreSQL via `AppDbContext`
   - `MoviesServerService` implements `IMoviesApi` using EF Core (no HTTP)
   - Minimal API endpoints call `IMoviesApi`
   - DI in `Program.cs`: `AddScoped<IMoviesApi, MoviesServerService>()`
@@ -83,6 +83,19 @@ Example implementations in this repo:
 - Server and client each register a different `IMoviesApi` implementation. Pages stay the same across modes.
 - Keep request/response DTOs in Core to prevent duplication across tiers.
 - Use 204 for mutation endpoints to simplify client handling; the client services return `bool` for success.
+
+## Migrations
+
+- Provider: PostgreSQL via `Npgsql.EntityFrameworkCore.PostgreSQL`.
+- Connection string: `DefaultConnection` in `BlazorAutoApp/appsettings.json`.
+- Migrations folder: `BlazorAutoApp/Data/Migrations`.
+- Add migration:
+  - `dotnet ef migrations add <Name> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations`
+- Apply to database:
+  - `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
+- Runtime apply: `Program.cs` calls `db.Database.Migrate()` on startup.
+- Current baseline: `InitialCreate` (Movies table) created and applied.
+- EF CLI: updated to `9.0.8` to match runtime.
 
 ## Lifecycle (Auto Render)
 

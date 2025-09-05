@@ -12,10 +12,10 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
-// EF Core with SQLite
+// EF Core with PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(
-        builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=app.db"));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection") ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
@@ -39,11 +39,11 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
-// Ensure database is created (for initial dev without migrations)
+// Apply EF Core migrations at startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
 app.MapStaticAssets();
