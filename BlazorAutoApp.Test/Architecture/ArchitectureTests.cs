@@ -7,7 +7,7 @@ using BlazorAutoApp.Core.Features.Movies;
 using BlazorAutoApp.Features.Movies;
 using Xunit;
 
-namespace BlazorAutoApp.Test;
+namespace BlazorAutoApp.Test.Architecture;
 
 public class ArchitectureTests
 {

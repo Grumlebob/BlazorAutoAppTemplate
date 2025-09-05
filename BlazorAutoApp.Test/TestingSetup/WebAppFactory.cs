@@ -14,7 +14,7 @@ using Respawn;
 using Testcontainers.PostgreSql;
 using Xunit;
 
-namespace BlazorAutoApp.Test;
+namespace BlazorAutoApp.Test.TestingSetup;
 
 //WebApplicationFactory is a class that allows us to create a test server for our application in memory, but setup with real dependencies.
 public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime

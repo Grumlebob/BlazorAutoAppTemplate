@@ -1,7 +1,7 @@
 ﻿using BlazorAutoApp.Core.Features.Movies;
 using Bogus;
 
-namespace BlazorAutoApp.Test;
+namespace BlazorAutoApp.Test.TestingSetup;
 
 public class DataGenerator
 {
