@@ -94,8 +94,17 @@ Example implementations in this repo:
 - Apply to database:
   - `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
 - Runtime apply: `Program.cs` calls `db.Database.Migrate()` on startup.
-- Current baseline: `InitialCreate` (Movies table) created and applied.
+- Current migrations:
+  - `InitialCreate` (Movies table) — applied.
+  - `AddReleaseYearToMovie` (nullable `ReleaseYear` column) — applied.
 - EF CLI: updated to `9.0.8` to match runtime.
+
+## Architecture Tests
+
+- Project: `BlazorAutoApp.Test` (xUnit).
+- Rule: For each public Core interface ending with `Api`, there must be both a server and a client implementation.
+- Test: `ArchitectureTests.ForEachCoreApiInterface_HasServerAndClientImplementation()` reflects over assemblies to enforce the rule.
+- Run: `dotnet test` at the solution root.
 
 ## Lifecycle (Auto Render)
 
