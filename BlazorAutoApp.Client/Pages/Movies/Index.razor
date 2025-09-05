@@ -1,6 +1,6 @@
 @page "/movies"
 
-@inject HttpClient Http
+@inject IMoviesApi Movies
 @inject NavigationManager Nav
 
 <h1>Movies</h1>
@@ -61,8 +61,8 @@ else
         _error = null;
         try
         {
-            var res = await Http.GetFromJsonAsync<GetMoviesResponse>("api/movies");
-            _movies = res?.Movies ?? [];
+            var res = await Movies.GetAsync(new GetMoviesRequest());
+            _movies = res.Movies;
         }
         catch (Exception ex)
         {
@@ -78,11 +78,8 @@ else
     {
         try
         {
-            var result = await Http.DeleteAsync($"api/movies/{id}");
-            if (result.IsSuccessStatusCode)
-            {
-                await LoadAsync();
-            }
+            var result = await Movies.DeleteAsync(new DeleteMovieRequest { Id = id });
+            if (result is not null) await LoadAsync();
         }
         catch (Exception ex)
         {

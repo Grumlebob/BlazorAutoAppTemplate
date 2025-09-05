@@ -1,6 +1,6 @@
 @page "/movies/create"
 
-@inject HttpClient Http
+@inject IMoviesApi Movies
 @inject NavigationManager Nav
 
 <h1>Create Movie</h1>
@@ -31,11 +31,8 @@
 
     private async Task HandleSubmit()
     {
-        var response = await Http.PostAsJsonAsync("api/movies", _model);
-        if (response.IsSuccessStatusCode)
-        {
-            Nav.NavigateTo("/movies");
-        }
+        var response = await Movies.CreateAsync(_model);
+        if (response is not null) Nav.NavigateTo("/movies");
     }
     private void GoBack() => Nav.NavigateTo("/movies");
 }

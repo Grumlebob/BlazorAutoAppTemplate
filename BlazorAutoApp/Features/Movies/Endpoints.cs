@@ -11,91 +11,49 @@ public static class MovieEndpoints
     {
         var group = routes.MapGroup("/api/movies");
 
-        group.MapGet("/", async ([AsParameters] GetMoviesRequest _req, AppDbContext db) =>
+        group.MapGet("/", async ([AsParameters] GetMoviesRequest req, IMoviesApi movies) =>
         {
-            var items = await db.Movies.AsNoTracking().ToListAsync();
-            return Results.Ok(new GetMoviesResponse { Movies = items });
+            var result = await movies.GetAsync(req);
+            return Results.Ok(result);
         });
 
-        group.MapGet("/{id:int}", async ([AsParameters] GetMovieRequest req, AppDbContext db) =>
+        group.MapGet("/{id:int}", async ([AsParameters] GetMovieRequest req, IMoviesApi movies) =>
         {
-            var movie = await db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == req.Id);
-            if (movie is null)
+            var result = await movies.GetByIdAsync(req);
+            if (result is null)
             {
                 return Results.NotFound();
             }
-
-            var response = new GetMovieResponse
-            {
-                Id = movie.Id,
-                Title = movie.Title,
-                Director = movie.Director,
-                Rating = movie.Rating
-            };
-            return Results.Ok(response);
+            return Results.Ok(result);
         });
 
-        group.MapPost("/", async (AppDbContext db, CreateMovieRequest dto) =>
+        group.MapPost("/", async (IMoviesApi movies, CreateMovieRequest dto) =>
         {
-            var movie = new Movie
-            {
-                Title = dto.Title,
-                Director = dto.Director,
-                Rating = dto.Rating
-            };
-
-            db.Movies.Add(movie);
-            await db.SaveChangesAsync();
-            var response = new CreateMovieResponse
-            {
-                Id = movie.Id,
-                Title = movie.Title,
-                Director = movie.Director,
-                Rating = movie.Rating
-            };
-            return Results.Created($"/api/movies/{movie.Id}", response);
+            var response = await movies.CreateAsync(dto);
+            return Results.Created($"/api/movies/{response.Id}", response);
         });
 
-        group.MapPut("/{id:int}", async (AppDbContext db, int id, UpdateMovieRequest req) =>
+        group.MapPut("/{id:int}", async (int id, UpdateMovieRequest req, IMoviesApi movies) =>
         {
             if (id != req.Id)
             {
                 return Results.BadRequest("Route id and body id do not match.");
             }
-            var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == id);
-            if (movie is null)
+            var response = await movies.UpdateAsync(req);
+            if (response is null)
             {
                 return Results.NotFound();
             }
-
-            movie.Title = req.Title;
-            movie.Director = req.Director;
-            movie.Rating = req.Rating;
-
-            await db.SaveChangesAsync();
-
-            var response = new UpdateMovieResponse
-            {
-                Id = movie.Id,
-                Title = movie.Title,
-                Director = movie.Director,
-                Rating = movie.Rating
-            };
             return Results.Ok(response);
         });
 
-        group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, AppDbContext db) =>
+        group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, IMoviesApi movies) =>
         {
-            var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
-            if (movie is null)
+            var response = await movies.DeleteAsync(req);
+            if (response is null)
             {
                 return Results.NotFound();
             }
-
-            db.Movies.Remove(movie);
-            await db.SaveChangesAsync();
-
-            var response = new DeleteMovieResponse { Id = movie.Id };
             return Results.Ok(response);
         });
 

@@ -3,6 +3,7 @@ using BlazorAutoApp.Components;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Features.Movies;
 using Microsoft.EntityFrameworkCore;
+using BlazorAutoApp.Core.Features.Movies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,9 @@ builder.Services.AddRazorComponents()
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(
         builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=app.db"));
+
+// Movies service for server-side prerendering
+builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
 
 var app = builder.Build();
 

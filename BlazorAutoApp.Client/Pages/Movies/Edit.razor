@@ -1,6 +1,6 @@
 @page "/movies/edit/{Id:int}"
 
-@inject HttpClient Http
+@inject IMoviesApi Movies
 @inject NavigationManager Nav
 
 <h1>Edit Movie</h1>
@@ -55,7 +55,7 @@ else
         _error = null;
         try
         {
-            var response = await Http.GetFromJsonAsync<GetMovieResponse>($"api/movies/{Id}");
+            var response = await Movies.GetByIdAsync(new GetMovieRequest { Id = Id });
             if (response is null)
             {
                 _error = "Movie not found";
@@ -81,11 +81,8 @@ else
 
     private async Task HandleSubmit()
     {
-        var res = await Http.PutAsJsonAsync($"api/movies/{_model.Id}", _model);
-        if (res.IsSuccessStatusCode)
-        {
-            Nav.NavigateTo("/movies");
-        }
+        var res = await Movies.UpdateAsync(_model);
+        if (res is not null) Nav.NavigateTo("/movies");
     }
     private void GoBack() => Nav.NavigateTo("/movies");
 }
