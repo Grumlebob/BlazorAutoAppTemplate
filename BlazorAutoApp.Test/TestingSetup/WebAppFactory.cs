@@ -52,12 +52,28 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                     options.UseNpgsql(_dbContainer.GetConnectionString());
                 }
             );
+
+            // Ensure HybridCache uses in-memory distributed cache in tests (no Redis)
+            var dcDescs = services.Where(d => d.ServiceType == typeof(Microsoft.Extensions.Caching.Distributed.IDistributedCache)).ToList();
+            foreach (var dc in dcDescs)
+            {
+                services.Remove(dc);
+            }
+            services.AddDistributedMemoryCache();
+            services.AddHybridCache();
         });
     }
 
     public async Task ResetDatabaseAsync()
     {
         await _respawner.ResetAsync(_dbConnection);
+        // Clear known cache keys used by features to avoid stale results between tests
+        using var scope = Services.CreateScope();
+        var cache = scope.ServiceProvider.GetService<Microsoft.Extensions.Caching.Hybrid.HybridCache>();
+        if (cache is not null)
+        {
+            try { await cache.RemoveAsync("movies:list"); } catch { /* ignore */ }
+        }
     }
 
     public async Task InitializeAsync()
@@ -75,7 +91,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var services = scope.ServiceProvider;
         var context = services.GetRequiredService<AppDbContext>();
         
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
         await InitializeRespawner();
     }
 

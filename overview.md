@@ -125,6 +125,56 @@ Example implementations in this repo:
 4) Interactivity / further actions
    - Any subsequent data changes use `MoviesClientService` over HTTP to the server APIs.
 
+## Redis & Caching
+
+- Purpose: Speed up reads and reduce DB load using `HybridCache` backed by Redis plus in-memory cache.
+- Configuration:
+  - `Program.cs`: `AddStackExchangeRedisCache` + `AddHybridCache`.
+  - `appsettings.json` → `Redis:Configuration` (e.g., `localhost:6379`).
+  - Cache TTLs in `Cache:Movies`: `ListTtlMinutes`, `ItemTtlMinutes`.
+- Keys:
+  - List: `movies:list`
+  - Item: `movies:item:{id}`
+- Invalidation: On `Create`, `Update`, `Delete`, the server removes `movies:list` and the affected `movies:item:{id}`.
+- Tests: The test fixture replaces Redis with in-memory distributed cache to avoid external dependency while keeping `HybridCache` behavior.
+
+```
+Client (UI) --HTTP--> Minimal API Endpoints --calls--> MoviesServerService (IMoviesApi)
+                                                |
+                                                v
+                                         [ GetOrCreate ]
+                                                |
+                                                v
+                                        +-------------------+
+                                        |    HybridCache    |
+                                        +---------+---------+
+                                                  | \
+                                        Memory hit|  \ Redis hit
+                                                  |   \
+                                             +----v-+  +----v---+
+                                             |Memory|  | Redis  |
+                                             +------+  +--------+
+                                                  \
+                                       miss -> factory (load via EF Core)
+                                                    \
+                                                     v
+                                              +------+------+
+                                              |  AppDbCtx   |
+                                              +------+------+
+                                                     |
+                                                     v
+                                                 PostgreSQL
+
+Invalidation on writes: MoviesServerService removes keys `movies:list` and `movies:item:{id}`.
+```
+
+- Read path:
+  - `MoviesServerService.Get*` → `HybridCache.GetOrCreateAsync`
+  - Cache hit: served from Memory or Redis.
+  - Cache miss: load via EF Core (`AppDbContext`) from PostgreSQL, then populate caches.
+- Write path:
+  - After `Create/Update/Delete`: persist via EF Core, then best-effort cache invalidation of list + item keys.
+
 ## Short Diagram
 
 ```

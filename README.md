@@ -18,6 +18,7 @@ Production‑ready Blazor (Auto render) template with vertical slices, EF Core +
 - Minimal APIs for feature endpoints.
 - Serilog (Console + Seq sink), enrichment with environment and context.
 - Docker Compose for app, database, and logging.
+- Hybrid Caching with Redis for query performance (configurable TTLs).
 - GitHub Actions: build/test workflow + Dependabot auto‑merge.
 
 ## Repository Layout
@@ -84,6 +85,7 @@ Docker Compose (recommended full stack):
 3) URLs:
    - App: `http://localhost:8080` and `https://localhost:8443`
    - Seq: `http://localhost:8081`
+   - Redis: `localhost:6379`
    - Postgres: `localhost:5432`
 
 More details in `HowToRun.md`.
@@ -106,6 +108,8 @@ More details in `HowToRun.md`.
 - `ASPNETCORE_ENVIRONMENT=Docker` activates `appsettings.Docker.json` (ports 8080/8443, Seq sink, container DB host).
 - If Seq isn’t reachable in Docker, the server adds a safe default `http://seq:5341` sink at startup.
 - Override connection string with env var: `ConnectionStrings__DefaultConnection`.
+- Redis connection: `Redis:Configuration` (defaults to `localhost:6379`, Docker `redis:6379`).
+- Movies cache TTLs: `Cache:Movies:ListTtlMinutes` and `Cache:Movies:ItemTtlMinutes`.
 
 ## Extending the Template
 - Add a new feature slice in Core under `Features/<Feature>` with entity and request/response.
@@ -115,3 +119,8 @@ More details in `HowToRun.md`.
 
 For a deeper conceptual walkthrough, see `overview.md`.
 
+### Caching (Redis + HybridCache)
+- Server uses `HybridCache` backed by Redis plus memory to accelerate reads and offload the database.
+- Keys: `movies:list`, `movies:item:{id}` with TTLs from configuration.
+- On writes, list and item keys are invalidated.
+- See the Redis & Caching diagram and details in [overview.md – Redis & Caching](overview.md#redis--caching).

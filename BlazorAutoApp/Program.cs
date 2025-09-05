@@ -7,6 +7,8 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Debugging;
 using System.Linq;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +55,13 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connStr
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
+builder.Services.Configure<BlazorAutoApp.Features.Movies.MoviesCacheOptions>(
+    builder.Configuration.GetSection("Cache:Movies"));
+
+// Redis (distributed cache) + Hybrid cache
+var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration") ?? "localhost:6379";
+builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
+builder.Services.AddHybridCache();
 
 var app = builder.Build();
 
@@ -64,7 +73,9 @@ app.UseSerilogRequestLogging(options =>
     // Adjust log level (e.g., demote health checks)
     options.GetLevel = (http, elapsed, ex) =>
     {
-        if (http.Request.Path.StartsWithSegments("/health")) return LogEventLevel.Verbose;
+        var path = http.Request.Path;
+        if (path.StartsWithSegments("/_framework") || path.StartsWithSegments("/assets") || string.Equals(path, "/favicon.ico", StringComparison.Ordinal))
+            return LogEventLevel.Verbose;
         return ex is null && http.Response.StatusCode < 500 ? LogEventLevel.Information : LogEventLevel.Error;
     };
 
@@ -72,8 +83,8 @@ app.UseSerilogRequestLogging(options =>
     options.EnrichDiagnosticContext = (ctx, http) =>
     {
         ctx.Set("RequestId", http.TraceIdentifier);
-        ctx.Set("RemoteIp", http.Connection.RemoteIpAddress?.ToString());
-        ctx.Set("UserName", http.User?.Identity?.Name);
+        ctx.Set("RemoteIp", http.Connection.RemoteIpAddress?.ToString() ?? "");
+        ctx.Set("UserName", http.User?.Identity?.Name ?? "");
         ctx.Set("QueryString", http.Request.QueryString.HasValue ? http.Request.QueryString.Value : "");
     };
 });
