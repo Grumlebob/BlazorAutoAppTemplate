@@ -30,4 +30,9 @@
     <PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Pin EFCore.Relational to 9.0.8 for dependency unification -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
+  </ItemGroup>
+
 </Project>

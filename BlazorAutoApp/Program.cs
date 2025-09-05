@@ -4,6 +4,7 @@ using BlazorAutoApp.Features.Movies;
 using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Core.Features.Movies;
 using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,15 +14,38 @@ if (builder.Environment.IsEnvironment("Docker"))
     builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: true);
 }
 
-// Configure Serilog
+// SERILOG CONFIGURATION ---
+
 builder.Host.UseSerilog((ctx, services, config) =>
 {
+    // Start with a clean configuration, defining everything explicitly here.
     config
-        .ReadFrom.Configuration(ctx.Configuration)
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("System", LogEventLevel.Warning)
         .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "BlazorAutoApp")
         .Enrich.WithEnvironmentName()
-        .Enrich.WithProperty("Application", "BlazorAutoApp");
+        .WriteTo.Console(); // Always write to the console for local debugging.
+
+    // Get the Seq server URL injected by .NET Aspire
+    var seqServerUrl = ctx.Configuration["Seq:ServerUrl"];
+
+    // Check if the URL is available and add the Seq sink
+    if (!string.IsNullOrEmpty(seqServerUrl))
+    {
+        // Use WriteLine here for startup diagnostics, as logging might not be fully initialized.
+        Console.WriteLine($"[Startup] Sending logs to Seq at: {seqServerUrl}");
+        config.WriteTo.Seq(
+            serverUrl: seqServerUrl,
+            period: TimeSpan.FromSeconds(2));
+    }
+    else
+    {
+        Console.WriteLine("[Startup] Seq:ServerUrl not found. Seq logging is disabled.");
+    }
 });
+
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -29,15 +53,20 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 // EF Core with PostgreSQL
+// Prefer Aspire-injected connection string key ("app") and fall back to DefaultConnection, then localhost
+var connString = builder.Configuration.GetConnectionString("app")
+                 ?? builder.Configuration.GetConnectionString("DefaultConnection")
+                 ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection") ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"));
+    options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
 
 var app = builder.Build();
 
+// This middleware is crucial for logging request details.
 app.UseSerilogRequestLogging();
 
 // Configure the HTTP request pipeline.
@@ -48,12 +77,10 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
 
 app.UseAntiforgery();
 
