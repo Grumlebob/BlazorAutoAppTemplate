@@ -141,3 +141,9 @@ Browser ── HTTP ─▶ Server (SSR)
    ├─ TryTakeFromJson(state) to avoid re-fetch
    └─ Interactive operations → call /api/movies via HTTP
 ```
+
+# Tailwind
+
+go to BlazorAutoApp\BlazorAutoApp
+run:
+npx @tailwindcss/cli -i ./Styles/input.css -o ./wwwroot/tailwind.css --watch
