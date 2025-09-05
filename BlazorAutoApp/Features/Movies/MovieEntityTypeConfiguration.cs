@@ -1,7 +1,3 @@
-using BlazorAutoApp.Core.Features.Movies;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace BlazorAutoApp.Features.Movies;
 
 public class MovieEntityTypeConfiguration : IEntityTypeConfiguration<Movie>

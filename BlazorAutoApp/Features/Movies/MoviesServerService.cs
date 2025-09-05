@@ -1,9 +1,3 @@
-using BlazorAutoApp.Core.Features.Movies;
-using BlazorAutoApp.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Hybrid;
-using Microsoft.Extensions.Options;
-
 namespace BlazorAutoApp.Features.Movies;
 
 public class MoviesServerService : IMoviesApi

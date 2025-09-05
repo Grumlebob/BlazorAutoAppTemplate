@@ -1,10 +1,3 @@
-using BlazorAutoApp.Core.Features.Movies;
-using BlazorAutoApp.Data;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using BlazorAutoApp.Features.Movies;
-using Microsoft.Extensions.Logging;
-
 namespace BlazorAutoApp.Features.Movies;
 
 public static class MovieEndpoints

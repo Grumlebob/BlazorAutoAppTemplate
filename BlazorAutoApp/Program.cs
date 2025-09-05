@@ -1,15 +1,3 @@
-using BlazorAutoApp.Components;
-using BlazorAutoApp.Data;
-using BlazorAutoApp.Features.Movies;
-using Microsoft.EntityFrameworkCore;
-using BlazorAutoApp.Core.Features.Movies;
-using Serilog;
-using Serilog.Events;
-using Serilog.Debugging;
-using System.Linq;
-using Microsoft.Extensions.Caching.Hybrid;
-using Microsoft.Extensions.Options;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Optional: include Docker-specific configuration when running in containers
@@ -19,7 +7,7 @@ if (builder.Environment.IsEnvironment("Docker"))
 }
 
 // SERILOG CONFIGURATION ---
-builder.Host.UseSerilog((ctx, services, config) =>
+builder.Host.UseSerilog((ctx, _, config) =>
 {
     // Surface sink errors if anything goes wrong
     SelfLog.Enable(m => Console.Error.WriteLine($"[Serilog SelfLog] {m}"));
@@ -55,7 +43,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connStr
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
-builder.Services.Configure<BlazorAutoApp.Features.Movies.MoviesCacheOptions>(
+builder.Services.Configure<MoviesCacheOptions>(
     builder.Configuration.GetSection("Cache:Movies"));
 
 // Redis (distributed cache) + Hybrid cache
@@ -71,7 +59,7 @@ app.UseSerilogRequestLogging(options =>
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
 
     // Adjust log level (e.g., demote health checks)
-    options.GetLevel = (http, elapsed, ex) =>
+    options.GetLevel = (http, _, ex) =>
     {
         var path = http.Request.Path;
         if (path.StartsWithSegments("/_framework") || path.StartsWithSegments("/assets") || string.Equals(path, "/favicon.ico", StringComparison.Ordinal))
@@ -84,7 +72,7 @@ app.UseSerilogRequestLogging(options =>
     {
         ctx.Set("RequestId", http.TraceIdentifier);
         ctx.Set("RemoteIp", http.Connection.RemoteIpAddress?.ToString() ?? "");
-        ctx.Set("UserName", http.User?.Identity?.Name ?? "");
+        ctx.Set("UserName", http.User.Identity?.Name ?? "");
         ctx.Set("QueryString", http.Request.QueryString.HasValue ? http.Request.QueryString.Value : "");
     };
 });

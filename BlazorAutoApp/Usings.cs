@@ -1,0 +1,12 @@
+﻿global using BlazorAutoApp.Components;
+global using BlazorAutoApp.Data;
+global using BlazorAutoApp.Features.Movies;
+global using Microsoft.EntityFrameworkCore;
+global using BlazorAutoApp.Core.Features.Movies;
+global using Serilog;
+global using Serilog.Events;
+global using Serilog.Debugging;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.Extensions.Caching.Hybrid;
+global using Microsoft.Extensions.Options;
+global using System.ComponentModel.DataAnnotations;

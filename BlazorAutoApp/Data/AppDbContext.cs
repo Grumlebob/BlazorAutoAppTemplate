@@ -1,6 +1,3 @@
-using BlazorAutoApp.Core.Features.Movies;
-using Microsoft.EntityFrameworkCore;
-
 namespace BlazorAutoApp.Data;
 
 public class AppDbContext : DbContext
