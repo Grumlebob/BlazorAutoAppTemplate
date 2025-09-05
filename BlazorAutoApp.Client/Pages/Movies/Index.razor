@@ -1,0 +1,95 @@
+@page "/movies"
+
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h1>Movies</h1>
+
+<p>rendermode: @RendererInfo.Name</p>
+
+<button class="btn btn-primary" @onclick="GoToCreate">Add Movie</button>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Director</th>
+                <th>Rating</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var m in _movies)
+        {
+            <tr>
+                <td>@m.Title</td>
+                <td>@m.Director</td>
+                <td>@m.Rating</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => GoToEdit(m.Id)">Edit</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(m.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private List<Movie> _movies = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var res = await Http.GetFromJsonAsync<GetMoviesResponse>("api/movies");
+            _movies = res?.Movies ?? [];
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            var result = await Http.DeleteAsync($"api/movies/{id}");
+            if (result.IsSuccessStatusCode)
+            {
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void GoToCreate() => Nav.NavigateTo("/movies/create");
+    private void GoToEdit(int id) => Nav.NavigateTo($"/movies/edit/{id}");
+}

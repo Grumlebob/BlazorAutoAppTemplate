@@ -1,0 +1,91 @@
+@page "/movies/edit/{Id:int}"
+
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h1>Edit Movie</h1>
+
+<p>rendermode: @RendererInfo.Name</p>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <InputText class="form-control" @bind-Value="_model.Title" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Director</label>
+            <InputText class="form-control" @bind-Value="_model.Director" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Rating</label>
+            <InputNumber class="form-control" @bind-Value="_model.Rating" />
+        </div>
+        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn btn-secondary" type="button" @onclick="GoBack">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private UpdateMovieRequest _model = new() { Id = 0, Title = string.Empty, Rating = 0 };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var response = await Http.GetFromJsonAsync<GetMovieResponse>($"api/movies/{Id}");
+            if (response is null)
+            {
+                _error = "Movie not found";
+                return;
+            }
+            _model = new UpdateMovieRequest
+            {
+                Id = response.Id,
+                Title = response.Title,
+                Director = response.Director,
+                Rating = response.Rating
+            };
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        var res = await Http.PutAsJsonAsync($"api/movies/{_model.Id}", _model);
+        if (res.IsSuccessStatusCode)
+        {
+            Nav.NavigateTo("/movies");
+        }
+    }
+    private void GoBack() => Nav.NavigateTo("/movies");
+}
