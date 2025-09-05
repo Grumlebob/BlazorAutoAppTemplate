@@ -1,6 +1,5 @@
 ﻿version: 2
 updates:
-  # GitHub Actions updates: check daily for new versions.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -8,7 +7,6 @@ updates:
     open-pull-requests-limit: 5
     rebase-strategy: "auto"
 
-  # Docker updates: check daily.
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -16,7 +14,6 @@ updates:
     open-pull-requests-limit: 5
     rebase-strategy: "auto"
 
-  # NuGet updates (for .NET projects): check daily.
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
