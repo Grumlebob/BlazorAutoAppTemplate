@@ -39,22 +39,22 @@ public static class MovieEndpoints
             {
                 return Results.BadRequest("Route id and body id do not match.");
             }
-            var response = await movies.UpdateAsync(req);
-            if (response is null)
+            var success = await movies.UpdateAsync(req);
+            if (!success)
             {
                 return Results.NotFound();
             }
-            return Results.Ok(response);
+            return Results.NoContent();
         });
 
         group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, IMoviesApi movies) =>
         {
-            var response = await movies.DeleteAsync(req);
-            if (response is null)
+            var success = await movies.DeleteAsync(req);
+            if (!success)
             {
                 return Results.NotFound();
             }
-            return Results.Ok(response);
+            return Results.NoContent();
         });
 
         return routes;

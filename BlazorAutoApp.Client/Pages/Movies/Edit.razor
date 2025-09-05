@@ -2,6 +2,7 @@
 
 @inject IMoviesApi Movies
 @inject NavigationManager Nav
+@inject PersistentComponentState AppState
 
 <h1>Edit Movie</h1>
 
@@ -23,14 +24,17 @@ else
         <div class="mb-3">
             <label class="form-label">Title</label>
             <InputText class="form-control" @bind-Value="_model.Title" />
+            <ValidationMessage For="() => _model.Title" />
         </div>
         <div class="mb-3">
             <label class="form-label">Director</label>
             <InputText class="form-control" @bind-Value="_model.Director" />
+            <ValidationMessage For="() => _model.Director" />
         </div>
         <div class="mb-3">
             <label class="form-label">Rating</label>
             <InputNumber class="form-control" @bind-Value="_model.Rating" />
+            <ValidationMessage For="() => _model.Rating" />
         </div>
         <button class="btn btn-primary" type="submit">Save</button>
         <button class="btn btn-secondary" type="button" @onclick="GoBack">Cancel</button>
@@ -39,6 +43,7 @@ else
 
 @code {
     [Parameter] public int Id { get; set; }
+    private string CacheKey => $"Movies_Edit_{Id}";
 
     private bool _loading = true;
     private string? _error;
@@ -55,19 +60,43 @@ else
         _error = null;
         try
         {
-            var response = await Movies.GetByIdAsync(new GetMovieRequest { Id = Id });
-            if (response is null)
+            if (AppState.TryTakeFromJson<GetMovieResponse>(CacheKey, out var cached) && cached is not null)
             {
-                _error = "Movie not found";
-                return;
+                _model = new UpdateMovieRequest
+                {
+                    Id = cached.Id,
+                    Title = cached.Title,
+                    Director = cached.Director,
+                    Rating = cached.Rating
+                };
             }
-            _model = new UpdateMovieRequest
+            else
             {
-                Id = response.Id,
-                Title = response.Title,
-                Director = response.Director,
-                Rating = response.Rating
-            };
+                var response = await Movies.GetByIdAsync(new GetMovieRequest { Id = Id });
+                if (response is null)
+                {
+                    _error = "Movie not found";
+                    return;
+                }
+                _model = new UpdateMovieRequest
+                {
+                    Id = response.Id,
+                    Title = response.Title,
+                    Director = response.Director,
+                    Rating = response.Rating
+                };
+                AppState.RegisterOnPersisting(async () =>
+                {
+                    AppState.PersistAsJson(CacheKey, new GetMovieResponse
+                    {
+                        Id = _model.Id,
+                        Title = _model.Title,
+                        Director = _model.Director,
+                        Rating = _model.Rating
+                    });
+                    await Task.CompletedTask;
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -81,8 +110,8 @@ else
 
     private async Task HandleSubmit()
     {
-        var res = await Movies.UpdateAsync(_model);
-        if (res is not null) Nav.NavigateTo("/movies");
+        var success = await Movies.UpdateAsync(_model);
+        if (success) Nav.NavigateTo("/movies");
     }
     private void GoBack() => Nav.NavigateTo("/movies");
 }

@@ -51,30 +51,23 @@ public class MoviesServerService : IMoviesApi
         };
     }
 
-    public async Task<UpdateMovieResponse?> UpdateAsync(UpdateMovieRequest req)
+    public async Task<bool> UpdateAsync(UpdateMovieRequest req)
     {
         var movie = await _db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
-        if (movie is null) return null;
+        if (movie is null) return false;
         movie.Title = req.Title;
         movie.Director = req.Director;
         movie.Rating = req.Rating;
         await _db.SaveChangesAsync();
-        return new UpdateMovieResponse
-        {
-            Id = movie.Id,
-            Title = movie.Title,
-            Director = movie.Director,
-            Rating = movie.Rating
-        };
+        return true;
     }
 
-    public async Task<DeleteMovieResponse?> DeleteAsync(DeleteMovieRequest req)
+    public async Task<bool> DeleteAsync(DeleteMovieRequest req)
     {
         var movie = await _db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
-        if (movie is null) return null;
+        if (movie is null) return false;
         _db.Movies.Remove(movie);
         await _db.SaveChangesAsync();
-        return new DeleteMovieResponse { Id = movie.Id };
+        return true;
     }
 }
-

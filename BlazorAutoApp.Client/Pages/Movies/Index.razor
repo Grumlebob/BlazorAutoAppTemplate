@@ -2,6 +2,7 @@
 
 @inject IMoviesApi Movies
 @inject NavigationManager Nav
+@inject PersistentComponentState AppState
 
 <h1>Movies</h1>
 
@@ -36,6 +37,7 @@ else
                 <td>@m.Director</td>
                 <td>@m.Rating</td>
                 <td>
+                    <a class="btn btn-sm btn-outline-primary" href="@($"/movies/{m.Id}")">View</a>
                     <button class="btn btn-sm btn-secondary" @onclick="() => GoToEdit(m.Id)">Edit</button>
                     <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(m.Id)">Delete</button>
                 </td>
@@ -49,10 +51,22 @@ else
     private bool _loading = true;
     private string? _error;
     private List<Movie> _movies = [];
+    private const string CacheKey = "Movies_Index_List";
 
     protected override async Task OnInitializedAsync()
     {
+        if (AppState.TryTakeFromJson<GetMoviesResponse>(CacheKey, out var cached) && cached is not null)
+        {
+            _movies = cached.Movies ?? [];
+            _loading = false;
+            return;
+        }
         await LoadAsync();
+        AppState.RegisterOnPersisting(async () =>
+        {
+            AppState.PersistAsJson(CacheKey, new GetMoviesResponse { Movies = _movies });
+            await Task.CompletedTask;
+        });
     }
 
     private async Task LoadAsync()
@@ -78,8 +92,8 @@ else
     {
         try
         {
-            var result = await Movies.DeleteAsync(new DeleteMovieRequest { Id = id });
-            if (result is not null) await LoadAsync();
+            var success = await Movies.DeleteAsync(new DeleteMovieRequest { Id = id });
+            if (success) await LoadAsync();
         }
         catch (Exception ex)
         {

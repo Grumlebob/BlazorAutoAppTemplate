@@ -13,14 +13,17 @@
     <div class="mb-3">
         <label class="form-label">Title</label>
         <InputText class="form-control" @bind-Value="_model.Title" />
+        <ValidationMessage For="() => _model.Title" />
     </div>
     <div class="mb-3">
         <label class="form-label">Director</label>
         <InputText class="form-control" @bind-Value="_model.Director" />
+        <ValidationMessage For="() => _model.Director" />
     </div>
     <div class="mb-3">
         <label class="form-label">Rating</label>
         <InputNumber class="form-control" @bind-Value="_model.Rating" />
+        <ValidationMessage For="() => _model.Rating" />
     </div>
     <button class="btn btn-primary" type="submit">Save</button>
     <button class="btn btn-secondary" type="button" @onclick="GoBack">Cancel</button>

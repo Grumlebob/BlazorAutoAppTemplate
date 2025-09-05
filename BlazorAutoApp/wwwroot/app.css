@@ -58,3 +58,20 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* Validation hints: style Blazor input validity classes */
+input.invalid, select.invalid, textarea.invalid,
+.invalid input, .invalid select, .invalid textarea {
+    border-color: #dc3545; /* Bootstrap danger */
+    box-shadow: 0 0 0 .1rem rgba(220,53,69,.25);
+}
+
+input.valid, select.valid, textarea.valid,
+.valid input, .valid select, .valid textarea {
+    border-color: #28a745; /* Bootstrap success */
+}
+
+.validation-message, .field-validation-error {
+    color: #dc3545;
+    font-size: .875rem;
+}

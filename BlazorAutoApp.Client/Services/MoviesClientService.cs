@@ -30,18 +30,21 @@ public class MoviesClientService : IMoviesApi
         return (await res.Content.ReadFromJsonAsync<CreateMovieResponse>())!;
     }
 
-    public async Task<UpdateMovieResponse?> UpdateAsync(UpdateMovieRequest req)
+    public async Task<bool> UpdateAsync(UpdateMovieRequest req)
     {
         var res = await _http.PutAsJsonAsync($"api/movies/{req.Id}", req);
-        if (!res.IsSuccessStatusCode) return null;
-        return await res.Content.ReadFromJsonAsync<UpdateMovieResponse>();
+        if (res.StatusCode == System.Net.HttpStatusCode.NoContent) return true;
+        if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return false;
+        res.EnsureSuccessStatusCode();
+        return true;
     }
 
-    public async Task<DeleteMovieResponse?> DeleteAsync(DeleteMovieRequest req)
+    public async Task<bool> DeleteAsync(DeleteMovieRequest req)
     {
         var res = await _http.DeleteAsync($"api/movies/{req.Id}");
-        if (!res.IsSuccessStatusCode) return null;
-        return await res.Content.ReadFromJsonAsync<DeleteMovieResponse>();
+        if (res.StatusCode == System.Net.HttpStatusCode.NoContent) return true;
+        if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return false;
+        res.EnsureSuccessStatusCode();
+        return true;
     }
 }
-

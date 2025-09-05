@@ -1,0 +1,84 @@
+@page "/movies/{Id:int}"
+
+@inject IMoviesApi Movies
+@inject NavigationManager Nav
+@inject PersistentComponentState AppState
+
+<h1>Movie Details</h1>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else if (_movie is null)
+{
+    <p>Movie not found.</p>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">@_movie.Title</h5>
+            <h6 class="card-subtitle mb-2 text-muted">Director: @_movie.Director</h6>
+            <p class="card-text">Rating: @_movie.Rating</p>
+        </div>
+    </div>
+    <button class="btn btn-secondary mt-3" @onclick="GoBack">Back</button>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private GetMovieResponse? _movie;
+    private string CacheKey => $"Movies_Details_{Id}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            if (AppState.TryTakeFromJson<GetMovieResponse>(CacheKey, out var cached) && cached is not null)
+            {
+                _movie = cached;
+            }
+            else
+            {
+                var response = await Movies.GetByIdAsync(new GetMovieRequest { Id = Id });
+                if (response is null)
+                {
+                    _movie = null;
+                    return;
+                }
+                _movie = response;
+                AppState.RegisterOnPersisting(async () =>
+                {
+                    AppState.PersistAsJson(CacheKey, _movie);
+                    await Task.CompletedTask;
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/movies");
+}
+
