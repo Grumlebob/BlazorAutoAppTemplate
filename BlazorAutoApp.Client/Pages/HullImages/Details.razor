@@ -1,0 +1,88 @@
+@page "/hull-images/{Id:int}"
+
+@inject IHullImagesApi Api
+@inject NavigationManager Nav
+
+<h1>Image Details</h1>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else if (_image is null)
+{
+    <p>Not found.</p>
+}
+else
+{
+    <div class="mb-3">
+        <a class="btn btn-secondary me-2" href="/hull-images">Back</a>
+        <button class="btn btn-danger" @onclick="Delete">Delete</button>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <img class="img-fluid rounded border" src="@($"/api/hull-images/{_image.Id}/thumbnail/512")" alt="@_image.OriginalFileName" />
+        </div>
+        <div class="col-12 col-md-6">
+            <dl class="row">
+                <dt class="col-sm-3">Id</dt><dd class="col-sm-9">@_image.Id</dd>
+                <dt class="col-sm-3">Name</dt><dd class="col-sm-9">@_image.OriginalFileName</dd>
+                <dt class="col-sm-3">Size</dt><dd class="col-sm-9">@_image.ByteSize B</dd>
+                @if (_image.Width.HasValue && _image.Height.HasValue)
+                {
+                    <dt class="col-sm-3">Dimensions</dt><dd class="col-sm-9">@_image.Width x @_image.Height</dd>
+                }
+                <dt class="col-sm-3">Type</dt><dd class="col-sm-9">@_image.ContentType</dd>
+                <dt class="col-sm-3">SHA256</dt><dd class="col-sm-9">@_image.Sha256</dd>
+                <dt class="col-sm-3">Created</dt><dd class="col-sm-9">@_image.CreatedAtUtc.ToString("u")</dd>
+            </dl>
+            <a class="btn btn-outline-primary me-2" href="@($"/api/hull-images/{_image.Id}/original")" download>Download Original</a>
+            <a class="btn btn-outline-secondary" href="@($"/api/hull-images/{_image.Id}/original")" target="_blank">Open Original</a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private GetHullImageResponse? _image;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _image = await Api.GetByIdAsync(new GetHullImageRequest { Id = Id });
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task Delete()
+    {
+        try
+        {
+            var ok = await Api.DeleteAsync(Id);
+            if (ok) Nav.NavigateTo("/hull-images");
+            else _error = "Delete failed or not found";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

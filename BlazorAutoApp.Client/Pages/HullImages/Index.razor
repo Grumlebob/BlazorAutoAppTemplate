@@ -1,0 +1,323 @@
+@page "/hull-images"
+
+@using Microsoft.AspNetCore.Components.Forms
+@inject IJSRuntime JS
+@inject IHullImagesApi Api
+
+<h1>Hull Images</h1>
+
+<div class="mb-3">
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
+        <label class="form-check-label" for="chunkSwitch">Upload mode: <strong>@(_useChunked ? "CHUNKED" : "NOT CHUNKED")</strong></label>
+    </div>
+    <InputFile OnChange="OnFilesSelected" multiple />
+    <p class="text-muted">Select files to upload. Max 1 GB per file.</p>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p class="text-danger">@_error</p>
+    }
+    @if (!string.IsNullOrEmpty(_info))
+    {
+        <p class="text-info">@_info</p>
+    }
+    @if (_uploading)
+    {
+        <div class="my-2">
+            <div>Uploading: @_currentFileName (@_bytesUploaded / @_currentTotalBytes bytes)</div>
+            <div class="progress" style="height: 1.25rem;">
+                <div class="progress-bar" role="progressbar" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
+            </div>
+            @if (_useChunked)
+            {
+                <div class="mt-2">
+                    <button class="btn btn-warning me-2" disabled="@(!_canPauseResume)" @onclick="PauseChunked">Pause</button>
+                    <button class="btn btn-success" disabled="@(!_paused)" @onclick="ResumeChunked">Resume</button>
+                </div>
+            }
+        </div>
+    }
+    <button class="btn btn-secondary" @onclick="Reload">Reload</button>
+    <button class="btn btn-outline-warning ms-2" @onclick="PruneMissing">Prune Missing</button>
+    <button class="btn btn-outline-secondary" @onclick="Clear">Clear</button>
+    <button class="btn btn-outline-primary" @onclick="SmallTestUpload">Upload 1KB Test</button>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_images.Count == 0)
+{
+    <p>No images yet.</p>
+}
+else
+{
+    <div class="d-flex align-items-center mb-2">
+        <div class="btn-group me-2">
+            <button class="btn btn-sm btn-@(_showGallery ? "primary" : "outline-primary")" @onclick="(() => _showGallery = true)">Gallery</button>
+            <button class="btn btn-sm btn-@(!_showGallery ? "primary" : "outline-primary")" @onclick="(() => _showGallery = false)">Table</button>
+        </div>
+        @if (_showGallery)
+        {
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(128))">128</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(256))">256</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(512))">512</button>
+                <span class="ms-2 small text-muted">Thumb: @_thumbSize px</span>
+            </div>
+        }
+    </div>
+
+    @if (_showGallery)
+    {
+        <div class="row row-cols-2 row-cols-md-4 g-3">
+            @foreach (var i in _images)
+            {
+                <div class="col">
+                    <a href="@($"/hull-images/{i.Id}")" title="@i.OriginalFileName">
+                        <img class="img-fluid rounded border" src="@($"api/hull-images/{i.Id}/thumbnail/{_thumbSize}")" alt="@i.OriginalFileName" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'@_thumbSize\' height=\'@_thumbSize\'><rect width=\'100%\' height=\'100%\' fill=\'#eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'#999\' font-size=\'12\'>Missing</text></svg>';" />
+                    </a>
+                    <div class="small text-muted text-truncate">@i.OriginalFileName (@i.ByteSize)B</div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Size</th>
+                <th>SHA256</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var i in _images)
+            {
+                <tr>
+                    <td>@i.Id</td>
+                    <td>@i.OriginalFileName</td>
+                    <td>@i.ByteSize</td>
+                    <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;">@i.Sha256</td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary" href="@($"api/hull-images/{i.Id}/original")">Download</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _uploading = false;
+    private bool _useChunked = false;
+    private bool _paused = false;
+    private bool _canPauseResume => _uploading && _useChunked && !_paused;
+    private CancellationTokenSource? _chunkCts;
+    private Guid? _chunkSessionId;
+    private int _chunkIndex = 0;
+    private string? _error;
+    private string? _info;
+    private string _currentFileName = string.Empty;
+    private long _bytesUploaded = 0;
+    private long _currentTotalBytes = 0;
+    private int _progressPercent => _currentTotalBytes > 0 ? (int)Math.Round(100.0 * _bytesUploaded / _currentTotalBytes) : 0;
+    private List<HullImage> _images = new();
+    private bool _showGallery = true;
+    private int _thumbSize = 256;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var res = await Api.GetAsync(new GetHullImagesRequest());
+            _images = res.Items;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SetThumb(int size)
+    {
+        _thumbSize = size;
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles())
+        {
+            if (_useChunked)
+            {
+                await UploadChunkedAsync(file);
+            }
+            else
+            {
+                await UploadSingleAsync(file);
+            }
+        }
+        await LoadAsync();
+    }
+
+    private async Task UploadSingleAsync(IBrowserFile file)
+    {
+        _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
+        try
+        {
+            // Use a large read limit to support big files (1 GB)
+            await using var stream = file.OpenReadStream(maxAllowedSize: 1_073_741_824);
+            _ = await Api.UploadAsync(
+                fileName: file.Name,
+                contentType: file.ContentType,
+                content: stream,
+                size: file.Size,
+                progress: new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
+                ct: CancellationToken.None);
+            _info = $"Uploaded {file.Name}";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task UploadChunkedAsync(IBrowserFile file)
+    {
+        _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
+        try
+        {
+            if (!IsAllowedImage(file)) { _error = "Only images (jpg,jpeg,png,webp,gif,bmp) are allowed"; return; }
+            // Initiate
+            var initJson = await Api.InitiateUploadAsync(file.Name, file.ContentType);
+            if (initJson is null) throw new InvalidOperationException("Failed to initiate upload session");
+            _chunkSessionId = initJson.UploadSessionId;
+            _chunkIndex = 0;
+            await JS.InvokeVoidAsync("sessionStorage.setItem", SessionKey(file.Name), _chunkSessionId.ToString());
+
+            var chunkSize = Math.Max(256 * 1024, initJson.ChunkSizeBytes); // at least 256KB
+            await using var src = file.OpenReadStream(maxAllowedSize: 1_073_741_824);
+            var buffer = new byte[chunkSize];
+            _chunkCts = new CancellationTokenSource();
+            int read;
+            while ((read = await src.ReadAsync(buffer, 0, buffer.Length, _chunkCts.Token)) > 0)
+            {
+                using var ms = new MemoryStream(buffer, 0, read, writable: false);
+                await Api.UploadChunkAsync(initJson.UploadSessionId, _chunkIndex, ms);
+                _bytesUploaded += read;
+                _chunkIndex++;
+                await InvokeAsync(StateHasChanged);
+                if (_paused) break;
+            }
+            if (!_paused)
+            {
+                _ = await Api.CompleteUploadAsync(initJson.UploadSessionId);
+                _info = $"Uploaded {file.Name} via CHUNKED";
+                await JS.InvokeVoidAsync("sessionStorage.removeItem", SessionKey(file.Name));
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+            _paused = false;
+            _chunkCts?.Dispose();
+        }
+    }
+
+    private void PauseChunked()
+    {
+        if (_chunkCts is not null)
+        {
+            _paused = true;
+            _chunkCts.Cancel();
+        }
+    }
+
+    private async Task ResumeChunked()
+    {
+        if (!_paused || _chunkSessionId is null) return;
+        _paused = false;
+        _uploading = true;
+        StateHasChanged();
+        // We cannot easily reposition IBrowserFile stream; require reselect or keep a buffer. For demo, require reselect.
+        _error = "Please reselect the same file to resume.";
+        await Task.CompletedTask;
+    }
+
+    private static string SessionKey(string fileName) => $"hullimg:session:{fileName}";
+
+    private static readonly string[] AllowedExt = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp" };
+    private static bool IsAllowedImage(IBrowserFile file)
+    {
+        var name = file.Name ?? string.Empty;
+        var okExt = AllowedExt.Any(ext => name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+        if (!okExt) return false;
+        return true;
+    }
+
+    // Using IHullImagesApi for all transport; no HttpClient injected here.
+
+    private Task Reload() => LoadAsync();
+    private Task Clear()
+    {
+        _images.Clear();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task SmallTestUpload()
+    {
+        try
+        {
+            // 1x1 PNG pixel
+            var b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgN3G3h8AAAAASUVORK5CYII=";
+            var data = Convert.FromBase64String(b64);
+            await using var ms = new MemoryStream(data);
+            _ = await Api.UploadAsync("tiny.png", "image/png", ms, data.LongLength, null, CancellationToken.None);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task PruneMissing()
+    {
+        try
+        {
+            var removed = await Api.PruneMissingAsync();
+            _info = $"Pruned {removed} missing entries";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

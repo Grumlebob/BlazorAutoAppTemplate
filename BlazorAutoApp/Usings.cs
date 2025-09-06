@@ -1,8 +1,11 @@
 ﻿global using BlazorAutoApp.Components;
 global using BlazorAutoApp.Data;
 global using BlazorAutoApp.Features.Movies;
+global using BlazorAutoApp.Features.HullImages;
 global using Microsoft.EntityFrameworkCore;
 global using BlazorAutoApp.Core.Features.Movies;
+global using BlazorAutoApp.Core.Features.HullImages;
+global using Microsoft.AspNetCore.Mvc;
 global using Serilog;
 global using Serilog.Events;
 global using Serilog.Debugging;
@@ -10,3 +13,5 @@ global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using Microsoft.Extensions.Caching.Hybrid;
 global using Microsoft.Extensions.Options;
 global using System.ComponentModel.DataAnnotations;
+global using System.Collections.Concurrent;
+global using Microsoft.AspNetCore.Components;

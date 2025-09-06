@@ -46,10 +46,18 @@ builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
 builder.Services.Configure<MoviesCacheOptions>(
     builder.Configuration.GetSection("Cache:Movies"));
 
+// HullImages services
+builder.Services.Configure<HullImagesStorageOptions>(builder.Configuration.GetSection("Storage:HullImages"));
+builder.Services.AddScoped<IHullImagesApi, HullImagesServerService>();
+builder.Services.AddSingleton<IHullImageStore, LocalHullImageStore>();
+builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
+
 // Redis (distributed cache) + Hybrid cache
 var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration") ?? "localhost:6379";
 builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
 builder.Services.AddHybridCache();
+
+// HttpClient for components (server prerendering + interactive server)
 
 var app = builder.Build();
 
@@ -108,6 +116,7 @@ app.MapRazorComponents<App>()
 
 // Minimal API endpoints
 app.MapMovieEndpoints();
+app.MapHullImageEndpoints();
 
 app.Run();
 

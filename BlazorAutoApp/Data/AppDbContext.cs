@@ -7,6 +7,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Movie> Movies => Set<Movie>();
+    public DbSet<HullImage> HullImages => Set<HullImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -14,5 +15,6 @@ public class AppDbContext : DbContext
 
         // Apply per-feature configurations
         modelBuilder.ApplyConfiguration(new Features.Movies.MovieEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.HullImages.HullImageEntityTypeConfiguration());
     }
 }
