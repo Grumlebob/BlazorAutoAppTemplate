@@ -14,6 +14,7 @@ Overview
 
 Endpoints
 - `GET /api/hull-images`: List images (metadata only).
+- `GET /api/hull-images/{id}`: Get a single image’s metadata (used by the Details page).
 - `POST /api/hull-images`: Single-shot streaming upload; body is raw bytes.
   - Headers: `X-File-Name: <original file name>`
   - Returns: `CreateHullImageResponse`.
@@ -30,12 +31,17 @@ Validation
 - Server-side: Validates magic numbers for allowed types (jpeg, png, webp, gif, bmp). Non-images are rejected with `400`.
 - Client-side: Filters by extension before upload (.jpg, .jpeg, .png, .webp, .gif, .bmp). Max 1 GB enforced by input stream limit.
 
+Post-Processing
+- Dimension probing: After saving an image, the server probes Width/Height and stores them in metadata to display on the Details page.
+
 Blazor UI
 - Route: `/hull-images`.
 - Upload toggle: "NOT CHUNKED" or "CHUNKED" modes via switch.
 - Progress bar: Shows bytes and percentage in both modes.
 - Chunked controls: Pause/Resume UI (Resume requires reselecting the same file; session id is stored in `sessionStorage`).
 - Thumbnails: You can link to `/api/hull-images/{id}/thumbnail/256` or `/thumbnail/512` for previews.
+- Gallery: Toggle between Gallery and Table view. Gallery has a thumbnail size selector (128/256/512).
+- Prune Missing: Button to remove DB entries for missing files, then refresh the list.
 
 Core Interface (vertical slice)
 - `IHullImagesApi` (Core) is used by components.
@@ -64,3 +70,4 @@ Thumbnails: Implementation Notes
 UI: Details Page
 - Route: `/hull-images/{id}` shows a 512px thumbnail preview and metadata.
 - Actions: "Download Original" (saves file) and "Open Original" (opens in a new tab).
+ - Shows Dimensions (Width x Height) when available.
