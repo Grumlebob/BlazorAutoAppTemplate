@@ -35,6 +35,8 @@ services:
       - "8443:8443"
     volumes:
       - ./docker/https:/https:ro
+      # Persist application storage (uploads, thumbnails, TUS temp)
+      - ./data/storage:/app/Storage
 
   seq:
     image: datalust/seq:latest

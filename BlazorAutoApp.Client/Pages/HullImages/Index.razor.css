@@ -1,0 +1,23 @@
+.devtools-container {
+  position: fixed;
+  /* Push below the top row About link (3.5rem high) */
+  top: 4.5rem;
+  right: 1rem;
+  z-index: 1080; /* above content */
+}
+
+.devtools-toggle {
+  /* Button shown when collapsed or as a close action in header */
+}
+
+.devtools-panel {
+  margin-top: 0.5rem;
+  width: 320px;
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+}
+
+@media (max-width: 576px) {
+  .devtools-panel {
+    width: calc(100vw - 2rem);
+  }
+}

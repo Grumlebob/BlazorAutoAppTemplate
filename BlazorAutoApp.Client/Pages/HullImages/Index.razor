@@ -4,15 +4,51 @@
 @inject IJSRuntime JS
 @inject IHullImagesApi Api
 
-<h1>Hull Images</h1>
+@* Dev Tools: isolated, expandable, starts collapsed (no Reload button) *@
+<div class="devtools-container">
+    <button class="btn btn-sm btn-secondary devtools-toggle" @onclick="ToggleDevTools">@(_devToolsOpen ? "Close Dev Tools" : "Open Dev Tools")</button>
+    @if (_devToolsOpen)
+    {
+        <div class="card devtools-panel" style="min-width: 260px;">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <strong>Dev Tools</strong>
+                <button class="btn btn-sm btn-outline-light" title="Close" @onclick="ToggleDevTools">✕</button>
+            </div>
+            <div class="card-body py-2">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
+                    <label class="form-check-label" for="chunkSwitch">Mode: <strong>@(_useChunked ? "TUS" : "ONE SHOT")</strong></label>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing">Prune Missing</button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="SmallTestUpload">Upload Test Image</button>
+                </div>
+                @if (!string.IsNullOrEmpty(_pruneInfo))
+                {
+                    <div class="text-success small mt-2">@_pruneInfo</div>
+                }
+            </div>
+        </div>
+    }
+</div>
 
-<div class="mb-3">
-    <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
-        <label class="form-check-label" for="chunkSwitch">Upload mode: <strong>@(_useChunked ? "TUS" : "SIMPLE ONE SHOT")</strong></label>
+@* Main header, then upload controls directly below *@
+<div class="mb-2">
+    <h1 class="mb-1">Hull Images</h1>
+    <div class="d-flex flex-column">
+        <div class="d-flex align-items-center gap-2">
+            <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" />
+            <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog">
+                <span class="me-1">📁</span> Choose Files
+            </button>
+            @if (!string.IsNullOrEmpty(_selectedLabel))
+            {
+                <span class="text-muted small">@_selectedLabel</span>
+            }
+        </div>
+        <p class="text-muted mb-0 mt-1">Images only. Max 10 GB per file.</p>
     </div>
-    <InputFile id="fileInput" OnChange="OnFilesSelected" multiple />
-    <p class="text-muted">Select files to upload. Max 1 GB per file.</p>
+
     @if (!string.IsNullOrEmpty(_error))
     {
         <p class="text-danger">@_error</p>
@@ -37,10 +73,7 @@
             }
         </div>
     }
-    <button class="btn btn-secondary" @onclick="Reload">Reload</button>
-    <button class="btn btn-outline-warning ms-2" @onclick="PruneMissing">Prune Missing</button>
-    <button class="btn btn-outline-secondary" @onclick="Clear">Clear</button>
-    <button class="btn btn-outline-primary" @onclick="SmallTestUpload">Upload 1KB Test</button>
+    
 </div>
 
 @if (_loading)
@@ -53,70 +86,42 @@ else if (_images.Count == 0)
 }
 else
 {
-    <div class="d-flex align-items-center mb-2">
-        <div class="btn-group me-2">
-            <button class="btn btn-sm btn-@(_showGallery ? "primary" : "outline-primary")" @onclick="(() => _showGallery = true)">Gallery</button>
-            <button class="btn btn-sm btn-@(!_showGallery ? "primary" : "outline-primary")" @onclick="(() => _showGallery = false)">Table</button>
-        </div>
-        @if (_showGallery)
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Preview</th>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var i in _images)
         {
-            <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(128))">128</button>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(256))">256</button>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="(() => SetThumb(512))">512</button>
-                <span class="ms-2 small text-muted">Thumb: @_thumbSize px</span>
-            </div>
-        }
-    </div>
-
-    @if (_showGallery)
-    {
-        <div class="row row-cols-2 row-cols-md-4 g-3">
-            @foreach (var i in _images)
-            {
-                <div class="col">
-                    <a href="@($"/hull-images/{i.Id}")" title="@i.OriginalFileName">
-                        <img class="img-fluid rounded border" src="@($"api/hull-images/{i.Id}/thumbnail/{_thumbSize}")" alt="@i.OriginalFileName" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'@_thumbSize\' height=\'@_thumbSize\'><rect width=\'100%\' height=\'100%\' fill=\'#eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'#999\' font-size=\'12\'>Missing</text></svg>';" />
-                    </a>
-                    <div class="small text-muted text-truncate">@i.OriginalFileName (@i.ByteSize)B</div>
-                </div>
-            }
-        </div>
-    }
-    else
-    {
-        <table class="table">
-            <thead>
             <tr>
-                <th>Id</th>
-                <th>Name</th>
-                <th>Size</th>
-                <th>SHA256</th>
-                <th>Actions</th>
+                <td>@i.Id</td>
+                <td style="width:150px">
+                    <a href="@($"/hull-images/{i.Id}")" title="@i.OriginalFileName">
+                        <img style="max-width:128px;height:auto;display:block;" class="rounded border" src="@($"api/hull-images/{i.Id}/thumbnail/128")" alt="@i.OriginalFileName" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\'><rect width=\'100%\' height=\'100%\' fill=\'#eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'#999\' font-size=\'12\'>Missing</text></svg>';" />
+                    </a>
+                </td>
+                <td>@i.OriginalFileName</td>
+                <td>@i.ByteSize</td>
+                <td>
+                    <a class="btn btn-sm btn-outline-primary" href="@($"api/hull-images/{i.Id}/original")">Download</a>
+                </td>
             </tr>
-            </thead>
-            <tbody>
-            @foreach (var i in _images)
-            {
-                <tr>
-                    <td>@i.Id</td>
-                    <td>@i.OriginalFileName</td>
-                    <td>@i.ByteSize</td>
-                    <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;">@i.Sha256</td>
-                    <td>
-                        <a class="btn btn-sm btn-outline-primary" href="@($"api/hull-images/{i.Id}/original")">Download</a>
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    }
+        }
+        </tbody>
+    </table>
 }
 
 @code {
     private bool _loading = true;
     private bool _uploading = false;
     private bool _useChunked = false;
+    private bool _devToolsOpen = false;
     private bool _paused = false;
     private bool _canPauseResume => _uploading && _useChunked && !_paused;
     private CancellationTokenSource? _chunkCts;
@@ -124,13 +129,13 @@ else
     private int _chunkIndex = 0;
     private string? _error;
     private string? _info;
+    private string? _pruneInfo;
     private string _currentFileName = string.Empty;
     private long _bytesUploaded = 0;
     private long _currentTotalBytes = 0;
     private int _progressPercent => _currentTotalBytes > 0 ? (int)Math.Round(100.0 * _bytesUploaded / _currentTotalBytes) : 0;
     private List<HullImage> _images = new();
-    private bool _showGallery = true;
-    private int _thumbSize = 256;
+    private string _selectedLabel = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -156,13 +161,17 @@ else
         }
     }
 
-    private void SetThumb(int size)
-    {
-        _thumbSize = size;
-    }
+    // No gallery mode; thumbnails are shown in the table preview column.
 
     private async Task OnFilesSelected(InputFileChangeEventArgs e)
     {
+        var files = e.GetMultipleFiles()?.ToList() ?? new List<IBrowserFile>();
+        if (files.Count == 0)
+        {
+            _selectedLabel = string.Empty;
+            return;
+        }
+        _selectedLabel = files.Count == 1 ? files[0].Name : $"{files.Count} files selected";
         foreach (var file in e.GetMultipleFiles())
         {
             if (_useChunked)
@@ -177,13 +186,26 @@ else
         await LoadAsync();
     }
 
+    private async Task TriggerFileDialog()
+    {
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            await module.InvokeVoidAsync("triggerClick", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
     private async Task UploadSingleAsync(IBrowserFile file)
     {
         _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
         try
         {
-            // Use a large read limit to support big files (1 GB)
-            await using var stream = file.OpenReadStream(maxAllowedSize: 1_073_741_824);
+            // Use a large read limit to support big files (10 GB)
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10_737_418_240);
             _ = await Api.UploadAsync(
                 fileName: file.Name,
                 contentType: file.ContentType,
@@ -270,23 +292,22 @@ else
 
     // Using IHullImagesApi for all transport; no HttpClient injected here.
 
+    private void ToggleDevTools() => _devToolsOpen = !_devToolsOpen;
     private Task Reload() => LoadAsync();
-    private Task Clear()
-    {
-        _images.Clear();
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
+    // Clear button removed from UI
 
     private async Task SmallTestUpload()
     {
         try
         {
-            // 1x1 PNG pixel (valid decodable image)
-            var b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBgN7bJQAAAABJRU5ErkJggg==";
-            var data = Convert.FromBase64String(b64);
+            // Load duplicated test image from app static assets (wwwroot/test-assets/test-image.PNG)
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            var base64 = await module.InvokeAsync<string>("fetchAsBase64", "/test-assets/test-image.PNG");
+            if (string.IsNullOrWhiteSpace(base64)) { _error = "Test image not found at /test-assets/test-image.PNG"; return; }
+            var data = Convert.FromBase64String(base64);
             await using var ms = new MemoryStream(data);
-            _ = await Api.UploadAsync("tiny.png", "image/png", ms, data.LongLength, null, CancellationToken.None);
+            _ = await Api.UploadAsync("test-image.PNG", "image/png", ms, data.LongLength, null, CancellationToken.None);
+            _info = "Uploaded test-image.PNG";
             await LoadAsync();
         }
         catch (Exception ex)
@@ -300,7 +321,7 @@ else
         try
         {
             var removed = await Api.PruneMissingAsync();
-            _info = $"Pruned {removed} missing entries";
+            _pruneInfo = $"Pruned {removed} missing entr" + (removed == 1 ? "y" : "ies");
             await LoadAsync();
         }
         catch (Exception ex)

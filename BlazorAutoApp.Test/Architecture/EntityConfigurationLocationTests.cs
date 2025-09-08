@@ -26,7 +26,18 @@ public class EntityConfigurationLocationTests
             .Select(t => t.FullName)
             .ToList();
 
-        Assert.True(offenders.Count == 0, "EntityTypeConfiguration classes must be under BlazorAutoApp.Features.*:\n" + string.Join("\n", offenders));
+        if (offenders.Count > 0)
+        {
+            var root = SourceSearch.GetRepoRoot();
+            var hints = configTypes
+                .Where(t => t.Namespace is null || !t.Namespace.StartsWith("BlazorAutoApp.Features.", StringComparison.Ordinal))
+                .SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp", t))
+                .ToList();
+
+            var msg = "EntityTypeConfiguration classes must be under BlazorAutoApp.Features.*:\n"
+                      + string.Join("\n", offenders)
+                      + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints) : string.Empty);
+            Assert.True(false, msg);
+        }
     }
 }
-

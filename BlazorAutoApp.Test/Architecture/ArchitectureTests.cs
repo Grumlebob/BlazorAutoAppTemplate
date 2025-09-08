@@ -38,7 +38,10 @@ public class ArchitectureTests
 
             if (!hasServer || !hasClient)
             {
-                failures.Add($"{api.FullName}: server={hasServer}, client={hasClient}");
+                var root = SourceSearch.GetRepoRoot();
+                var apiHint = string.Join("\n", SourceSearch.FindTypeHints(root, "BlazorAutoApp.Core", api));
+                var hintBlock = string.IsNullOrWhiteSpace(apiHint) ? string.Empty : $"\n  > {apiHint.Replace("\n", "\n  > ")}";
+                failures.Add($"{api.FullName}: server={hasServer}, client={hasClient}{hintBlock}");
             }
         }
 
@@ -73,12 +76,16 @@ public class ArchitectureTests
             // Only enforce naming if implementations exist; the other test checks presence
             if (serverImpls.Any() && !serverImpls.Any(t => t.Name.EndsWith("ServerService", StringComparison.Ordinal)))
             {
-                failures.Add($"{api.FullName}: server implementations must end with 'ServerService' (found: {string.Join(", ", serverImpls.Select(x => x.Name))})");
+                var root = SourceSearch.GetRepoRoot();
+                var hints = serverImpls.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp", t));
+                failures.Add($"{api.FullName}: server implementations must end with 'ServerService' (found: {string.Join(", ", serverImpls.Select(x => x.Name))})\n  > " + string.Join("\n  > ", hints));
             }
 
             if (clientImpls.Any() && !clientImpls.Any(t => t.Name.EndsWith("ClientService", StringComparison.Ordinal)))
             {
-                failures.Add($"{api.FullName}: client implementations must end with 'ClientService' (found: {string.Join(", ", clientImpls.Select(x => x.Name))})");
+                var root = SourceSearch.GetRepoRoot();
+                var hints = clientImpls.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp.Client", t));
+                failures.Add($"{api.FullName}: client implementations must end with 'ClientService' (found: {string.Join(", ", clientImpls.Select(x => x.Name))})\n  > " + string.Join("\n  > ", hints));
             }
         }
 

@@ -6,7 +6,7 @@ namespace BlazorAutoApp.Features.HullImages;
 
 public static class HullImageEndpoints
 {
-    private const long MaxUploadBytes = 1_073_741_824; // 1 GB
+    private const long MaxUploadBytes = 10_737_418_240; // 10 GB
 
     // TUS is the canonical chunked protocol now. The previous custom chunk
     // implementation has been removed in favor of a spec-compliant approach.

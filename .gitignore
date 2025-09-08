@@ -656,7 +656,8 @@ fabric.properties
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -750,5 +751,11 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+
+# Custom
+
+BlazorAutoApp/Storage/*
+/data/storage/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,rider,csharp,dotnetcore,aspnetcore,linux,macos,git,jetbrains+all

@@ -1,6 +1,7 @@
 using tusdotnet;
 using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Features.HullImages;
+using Microsoft.AspNetCore.DataProtection;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
@@ -41,6 +42,13 @@ builder.Host.UseSerilog((ctx, _, config) =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+// Persist Data Protection keys to a shared folder so antiforgery/state survives container restarts
+var dpKeysPath = Path.Combine(builder.Environment.ContentRootPath, "Storage", "DataProtection-Keys");
+Directory.CreateDirectory(dpKeysPath);
+builder.Services.AddDataProtection()
+    .SetApplicationName("BlazorAutoApp")
+    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
 // EF Core with PostgreSQL
 // Use DefaultConnection (overridden by Docker environment via appsettings.Docker.json)
@@ -130,7 +138,7 @@ app.UseTus(context =>
     {
         UrlPath = "/api/hull-images/tus",
         Store = new TusDiskStore(tusRoot),
-        MaxAllowedUploadSizeInBytesLong = 1_073_741_824L,
+        MaxAllowedUploadSizeInBytesLong = 10_737_418_240L,
         Events = new Events
         {
             OnBeforeCreateAsync = async ctx =>
