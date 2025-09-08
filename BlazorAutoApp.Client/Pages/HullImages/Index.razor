@@ -7,7 +7,7 @@
 
 @* Dev Tools: isolated, expandable, starts collapsed (no Reload button) *@
 <div class="devtools-container">
-    <button class="btn btn-sm btn-secondary devtools-toggle" @onclick="ToggleDevTools">@(_devToolsOpen ? "Close Dev Tools" : "Open Dev Tools")</button>
+    <button class="btn btn-sm btn-secondary devtools-toggle" @onclick="ToggleDevTools" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">@(_devToolsOpen ? "Close Dev Tools" : "Open Dev Tools")</button>
     @if (_devToolsOpen)
     {
         <div class="card devtools-panel" style="min-width: 260px;">
@@ -16,21 +16,27 @@
                 <button class="btn btn-sm btn-outline-light" title="Close" @onclick="ToggleDevTools">✕</button>
             </div>
             <div class="card-body py-2">
+                <!-- Mode toggle -->
                 <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
+                    <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" disabled="@_uploading" />
                     <label class="form-check-label" for="chunkSwitch">Mode: <strong>@(_useChunked ? "TUS" : "ONE SHOT")</strong></label>
                 </div>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing">Prune Missing</button>
-                    <select class="form-select form-select-sm" style="width:auto; min-width: 220px;" @bind="_selectedTestAsset" @onfocus="LoadTestAssetsIfNeeded">
-                        <option value="" disabled selected>Select test asset...</option>
+
+                <!-- Middle: Maintenance actions -->
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing" disabled="@_uploading">Prune Missing</button>
+                    <button class="btn btn-sm btn-outline-info" @onclick="TriggerVerify" disabled="@_uploading">Check Image Verification</button>
+                </div>
+
+                <!-- Bottom: Upload controls (dropdown triggers upload on change) -->
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+                    <select class="form-select form-select-sm" style="width:auto; min-width: 220px;" value="@_selectedTestAsset" @onchange="OnTestAssetChanged" @onfocus="LoadTestAssetsIfNeeded" disabled="@_uploading">
+                        <option value="" disabled selected>Upload test asset...</option>
                         @foreach (var f in _testAssets)
                         {
                             <option value="@f">@f</option>
                         }
                     </select>
-                    <button class="btn btn-sm btn-outline-primary" disabled="@string.IsNullOrWhiteSpace(_selectedTestAsset)" @onclick="UploadSelectedTestAsset">Upload Selected</button>
-                    <button class="btn btn-sm btn-outline-info" @onclick="TriggerVerify">Check Image Verification</button>
                 </div>
                 @if (!string.IsNullOrEmpty(_pruneInfo))
                 {
@@ -52,7 +58,7 @@
         <div class="d-flex align-items-center gap-2">
             <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
             <InputFile id="verifyInput" class="visually-hidden" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
-            <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog">
+            <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">
                 <span class="me-1">📁</span> Choose Files
             </button>
             @if (!string.IsNullOrEmpty(_selectedLabel))
@@ -88,6 +94,7 @@
                     else
                     {
                         <button class="btn btn-outline-success" @onclick="ResumeChunked">Resume Upload</button>
+                        <span class="badge bg-warning text-dark ms-2 align-middle">Paused</span>
                     }
                 </div>
             }
@@ -140,7 +147,7 @@ else
 @code {
     private bool _loading = true;
     private bool _uploading = false;
-    private bool _useChunked = false;
+    private bool _useChunked = true;
     private bool _devToolsOpen = false;
     private bool _paused = false;
     private bool _canPauseResume => _uploading && _useChunked && !_paused;
@@ -209,6 +216,7 @@ else
 
     private async Task TriggerFileDialog()
     {
+        if (_uploading) return;
         try
         {
             var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
@@ -247,7 +255,7 @@ else
                 size: file.Size,
                 progress: new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
                 ct: CancellationToken.None);
-            _info = $"Uploaded {file.Name}";
+            _info = $"Uploaded {file.Name} ({FormatBytes(file.Size)})";
         }
         catch (Exception ex)
         {
@@ -371,6 +379,16 @@ else
         }
     }
 
+    private async Task OnTestAssetChanged(ChangeEventArgs e)
+    {
+        if (_uploading) return;
+        _selectedTestAsset = e?.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(_selectedTestAsset))
+        {
+            await UploadSelectedTestAsset();
+        }
+    }
+
     private async Task UploadSelectedTestAsset()
     {
         if (string.IsNullOrWhiteSpace(_selectedTestAsset)) return;
@@ -388,7 +406,7 @@ else
                 var sessionId = Guid.NewGuid();
                 _chunkSessionId = sessionId;
                 var dotNetRef = DotNetObjectReference.Create(this);
-                await module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
+                _ = module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
             }
             else
             {
@@ -402,10 +420,10 @@ else
                 _ = await Api.UploadAsync(_selectedTestAsset, contentType, ms, data.LongLength,
                     new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
                     CancellationToken.None);
-                _info = $"Uploaded {_selectedTestAsset}";
+                _info = $"Uploaded {_selectedTestAsset} ({FormatBytes(data.LongLength)})";
                 await LoadAsync();
             }
-            await LoadAsync();
+            if (!_useChunked) await LoadAsync();
         }
         catch (Exception ex)
         {
@@ -413,7 +431,11 @@ else
         }
         finally
         {
-            _uploading = false;
+            if (!_useChunked)
+            {
+                _uploading = false;
+                _selectedTestAsset = string.Empty;
+            }
         }
     }
 
@@ -473,7 +495,7 @@ else
                 var created = await Api.GetByCorrelationIdAsync(corr);
                 if (created is not null)
                 {
-                    _info = $"Uploaded {_currentFileName} via TUS (Id {created.Id})";
+                    _info = $"Uploaded {_currentFileName} via TUS ({FormatBytes(_bytesUploaded)}) (Id {created.Id})";
                     await LoadAsync();
                 }
             }
@@ -486,6 +508,8 @@ else
         {
             _uploading = false;
             _paused = false;
+            // reset Dev Tools dropdown selection to placeholder
+            _selectedTestAsset = string.Empty;
             StateHasChanged();
         }
     }
@@ -501,3 +525,4 @@ else
         return $"{bytes} B";
     }
 }
+

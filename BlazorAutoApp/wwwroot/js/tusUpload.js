@@ -95,6 +95,17 @@ async function runTusLoop(sessionId) {
   const ctx = tusSessions.get(sessionId);
   if (!ctx) return;
   const { file, uploadUrl, chunkSize, dotNetRef } = ctx;
+  // Sync local offset with server in case of pause/resume or last chunk uncertainty
+  try {
+    const head = await fetch(uploadUrl, { method: 'HEAD', headers: { 'Tus-Resumable': '1.0.0' } });
+    if (head.ok) {
+      const off = head.headers.get('Upload-Offset');
+      if (off) {
+        const parsed = parseInt(off, 10);
+        if (!Number.isNaN(parsed)) ctx.offset = parsed;
+      }
+    }
+  } catch { /* ignore HEAD sync errors; continue with local offset */ }
   while (ctx.offset < file.size && !ctx.paused) {
     const end = Math.min(ctx.offset + chunkSize, file.size);
     const slice = file.slice(ctx.offset, end);
@@ -141,6 +152,17 @@ export async function resumeTusUpload(sessionId) {
   if (!ctx) return;
   if (!ctx.paused) return;
   ctx.paused = false;
+  // Re-sync offset with server before resuming
+  try {
+    const head = await fetch(ctx.uploadUrl, { method: 'HEAD', headers: { 'Tus-Resumable': '1.0.0' } });
+    if (head.ok) {
+      const off = head.headers.get('Upload-Offset');
+      if (off) {
+        const parsed = parseInt(off, 10);
+        if (!Number.isNaN(parsed)) ctx.offset = parsed;
+      }
+    }
+  } catch { /* ignore */ }
   await runTusLoop(sessionId);
 }
 
