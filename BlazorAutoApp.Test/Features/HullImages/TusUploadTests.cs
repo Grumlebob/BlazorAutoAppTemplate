@@ -12,12 +12,12 @@ using Xunit;
 namespace BlazorAutoApp.Test.Features.HullImages;
 
 [Collection("MediaTestCollection")]
-public class ChunkedUploadTests : IAsyncLifetime
+public class TusUploadTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
 
-    public ChunkedUploadTests(WebAppFactory factory)
+    public TusUploadTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;

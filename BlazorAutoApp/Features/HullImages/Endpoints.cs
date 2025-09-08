@@ -8,7 +8,7 @@ public static class HullImageEndpoints
 {
     private const long MaxUploadBytes = 10_737_418_240; // 10 GB
 
-    // TUS is the canonical chunked protocol now. The previous custom chunk
+    // TUS is the canonical resumable upload protocol now. The previous custom
     // implementation has been removed in favor of a spec-compliant approach.
 
     public static IEndpointRouteBuilder MapHullImageEndpoints(this IEndpointRouteBuilder routes)

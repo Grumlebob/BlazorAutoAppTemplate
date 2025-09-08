@@ -1,4 +1,4 @@
-// Session-based TUS upload with pause/resume support
+// Session-based TUS upload with pause/resume support and auto-resume
 const tusSessions = new Map();
 
 function toB64(s) { return btoa(unescape(encodeURIComponent(s || ''))); }
@@ -38,8 +38,12 @@ export async function startTusUploadFromInput(sessionId, inputId, fileIndex, end
       offset: 0,
       chunkSize: (chunkSizeMB || 4) * 1024 * 1024,
       paused: false,
+      userPaused: false,
+      autoPaused: false,
       dotNetRef,
-      controller: null
+      controller: null,
+      onlineHandler: null,
+      retryTimer: null
     };
     tusSessions.set(sessionId, ctx);
   }
@@ -83,8 +87,12 @@ export async function startTusUploadFromUrl(sessionId, url, fileName, contentTyp
       offset: 0,
       chunkSize: (chunkSizeMB || 4) * 1024 * 1024,
       paused: false,
+      userPaused: false,
+      autoPaused: false,
       dotNetRef,
-      controller: null
+      controller: null,
+      onlineHandler: null,
+      retryTimer: null
     };
     tusSessions.set(sessionId, ctx);
   }
@@ -124,9 +132,13 @@ async function runTusLoop(sessionId) {
       });
     } catch (e) {
       if (ctx.paused) return; // Expected cancel
-      throw e;
+      await autoPause(sessionId, `network error: ${e && e.message ? e.message : 'fetch failed'}`);
+      return;
     }
-    if (patchRes.status !== 204) throw new Error(`TUS patch failed: ${patchRes.status}`);
+    if (patchRes.status !== 204) {
+      await autoPause(sessionId, `server status ${patchRes.status}`);
+      return;
+    }
     const head = patchRes.headers.get('Upload-Offset');
     ctx.offset = head ? parseInt(head, 10) : end;
     if (dotNetRef && dotNetRef.invokeMethodAsync) {
@@ -135,6 +147,7 @@ async function runTusLoop(sessionId) {
   }
   if (!ctx.paused && ctx.offset >= file.size && ctx.dotNetRef && ctx.dotNetRef.invokeMethodAsync) {
     try { await ctx.dotNetRef.invokeMethodAsync('OnTusCompleted'); } catch { /* ignore */ }
+    cleanup(sessionId);
   }
 }
 
@@ -142,6 +155,7 @@ export function pauseTusUpload(sessionId) {
   const ctx = tusSessions.get(sessionId);
   if (!ctx) return;
   ctx.paused = true;
+  ctx.userPaused = true;
   if (ctx.controller) {
     try { ctx.controller.abort(); } catch { /* ignore */ }
   }
@@ -152,6 +166,8 @@ export async function resumeTusUpload(sessionId) {
   if (!ctx) return;
   if (!ctx.paused) return;
   ctx.paused = false;
+  ctx.userPaused = false;
+  ctx.autoPaused = false;
   // Re-sync offset with server before resuming
   try {
     const head = await fetch(ctx.uploadUrl, { method: 'HEAD', headers: { 'Tus-Resumable': '1.0.0' } });
@@ -163,6 +179,10 @@ export async function resumeTusUpload(sessionId) {
       }
     }
   } catch { /* ignore */ }
+  // Notify .NET that we are resuming (auto or manual)
+  if (ctx.dotNetRef && ctx.dotNetRef.invokeMethodAsync) {
+    try { await ctx.dotNetRef.invokeMethodAsync('OnTusResumed'); } catch { /* ignore */ }
+  }
   await runTusLoop(sessionId);
 }
 
@@ -184,4 +204,59 @@ export async function fetchAsBase64(url) {
 export function triggerClick(elementId) {
   const el = document.getElementById(elementId);
   if (el) el.click();
+}
+
+async function autoPause(sessionId, reason) {
+  const ctx = tusSessions.get(sessionId);
+  if (!ctx) return;
+  if (ctx.userPaused) return; // don't override explicit user pause
+  ctx.paused = true;
+  ctx.autoPaused = true;
+  if (ctx.controller) {
+    try { ctx.controller.abort(); } catch { /* ignore */ }
+  }
+  // Inform .NET side to show Resume button
+  if (ctx.dotNetRef && ctx.dotNetRef.invokeMethodAsync) {
+    try { await ctx.dotNetRef.invokeMethodAsync('OnTusAutoPaused', String(reason || 'stalled')); } catch { /* ignore */ }
+  }
+  // Setup auto-resume when browser reports back online
+  if (!ctx.onlineHandler) {
+    ctx.onlineHandler = async () => {
+      const latest = tusSessions.get(sessionId);
+      if (!latest || latest.userPaused) return; // do not auto-resume if user paused
+      // small delay to allow network to settle
+      setTimeout(() => resumeTusUpload(sessionId), 250);
+    };
+    try { window.addEventListener('online', ctx.onlineHandler); } catch { /* ignore */ }
+  }
+  // Also set a periodic retry (in case 'online' doesn't fire correctly)
+  if (!ctx.retryTimer) {
+    ctx.retryTimer = setInterval(async () => {
+      const latest = tusSessions.get(sessionId);
+      if (!latest || latest.userPaused || !latest.paused) return;
+      try {
+        const head = await fetch(latest.uploadUrl, { method: 'HEAD', headers: { 'Tus-Resumable': '1.0.0' } });
+        if (head.ok) {
+          clearInterval(latest.retryTimer);
+          latest.retryTimer = null;
+          resumeTusUpload(sessionId);
+        }
+      } catch {
+        // still offline or server unreachable; keep waiting
+      }
+    }, 3000);
+  }
+}
+
+function cleanup(sessionId) {
+  const ctx = tusSessions.get(sessionId);
+  if (!ctx) return;
+  if (ctx.retryTimer) {
+    try { clearInterval(ctx.retryTimer); } catch { /* ignore */ }
+    ctx.retryTimer = null;
+  }
+  if (ctx.onlineHandler) {
+    try { window.removeEventListener('online', ctx.onlineHandler); } catch { /* ignore */ }
+    ctx.onlineHandler = null;
+  }
 }

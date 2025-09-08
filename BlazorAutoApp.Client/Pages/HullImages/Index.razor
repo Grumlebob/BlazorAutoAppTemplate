@@ -18,8 +18,8 @@
             <div class="card-body py-2">
                 <!-- Mode toggle -->
                 <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" disabled="@_uploading" />
-                    <label class="form-check-label" for="chunkSwitch">Mode: <strong>@(_useChunked ? "TUS" : "ONE SHOT")</strong></label>
+                    <input class="form-check-input" type="checkbox" role="switch" id="tusSwitch" @bind="_useTus" disabled="@_uploading" />
+                    <label class="form-check-label" for="tusSwitch">Mode: <strong>@(_useTus ? "TUS" : "ONE SHOT")</strong></label>
                 </div>
 
                 <!-- Middle: Maintenance actions -->
@@ -84,16 +84,16 @@
             <div class="progress" style="height: 1.25rem;">
                 <div class="progress-bar" role="progressbar" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
             </div>
-            @if (_useChunked)
+            @if (_useTus)
             {
                 <div class="mt-2">
                     @if (!_paused)
                     {
-                        <button class="btn btn-outline-warning me-2" @onclick="PauseChunked">Pause Upload</button>
+                        <button class="btn btn-outline-warning me-2" @onclick="PauseTus">Pause Upload</button>
                     }
                     else
                     {
-                        <button class="btn btn-outline-success" @onclick="ResumeChunked">Resume Upload</button>
+                        <button class="btn btn-outline-success" @onclick="ResumeTus">Resume Upload</button>
                         <span class="badge bg-warning text-dark ms-2 align-middle">Paused</span>
                     }
                 </div>
@@ -147,13 +147,13 @@ else
 @code {
     private bool _loading = true;
     private bool _uploading = false;
-    private bool _useChunked = true;
+    private bool _useTus = true;
     private bool _devToolsOpen = false;
     private bool _paused = false;
-    private bool _canPauseResume => _uploading && _useChunked && !_paused;
+    private bool _canPauseResume => _uploading && _useTus && !_paused;
     // JS AbortController handles pause; no CTS needed
     private Guid? _currentCorrelationId;
-    private Guid? _chunkSessionId;
+    private Guid? _tusSessionId;
     private string? _error;
     private string? _info;
     private string? _pruneInfo;
@@ -202,7 +202,7 @@ else
         _selectedLabel = files.Count == 1 ? files[0].Name : $"{files.Count} files selected";
         foreach (var file in e.GetMultipleFiles())
         {
-            if (_useChunked)
+            if (_useTus)
             {
                 await UploadTusAsync(file);
             }
@@ -277,7 +277,7 @@ else
             var correlationId = Guid.NewGuid();
             _currentCorrelationId = correlationId;
             var sessionId = Guid.NewGuid();
-            _chunkSessionId = sessionId;
+            _tusSessionId = sessionId;
             var dotNetRef = DotNetObjectReference.Create(this);
             var index = 0;
             // Start upload without awaiting; JS invokes progress and completion callbacks
@@ -288,32 +288,32 @@ else
             _error = ex.Message;
             _uploading = false;
             _paused = false;
-            _chunkSessionId = null;
+            _tusSessionId = null;
         }
     }
 
-    private async Task PauseChunked()
+    private async Task PauseTus()
     {
-        if (_chunkSessionId is null) return;
+        if (_tusSessionId is null) return;
         _paused = true;
         try
         {
             var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-            await module.InvokeVoidAsync("pauseTusUpload", _chunkSessionId.ToString());
+            await module.InvokeVoidAsync("pauseTusUpload", _tusSessionId.ToString());
         }
         catch { }
     }
 
-    private async Task ResumeChunked()
+    private async Task ResumeTus()
     {
-        if (!_paused || _chunkSessionId is null) return;
+        if (!_paused || _tusSessionId is null) return;
         _paused = false;
         _uploading = true;
         StateHasChanged();
         try
         {
             var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-            await module.InvokeVoidAsync("resumeTusUpload", _chunkSessionId.ToString());
+            await module.InvokeVoidAsync("resumeTusUpload", _tusSessionId.ToString());
         }
         catch (Exception ex)
         {
@@ -398,13 +398,13 @@ else
             var contentType = GuessContentType(_selectedTestAsset);
             _error = null; _info = null;
             _uploading = true; _currentFileName = _selectedTestAsset; _bytesUploaded = 0; _currentTotalBytes = 0; // unknown until fetched
-            if (_useChunked)
+            if (_useTus)
             {
                 var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
                 var correlationId = Guid.NewGuid();
                 _currentCorrelationId = correlationId;
                 var sessionId = Guid.NewGuid();
-                _chunkSessionId = sessionId;
+                _tusSessionId = sessionId;
                 var dotNetRef = DotNetObjectReference.Create(this);
                 _ = module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
             }
@@ -423,7 +423,7 @@ else
                 _info = $"Uploaded {_selectedTestAsset} ({FormatBytes(data.LongLength)})";
                 await LoadAsync();
             }
-            if (!_useChunked) await LoadAsync();
+            if (!_useTus) await LoadAsync();
         }
         catch (Exception ex)
         {
@@ -431,7 +431,7 @@ else
         }
         finally
         {
-            if (!_useChunked)
+            if (!_useTus)
             {
                 _uploading = false;
                 _selectedTestAsset = string.Empty;
@@ -486,6 +486,30 @@ else
     }
 
     [JSInvokable]
+    public Task OnTusAutoPaused(string? reason)
+    {
+        // Auto-paused due to stall/offline. Flip UI to Resume state.
+        _paused = true;
+        _uploading = true; // still in an upload session
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            _info = $"Upload paused: {reason}";
+        }
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusResumed()
+    {
+        // Auto/manual resume kicked in
+        _paused = false;
+        _uploading = true;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
     public async Task OnTusCompleted()
     {
         try
@@ -525,4 +549,5 @@ else
         return $"{bytes} B";
     }
 }
+
 
