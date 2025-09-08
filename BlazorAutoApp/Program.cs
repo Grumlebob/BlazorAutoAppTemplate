@@ -176,8 +176,10 @@ app.UseTus(context =>
                 try
                 {
                     await using var verify = await store.OpenReadAsync(stored.StorageKey, http.RequestAborted);
-                    using var img = SixLabors.ImageSharp.Image.Load(verify);
-                    width = img.Width; height = img.Height;
+                    var info = SixLabors.ImageSharp.Image.Identify(verify);
+                    if (info is null)
+                        throw new InvalidOperationException("Unrecognized image format");
+                    width = info.Width; height = info.Height;
                 }
                 catch
                 {

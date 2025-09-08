@@ -22,10 +22,15 @@
                 <div class="d-flex flex-wrap gap-2">
                     <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing">Prune Missing</button>
                     <button class="btn btn-sm btn-outline-primary" @onclick="SmallTestUpload">Upload Test Image</button>
+                    <button class="btn btn-sm btn-outline-info" @onclick="TriggerVerify">Check Image Verification</button>
                 </div>
                 @if (!string.IsNullOrEmpty(_pruneInfo))
                 {
                     <div class="text-success small mt-2">@_pruneInfo</div>
+                }
+                @if (!string.IsNullOrEmpty(_verifyInfo))
+                {
+                    <div class="mt-2 small">@_verifyInfo</div>
                 }
             </div>
         </div>
@@ -38,6 +43,7 @@
     <div class="d-flex flex-column">
         <div class="d-flex align-items-center gap-2">
             <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" />
+            <InputFile id="verifyInput" class="visually-hidden" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" />
             <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog">
                 <span class="me-1">📁</span> Choose Files
             </button>
@@ -136,6 +142,7 @@ else
     private int _progressPercent => _currentTotalBytes > 0 ? (int)Math.Round(100.0 * _bytesUploaded / _currentTotalBytes) : 0;
     private List<HullImage> _images = new();
     private string _selectedLabel = string.Empty;
+    private string? _verifyInfo;
 
     protected override async Task OnInitializedAsync()
     {
@@ -196,6 +203,19 @@ else
         catch (Exception ex)
         {
             _error = ex.Message;
+        }
+    }
+
+    private async Task TriggerVerify()
+    {
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/imgTools.js");
+            await module.InvokeVoidAsync("triggerClick", "verifyInput");
+        }
+        catch (Exception ex)
+        {
+            _verifyInfo = $"Verify error: {ex.Message}";
         }
     }
 
@@ -295,6 +315,30 @@ else
     private void ToggleDevTools() => _devToolsOpen = !_devToolsOpen;
     private Task Reload() => LoadAsync();
     // Clear button removed from UI
+
+    private async Task VerifySelected(InputFileChangeEventArgs e)
+    {
+        _verifyInfo = null;
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/imgTools.js");
+            var result = await module.InvokeAsync<ImgVerifyResult>("validateImageFromInput", "verifyInput");
+            if (result is not null && result.ok)
+            {
+                _verifyInfo = $"Valid image: {result.name} ({(string.IsNullOrWhiteSpace(result.type) ? "unknown" : result.type)}), {result.width}x{result.height}, {result.size} bytes";
+            }
+            else
+            {
+                _verifyInfo = $"Invalid image: {result?.error ?? "Unknown error"}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _verifyInfo = $"Verify error: {ex.Message}";
+        }
+    }
+
+    private record ImgVerifyResult(bool ok, int width, int height, string? type, string? name, long size, string? error);
 
     private async Task SmallTestUpload()
     {
