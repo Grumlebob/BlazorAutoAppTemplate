@@ -2,7 +2,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 
 namespace BlazorAutoApp.Features.HullImages;
 
-public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log)
+public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry)
     : IHullImagesApi
 {
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
@@ -26,6 +26,16 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             Height = item.Height,
             CreatedAtUtc = item.CreatedAtUtc
         };
+    }
+
+    public async Task<GetHullImageResponse?> GetByCorrelationIdAsync(Guid correlationId, CancellationToken ct = default)
+    {
+        // Resolve via registry and then load by id
+        if (tusRegistry.TryGet(correlationId, out var imageId))
+        {
+            return await GetByIdAsync(new GetHullImageRequest { Id = imageId });
+        }
+        return null;
     }
 
     public async Task<CreateHullImageResponse> CreateAsync(CreateHullImageRequest req)
@@ -92,23 +102,17 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
     public async Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default)
     {
         var stored = await store.SaveAsync(content, fileName, contentType, ct);
-        await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
-        {
-            if (!ImageSignatureValidator.IsSupportedImage(verify))
-            {
-                await store.DeleteAsync(stored.StorageKey, ct);
-                throw new InvalidOperationException("Only image files are allowed (jpeg, png, webp, gif, bmp)");
-            }
-        }
         int? width = null, height = null;
-        await using (var dim = await store.OpenReadAsync(stored.StorageKey, ct))
+        try
         {
-            try
-            {
-                var info = SixLabors.ImageSharp.Image.Identify(dim);
-                if (info is not null) { width = info.Width; height = info.Height; }
-            }
-            catch { }
+            await using var verify = await store.OpenReadAsync(stored.StorageKey, ct);
+            using var img = SixLabors.ImageSharp.Image.Load(verify);
+            width = img.Width; height = img.Height;
+        }
+        catch
+        {
+            await store.DeleteAsync(stored.StorageKey, ct);
+            throw new InvalidOperationException("Only decodable image files are allowed (jpeg, png, webp, gif, bmp)");
         }
         var created = await CreateAsync(new CreateHullImageRequest
         {
@@ -123,69 +127,11 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
         return created;
     }
 
-    private class UploadSession
+    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, CancellationToken ct = default)
     {
-        public required string OriginalFileName { get; init; }
-        public string? ContentType { get; init; }
-        public required string TempPath { get; init; }
-        public int ChunkSizeBytes { get; init; } = 4 * 1024 * 1024;
+        // Server-side IHullImagesApi is not responsible for driving TUS protocol.
+        // Fallback to single-shot storage if invoked directly.
+        _ = await UploadAsync(fileName, contentType, content, size, progress, ct);
     }
 
-    private static readonly ConcurrentDictionary<Guid, UploadSession> _sessions = new();
-
-    public Task<InitiateHullImageUploadResponse> InitiateUploadAsync(string fileName, string? contentType, CancellationToken ct = default)
-    {
-        var id = Guid.NewGuid();
-        var tempRoot = Path.Combine(AppContext.BaseDirectory, "Storage", "TempUploads");
-        Directory.CreateDirectory(tempRoot);
-        var tempFile = Path.Combine(tempRoot, id.ToString("N"));
-        _sessions[id] = new UploadSession { OriginalFileName = fileName, ContentType = contentType, TempPath = tempFile };
-        return Task.FromResult(new InitiateHullImageUploadResponse(id, 4 * 1024 * 1024));
-    }
-
-    public async Task UploadChunkAsync(Guid sessionId, int index, Stream chunk, CancellationToken ct = default)
-    {
-        if (!_sessions.TryGetValue(sessionId, out var session)) throw new KeyNotFoundException("Session not found");
-        await using var fs = new FileStream(session.TempPath, FileMode.Append, FileAccess.Write, FileShare.None);
-        await chunk.CopyToAsync(fs, ct);
-    }
-
-    public async Task<CreateHullImageResponse> CompleteUploadAsync(Guid sessionId, CancellationToken ct = default)
-    {
-        if (!_sessions.TryRemove(sessionId, out var session)) throw new KeyNotFoundException("Session not found");
-        await using var src = File.OpenRead(session.TempPath);
-        var stored = await store.SaveAsync(src, session.OriginalFileName, session.ContentType, ct);
-        await src.DisposeAsync();
-        await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
-        {
-            if (!ImageSignatureValidator.IsSupportedImage(verify))
-            {
-                await store.DeleteAsync(stored.StorageKey, ct);
-                File.Delete(session.TempPath);
-                throw new InvalidOperationException("Only image files are allowed (jpeg, png, webp, gif, bmp)");
-            }
-        }
-        int? width = null, height = null;
-        await using (var dim = await store.OpenReadAsync(stored.StorageKey, ct))
-        {
-            try
-            {
-                var info = SixLabors.ImageSharp.Image.Identify(dim);
-                if (info is not null) { width = info.Width; height = info.Height; }
-            }
-            catch { }
-        }
-        File.Delete(session.TempPath);
-        var created = await CreateAsync(new CreateHullImageRequest
-        {
-            OriginalFileName = session.OriginalFileName,
-            ContentType = session.ContentType,
-            ByteSize = stored.ByteSize,
-            StorageKey = stored.StorageKey,
-            Sha256 = stored.Sha256,
-            Width = width,
-            Height = height
-        });
-        return created;
-    }
 }

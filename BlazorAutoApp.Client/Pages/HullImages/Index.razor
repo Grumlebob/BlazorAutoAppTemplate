@@ -9,9 +9,9 @@
 <div class="mb-3">
     <div class="form-check form-switch">
         <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
-        <label class="form-check-label" for="chunkSwitch">Upload mode: <strong>@(_useChunked ? "CHUNKED" : "NOT CHUNKED")</strong></label>
+        <label class="form-check-label" for="chunkSwitch">Upload mode: <strong>@(_useChunked ? "TUS" : "SIMPLE ONE SHOT")</strong></label>
     </div>
-    <InputFile OnChange="OnFilesSelected" multiple />
+    <InputFile id="fileInput" OnChange="OnFilesSelected" multiple />
     <p class="text-muted">Select files to upload. Max 1 GB per file.</p>
     @if (!string.IsNullOrEmpty(_error))
     {
@@ -167,7 +167,7 @@ else
         {
             if (_useChunked)
             {
-                await UploadChunkedAsync(file);
+                await UploadTusAsync(file);
             }
             else
             {
@@ -203,38 +203,26 @@ else
         }
     }
 
-    private async Task UploadChunkedAsync(IBrowserFile file)
+    private async Task UploadTusAsync(IBrowserFile file)
     {
         _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
         try
         {
             if (!IsAllowedImage(file)) { _error = "Only images (jpg,jpeg,png,webp,gif,bmp) are allowed"; return; }
-            // Initiate
-            var initJson = await Api.InitiateUploadAsync(file.Name, file.ContentType);
-            if (initJson is null) throw new InvalidOperationException("Failed to initiate upload session");
-            _chunkSessionId = initJson.UploadSessionId;
-            _chunkIndex = 0;
-            await JS.InvokeVoidAsync("sessionStorage.setItem", SessionKey(file.Name), _chunkSessionId.ToString());
-
-            var chunkSize = Math.Max(256 * 1024, initJson.ChunkSizeBytes); // at least 256KB
-            await using var src = file.OpenReadStream(maxAllowedSize: 1_073_741_824);
-            var buffer = new byte[chunkSize];
-            _chunkCts = new CancellationTokenSource();
-            int read;
-            while ((read = await src.ReadAsync(buffer, 0, buffer.Length, _chunkCts.Token)) > 0)
+            // Use JS module to perform TUS from browser (works for Server and WASM)
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            var files = (await Task.FromResult(0)); // placeholder to keep async method simple
+            var correlationId = Guid.NewGuid();
+            var dotNetRef = DotNetObjectReference.Create(this);
+            // Compute index of file in current selection by name match fallback
+            // Simpler: pass index 0 since we call per file selection; we rely on latest selection
+            var index = 0;
+            await module.InvokeVoidAsync("uploadTusFromInput", "fileInput", index, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
+            // Lookup result
+            var created = await Api.GetByCorrelationIdAsync(correlationId);
+            if (created is not null)
             {
-                using var ms = new MemoryStream(buffer, 0, read, writable: false);
-                await Api.UploadChunkAsync(initJson.UploadSessionId, _chunkIndex, ms);
-                _bytesUploaded += read;
-                _chunkIndex++;
-                await InvokeAsync(StateHasChanged);
-                if (_paused) break;
-            }
-            if (!_paused)
-            {
-                _ = await Api.CompleteUploadAsync(initJson.UploadSessionId);
-                _info = $"Uploaded {file.Name} via CHUNKED";
-                await JS.InvokeVoidAsync("sessionStorage.removeItem", SessionKey(file.Name));
+                _info = $"Uploaded {file.Name} via TUS (Id {created.Id})";
             }
         }
         catch (Exception ex)
@@ -294,8 +282,8 @@ else
     {
         try
         {
-            // 1x1 PNG pixel
-            var b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgN3G3h8AAAAASUVORK5CYII=";
+            // 1x1 PNG pixel (valid decodable image)
+            var b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBgN7bJQAAAABJRU5ErkJggg==";
             var data = Convert.FromBase64String(b64);
             await using var ms = new MemoryStream(data);
             _ = await Api.UploadAsync("tiny.png", "image/png", ms, data.LongLength, null, CancellationToken.None);
@@ -319,5 +307,13 @@ else
         {
             _error = ex.Message;
         }
+    }
+
+    [JSInvokable]
+    public Task ReportTusProgress(long uploaded)
+    {
+        _bytesUploaded = uploaded;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
     }
 }

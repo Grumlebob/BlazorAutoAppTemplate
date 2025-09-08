@@ -3,7 +3,7 @@ using Bogus;
 
 namespace BlazorAutoApp.Test.TestingSetup;
 
-public class DataGenerator
+public class DataGenerator //  test
 {
     public readonly Faker<Movie> Generator = new Faker<Movie>(locale: "en");
 

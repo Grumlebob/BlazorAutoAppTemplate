@@ -20,12 +20,23 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="9.3.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BlazorAutoApp\BlazorAutoApp.csproj" />
     <ProjectReference Include="..\BlazorAutoApp.Client\BlazorAutoApp.Client.csproj" />
     <ProjectReference Include="..\BlazorAutoApp.Core\BlazorAutoApp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="TestingSetup\Assets\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="TestingSetup/Assets/test-image.PNG">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

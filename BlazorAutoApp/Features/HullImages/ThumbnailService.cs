@@ -1,6 +1,7 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace BlazorAutoApp.Features.HullImages;
 
@@ -29,15 +30,36 @@ public class ThumbnailService(IWebHostEnvironment env, IOptions<HullImagesStorag
 
         if (!File.Exists(thumbPath))
         {
-            using var image = await Image.LoadAsync(inputPath, ct);
-            var w = image.Width; var h = image.Height;
-            var scale = Math.Min((double)maxSize / w, (double)maxSize / h);
-            if (scale > 1.0) scale = 1.0; // Do not upscale
-            var newW = Math.Max(1, (int)Math.Round(w * scale));
-            var newH = Math.Max(1, (int)Math.Round(h * scale));
-            image.Mutate(ctx => ctx.Resize(newW, newH));
-            var encoder = new JpegEncoder { Quality = 80 };
-            await image.SaveAsJpegAsync(thumbPath, encoder, ct);
+            try
+            {
+                using var image = await Image.LoadAsync(inputPath, ct);
+                var w = image.Width; var h = image.Height;
+                var scale = Math.Min((double)maxSize / w, (double)maxSize / h);
+                if (scale > 1.0) scale = 1.0; // Do not upscale
+                var newW = Math.Max(1, (int)Math.Round(w * scale));
+                var newH = Math.Max(1, (int)Math.Round(h * scale));
+                image.Mutate(ctx => ctx.Resize(newW, newH));
+                var encoder = new JpegEncoder { Quality = 80 };
+                await image.SaveAsJpegAsync(thumbPath, encoder, ct);
+            }
+            catch
+            {
+                // Fallback: create a small placeholder JPEG if source is corrupt/unsupported
+                var w = Math.Max(1, Math.Min(maxSize, 8));
+                var h = Math.Max(1, Math.Min(maxSize, 8));
+                using var placeholder = new Image<Rgba32>(w, h);
+                var gray = new Rgba32(0xD3, 0xD3, 0xD3); // light gray
+                placeholder.ProcessPixelRows(accessor =>
+                {
+                    for (int y = 0; y < accessor.Height; y++)
+                    {
+                        var row = accessor.GetRowSpan(y);
+                        row.Fill(gray);
+                    }
+                });
+                var encoder = new JpegEncoder { Quality = 60 };
+                await placeholder.SaveAsJpegAsync(thumbPath, encoder, ct);
+            }
         }
 
         return thumbRel;

@@ -30,20 +30,18 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task List_Returns_Items_After_Upload()
     {
-        var sample = new byte[4096];
-        sample[0] = 0xFF; sample[1] = 0xD8; sample[2] = 0xFF; sample[3] = 0xE0;
-        for (int i = 4; i < sample.Length; i++) sample[i] = (byte)(i % 251);
+        var sample = TestImageProvider.GetBytes();
         using var content = new ByteArrayContent(sample);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         using var req = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images") { Content = content };
-        req.Headers.Add("X-File-Name", "list_test.bin");
+        req.Headers.Add("X-File-Name", "test-image.PNG");
         var post = await _client.SendAsync(req);
         Assert.Equal(HttpStatusCode.Created, post.StatusCode);
 
         var list = await _client.GetFromJsonAsync<GetHullImagesResponse>("/api/hull-images");
         Assert.NotNull(list);
         Assert.True(list!.Items.Count >= 1);
-        Assert.Contains(list.Items, i => i.OriginalFileName == "list_test.bin");
+        Assert.Contains(list.Items, i => i.OriginalFileName == "test-image.PNG");
     }
 
     public Task InitializeAsync() => Task.CompletedTask;

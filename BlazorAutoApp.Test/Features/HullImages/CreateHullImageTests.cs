@@ -30,16 +30,12 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task SingleShot_Upload_And_Download_Works()
     {
-        // Minimal JPEG-like data: JPEG magic followed by padding
-        var original = new byte[64 * 1024];
-        original[0] = 0xFF; original[1] = 0xD8; original[2] = 0xFF; original[3] = 0xE0;
-        for (int i = 4; i < original.Length; i++) original[i] = (byte)(i % 251);
-
+        var original = TestImageProvider.GetBytes();
         using var content = new ByteArrayContent(original);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
 
         using var req = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images") { Content = content };
-        req.Headers.Add("X-File-Name", "sample.bin");
+        req.Headers.Add("X-File-Name", "test-image.PNG");
 
         var response = await _client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);

@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace BlazorAutoApp.Core.Features.Movies;
 
 public interface IMoviesApi

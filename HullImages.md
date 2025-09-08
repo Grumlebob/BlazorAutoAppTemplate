@@ -2,7 +2,7 @@ HullImages Feature
 
 Overview
 - Purpose: High-throughput local image uploads for future AI processing.
-- Modes: Single-shot streaming (default) and simple chunked uploads (optional).
+- Modes: Single-shot streaming ("SIMPLE ONE SHOT") and TUS resumable uploads (default for large files).
 - Limits: 1 GB per file.
 - Storage: Local disk under `Storage/HullImages/yyyyMMdd/{guid}{ext}`.
   - On Windows local dev (running the server from this repo), files are created under:
@@ -22,10 +22,35 @@ Endpoints
 - `GET /api/hull-images/{id}/thumbnail/{size}`: On-demand JPEG thumbnail generation and cached delivery. `size` is the max width/height.
 - `DELETE /api/hull-images/{id}`: Delete image (DB + file).
 - `POST /api/hull-images/prune-missing`: Remove DB entries whose files were deleted manually from disk.
-- Chunked (simple):
-  - `POST /api/hull-images/uploads`: Initiate. Headers: `X-File-Name`, `X-Content-Type`; returns `{ uploadSessionId, chunkSizeBytes }`.
-  - `PUT /api/hull-images/uploads/{id}/chunks/{index}`: Append raw chunk bytes (append-only protocol).
-  - `POST /api/hull-images/uploads/{id}/complete`: Finalize and persist metadata.
+- TUS (resumable):
+  - `POST /api/hull-images/tus` with `Tus-Resumable: 1.0.0`, `Upload-Length: <bytes>`, `Upload-Metadata: filename <b64>,contentType <b64>`
+  - `PATCH {location}` with `Tus-Resumable`, `Upload-Offset`, and `Content-Type: application/offset+octet-stream` to send chunks.
+  - On completion, the server streams into the configured `IHullImageStore`, validates, probes dimensions, and creates the DB record.
+  - Optional metadata: `correlationId <b64-guid>` enables a server-side mapping so the client can look up the created image ID after completion.
+  - `GET /api/hull-images/tus/result?correlationId=<guid>`: Lookup the created image by correlation ID.
+
+TUS: Implementation Details (How It Works)
+- Middleware: Powered by `tusdotnet` (2.10.x). Configured in `Program.cs` at path `/api/hull-images/tus`.
+- Temp store: In-progress files are written to `Storage/Tus` (`TusDiskStore`).
+- Metadata required: `filename` (b64); optional: `contentType` (b64), `correlationId` (b64 GUID from client).
+- Completion flow:
+  - Event `OnFileCompleteAsync` fires.
+  - Server opens the completed TUS file stream and calls `IHullImageStore.SaveAsync` (currently `LocalHullImageStore`) to move data into the final `Storage/HullImages/yyyyMMdd/{guid}{ext}` location.
+  - Validates magic numbers (JPEG/PNG/WebP/GIF/BMP) and probes image dimensions.
+  - Creates a DB record via `IHullImagesApi.CreateAsync` and logs the new `Id`.
+  - Deletes the temporary TUS file (via `ITusTerminationStore`).
+  - If `correlationId` was provided, maps `correlationId -> imageId` in `ITusResultRegistry` so the client can query `/tus/result` to retrieve the `Id`.
+
+Blazor UI (Server and WASM)
+- Toggle: "SIMPLE ONE SHOT" or "TUS". One-shot is kept for small uploads and tooling; TUS is the default for large uploads.
+- TUS client: Implemented in `/wwwroot/js/tusUpload.js` and invoked via JS interop from the Hull Images page.
+  - The JS module performs `POST` (create) and `PATCH` (chunks), and reports progress back to the component via `[JSInvokable]` method `ReportTusProgress`.
+  - A new `correlationId` (GUID) is generated per upload and sent in TUS metadata. After completion, the component calls `GET /api/hull-images/tus/result?correlationId=...` to obtain the created image’s `Id`.
+- Auto mode (prerender + interactive): Upload controls render during prerender but only become active once interactive. TUS still runs entirely in the browser after interactivity is established (works identically for Blazor Server and WASM).
+
+Client/Server Separation
+- Components do not inject `HttpClient` directly (enforced by tests). The component calls JS to run the TUS protocol in the browser.
+- Business logic (validation, thumbnails, persistence) stays in the server via `IHullImagesApi` and `IHullImageStore`.
 
 Validation
 - Server-side: Validates magic numbers for allowed types (jpeg, png, webp, gif, bmp). Non-images are rejected with `400`.
@@ -36,7 +61,7 @@ Post-Processing
 
 Blazor UI
 - Route: `/hull-images`.
-- Upload toggle: "NOT CHUNKED" or "CHUNKED" modes via switch.
+- Upload toggle: "SIMPLE ONE SHOT" or "TUS" via switch.
 - Progress bar: Shows bytes and percentage in both modes.
 - Chunked controls: Pause/Resume UI (Resume requires reselecting the same file; session id is stored in `sessionStorage`).
 - Thumbnails: You can link to `/api/hull-images/{id}/thumbnail/256` or `/thumbnail/512` for previews.
@@ -56,6 +81,15 @@ Configuration
 - Limits and storage paths are local; storage directories are created on demand.
  - Configure base storage path via `Storage:HullImages:RootPath` in `appsettings.json`. Relative paths are resolved against server content root.
  - If you manually delete files from disk, run the `Prune Missing` action in the UI (or call the prune API) to clean up DB records.
+
+S3/Azure Readiness
+- Swap `IHullImageStore` to a cloud-backed implementation (e.g., S3 multipart). TUS flow and UI remain unchanged.
+- Optional advanced path: replace `TusDiskStore` with an S3-backed `ITusStore` to store in-progress chunks in S3; the completion callback still creates the DB record via `IHullImagesApi`.
+
+Troubleshooting
+- Ensure `tusdotnet` package restores (nuget.org source available).
+- If uploads complete but the UI can’t find the new ID, verify the client is sending a valid `correlationId` and that `/api/hull-images/tus/result` is reachable.
+- For large files, verify server write permissions under `Storage/Tus` and `Storage/HullImages`.
 
 Future Work
 - Add resumable chunked uploads across page reloads with a status endpoint and real byte-position queries.

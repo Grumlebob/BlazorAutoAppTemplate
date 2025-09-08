@@ -23,40 +23,61 @@ public class ChunkedUploadTests : IAsyncLifetime
         _resetDatabase = factory.ResetDatabaseAsync;
     }
 
-    private record InitiateUploadResponse(Guid UploadSessionId, int ChunkSizeBytes);
-
     [Fact]
-    public async Task Chunked_Upload_And_Download_Matches()
+    public async Task Tus_Upload_And_Download_Matches()
     {
-        var initReq = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/uploads");
-        initReq.Headers.Add("X-File-Name", "chunked.bin");
-        initReq.Headers.Add("X-Content-Type", "application/octet-stream");
-        var initRes = await _client.SendAsync(initReq);
-        Assert.Equal(HttpStatusCode.OK, initRes.StatusCode);
-        var init = await initRes.Content.ReadFromJsonAsync<InitiateUploadResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        Assert.NotNull(init);
-
-        // Build 3 chunks with leading JPEG magic in the first chunk to pass server validation
-        var sizes = new[] { 1024, 4096, 2048 };
-        var chunks = sizes.Select(n => new byte[n]).ToArray();
-        chunks[0][0] = 0xFF; chunks[0][1] = 0xD8; chunks[0][2] = 0xFF; chunks[0][3] = 0xE0;
-        for (int i = 0; i < chunks.Length; i++)
-            for (int j = (i == 0 ? 4 : 0); j < chunks[i].Length; j++)
-                chunks[i][j] = (byte)((i * 37 + j) % 251);
-
-        for (var i = 0; i < chunks.Length; i++)
+        var all = TestImageProvider.GetBytes();
+        var split1 = Math.Min(10, all.Length);
+        var split2 = Math.Min(split1 + Math.Max(1, all.Length / 2), all.Length);
+        var chunks = new[]
         {
-            using var chunkContent = new ByteArrayContent(chunks[i]);
-            var put = await _client.PutAsync($"/api/hull-images/uploads/{init!.UploadSessionId}/chunks/{i}", chunkContent);
-            Assert.True(put.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK);
+            all[..split1],
+            all[split1..split2],
+            all[split2..]
+        };
+        var total = all.Length;
+
+        // TUS create
+        var create = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/tus");
+        create.Headers.Add("Tus-Resumable", "1.0.0");
+        create.Headers.Add("Upload-Length", total.ToString());
+        var b64name = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("test-image.PNG"));
+        var b64type = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("image/png"));
+        create.Headers.Add("Upload-Metadata", $"filename {b64name},contentType {b64type}");
+        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        var createRes = await _client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var location = createRes.Headers.Location?.ToString() ?? createRes.Headers.GetValues("Location").FirstOrDefault();
+        Assert.False(string.IsNullOrWhiteSpace(location));
+
+        // Send PATCH chunks
+        long offset = 0;
+        foreach (var part in chunks)
+        {
+            var patch = new HttpRequestMessage(new HttpMethod("PATCH"), location);
+            patch.Headers.Add("Tus-Resumable", "1.0.0");
+            patch.Headers.Add("Upload-Offset", offset.ToString());
+            var content = new ByteArrayContent(part);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/offset+octet-stream");
+            patch.Content = content;
+            var res = await _client.SendAsync(patch);
+            Assert.Equal((HttpStatusCode)204, res.StatusCode);
+            if (res.Headers.TryGetValues("Upload-Offset", out var offsets) && long.TryParse(offsets.FirstOrDefault(), out var newOffset))
+                offset = newOffset;
+            else
+                offset += part.Length;
         }
+        Assert.Equal(total, offset);
 
-        var complete = await _client.PostAsync($"/api/hull-images/uploads/{init!.UploadSessionId}/complete", content: null);
-        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
-        var created = await complete.Content.ReadFromJsonAsync<CreateHullImageResponse>();
-        Assert.NotNull(created);
+        // Give the server a brief moment to finalize (usually synchronous)
+        await Task.Delay(50);
 
-        var all = chunks.SelectMany(b => b).ToArray();
+        // Verify by listing and downloading
+        var list = await _client.GetFromJsonAsync<GetHullImagesResponse>("/api/hull-images");
+        Assert.NotNull(list);
+        Assert.True(list!.Items.Count > 0);
+        var created = list.Items.First();
+
         var bytes = await _client.GetByteArrayAsync($"/api/hull-images/{created!.Id}/original");
         Assert.Equal(all.Length, bytes.Length);
         Assert.Equal(all, bytes);

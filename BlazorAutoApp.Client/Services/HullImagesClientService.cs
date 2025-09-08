@@ -27,6 +27,15 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         return await _http.GetFromJsonAsync<GetHullImageResponse>($"api/hull-images/{req.Id}");
     }
 
+    public async Task<GetHullImageResponse?> GetByCorrelationIdAsync(Guid correlationId, CancellationToken ct = default)
+    {
+        var url = $"api/hull-images/tus/result?correlationId={Uri.EscapeDataString(correlationId.ToString())}";
+        var res = await _http.GetAsync(url, ct);
+        if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadFromJsonAsync<GetHullImageResponse>(cancellationToken: ct);
+    }
+
     public async Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default)
     {
         var progressContent = new ProgressStreamContent(
@@ -44,34 +53,46 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         return created!;
     }
 
-    public async Task<InitiateHullImageUploadResponse> InitiateUploadAsync(string fileName, string? contentType, CancellationToken ct = default)
+    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, CancellationToken ct = default)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Post, "api/hull-images/uploads");
-        req.Headers.Add("X-File-Name", fileName);
-        req.Headers.Add("X-Content-Type", string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
-        var res = await _http.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
-        var payload = await res.Content.ReadFromJsonAsync<InitiateHullImageUploadResponse>(cancellationToken: ct);
-        return payload!;
+        using var create = new HttpRequestMessage(HttpMethod.Post, "api/hull-images/tus");
+        create.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+        create.Headers.TryAddWithoutValidation("Upload-Length", size.ToString());
+        var metadata = $"filename {ToB64(fileName)},contentType {ToB64(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType!)}";
+        create.Headers.TryAddWithoutValidation("Upload-Metadata", metadata);
+        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        var createRes = await _http.SendAsync(create, ct);
+        createRes.EnsureSuccessStatusCode();
+        var location = createRes.Headers.Location?.ToString() ?? (createRes.Headers.TryGetValues("Location", out var locs) ? locs.FirstOrDefault() : null);
+        if (string.IsNullOrWhiteSpace(location)) throw new InvalidOperationException("No TUS Location returned");
+        var uploadUri = location.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? new Uri(location)
+            : new Uri(_http.BaseAddress!, location);
+
+        const int chunkSize = 4 * 1024 * 1024;
+        var buffer = new byte[chunkSize];
+        long offset = 0;
+        int read;
+        while ((read = await content.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+        {
+            using var patch = new HttpRequestMessage(new HttpMethod("PATCH"), uploadUri);
+            patch.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
+            patch.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString());
+            var body = new ByteArrayContent(buffer, 0, read);
+            body.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/offset+octet-stream");
+            patch.Content = body;
+            var res = await _http.SendAsync(patch, ct);
+            if ((int)res.StatusCode != 204) throw new HttpRequestException($"TUS PATCH failed: {(int)res.StatusCode}");
+            if (res.Headers.TryGetValues("Upload-Offset", out var offsets) && long.TryParse(offsets.FirstOrDefault(), out var newOffset))
+                offset = newOffset;
+            else
+                offset += read;
+            progress?.Report(offset);
+        }
+        if (offset != size) throw new InvalidOperationException($"Upload incomplete: {offset}/{size}");
     }
 
-    public async Task UploadChunkAsync(Guid sessionId, int index, Stream chunk, CancellationToken ct = default)
-    {
-        using var ms = new MemoryStream();
-        await chunk.CopyToAsync(ms, ct);
-        ms.Position = 0;
-        using var content = new StreamContent(ms);
-        var res = await _http.PutAsync($"api/hull-images/uploads/{sessionId}/chunks/{index}", content, ct);
-        res.EnsureSuccessStatusCode();
-    }
-
-    public async Task<CreateHullImageResponse> CompleteUploadAsync(Guid sessionId, CancellationToken ct = default)
-    {
-        var res = await _http.PostAsync($"api/hull-images/uploads/{sessionId}/complete", content: null, ct);
-        res.EnsureSuccessStatusCode();
-        var created = await res.Content.ReadFromJsonAsync<CreateHullImageResponse>(cancellationToken: ct);
-        return created!;
-    }
+    private static string ToB64(string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty));
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
     {
