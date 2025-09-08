@@ -13,8 +13,11 @@ public interface IHullImagesApi
     Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default);
 
     // Resumable upload (TUS)
-    Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, CancellationToken ct = default);
+    Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default);
 
     Task<bool> DeleteAsync(int id, CancellationToken ct = default);
     Task<int> PruneMissingAsync(CancellationToken ct = default);
+
+    // Dev tools: list server static test assets under wwwroot/test-assets
+    Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default);
 }

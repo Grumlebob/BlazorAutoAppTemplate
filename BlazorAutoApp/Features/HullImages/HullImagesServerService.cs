@@ -2,7 +2,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 
 namespace BlazorAutoApp.Features.HullImages;
 
-public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry)
+public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry, IWebHostEnvironment env)
     : IHullImagesApi
 {
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
@@ -103,16 +103,15 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
     {
         var stored = await store.SaveAsync(content, fileName, contentType, ct);
         int? width = null, height = null;
-        try
+        await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
         {
-            await using var verify = await store.OpenReadAsync(stored.StorageKey, ct);
-            using var img = SixLabors.ImageSharp.Image.Load(verify);
-            width = img.Width; height = img.Height;
-        }
-        catch
-        {
-            await store.DeleteAsync(stored.StorageKey, ct);
-            throw new InvalidOperationException("Only decodable image files are allowed (jpeg, png, webp, gif, bmp)");
+            var info = SixLabors.ImageSharp.Image.Identify(verify);
+            if (info is null)
+            {
+                await store.DeleteAsync(stored.StorageKey, ct);
+                throw new InvalidOperationException("Only decodable image files are allowed (jpeg, png, webp, gif, bmp, tiff)");
+            }
+            width = info.Width; height = info.Height;
         }
         var created = await CreateAsync(new CreateHullImageRequest
         {
@@ -127,11 +126,25 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
         return created;
     }
 
-    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, CancellationToken ct = default)
+    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
     {
         // Server-side IHullImagesApi is not responsible for driving TUS protocol.
         // Fallback to single-shot storage if invoked directly.
         _ = await UploadAsync(fileName, contentType, content, size, progress, ct);
     }
 
+    public Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)
+    {
+        var root = env.WebRootPath ?? string.Empty;
+        var dir = Path.Combine(root, "test-assets");
+        if (!Directory.Exists(dir))
+            return Task.FromResult((IReadOnlyList<string>)Array.Empty<string>());
+        var items = Directory.EnumerateFiles(dir)
+            .Select(Path.GetFileName)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return Task.FromResult((IReadOnlyList<string>)items);
+    }
 }

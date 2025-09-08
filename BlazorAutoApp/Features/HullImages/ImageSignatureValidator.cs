@@ -2,11 +2,11 @@ namespace BlazorAutoApp.Features.HullImages;
 
 public static class ImageSignatureValidator
 {
-    // Checks common image magic numbers: JPEG, PNG, GIF, WEBP, BMP
+    // Checks common image magic numbers: JPEG, PNG, GIF, WEBP, BMP, TIFF (incl. BigTIFF)
     public static bool IsSupportedImage(Stream stream)
     {
         if (!stream.CanRead) return false;
-        var max = 12;
+        var max = 16;
         var buffer = new byte[max];
         var read = stream.Read(buffer, 0, buffer.Length);
         stream.Seek(0, SeekOrigin.Begin);
@@ -33,6 +33,22 @@ public static class ImageSignatureValidator
 
         // BMP: BM
         if (read >= 2 && buffer[0] == (byte)'B' && buffer[1] == (byte)'M')
+            return true;
+
+        // TIFF (classic):
+        //  - Little endian: 'II' 2A 00
+        //  - Big endian:    'MM' 00 2A
+        if (read >= 4 &&
+            ((buffer[0] == (byte)'I' && buffer[1] == (byte)'I' && buffer[2] == 0x2A && buffer[3] == 0x00) ||
+             (buffer[0] == (byte)'M' && buffer[1] == (byte)'M' && buffer[2] == 0x00 && buffer[3] == 0x2A)))
+            return true;
+
+        // BigTIFF:
+        //  - Little endian: 'II' 2B 00 08 00 00 00 00
+        //  - Big endian:    'MM' 00 2B 00 08 00 00 00 00
+        if (read >= 8 &&
+            ((buffer[0] == (byte)'I' && buffer[1] == (byte)'I' && buffer[2] == 0x2B && buffer[3] == 0x00 && buffer[4] == 0x08) ||
+             (buffer[0] == (byte)'M' && buffer[1] == (byte)'M' && buffer[2] == 0x00 && buffer[3] == 0x2B && buffer[4] == 0x00 && buffer[5] == 0x08)))
             return true;
 
         return false;

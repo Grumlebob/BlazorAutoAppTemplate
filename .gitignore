@@ -757,5 +757,6 @@ $RECYCLE.BIN/
 
 BlazorAutoApp/Storage/*
 /data/storage/
+BlazorAutoApp/wwwroot/test-assets/*
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,rider,csharp,dotnetcore,aspnetcore,linux,macos,git,jetbrains+all

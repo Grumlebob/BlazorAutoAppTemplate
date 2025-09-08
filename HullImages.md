@@ -53,8 +53,8 @@ Client/Server Separation
 - Business logic (validation, thumbnails, persistence) stays in the server via `IHullImagesApi` and `IHullImageStore`.
 
 Validation
-- Server-side: Validates magic numbers for allowed types (jpeg, png, webp, gif, bmp). Non-images are rejected with `400`.
-- Client-side: Filters by extension before upload (.jpg, .jpeg, .png, .webp, .gif, .bmp). Max 1 GB enforced by input stream limit.
+- Server-side: Validates magic numbers for allowed types (jpeg, png, webp, gif, bmp, tiff) and then fully decodes via ImageSharp to confirm. Non-images are rejected with `400`.
+- Client-side: Filters by extension before upload (.jpg, .jpeg, .png, .webp, .gif, .bmp, .tif, .tiff). Max 1 GB enforced by input stream limit.
 
 Post-Processing
 - Dimension probing: After saving an image, the server probes Width/Height and stores them in metadata to display on the Details page.
@@ -105,3 +105,6 @@ UI: Details Page
 - Route: `/hull-images/{id}` shows a 512px thumbnail preview and metadata.
 - Actions: "Download Original" (saves file) and "Open Original" (opens in a new tab).
  - Shows Dimensions (Width x Height) when available.
+
+For manual testing of large images:
+https://svs.gsfc.nasa.gov/12144/

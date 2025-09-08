@@ -38,18 +38,17 @@ public static class HullImageEndpoints
                 return Results.BadRequest($"File exceeds {MaxUploadBytes} bytes limit");
 
             var stored = await store.SaveAsync(request.Body, originalName, contentType, ct);
-            // Validate by fully decoding the image and capture dimensions
+            // Validate by identifying the image and capture dimensions (align with TUS flow)
             int? width = null, height = null;
-            try
+            await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
             {
-                await using var verify = await store.OpenReadAsync(stored.StorageKey, ct);
-                using var img = SixLabors.ImageSharp.Image.Load(verify);
-                width = img.Width; height = img.Height;
-            }
-            catch
-            {
-                await store.DeleteAsync(stored.StorageKey, ct);
-                return Results.BadRequest("Only decodable image files are allowed (jpeg, png, webp, gif, bmp)");
+                var info = SixLabors.ImageSharp.Image.Identify(verify);
+                if (info is null)
+                {
+                    await store.DeleteAsync(stored.StorageKey, ct);
+                    return Results.BadRequest("Only decodable image files are allowed (jpeg, png, webp, gif, bmp, tiff)");
+                }
+                width = info.Width; height = info.Height;
             }
 
             var created = await api.CreateAsync(new CreateHullImageRequest
@@ -107,6 +106,21 @@ public static class HullImageEndpoints
             var count = await api.PruneMissingAsync(ct);
             log.LogInformation("Pruned {Count} missing hull images", count);
             return Results.Ok(new { removed = count });
+        });
+
+        // Dev tools: list test assets under wwwroot/test-assets
+        group.MapGet("/test-assets", (IWebHostEnvironment env) =>
+        {
+            var webroot = env.WebRootPath ?? string.Empty;
+            var dir = Path.Combine(webroot, "test-assets");
+            if (!Directory.Exists(dir)) return Results.Ok(Array.Empty<string>());
+            var items = Directory.EnumerateFiles(dir)
+                .Select(Path.GetFileName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => n!)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return Results.Ok(items);
         });
 
         // TUS result lookup by correlationId

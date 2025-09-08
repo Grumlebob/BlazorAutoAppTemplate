@@ -53,12 +53,16 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         return created!;
     }
 
-    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, CancellationToken ct = default)
+    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
     {
         using var create = new HttpRequestMessage(HttpMethod.Post, "api/hull-images/tus");
         create.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");
         create.Headers.TryAddWithoutValidation("Upload-Length", size.ToString());
         var metadata = $"filename {ToB64(fileName)},contentType {ToB64(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType!)}";
+        if (correlationId is Guid c)
+        {
+            metadata += $",correlationId {ToB64(c.ToString())}";
+        }
         create.Headers.TryAddWithoutValidation("Upload-Metadata", metadata);
         create.Content = new ByteArrayContent(Array.Empty<byte>());
         var createRes = await _http.SendAsync(create, ct);
@@ -106,5 +110,11 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         res.EnsureSuccessStatusCode();
         var payload = await res.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct);
         return payload is not null && payload.TryGetValue("removed", out var removed) ? removed : 0;
+    }
+
+    public async Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)
+    {
+        var items = await _http.GetFromJsonAsync<string[]>("api/hull-images/test-assets", cancellationToken: ct);
+        return items ?? Array.Empty<string>();
     }
 }

@@ -32,7 +32,7 @@ else
             <dl class="row">
                 <dt class="col-sm-3">Id</dt><dd class="col-sm-9">@_image.Id</dd>
                 <dt class="col-sm-3">Name</dt><dd class="col-sm-9">@_image.OriginalFileName</dd>
-                <dt class="col-sm-3">Size</dt><dd class="col-sm-9">@_image.ByteSize B</dd>
+                <dt class="col-sm-3">Size</dt><dd class="col-sm-9">@FormatBytes(_image.ByteSize)</dd>
                 @if (_image.Width.HasValue && _image.Height.HasValue)
                 {
                     <dt class="col-sm-3">Dimensions</dt><dd class="col-sm-9">@_image.Width x @_image.Height</dd>
@@ -84,5 +84,16 @@ else
         {
             _error = ex.Message;
         }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+        if (bytes >= GB) return $"{bytes / (double)GB:0.#} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.#} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
+        return $"{bytes} B";
     }
 }

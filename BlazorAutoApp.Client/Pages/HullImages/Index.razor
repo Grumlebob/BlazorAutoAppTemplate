@@ -1,6 +1,7 @@
 @page "/hull-images"
 
 @using Microsoft.AspNetCore.Components.Forms
+@using System.IO
 @inject IJSRuntime JS
 @inject IHullImagesApi Api
 
@@ -19,9 +20,16 @@
                     <input class="form-check-input" type="checkbox" role="switch" id="chunkSwitch" @bind="_useChunked" />
                     <label class="form-check-label" for="chunkSwitch">Mode: <strong>@(_useChunked ? "TUS" : "ONE SHOT")</strong></label>
                 </div>
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
                     <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing">Prune Missing</button>
-                    <button class="btn btn-sm btn-outline-primary" @onclick="SmallTestUpload">Upload Test Image</button>
+                    <select class="form-select form-select-sm" style="width:auto; min-width: 220px;" @bind="_selectedTestAsset" @onfocus="LoadTestAssetsIfNeeded">
+                        <option value="" disabled selected>Select test asset...</option>
+                        @foreach (var f in _testAssets)
+                        {
+                            <option value="@f">@f</option>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" disabled="@string.IsNullOrWhiteSpace(_selectedTestAsset)" @onclick="UploadSelectedTestAsset">Upload Selected</button>
                     <button class="btn btn-sm btn-outline-info" @onclick="TriggerVerify">Check Image Verification</button>
                 </div>
                 @if (!string.IsNullOrEmpty(_pruneInfo))
@@ -42,8 +50,8 @@
     <h1 class="mb-1">Hull Images</h1>
     <div class="d-flex flex-column">
         <div class="d-flex align-items-center gap-2">
-            <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" />
-            <InputFile id="verifyInput" class="visually-hidden" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" />
+            <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
+            <InputFile id="verifyInput" class="visually-hidden" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
             <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog">
                 <span class="me-1">📁</span> Choose Files
             </button>
@@ -66,15 +74,21 @@
     @if (_uploading)
     {
         <div class="my-2">
-            <div>Uploading: @_currentFileName (@_bytesUploaded / @_currentTotalBytes bytes)</div>
+            <div>Uploading: @_currentFileName (@FormatBytes(_bytesUploaded) / @FormatBytes(_currentTotalBytes))</div>
             <div class="progress" style="height: 1.25rem;">
                 <div class="progress-bar" role="progressbar" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
             </div>
             @if (_useChunked)
             {
                 <div class="mt-2">
-                    <button class="btn btn-warning me-2" disabled="@(!_canPauseResume)" @onclick="PauseChunked">Pause</button>
-                    <button class="btn btn-success" disabled="@(!_paused)" @onclick="ResumeChunked">Resume</button>
+                    @if (!_paused)
+                    {
+                        <button class="btn btn-outline-warning me-2" @onclick="PauseChunked">Pause Upload</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-outline-success" @onclick="ResumeChunked">Resume Upload</button>
+                    }
                 </div>
             }
         </div>
@@ -113,7 +127,7 @@ else
                     </a>
                 </td>
                 <td>@i.OriginalFileName</td>
-                <td>@i.ByteSize</td>
+                <td>@FormatBytes(i.ByteSize)</td>
                 <td>
                     <a class="btn btn-sm btn-outline-primary" href="@($"api/hull-images/{i.Id}/original")">Download</a>
                 </td>
@@ -130,9 +144,9 @@ else
     private bool _devToolsOpen = false;
     private bool _paused = false;
     private bool _canPauseResume => _uploading && _useChunked && !_paused;
-    private CancellationTokenSource? _chunkCts;
+    // JS AbortController handles pause; no CTS needed
+    private Guid? _currentCorrelationId;
     private Guid? _chunkSessionId;
-    private int _chunkIndex = 0;
     private string? _error;
     private string? _info;
     private string? _pruneInfo;
@@ -247,45 +261,39 @@ else
 
     private async Task UploadTusAsync(IBrowserFile file)
     {
-        _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
+        _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = 0;
         try
         {
-            if (!IsAllowedImage(file)) { _error = "Only images (jpg,jpeg,png,webp,gif,bmp) are allowed"; return; }
-            // Use JS module to perform TUS from browser (works for Server and WASM)
+            if (!IsAllowedImage(file)) { _error = "Only images (jpg,jpeg,png,webp,gif,bmp,tif,tiff) are allowed"; _uploading = false; return; }
             var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-            var files = (await Task.FromResult(0)); // placeholder to keep async method simple
             var correlationId = Guid.NewGuid();
+            _currentCorrelationId = correlationId;
+            var sessionId = Guid.NewGuid();
+            _chunkSessionId = sessionId;
             var dotNetRef = DotNetObjectReference.Create(this);
-            // Compute index of file in current selection by name match fallback
-            // Simpler: pass index 0 since we call per file selection; we rely on latest selection
             var index = 0;
-            await module.InvokeVoidAsync("uploadTusFromInput", "fileInput", index, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
-            // Lookup result
-            var created = await Api.GetByCorrelationIdAsync(correlationId);
-            if (created is not null)
-            {
-                _info = $"Uploaded {file.Name} via TUS (Id {created.Id})";
-            }
+            // Start upload without awaiting; JS invokes progress and completion callbacks
+            _ = module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), "fileInput", index, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
         }
         catch (Exception ex)
         {
             _error = ex.Message;
-        }
-        finally
-        {
             _uploading = false;
             _paused = false;
-            _chunkCts?.Dispose();
+            _chunkSessionId = null;
         }
     }
 
-    private void PauseChunked()
+    private async Task PauseChunked()
     {
-        if (_chunkCts is not null)
+        if (_chunkSessionId is null) return;
+        _paused = true;
+        try
         {
-            _paused = true;
-            _chunkCts.Cancel();
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            await module.InvokeVoidAsync("pauseTusUpload", _chunkSessionId.ToString());
         }
+        catch { }
     }
 
     private async Task ResumeChunked()
@@ -294,14 +302,20 @@ else
         _paused = false;
         _uploading = true;
         StateHasChanged();
-        // We cannot easily reposition IBrowserFile stream; require reselect or keep a buffer. For demo, require reselect.
-        _error = "Please reselect the same file to resume.";
-        await Task.CompletedTask;
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            await module.InvokeVoidAsync("resumeTusUpload", _chunkSessionId.ToString());
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private static string SessionKey(string fileName) => $"hullimg:session:{fileName}";
 
-    private static readonly string[] AllowedExt = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp" };
+    private static readonly string[] AllowedExt = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff" };
     private static bool IsAllowedImage(IBrowserFile file)
     {
         var name = file.Name ?? string.Empty;
@@ -340,24 +354,83 @@ else
 
     private record ImgVerifyResult(bool ok, int width, int height, string? type, string? name, long size, string? error);
 
-    private async Task SmallTestUpload()
+    private List<string> _testAssets = new();
+    private string? _selectedTestAsset;
+
+    private async Task LoadTestAssetsIfNeeded()
     {
+        if (_testAssets.Count > 0) return;
         try
         {
-            // Load duplicated test image from app static assets (wwwroot/test-assets/test-image.PNG)
-            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-            var base64 = await module.InvokeAsync<string>("fetchAsBase64", "/test-assets/test-image.PNG");
-            if (string.IsNullOrWhiteSpace(base64)) { _error = "Test image not found at /test-assets/test-image.PNG"; return; }
-            var data = Convert.FromBase64String(base64);
-            await using var ms = new MemoryStream(data);
-            _ = await Api.UploadAsync("test-image.PNG", "image/png", ms, data.LongLength, null, CancellationToken.None);
-            _info = "Uploaded test-image.PNG";
+            var items = await Api.ListTestAssetsAsync();
+            _testAssets = items.ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load test assets: {ex.Message}";
+        }
+    }
+
+    private async Task UploadSelectedTestAsset()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedTestAsset)) return;
+        try
+        {
+            var path = "/test-assets/" + Uri.EscapeDataString(_selectedTestAsset);
+            var contentType = GuessContentType(_selectedTestAsset);
+            _error = null; _info = null;
+            _uploading = true; _currentFileName = _selectedTestAsset; _bytesUploaded = 0; _currentTotalBytes = 0; // unknown until fetched
+            if (_useChunked)
+            {
+                var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+                var correlationId = Guid.NewGuid();
+                _currentCorrelationId = correlationId;
+                var sessionId = Guid.NewGuid();
+                _chunkSessionId = sessionId;
+                var dotNetRef = DotNetObjectReference.Create(this);
+                await module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
+            }
+            else
+            {
+                // Fallback to one-shot via HttpClient
+                var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+                var base64 = await module.InvokeAsync<string>("fetchAsBase64", path);
+                if (string.IsNullOrWhiteSpace(base64)) { _error = $"Test asset not found at {path}"; return; }
+                var data = Convert.FromBase64String(base64);
+                _currentTotalBytes = data.LongLength;
+                await using var ms = new MemoryStream(data);
+                _ = await Api.UploadAsync(_selectedTestAsset, contentType, ms, data.LongLength,
+                    new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
+                    CancellationToken.None);
+                _info = $"Uploaded {_selectedTestAsset}";
+                await LoadAsync();
+            }
             await LoadAsync();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private static string GuessContentType(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return "application/octet-stream";
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".tif" or ".tiff" => "image/tiff",
+            _ => "application/octet-stream"
+        };
     }
 
     private async Task PruneMissing()
@@ -380,5 +453,51 @@ else
         _bytesUploaded = uploaded;
         InvokeAsync(StateHasChanged);
         return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusInit(long total)
+    {
+        _currentTotalBytes = total;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public async Task OnTusCompleted()
+    {
+        try
+        {
+            if (_currentCorrelationId is Guid corr)
+            {
+                var created = await Api.GetByCorrelationIdAsync(corr);
+                if (created is not null)
+                {
+                    _info = $"Uploaded {_currentFileName} via TUS (Id {created.Id})";
+                    await LoadAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+            _paused = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+        if (bytes >= GB) return $"{bytes / (double)GB:0.#} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.#} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
+        return $"{bytes} B";
     }
 }
