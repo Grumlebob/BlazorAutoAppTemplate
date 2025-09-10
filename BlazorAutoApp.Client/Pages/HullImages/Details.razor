@@ -36,6 +36,8 @@ else
             <dl class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
                 <dt class="text-gray-500">Id</dt><dd class="col-span-2 text-gray-900">@_image.Id</dd>
                 <dt class="text-gray-500">Name</dt><dd class="col-span-2 break-all text-gray-900">@_image.OriginalFileName</dd>
+                <dt class="text-gray-500">Vessel</dt><dd class="col-span-2 text-gray-900">@_image.VesselName</dd>
+                <dt class="text-gray-500">AI Score</dt><dd class="col-span-2 text-gray-900">@_image.AiHullScore.ToString("0.00")</dd>
                 <dt class="text-gray-500">Size</dt><dd class="col-span-2 text-gray-900">@FormatBytes(_image.ByteSize)</dd>
                 @if (_image.Width.HasValue && _image.Height.HasValue)
                 {

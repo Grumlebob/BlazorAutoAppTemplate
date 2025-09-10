@@ -32,5 +32,11 @@ public class HullImage
     public string Status { get; set; } = "Ready";
 
     public string? Notes { get; set; }
+
+    // New fields
+    public double AiHullScore { get; set; } = 0.0;
+
+    [MaxLength(128)]
+    public string VesselName { get; set; } = "BoatyBoat";
 }
 

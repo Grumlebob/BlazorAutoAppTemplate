@@ -15,5 +15,7 @@ public class GetHullImageResponse
     public int? Width { get; init; }
     public int? Height { get; init; }
     public DateTime CreatedAtUtc { get; init; }
+    public double AiHullScore { get; init; }
+    public string VesselName { get; init; } = "BoatyBoat";
 }
 

@@ -10,6 +10,8 @@ public class HullImageEntityTypeConfiguration : IEntityTypeConfiguration<HullIma
         entity.Property(x => x.StorageKey).IsRequired().HasMaxLength(512);
         entity.Property(x => x.Sha256).HasMaxLength(128);
         entity.Property(x => x.Status).HasMaxLength(50);
+        entity.Property(x => x.VesselName).IsRequired().HasMaxLength(128).HasDefaultValue("BoatyBoat");
+        entity.Property(x => x.AiHullScore).HasDefaultValue(0.0);
         entity.ToTable("HullImages");
     }
 }

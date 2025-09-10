@@ -24,7 +24,9 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             Sha256 = item.Sha256,
             Width = item.Width,
             Height = item.Height,
-            CreatedAtUtc = item.CreatedAtUtc
+            CreatedAtUtc = item.CreatedAtUtc,
+            AiHullScore = item.AiHullScore,
+            VesselName = item.VesselName
         };
     }
 
@@ -49,6 +51,7 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             StorageKey = req.StorageKey,
             Width = req.Width,
             Height = req.Height,
+            VesselName = string.IsNullOrWhiteSpace(req.VesselName) ? "BoatyBoat" : req.VesselName!,
             Status = "Ready"
         };
         db.Add(entity);
@@ -60,7 +63,8 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             OriginalFileName = entity.OriginalFileName,
             ContentType = entity.ContentType,
             ByteSize = entity.ByteSize,
-            Sha256 = entity.Sha256
+            Sha256 = entity.Sha256,
+            VesselName = entity.VesselName
         };
     }
 

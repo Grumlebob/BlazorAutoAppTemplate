@@ -198,3 +198,11 @@ go to BlazorAutoApp\BlazorAutoApp.Client
 run:
 npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
 
+
+# Migrations
+
+Add migration, From project source root:
+dotnet ef migrations add AddVesselAndAiFields --project BlazorAutoApp --startup-project BlazorAutoApp
+
+Apply migrations,From project source root:
+dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp

@@ -126,6 +126,8 @@ else
                 <th class="hidden sm:table-cell whitespace-nowrap px-3 py-2 font-medium">Id</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Preview</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Name</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Vessel</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">AI Score</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Size</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Actions</th>
             </tr>
@@ -148,6 +150,8 @@ else
                         </a>
                     </td>
                     <td class="align-top max-w-[10rem] sm:max-w-none truncate sm:whitespace-normal sm:break-words px-3 py-2 text-gray-900" title="@i.OriginalFileName">@i.OriginalFileName</td>
+                    <td class="align-top px-3 py-2 text-gray-900">@i.VesselName</td>
+                    <td class="align-top px-3 py-2 text-gray-900">@i.AiHullScore.ToString("0.00")</td>
                     <td class="align-top whitespace-nowrap text-gray-600 px-3 py-2">@FormatBytes(i.ByteSize)</td>
                     <td class="align-top px-3 py-2">
                         <a class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50" href="@($"api/hull-images/{i.Id}/original")">Download</a>
@@ -564,5 +568,4 @@ else
         return $"{bytes} B";
     }
 }
-
 
