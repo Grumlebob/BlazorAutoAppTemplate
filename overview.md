@@ -194,6 +194,7 @@ Browser ── HTTP ─▶ Server (SSR)
 
 # Tailwind
 
-go to BlazorAutoApp\BlazorAutoApp
+go to BlazorAutoApp\BlazorAutoApp.Client
 run:
-npx @tailwindcss/cli -i ./Styles/input.css -o ./wwwroot/tailwind.css --watch
+npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
+

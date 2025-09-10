@@ -1,32 +1,42 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">BlazorAutoApp</a>
+﻿<div class="max-h-16 h-16 bg-neutral-950 text-white flex justify-between items-center px-4 w-full">
+
+    <a href="/" class="overflow-hidden flex-shrink-0 w-fit pl-2">
+        <img src="hafniaLogo.png" alt="Logo" class="min-h-6 h-6 w-auto lg:min-h-12 lg:h-12 max-w-none"/>
+    </a>
+    
+
+    <div class="flex items-center space-x-4">
+        <button @onclick="ToggleMenu" class="md:hidden">
+            <svg class="h-6 w-6 fill-current" viewBox="0 0 24 24">
+                <path fill-rule="evenodd"
+                      d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2z"/>
+            </svg>
+        </button>
+
+        <div class="hidden md:flex items-center space-x-4">
+            <NavLink class="md:px-4" href="/">Home</NavLink>
+            <NavLink class="md:px-4" href="/hull-images">Hull Images</NavLink>
+            <NavLink class="md:px-4" href="/visualization">Visualize something</NavLink>
+        </div>
+        
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+@{
+var menuVisibleClass = _menuVisible ? "" : "hidden";
+}
 
-        
+<ul class="@($"flex flex-col {menuVisibleClass} bg-gray-700 px-4 py-2 md:hidden w-full")">
+    <NavLink class="py-2" href="/">Home</NavLink>
+    <NavLink class="py-2" href="/hull-images">Hull Images</NavLink>
+    <NavLink class="py-2" href="/visualization">Visualize something</NavLink>
+</ul>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="movies">
-                <span class="bi bi-collection-play-fill" aria-hidden="true"></span> Movies
-            </NavLink>
-        </div>
+@code {
+private bool _menuVisible = false;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="hull-images">
-                <span class="bi bi-image" aria-hidden="true"></span> Hull Images
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+private void ToggleMenu() {
+_menuVisible = !_menuVisible;
+}
+}
