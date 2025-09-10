@@ -1,5 +1,7 @@
+using BlazorAutoApp.Core.Features.Email;
 using tusdotnet;
 using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Features.Email;
 using BlazorAutoApp.Features.HullImages;
 using Microsoft.AspNetCore.DataProtection;
 using tusdotnet.Interfaces;
@@ -73,8 +75,9 @@ builder.Services.AddSingleton<ITusResultRegistry, TusResultRegistryRedis>();
 var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration") ?? "localhost:6379";
 builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
 builder.Services.AddHybridCache();
-
-// HttpClient for components (server prerendering + interactive server)
+// Email services
+builder.Services.AddScoped<IEmailApi, EmailServerService>();
+// Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
 
@@ -234,6 +237,7 @@ app.MapRazorComponents<App>()
 // Minimal API endpoints
 app.MapMovieEndpoints();
 app.MapHullImageEndpoints();
+app.MapEmailEndpoints();
 
 app.Run();
 
