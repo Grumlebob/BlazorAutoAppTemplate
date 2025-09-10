@@ -138,6 +138,23 @@ Example implementations in this repo:
 - Invalidation: On `Create`, `Update`, `Delete`, the server removes `movies:list` and the affected `movies:item:{id}`.
 - Tests: The test fixture replaces Redis with in-memory distributed cache to avoid external dependency while keeping `HybridCache` behavior.
 
+### Redis Insight (UI)
+
+- Purpose: Introspect Redis keys, values, TTLs and hit patterns while developing.
+- Compose service: added `redisinsight` to `docker-compose.yml` (exposes UI on `http://localhost:5540`).
+- How to use:
+  - Start the stack: `docker compose up -d redis redisinsight` (or `docker compose up -d` for all services).
+  - Open Redis Insight in your browser: `http://localhost:5540`.
+  - Add a database connection (copy/paste):
+    - redis://redis:6379
+    - This URL works inside the compose network (RedisInsight → redis).
+    - Alternative from host (outside compose network): redis://localhost:6379
+  - You should see keys such as Movies cache entries and TUS correlation mappings (from `ITusResultRegistry`).
+
+Notes:
+- The app reads `Redis:Configuration` from configuration (default `localhost:6379`). When running via compose locally, that points to the `redis` container.
+- Override via env or `appsettings.*.json` if you use a remote Redis.
+
 ```
 Client (UI) --HTTP--> Minimal API Endpoints --calls--> MoviesServerService (IMoviesApi)
                                                 |

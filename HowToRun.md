@@ -20,6 +20,7 @@ URLs
 - Seq ingestion: http://localhost:5341
 - Postgres: localhost:5432 (db=app, user=postgres, pwd=postgres)
 - Redis: localhost:6379
+- Redis UI: http://localhost:5540 - Go to Add Redis Database and write redis://redis:6379
 
 Notes
 - App reads `appsettings.Docker.json` in `ASPNETCORE_ENVIRONMENT=Docker` (set by compose).

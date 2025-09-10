@@ -58,6 +58,17 @@ services:
       timeout: 5s
       retries: 20
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5540:5540"  # Redis Insight UI
+    volumes:
+      - redisinsight:/data
+
 volumes:
   pgdata:
   seqdata:
+  redisinsight:

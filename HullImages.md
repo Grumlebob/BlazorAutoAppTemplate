@@ -38,6 +38,18 @@ TUS: Implementation Details (How It Works)
   - Deletes the temporary TUS file (via `ITusTerminationStore`).
   - If `correlationId` was provided, maps `correlationId -> imageId` in `ITusResultRegistry` so the client can query `/tus/result` to retrieve the `Id`.
 
+Observability: Redis Insight
+- Purpose: Inspect Redis keys and values used by the TUS flow (e.g., correlationId -> imageId mapping via `ITusResultRegistry`).
+- Compose service: `redisinsight` is available in `docker-compose.yml` and exposes a UI on `http://localhost:5540`.
+- Usage:
+  - Start: `docker compose up -d redis redisinsight` (or bring up the full stack).
+  - Open UI: `http://localhost:5540` in your browser.
+  - Connect to Redis (copy/paste): `redis://redis:6379`
+    - This URL works inside the compose network (RedisInsight → redis).
+    - Alternative from host (outside compose network): `redis://localhost:6379`.
+  - You should see ephemeral keys created when uploads complete for correlation lookups.
+- Config: The app reads `Redis:Configuration` (default `localhost:6379`) from configuration. Override via environment or `appsettings.*.json` when needed.
+
 Blazor UI (Server and WASM)
 - TUS client: Implemented in `/wwwroot/js/tusUpload.js` and invoked via JS interop from the Hull Images page.
 - The JS module performs `POST` (create) and `PATCH` (data segments), and reports progress back to the component via `[JSInvokable]` method `ReportTusProgress`.
