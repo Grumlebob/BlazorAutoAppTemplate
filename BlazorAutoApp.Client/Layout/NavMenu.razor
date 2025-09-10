@@ -1,4 +1,4 @@
-﻿<div class="max-h-16 h-16 bg-neutral-950 text-white flex justify-between items-center px-4 w-full">
+<div class="max-h-16 h-16 bg-stone-50 text-gray-900 border-b border-gray-200 flex justify-between items-center px-4 w-full">
 
     <a href="/" class="overflow-hidden flex-shrink-0 w-fit pl-2">
         <img src="hafniaLogo.png" alt="Logo" class="min-h-6 h-6 w-auto lg:min-h-12 lg:h-12 max-w-none"/>
@@ -27,7 +27,7 @@
 var menuVisibleClass = _menuVisible ? "" : "hidden";
 }
 
-<ul class="@($"flex flex-col {menuVisibleClass} bg-gray-700 px-4 py-2 md:hidden w-full")">
+<ul class="@($"flex flex-col {menuVisibleClass} bg-stone-50 border-b border-gray-200 text-gray-900 px-4 py-2 md:hidden w-full")">
     <NavLink class="py-2" href="/">Home</NavLink>
     <NavLink class="py-2" href="/hull-images">Hull Images</NavLink>
     <NavLink class="py-2" href="/visualization">Visualize something</NavLink>
@@ -40,3 +40,4 @@ private void ToggleMenu() {
 _menuVisible = !_menuVisible;
 }
 }
+

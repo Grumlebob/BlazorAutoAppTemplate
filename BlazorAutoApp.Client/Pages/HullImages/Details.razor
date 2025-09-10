@@ -3,7 +3,7 @@
 @inject IHullImagesApi Api
 @inject NavigationManager Nav
 
-<h1>Image Details</h1>
+<h1 class="text-2xl font-semibold mb-3">Image Details</h1>
 
 @if (_loading)
 {
@@ -11,7 +11,7 @@
 }
 else if (_error is not null)
 {
-    <p class="text-danger">@_error</p>
+    <p class="text-red-600">@_error</p>
 }
 else if (_image is null)
 {
@@ -19,30 +19,34 @@ else if (_image is null)
 }
 else
 {
-    <div class="mb-3">
-        <a class="btn btn-secondary me-2" href="/hull-images">Back</a>
-        <button class="btn btn-danger" @onclick="Delete">Delete</button>
+    <div class="mb-3 flex items-center gap-2">
+        <a class="inline-flex items-center rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200" href="/hull-images">Back</a>
+        <button class="inline-flex items-center rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700" @onclick="Delete">Delete</button>
     </div>
 
-    <div class="row g-3">
-        <div class="col-12 col-md-6">
-            <img class="img-fluid rounded border" src="@($"/api/hull-images/{_image.Id}/thumbnail/512")" alt="@_image.OriginalFileName" />
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <img class="img-fluid w-full max-w-md md:max-w-full h-auto rounded border mx-auto"
+                 src="@($"/api/hull-images/{_image.Id}/thumbnail/512")"
+                 srcset="@($"/api/hull-images/{_image.Id}/thumbnail/256") 256w, @($"/api/hull-images/{_image.Id}/thumbnail/512") 512w, @($"/api/hull-images/{_image.Id}/thumbnail/768") 768w"
+                 sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 512px"
+                 alt="@_image.OriginalFileName" />
         </div>
-        <div class="col-12 col-md-6">
-            <dl class="row">
-                <dt class="col-sm-3">Id</dt><dd class="col-sm-9">@_image.Id</dd>
-                <dt class="col-sm-3">Name</dt><dd class="col-sm-9">@_image.OriginalFileName</dd>
-                <dt class="col-sm-3">Size</dt><dd class="col-sm-9">@FormatBytes(_image.ByteSize)</dd>
+        <div>
+            <dl class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                <dt class="text-gray-500">Id</dt><dd class="col-span-2 text-gray-900">@_image.Id</dd>
+                <dt class="text-gray-500">Name</dt><dd class="col-span-2 break-all text-gray-900">@_image.OriginalFileName</dd>
+                <dt class="text-gray-500">Size</dt><dd class="col-span-2 text-gray-900">@FormatBytes(_image.ByteSize)</dd>
                 @if (_image.Width.HasValue && _image.Height.HasValue)
                 {
-                    <dt class="col-sm-3">Dimensions</dt><dd class="col-sm-9">@_image.Width x @_image.Height</dd>
+                    <dt class="text-gray-500">Dimensions</dt><dd class="col-span-2 text-gray-900">@_image.Width x @_image.Height</dd>
                 }
-                <dt class="col-sm-3">Type</dt><dd class="col-sm-9">@_image.ContentType</dd>
-                <dt class="col-sm-3">SHA256</dt><dd class="col-sm-9">@_image.Sha256</dd>
-                <dt class="col-sm-3">Created</dt><dd class="col-sm-9">@_image.CreatedAtUtc.ToString("u")</dd>
+                <dt class="text-gray-500">Type</dt><dd class="col-span-2 text-gray-900">@_image.ContentType</dd>
+                <dt class="text-gray-500">SHA256</dt><dd class="col-span-2 break-all text-gray-900">@_image.Sha256</dd>
+                <dt class="text-gray-500">Created</dt><dd class="col-span-2 text-gray-900">@_image.CreatedAtUtc.ToString("u")</dd>
             </dl>
-            <a class="btn btn-outline-primary me-2" href="@($"/api/hull-images/{_image.Id}/original")" download>Download Original</a>
-            <a class="btn btn-outline-secondary" href="@($"/api/hull-images/{_image.Id}/original")" target="_blank">Open Original</a>
+            <a class="inline-flex items-center rounded-md border border-blue-600 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 mr-2" href="@($"/api/hull-images/{_image.Id}/original")" download>Download Original</a>
+            <a class="inline-flex items-center rounded-md border border-gray-400 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" href="@($"/api/hull-images/{_image.Id}/original")" target="_blank">Open Original</a>
         </div>
     </div>
 }

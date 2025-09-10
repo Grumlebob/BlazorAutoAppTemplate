@@ -6,31 +6,37 @@
 @inject IHullImagesApi Api
 
 @* Dev Tools: isolated, expandable, starts collapsed (no Reload button) *@
-<div class="devtools-container">
-    <button class="btn btn-sm btn-secondary devtools-toggle" @onclick="ToggleDevTools" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">@(_devToolsOpen ? "Close Dev Tools" : "Open Dev Tools")</button>
+<div class="mb-4 flex justify-end">
+    <button class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" hidden="@_devToolsOpen" @onclick="ToggleDevTools" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">Open Dev Tools</button>
     @if (_devToolsOpen)
     {
-        <div class="card devtools-panel" style="min-width: 260px;">
-            <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                <strong>Dev Tools</strong>
-                <button class="btn btn-sm btn-outline-light" title="Close" @onclick="ToggleDevTools">✕</button>
+        <div data-devtools-panel class="mt-2 w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-200 px-3 py-2">
+                <strong class="text-sm">Dev Tools</strong>
+                <button class="inline-flex items-center rounded-md p-1 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30" title="Close Dev Tools" aria-label="Close Dev Tools"
+                        @onclick="ToggleDevTools">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0    
+  010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
             </div>
-            <div class="card-body py-2">
+            <div class="p-3 space-y-3">
                 <!-- Mode toggle -->
-                <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" role="switch" id="tusSwitch" @bind="_useTus" disabled="@_uploading" />
-                    <label class="form-check-label" for="tusSwitch">Mode: <strong>@(_useTus ? "TUS" : "ONE SHOT")</strong></label>
+                <div class="mb-2">
+                    <input class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" type="checkbox" role="switch" id="tusSwitch" @bind="_useTus" disabled="@_uploading" />
+                    <label class="ml-2 select-none" for="tusSwitch">Mode: <strong>@(_useTus ? "TUS" : "ONE SHOT")</strong></label>
                 </div>
 
                 <!-- Middle: Maintenance actions -->
-                <div class="d-flex flex-wrap gap-2 mb-2">
-                    <button class="btn btn-sm btn-outline-warning" @onclick="PruneMissing" disabled="@_uploading">Prune Missing</button>
-                    <button class="btn btn-sm btn-outline-info" @onclick="TriggerVerify" disabled="@_uploading">Check Image Verification</button>
+                <div class="flex flex-wrap gap-2 mb-2">
+                    <button class="inline-flex items-center rounded-md border border-amber-500 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="PruneMissing" disabled="@_uploading">Prune Missing</button>
+                    <button class="inline-flex items-center rounded-md border border-sky-500 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="TriggerVerify" disabled="@_uploading">Check Image Verification</button>
                 </div>
 
                 <!-- Bottom: Upload controls (dropdown triggers upload on change) -->
-                <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
-                    <select class="form-select form-select-sm" style="width:auto; min-width: 220px;" value="@_selectedTestAsset" @onchange="OnTestAssetChanged" @onfocus="LoadTestAssetsIfNeeded" disabled="@_uploading">
+                <div class="flex flex-wrap gap-2 items-center mt-3">
+                    <select class="min-w-[220px] rounded border border-gray-300 bg-white px-2 py-1 text-sm disabled:opacity-50" style="width:auto;" value="@_selectedTestAsset" @onchange="OnTestAssetChanged" @onfocus="LoadTestAssetsIfNeeded" disabled="@_uploading">
                         <option value="" disabled selected>Upload test asset...</option>
                         @foreach (var f in _testAssets)
                         {
@@ -40,11 +46,11 @@
                 </div>
                 @if (!string.IsNullOrEmpty(_pruneInfo))
                 {
-                    <div class="text-success small mt-2">@_pruneInfo</div>
+                    <div class="text-green-600 text-sm mt-2">@_pruneInfo</div>
                 }
                 @if (!string.IsNullOrEmpty(_verifyInfo))
                 {
-                    <div class="mt-2 small">@_verifyInfo</div>
+                    <div class="mt-2 text-sm text-gray-700">@_verifyInfo</div>
                 }
             </div>
         </div>
@@ -53,48 +59,48 @@
 
 @* Main header, then upload controls directly below *@
 <div class="mb-2">
-    <h1 class="mb-1">Hull Images</h1>
-    <div class="d-flex flex-column">
-        <div class="d-flex align-items-center gap-2">
+    <h1 class="text-2xl font-semibold mb-2">Hull Images</h1>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div class="flex items-center gap-2">
             <InputFile id="fileInput" class="visually-hidden" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
             <InputFile id="verifyInput" class="visually-hidden" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
-            <button type="button" class="btn btn-primary" @onclick="TriggerFileDialog" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">
+            <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="TriggerFileDialog" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">
                 <span class="me-1">📁</span> Choose Files
             </button>
             @if (!string.IsNullOrEmpty(_selectedLabel))
             {
-                <span class="text-muted small">@_selectedLabel</span>
+                <span class="text-gray-500 text-sm">@_selectedLabel</span>
             }
         </div>
-        <p class="text-muted mb-0 mt-1">Images only. Max 10 GB per file.</p>
+        <p class="text-gray-500 text-sm mt-1">Images only. Max 10 GB per file.</p>
     </div>
 
     @if (!string.IsNullOrEmpty(_error))
     {
-        <p class="text-danger">@_error</p>
+        <p class="text-red-600">@_error</p>
     }
     @if (!string.IsNullOrEmpty(_info))
     {
-        <p class="text-info">@_info</p>
+        <p class="text-sky-600">@_info</p>
     }
     @if (_uploading)
     {
         <div class="my-2">
             <div>Uploading: @_currentFileName (@FormatBytes(_bytesUploaded) / @FormatBytes(_currentTotalBytes))</div>
-            <div class="progress" style="height: 1.25rem;">
-                <div class="progress-bar" role="progressbar" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
+            <div class="h-5 w-full rounded bg-gray-200">
+                <div class="h-5 rounded bg-blue-600 text-center text-xs font-medium leading-5 text-white" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
             </div>
             @if (_useTus)
             {
                 <div class="mt-2">
                     @if (!_paused)
                     {
-                        <button class="btn btn-outline-warning me-2" @onclick="PauseTus">Pause Upload</button>
+                        <button class="inline-flex items-center rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50" @onclick="PauseTus">Pause Upload</button>
                     }
                     else
                     {
-                        <button class="btn btn-outline-success" @onclick="ResumeTus">Resume Upload</button>
-                        <span class="badge bg-warning text-dark ms-2 align-middle">Paused</span>
+                        <button class="inline-flex items-center rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50" @onclick="ResumeTus">Resume Upload</button>
+                        <span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 align-middle">Paused</span>
                     }
                 </div>
             }
@@ -113,35 +119,44 @@ else if (_images.Count == 0)
 }
 else
 {
-    <table class="table">
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Preview</th>
-            <th>Name</th>
-            <th>Size</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach (var i in _images)
-        {
-            <tr>
-                <td>@i.Id</td>
-                <td style="width:150px">
-                    <a href="@($"/hull-images/{i.Id}")" title="@i.OriginalFileName">
-                        <img style="max-width:128px;height:auto;display:block;" class="rounded border" src="@($"api/hull-images/{i.Id}/thumbnail/128")" alt="@i.OriginalFileName" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\'><rect width=\'100%\' height=\'100%\' fill=\'#eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'#999\' font-size=\'12\'>Missing</text></svg>';" />
-                    </a>
-                </td>
-                <td>@i.OriginalFileName</td>
-                <td>@FormatBytes(i.ByteSize)</td>
-                <td>
-                    <a class="btn btn-sm btn-outline-primary" href="@($"api/hull-images/{i.Id}/original")">Download</a>
-                </td>
+    <div class="overflow-x-auto border border-gray-200 rounded md:rounded-lg">
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-50">
+            <tr class="text-left text-gray-700">
+                <th class="hidden sm:table-cell whitespace-nowrap px-3 py-2 font-medium">Id</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Preview</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Name</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Size</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Actions</th>
             </tr>
-        }
-        </tbody>
-    </table>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+            @foreach (var i in _images)
+            {
+                <tr class="hover:bg-gray-50">
+                    <td class="hidden sm:table-cell align-top px-3 py-2 text-gray-700">@i.Id</td>
+                    <td class="align-top w-24 sm:w-36 px-3 py-2">
+                        <a href="@($"/hull-images/{i.Id}")" title="@i.OriginalFileName" class="block">
+                            <img
+                                class="block w-16 sm:w-32 h-auto rounded border"
+                                src="@($"api/hull-images/{i.Id}/thumbnail/128")"
+                                srcset="@($"api/hull-images/{i.Id}/thumbnail/64") 64w, @($"api/hull-images/{i.Id}/thumbnail/128") 128w, @($"api/hull-images/{i.Id}/thumbnail/256") 256w"
+                                sizes="(max-width: 640px) 64px, (max-width: 768px) 96px, 128px"
+                                alt="@i.OriginalFileName"
+                                loading="lazy"
+                                onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\'><rect width=\'100%\' height=\'100%\' fill=\'#eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'#999\' font-size=\'12\'>Missing</text></svg>';" />
+                        </a>
+                    </td>
+                    <td class="align-top max-w-[10rem] sm:max-w-none truncate sm:whitespace-normal sm:break-words px-3 py-2 text-gray-900" title="@i.OriginalFileName">@i.OriginalFileName</td>
+                    <td class="align-top whitespace-nowrap text-gray-600 px-3 py-2">@FormatBytes(i.ByteSize)</td>
+                    <td class="align-top px-3 py-2">
+                        <a class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50" href="@($"api/hull-images/{i.Id}/original")">Download</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {
