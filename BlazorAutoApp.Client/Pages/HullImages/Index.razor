@@ -31,7 +31,6 @@
                 <!-- Middle: Maintenance actions -->
                 <div class="flex flex-wrap gap-2 mb-2">
                     <button class="inline-flex items-center rounded-md border border-amber-500 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="PruneMissing" disabled="@_uploading">Prune Missing</button>
-                    <button class="inline-flex items-center rounded-md border border-sky-500 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="TriggerVerify" disabled="@_uploading">Check Image Verification</button>
                 </div>
 
                 <!-- Bottom: Upload controls (dropdown triggers upload on change) -->
@@ -48,10 +47,7 @@
                 {
                     <div class="text-green-600 text-sm mt-2">@_pruneInfo</div>
                 }
-                @if (!string.IsNullOrEmpty(_verifyInfo))
-                {
-                    <div class="mt-2 text-sm text-gray-700">@_verifyInfo</div>
-                }
+                
             </div>
         </div>
     }
@@ -63,7 +59,6 @@
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div class="flex items-center gap-2">
             <InputFile id="fileInput" class="sr-only" OnChange="OnFilesSelected" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
-            <InputFile id="verifyInput" class="sr-only" OnChange="VerifySelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
             <button type="button" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="TriggerFileDialog" disabled="@_uploading" title="@(_uploading ? "Upload in progress" : null)">
                 <span class="mr-1">📁</span> Upload Hull Image
             </button>
@@ -181,7 +176,7 @@ else
     private int _progressPercent => _currentTotalBytes > 0 ? (int)Math.Round(100.0 * _bytesUploaded / _currentTotalBytes) : 0;
     private List<HullImage> _images = new();
     private string _selectedLabel = string.Empty;
-    private string? _verifyInfo;
+    
 
     protected override async Task OnInitializedAsync()
     {
@@ -246,18 +241,7 @@ else
         }
     }
 
-    private async Task TriggerVerify()
-    {
-        try
-        {
-            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/imgTools.js");
-            await module.InvokeVoidAsync("triggerClick", "verifyInput");
-        }
-        catch (Exception ex)
-        {
-            _verifyInfo = $"Verify error: {ex.Message}";
-        }
-    }
+    
 
     private async Task UploadSingleAsync(IBrowserFile file)
     {
@@ -356,29 +340,9 @@ else
     private Task Reload() => LoadAsync();
     // Clear button removed from UI
 
-    private async Task VerifySelected(InputFileChangeEventArgs e)
-    {
-        _verifyInfo = null;
-        try
-        {
-            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/imgTools.js");
-            var result = await module.InvokeAsync<ImgVerifyResult>("validateImageFromInput", "verifyInput");
-            if (result is not null && result.ok)
-            {
-                _verifyInfo = $"Valid image: {result.name} ({(string.IsNullOrWhiteSpace(result.type) ? "unknown" : result.type)}), {result.width}x{result.height}, {result.size} bytes";
-            }
-            else
-            {
-                _verifyInfo = $"Invalid image: {result?.error ?? "Unknown error"}";
-            }
-        }
-        catch (Exception ex)
-        {
-            _verifyInfo = $"Verify error: {ex.Message}";
-        }
-    }
+    
 
-    private record ImgVerifyResult(bool ok, int width, int height, string? type, string? name, long size, string? error);
+    
 
     private List<string> _testAssets = new();
     private string? _selectedTestAsset;
@@ -567,5 +531,3 @@ else
         return $"{bytes} B";
     }
 }
-
-
