@@ -16,6 +16,7 @@
         <div class="hidden md:flex items-center space-x-4">
             <NavLink class="md:px-4" href="/">Home</NavLink>
             <NavLink class="md:px-4" href="/hull-images">Hull Images</NavLink>
+            <NavLink class="md:px-4" href="/movies">Movies</NavLink>
             <NavLink class="md:px-4" href="/visualization">Visualize something</NavLink>
         </div>
         
@@ -30,6 +31,7 @@ var menuVisibleClass = _menuVisible ? "" : "hidden";
 <ul class="@($"flex flex-col {menuVisibleClass} bg-stone-50 border-b border-gray-200 text-gray-900 px-4 py-2 md:hidden w-full")">
     <NavLink class="py-2" href="/">Home</NavLink>
     <NavLink class="py-2" href="/hull-images">Hull Images</NavLink>
+    <NavLink class="py-2" href="/movies">Movies</NavLink>
     <NavLink class="py-2" href="/visualization">Visualize something</NavLink>
 </ul>
 
@@ -40,4 +42,3 @@ private void ToggleMenu() {
 _menuVisible = !_menuVisible;
 }
 }
-

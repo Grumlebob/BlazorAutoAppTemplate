@@ -4,9 +4,9 @@
 @inject NavigationManager Nav
 @inject PersistentComponentState AppState
 
-<h1>Edit Movie</h1>
+<h1 class="text-2xl font-semibold mb-2">Edit Movie</h1>
 
-<p>rendermode: @RendererInfo.Name</p>
+<p class="text-sm text-gray-500 mb-3">rendermode: @RendererInfo.Name</p>
 
 @if (_loading)
 {
@@ -14,30 +14,32 @@
 }
 else if (_error is not null)
 {
-    <p class="text-danger">@_error</p>
+    <p class="text-red-600">@_error</p>
 }
 else
 {
-    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit" class="max-w-xl">
         <DataAnnotationsValidator />
-        <ValidationSummary />
+        <ValidationSummary class="mb-3 text-sm text-red-600" />
         <div class="mb-3">
-            <label class="form-label">Title</label>
-            <InputText class="form-control" @bind-Value="_model.Title" />
-            <ValidationMessage For="() => _model.Title" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <InputText class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Title" />
+            <ValidationMessage For="() => _model.Title" class="text-sm text-red-600" />
         </div>
         <div class="mb-3">
-            <label class="form-label">Director</label>
-            <InputText class="form-control" @bind-Value="_model.Director" />
-            <ValidationMessage For="() => _model.Director" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Director</label>
+            <InputText class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Director" />
+            <ValidationMessage For="() => _model.Director" class="text-sm text-red-600" />
         </div>
-        <div class="mb-3">
-            <label class="form-label">Rating</label>
-            <InputNumber class="form-control" @bind-Value="_model.Rating" />
-            <ValidationMessage For="() => _model.Rating" />
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+            <InputNumber class="block w-32 rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Rating" />
+            <ValidationMessage For="() => _model.Rating" class="text-sm text-red-600" />
         </div>
-        <button class="btn btn-primary" type="submit">Save</button>
-        <button class="btn btn-secondary" type="button" @onclick="GoBack">Cancel</button>
+        <div class="flex items-center gap-2">
+            <button class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700" type="submit">Save</button>
+            <button class="inline-flex items-center rounded-md border border-gray-400 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" type="button" @onclick="GoBack">Cancel</button>
+        </div>
     </EditForm>
 }
 

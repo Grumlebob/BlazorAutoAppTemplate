@@ -26,7 +26,7 @@ else
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-            <img class="img-fluid w-full max-w-md md:max-w-full h-auto rounded border mx-auto"
+            <img class="w-full max-w-md md:max-w-full h-auto rounded border mx-auto"
                  src="@($"/api/hull-images/{_image.Id}/thumbnail/512")"
                  srcset="@($"/api/hull-images/{_image.Id}/thumbnail/256") 256w, @($"/api/hull-images/{_image.Id}/thumbnail/512") 512w, @($"/api/hull-images/{_image.Id}/thumbnail/768") 768w"
                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 512px"

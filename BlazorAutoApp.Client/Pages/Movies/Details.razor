@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 @inject PersistentComponentState AppState
 
-<h1>Movie Details</h1>
+<h1 class="text-2xl font-semibold mb-2">Movie Details</h1>
 
 @if (_loading)
 {
@@ -12,7 +12,7 @@
 }
 else if (_error is not null)
 {
-    <p class="text-danger">@_error</p>
+    <p class="text-red-600">@_error</p>
 }
 else if (_movie is null)
 {
@@ -20,14 +20,12 @@ else if (_movie is null)
 }
 else
 {
-    <div class="card">
-        <div class="card-body">
-            <h5 class="card-title">@_movie.Title</h5>
-            <h6 class="card-subtitle mb-2 text-muted">Director: @_movie.Director</h6>
-            <p class="card-text">Rating: @_movie.Rating</p>
-        </div>
+    <div class="rounded border border-gray-200 bg-white shadow-sm p-4">
+        <h2 class="text-xl font-semibold text-gray-900">@_movie.Title</h2>
+        <div class="text-sm text-gray-600 mt-1">Director: @_movie.Director</div>
+        <div class="mt-2 text-gray-900">Rating: @_movie.Rating</div>
     </div>
-    <button class="btn btn-secondary mt-3" @onclick="GoBack">Back</button>
+    <button class="mt-3 inline-flex items-center rounded-md border border-gray-400 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" @onclick="GoBack">Back</button>
 }
 
 @code {
@@ -81,4 +79,3 @@ else
 
     private void GoBack() => Nav.NavigateTo("/movies");
 }
-
