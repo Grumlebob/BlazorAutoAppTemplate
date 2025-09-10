@@ -36,22 +36,6 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         return await res.Content.ReadFromJsonAsync<GetHullImageResponse>(cancellationToken: ct);
     }
 
-    public async Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default)
-    {
-        var progressContent = new ProgressStreamContent(
-            content,
-            bufferSize: 128 * 1024,
-            progress: uploaded => progress?.Report(uploaded),
-            contentType: string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
-            contentLength: size);
-
-        using var req = new HttpRequestMessage(HttpMethod.Post, "api/hull-images") { Content = progressContent };
-        req.Headers.Add("X-File-Name", fileName);
-        var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        res.EnsureSuccessStatusCode();
-        var created = await res.Content.ReadFromJsonAsync<CreateHullImageResponse>(cancellationToken: ct);
-        return created!;
-    }
 
     public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
     {

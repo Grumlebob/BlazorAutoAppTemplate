@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -28,15 +29,33 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task List_Returns_Items_After_Upload()
+    public async Task List_Returns_Items_After_Tus_Upload()
     {
         var sample = TestImageProvider.GetBytes();
-        using var content = new ByteArrayContent(sample);
-        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images") { Content = content };
-        req.Headers.Add("X-File-Name", "test-image.PNG");
-        var post = await _client.SendAsync(req);
-        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        // TUS create
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/tus");
+        create.Headers.Add("Tus-Resumable", "1.0.0");
+        create.Headers.Add("Upload-Length", sample.Length.ToString());
+        var b64name = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("test-image.PNG"));
+        var b64type = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("image/png"));
+        create.Headers.Add("Upload-Metadata", $"filename {b64name},contentType {b64type}");
+        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        var createRes = await _client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var location = createRes.Headers.Location?.ToString() ?? createRes.Headers.GetValues("Location").FirstOrDefault();
+        Assert.False(string.IsNullOrWhiteSpace(location));
+
+        // Single PATCH
+        using (var patch = new HttpRequestMessage(new HttpMethod("PATCH"), location))
+        {
+            patch.Headers.Add("Tus-Resumable", "1.0.0");
+            patch.Headers.Add("Upload-Offset", "0");
+            var body = new ByteArrayContent(sample);
+            body.Headers.ContentType = new MediaTypeHeaderValue("application/offset+octet-stream");
+            patch.Content = body;
+            var res = await _client.SendAsync(patch);
+            Assert.Equal((HttpStatusCode)204, res.StatusCode);
+        }
 
         var list = await _client.GetFromJsonAsync<GetHullImagesResponse>("/api/hull-images");
         Assert.NotNull(list);

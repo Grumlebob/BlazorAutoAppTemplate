@@ -22,11 +22,6 @@
                 </button>
             </div>
             <div class="p-3 space-y-3">
-                <!-- Mode toggle -->
-                <div class="mb-2">
-                    <input class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" type="checkbox" role="switch" id="tusSwitch" @bind="_useTus" disabled="@_uploading" />
-                    <label class="ml-2 select-none" for="tusSwitch">Mode: <strong>@(_useTus ? "TUS" : "ONE SHOT")</strong></label>
-                </div>
 
                 <!-- Middle: Maintenance actions -->
                 <div class="flex flex-wrap gap-2 mb-2">
@@ -84,20 +79,17 @@
             <div class="h-5 w-full rounded bg-gray-200">
                 <div class="h-5 rounded bg-blue-600 text-center text-xs font-medium leading-5 text-white" style="width: @_progressPercent%" aria-valuenow="@_progressPercent" aria-valuemin="0" aria-valuemax="100">@_progressPercent%</div>
             </div>
-            @if (_useTus)
-            {
-                <div class="mt-2">
-                    @if (!_paused)
-                    {
-                        <button class="inline-flex items-center rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50" @onclick="PauseTus">Pause Upload</button>
-                    }
-                    else
-                    {
-                        <button class="inline-flex items-center rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50" @onclick="ResumeTus">Resume Upload</button>
-                        <span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 align-middle">Paused</span>
-                    }
-                </div>
-            }
+            <div class="mt-2">
+                @if (!_paused)
+                {
+                    <button class="inline-flex items-center rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50" @onclick="PauseTus">Pause Upload</button>
+                }
+                else
+                {
+                    <button class="inline-flex items-center rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50" @onclick="ResumeTus">Resume Upload</button>
+                    <span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 align-middle">Paused</span>
+                }
+            </div>
         </div>
     }
     
@@ -160,10 +152,10 @@ else
 @code {
     private bool _loading = true;
     private bool _uploading = false;
-    private bool _useTus = true;
+    
     private bool _devToolsOpen = false;
     private bool _paused = false;
-    private bool _canPauseResume => _uploading && _useTus && !_paused;
+    private bool _canPauseResume => _uploading && !_paused;
     // JS AbortController handles pause; no CTS needed
     private Guid? _currentCorrelationId;
     private Guid? _tusSessionId;
@@ -215,14 +207,7 @@ else
         _selectedLabel = files.Count == 1 ? files[0].Name : $"{files.Count} files selected";
         foreach (var file in e.GetMultipleFiles())
         {
-            if (_useTus)
-            {
-                await UploadTusAsync(file);
-            }
-            else
-            {
-                await UploadSingleAsync(file);
-            }
+            await UploadTusAsync(file);
         }
         await LoadAsync();
     }
@@ -243,31 +228,7 @@ else
 
     
 
-    private async Task UploadSingleAsync(IBrowserFile file)
-    {
-        _error = null; _info = null; _uploading = true; _currentFileName = file.Name; _bytesUploaded = 0; _currentTotalBytes = file.Size;
-        try
-        {
-            // Use a large read limit to support big files (10 GB)
-            await using var stream = file.OpenReadStream(maxAllowedSize: 10_737_418_240);
-            _ = await Api.UploadAsync(
-                fileName: file.Name,
-                contentType: file.ContentType,
-                content: stream,
-                size: file.Size,
-                progress: new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
-                ct: CancellationToken.None);
-            _info = $"Uploaded {file.Name} ({FormatBytes(file.Size)})";
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _uploading = false;
-        }
-    }
+    
 
     private async Task UploadTusAsync(IBrowserFile file)
     {
@@ -380,32 +341,13 @@ else
             var contentType = GuessContentType(_selectedTestAsset);
             _error = null; _info = null;
             _uploading = true; _currentFileName = _selectedTestAsset; _bytesUploaded = 0; _currentTotalBytes = 0; // unknown until fetched
-            if (_useTus)
-            {
-                var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-                var correlationId = Guid.NewGuid();
-                _currentCorrelationId = correlationId;
-                var sessionId = Guid.NewGuid();
-                _tusSessionId = sessionId;
-                var dotNetRef = DotNetObjectReference.Create(this);
-                _ = module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
-            }
-            else
-            {
-                // Fallback to one-shot via HttpClient
-                var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-                var base64 = await module.InvokeAsync<string>("fetchAsBase64", path);
-                if (string.IsNullOrWhiteSpace(base64)) { _error = $"Test asset not found at {path}"; return; }
-                var data = Convert.FromBase64String(base64);
-                _currentTotalBytes = data.LongLength;
-                await using var ms = new MemoryStream(data);
-                _ = await Api.UploadAsync(_selectedTestAsset, contentType, ms, data.LongLength,
-                    new Progress<long>(uploaded => { _bytesUploaded = uploaded; InvokeAsync(StateHasChanged); }),
-                    CancellationToken.None);
-                _info = $"Uploaded {_selectedTestAsset} ({FormatBytes(data.LongLength)})";
-                await LoadAsync();
-            }
-            if (!_useTus) await LoadAsync();
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            var correlationId = Guid.NewGuid();
+            _currentCorrelationId = correlationId;
+            var sessionId = Guid.NewGuid();
+            _tusSessionId = sessionId;
+            var dotNetRef = DotNetObjectReference.Create(this);
+            _ = module.InvokeVoidAsync("startTusUploadFromUrl", sessionId.ToString(), path, _selectedTestAsset, contentType, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef);
         }
         catch (Exception ex)
         {
@@ -413,11 +355,8 @@ else
         }
         finally
         {
-            if (!_useTus)
-            {
-                _uploading = false;
-                _selectedTestAsset = string.Empty;
-            }
+            // no single-shot fallback; nothing to reset beyond selected asset
+            _selectedTestAsset = string.Empty;
         }
     }
 

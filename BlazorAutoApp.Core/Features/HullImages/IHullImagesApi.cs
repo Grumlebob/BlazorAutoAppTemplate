@@ -9,9 +9,6 @@ public interface IHullImagesApi
     Task<GetHullImageResponse?> GetByCorrelationIdAsync(Guid correlationId, CancellationToken ct = default);
     Task<CreateHullImageResponse> CreateAsync(CreateHullImageRequest req);
 
-    // Single-shot streaming upload
-    Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default);
-
     // Resumable upload (TUS)
     Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default);
 

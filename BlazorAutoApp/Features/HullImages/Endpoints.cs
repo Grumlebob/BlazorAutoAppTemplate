@@ -27,43 +27,7 @@ public static class HullImageEndpoints
             return res is null ? Results.NotFound() : Results.Ok(res);
         });
 
-        // Single-shot streaming upload; body is raw bytes
-        group.MapPost("/", async (HttpRequest request, IHullImageStore store, IHullImagesApi api, ILogger<Program> log, CancellationToken ct) =>
-        {
-            var originalName = request.Headers["X-File-Name"].ToString();
-            if (string.IsNullOrWhiteSpace(originalName)) originalName = "upload.bin";
-            var contentType = request.ContentType;
-
-            if (request.ContentLength is > MaxUploadBytes)
-                return Results.BadRequest($"File exceeds {MaxUploadBytes} bytes limit");
-
-            var stored = await store.SaveAsync(request.Body, originalName, contentType, ct);
-            // Validate by identifying the image and capture dimensions (align with TUS flow)
-            int? width = null, height = null;
-            await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
-            {
-                var info = SixLabors.ImageSharp.Image.Identify(verify);
-                if (info is null)
-                {
-                    await store.DeleteAsync(stored.StorageKey, ct);
-                    return Results.BadRequest("Only decodable image files are allowed (jpeg, png, webp, gif, bmp, tiff)");
-                }
-                width = info.Width; height = info.Height;
-            }
-
-            var created = await api.CreateAsync(new CreateHullImageRequest
-            {
-                OriginalFileName = originalName,
-                ContentType = contentType,
-                ByteSize = stored.ByteSize,
-                StorageKey = stored.StorageKey,
-                Sha256 = stored.Sha256,
-                Width = width,
-                Height = height
-            });
-
-            return Results.Created($"/api/hull-images/{created.Id}", created);
-        }).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(MaxUploadBytes));
+        // Single-shot upload removed; use TUS-only client flow which stores file first
 
         // Download original with basic streaming
         group.MapGet("/{id:int}/original", async (int id, AppDbContext db, IHullImageStore store, CancellationToken ct) =>

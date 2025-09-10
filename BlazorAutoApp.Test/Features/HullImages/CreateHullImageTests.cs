@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -28,33 +29,48 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task SingleShot_Upload_And_Download_Works()
+    public async Task Tus_Upload_And_Download_Works()
     {
         var original = TestImageProvider.GetBytes();
-        using var content = new ByteArrayContent(original);
-        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images") { Content = content };
-        req.Headers.Add("X-File-Name", "test-image.PNG");
+        // TUS create
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/tus");
+        create.Headers.Add("Tus-Resumable", "1.0.0");
+        create.Headers.Add("Upload-Length", original.Length.ToString());
+        var b64name = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("test-image.PNG"));
+        var b64type = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("image/png"));
+        create.Headers.Add("Upload-Metadata", $"filename {b64name},contentType {b64type}");
+        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        var createRes = await _client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var location = createRes.Headers.Location?.ToString() ?? createRes.Headers.GetValues("Location").FirstOrDefault();
+        Assert.False(string.IsNullOrWhiteSpace(location));
 
-        var response = await _client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        // Single PATCH
+        using (var patch = new HttpRequestMessage(new HttpMethod("PATCH"), location))
+        {
+            patch.Headers.Add("Tus-Resumable", "1.0.0");
+            patch.Headers.Add("Upload-Offset", "0");
+            var body = new ByteArrayContent(original);
+            body.Headers.ContentType = new MediaTypeHeaderValue("application/offset+octet-stream");
+            patch.Content = body;
+            var res = await _client.SendAsync(patch);
+            Assert.Equal((HttpStatusCode)204, res.StatusCode);
+        }
 
-        var payload = await response.Content.ReadFromJsonAsync<CreateHullImageResponse>();
-        Assert.NotNull(payload);
-        Assert.True(payload!.Id > 0);
-        Assert.Equal(original.LongLength, payload.ByteSize);
-
-        var persisted = await _db.HullImages.FindAsync(payload.Id);
+        // Verify persisted item
+        var list = await _client.GetFromJsonAsync<GetHullImagesResponse>("/api/hull-images");
+        Assert.NotNull(list);
+        var created = list!.Items.First();
+        var persisted = await _db.HullImages.FindAsync(created.Id);
         Assert.NotNull(persisted);
-        Assert.Equal(original.LongLength, persisted!.ByteSize);
 
         // Download full
-        var bytes = await _client.GetByteArrayAsync($"/api/hull-images/{payload.Id}/original");
+        var bytes = await _client.GetByteArrayAsync($"/api/hull-images/{created.Id}/original");
         Assert.Equal(original, bytes);
 
         // Range request
-        var rangeReq = new HttpRequestMessage(HttpMethod.Get, $"/api/hull-images/{payload.Id}/original");
+        var rangeReq = new HttpRequestMessage(HttpMethod.Get, $"/api/hull-images/{created.Id}/original");
         rangeReq.Headers.Range = new RangeHeaderValue(0, 9);
         var rangeRes = await _client.SendAsync(rangeReq);
         Assert.Equal(HttpStatusCode.PartialContent, rangeRes.StatusCode);
@@ -63,9 +79,9 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         for (int i = 0; i < 10; i++) Assert.Equal(original[i], head[i]);
 
         // Delete
-        var del = await _client.DeleteAsync($"/api/hull-images/{payload.Id}");
+        var del = await _client.DeleteAsync($"/api/hull-images/{created.Id}");
         Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-        var gone = await _client.GetAsync($"/api/hull-images/{payload.Id}/original");
+        var gone = await _client.GetAsync($"/api/hull-images/{created.Id}/original");
         Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
     }
 

@@ -103,38 +103,32 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
         return removed;
     }
 
-    public async Task<CreateHullImageResponse> UploadAsync(string fileName, string? contentType, Stream content, long? size, IProgress<long>? progress, CancellationToken ct = default)
-    {
-        var stored = await store.SaveAsync(content, fileName, contentType, ct);
-        int? width = null, height = null;
-        await using (var verify = await store.OpenReadAsync(stored.StorageKey, ct))
-        {
-            var info = SixLabors.ImageSharp.Image.Identify(verify);
-            if (info is null)
-            {
-                await store.DeleteAsync(stored.StorageKey, ct);
-                throw new InvalidOperationException("Only decodable image files are allowed (jpeg, png, webp, gif, bmp, tiff)");
-            }
-            width = info.Width; height = info.Height;
-        }
-        var created = await CreateAsync(new CreateHullImageRequest
-        {
-            OriginalFileName = fileName,
-            ContentType = contentType,
-            ByteSize = stored.ByteSize,
-            StorageKey = stored.StorageKey,
-            Sha256 = stored.Sha256,
-            Width = width,
-            Height = height
-        });
-        return created;
-    }
-
+    /// <summary>
+    /// TUS uploads are handled by middleware and endpoints, not via this method.
+    /// Server-side flow (exact files and key lines):
+    /// - Program.cs
+    ///   - Line 130: app.UseTus(...) registers tusdotnet middleware.
+    ///   - Line 139: UrlPath = "/api/hull-images/tus" (TUS endpoint root).
+    ///   - Line 140: Store = new TusDiskStore(tusRoot) (on-disk TUS parts).
+    ///   - Line 156: Events.OnFileCompleteAsync – runs after the TUS upload finishes.
+    ///       - Line 173: IHullImageStore.SaveAsync(...) persists the completed stream to final storage.
+    ///       - Line 178: IHullImageStore.OpenReadAsync(...) +
+    ///         Line 179: ImageSharp Image.Identify(...) validate/inspect the image.
+    ///       - Line 191: IHullImagesApi.CreateAsync(new CreateHullImageRequest { ... }) creates the DB record.
+    ///       - Line 211: ITusResultRegistry.Set(correlationId, imageId) maps correlationId -> created image.
+    /// - Features/HullImages/Endpoints.cs
+    ///   - Line 91: MapGet("/tus/result", ...) returns the created image by correlationId.
+    ///   - Line 16: MapGroup("/api/hull-images") (group root); Line 33 original download; Line 42 thumbnail.
+    ///
+    /// Client-side (for reference):
+    /// - BlazorAutoApp.Client/wwwroot/js/tusUpload.js drives TUS (POST create + PATCH data), and the page
+    ///   BlazorAutoApp.Client/Pages/HullImages/Index.razor wires the JS interop and progress.
+    /// </summary>
     public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
     {
         // Server-side IHullImagesApi is not responsible for driving TUS protocol.
-        // Fallback to single-shot storage if invoked directly.
-        _ = await UploadAsync(fileName, contentType, content, size, progress, ct);
+        // This method is not expected to be invoked on the server service directly.
+        throw new NotSupportedException("TUS upload is handled by tusdotnet middleware and endpoints, not via IHullImagesApi.UploadTusAsync on server.");
     }
 
     public Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)

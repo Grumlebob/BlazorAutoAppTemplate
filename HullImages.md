@@ -2,8 +2,8 @@ HullImages Feature
 
 Overview
 - Purpose: High-throughput local image uploads for future AI processing.
-- Modes: Single-shot streaming ("SIMPLE ONE SHOT") and TUS resumable uploads (default for large files).
-- Limits: 1 GB per file.
+- Uploads: TUS resumable uploads only (single-shot removed).
+- Limits: 10 GB per file.
 - Storage: Local disk under `Storage/HullImages/yyyyMMdd/{guid}{ext}`.
   - On Windows local dev (running the server from this repo), files are created under:
     `BlazorAutoApp/Storage/HullImages/{yyyyMMdd}/{guid}{ext}`
@@ -15,16 +15,13 @@ Overview
 Endpoints
 - `GET /api/hull-images`: List images (metadata only).
 - `GET /api/hull-images/{id}`: Get a single image’s metadata (used by the Details page).
-- `POST /api/hull-images`: Single-shot streaming upload; body is raw bytes.
-  - Headers: `X-File-Name: <original file name>`
-  - Returns: `CreateHullImageResponse`.
 - `GET /api/hull-images/{id}/original`: Download original, with range support.
 - `GET /api/hull-images/{id}/thumbnail/{size}`: On-demand JPEG thumbnail generation and cached delivery. `size` is the max width/height.
 - `DELETE /api/hull-images/{id}`: Delete image (DB + file).
 - `POST /api/hull-images/prune-missing`: Remove DB entries whose files were deleted manually from disk.
 - TUS (resumable):
   - `POST /api/hull-images/tus` with `Tus-Resumable: 1.0.0`, `Upload-Length: <bytes>`, `Upload-Metadata: filename <b64>,contentType <b64>`
-- `PATCH {location}` with `Tus-Resumable`, `Upload-Offset`, and `Content-Type: application/offset+octet-stream` to send data.
+  - `PATCH {location}` with `Tus-Resumable`, `Upload-Offset`, and `Content-Type: application/offset+octet-stream` to send data.
   - On completion, the server streams into the configured `IHullImageStore`, validates, probes dimensions, and creates the DB record.
   - Optional metadata: `correlationId <b64-guid>` enables a server-side mapping so the client can look up the created image ID after completion.
   - `GET /api/hull-images/tus/result?correlationId=<guid>`: Lookup the created image by correlation ID.
@@ -42,11 +39,10 @@ TUS: Implementation Details (How It Works)
   - If `correlationId` was provided, maps `correlationId -> imageId` in `ITusResultRegistry` so the client can query `/tus/result` to retrieve the `Id`.
 
 Blazor UI (Server and WASM)
-- Toggle: "SIMPLE ONE SHOT" or "TUS". One-shot is kept for small uploads and tooling; TUS is the default for large uploads.
 - TUS client: Implemented in `/wwwroot/js/tusUpload.js` and invoked via JS interop from the Hull Images page.
 - The JS module performs `POST` (create) and `PATCH` (data segments), and reports progress back to the component via `[JSInvokable]` method `ReportTusProgress`.
   - A new `correlationId` (GUID) is generated per upload and sent in TUS metadata. After completion, the component calls `GET /api/hull-images/tus/result?correlationId=...` to obtain the created image’s `Id`.
-- Auto mode (prerender + interactive): Upload controls render during prerender but only become active once interactive. TUS still runs entirely in the browser after interactivity is established (works identically for Blazor Server and WASM).
+- Auto mode (prerender + interactive): Upload controls render during prerender but only become active once interactive. TUS runs entirely in the browser after interactivity is established (works identically for Blazor Server and WASM).
 
 Client/Server Separation
 - Components do not inject `HttpClient` directly (enforced by tests). The component calls JS to run the TUS protocol in the browser.
@@ -61,11 +57,8 @@ Post-Processing
 
 Blazor UI
 - Route: `/hull-images`.
-- Upload toggle: "SIMPLE ONE SHOT" or "TUS" via switch.
-- Progress bar: Shows bytes and percentage in both modes.
-- TUS controls: Pause/Resume UI.
+- Upload: TUS only (create + PATCH), with a progress bar and Pause/Resume.
 - Thumbnails: You can link to `/api/hull-images/{id}/thumbnail/256` or `/thumbnail/512` for previews.
-- Gallery: Toggle between Gallery and Table view. Gallery has a thumbnail size selector (128/256/512).
 - Prune Missing: Button to remove DB entries for missing files, then refresh the list.
 
 Core Interface (vertical slice)
@@ -74,7 +67,7 @@ Core Interface (vertical slice)
 - Client: `HullImagesClientService` uses `HttpClient` to call endpoints.
 
 Testing
-- Integration tests cover single-shot upload, listing, range download, delete, and TUS end-to-end.
+- Integration tests cover TUS upload, listing, range download, and delete end-to-end.
 - Tests generate minimal JPEG-like data (magic number + padding).
 
 Configuration
