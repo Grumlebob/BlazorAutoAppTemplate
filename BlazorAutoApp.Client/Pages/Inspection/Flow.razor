@@ -74,13 +74,14 @@ else
                                         @if (vp?.Id is int vpId)
                                         {
                                             var isActiveUpload = _uploading && _uploadingPartId == vpId;
+                                            var isQueued = _queuedPartIds.Contains(vpId) && (!_uploading || _uploadingPartId != vpId);
                                             <InputFile id=@($"fileInput-{vpId}") class="sr-only" OnChange="(args)=>OnFilesSelectedForPart(args, vpId)" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
-                                            <button type="button" class="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed @(isActiveUpload ? "bg-emerald-600 hover:bg-emerald-700" : _uploading ? "bg-gray-400 hover:bg-gray-400" : "bg-blue-600 hover:bg-blue-700")"
-                                                    @onclick="(()=>TriggerFileDialogForPart(vpId))" disabled="@_uploading">
+                                            <button type="button" class="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed @(isActiveUpload ? "bg-emerald-600 hover:bg-emerald-700" : isQueued ? "bg-indigo-600 hover:bg-indigo-700" : "bg-blue-600 hover:bg-blue-700")"
+                                                    @onclick="(()=>TriggerFileDialogForPart(vpId))">
                                                 @(isActiveUpload
                                                     ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_currentTotalBytes)}"
-                                                    : _uploading ? "Wait for other upload to finish" : "Upload")
-                                            </button>
+                                                    : isQueued ? "Upload image to queue" : "Upload")
+                                             </button>
                                         }
                                         else
                                         {
@@ -123,7 +124,7 @@ else
 
 @code {
     [Parameter] public Guid Id { get; set; }
-    [Inject] private IInspectionApi Api { get; set; } = default!;
+    [Inject] private IVerifyInspectionEmailApi Api { get; set; } = default!;
     [Inject] private IInspectionFlowApi FlowApi { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
@@ -139,6 +140,8 @@ else
     private int? _uploadingPartId;
     private long _bytesUploaded;
     private long _currentTotalBytes;
+    private readonly Queue<int> _uploadQueue = new();
+    private readonly HashSet<int> _queuedPartIds = new();
     private bool _saving;
     private string? _error;
     private string? _info;
@@ -310,44 +313,64 @@ else
         if (file is null) return;
         try
         {
-            _error = null; _info = null; _uploading = true; _uploadingPartId = vesselPartId; StateHasChanged();
-            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
-            var correlationId = Guid.NewGuid();
-            var sessionId = Guid.NewGuid();
-            var dotNetRef = DotNetObjectReference.Create(this);
-            // Reuse TUS helper: start from input index 0 and include vesselPartId metadata
-            await module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), $"fileInput-{vesselPartId}", 0, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef, vesselPartId);
-            // Poll by correlation id and then refresh part images
-            var created = await HullApi.GetByCorrelationIdAsync(correlationId);
-            if (created is not null && created.InspectionVesselPartId == vesselPartId)
+            _error = null; _info = null;
+            if (_uploading || _uploadQueue.Count > 0)
             {
-                var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = vesselPartId });
-                _imagesByPart[vesselPartId] = res.Items.Select(i => new GetHullImageResponse
+                if (!_queuedPartIds.Contains(vesselPartId))
                 {
-                    Id = i.Id,
-                    OriginalFileName = i.OriginalFileName,
-                    ContentType = i.ContentType,
-                    ByteSize = i.ByteSize,
-                    Sha256 = i.Sha256,
-                    Width = i.Width,
-                    Height = i.Height,
-                    CreatedAtUtc = i.CreatedAtUtc,
-                    AiHullScore = i.AiHullScore,
-                    VesselName = i.VesselName,
-                    InspectionVesselPartId = i.InspectionVesselPartId
-                }).ToList();
+                    _uploadQueue.Enqueue(vesselPartId);
+                    _queuedPartIds.Add(vesselPartId);
+                }
                 StateHasChanged();
+                return;
             }
+            await StartUploadForPartAsync(vesselPartId);
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
-        finally
+    }
+
+    private async Task StartUploadForPartAsync(int vesselPartId)
+    {
+        _uploading = true; _uploadingPartId = vesselPartId; _bytesUploaded = 0; _currentTotalBytes = 0; StateHasChanged();
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        var correlationId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var dotNetRef = DotNetObjectReference.Create(this);
+        await module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), $"fileInput-{vesselPartId}", 0, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef, vesselPartId);
+        var created = await HullApi.GetByCorrelationIdAsync(correlationId);
+        if (created is not null && created.InspectionVesselPartId == vesselPartId)
         {
-            _uploading = false; _uploadingPartId = null;
-            StateHasChanged();
+            var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = vesselPartId });
+            _imagesByPart[vesselPartId] = res.Items.Select(i => new GetHullImageResponse
+            {
+                Id = i.Id,
+                OriginalFileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                ByteSize = i.ByteSize,
+                Sha256 = i.Sha256,
+                Width = i.Width,
+                Height = i.Height,
+                CreatedAtUtc = i.CreatedAtUtc,
+                AiHullScore = i.AiHullScore,
+                VesselName = i.VesselName,
+                InspectionVesselPartId = i.InspectionVesselPartId
+            }).ToList();
         }
+        _uploading = false; _uploadingPartId = null;
+        StateHasChanged();
+        await StartNextQueuedUploadAsync();
+    }
+
+    private async Task StartNextQueuedUploadAsync()
+    {
+        if (_uploading) return;
+        if (_uploadQueue.Count == 0) return;
+        var next = _uploadQueue.Dequeue();
+        _queuedPartIds.Remove(next);
+        await StartUploadForPartAsync(next);
     }
 
     [JSInvokable]

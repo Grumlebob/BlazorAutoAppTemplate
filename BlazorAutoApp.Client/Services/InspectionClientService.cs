@@ -3,7 +3,7 @@ using BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail;
 
 namespace BlazorAutoApp.Client.Services;
 
-public class InspectionClientService(HttpClient http) : IInspectionApi
+public class InspectionClientService(HttpClient http) : IVerifyInspectionEmailApi
 {
     private readonly HttpClient _http = http;
 

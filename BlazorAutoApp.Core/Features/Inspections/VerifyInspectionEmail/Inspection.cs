@@ -22,7 +22,7 @@ public class VerifyInspectionPasswordResponse
     public string? Error { get; set; }
 }
 
-public interface IInspectionApi
+public interface IVerifyInspectionEmailApi
 {
     Task<VerifyInspectionPasswordResponse> VerifyPasswordAsync(VerifyInspectionPasswordRequest req, CancellationToken ct = default);
     Task<InspectionStatusResponse> GetStatusAsync(Guid id, CancellationToken ct = default);

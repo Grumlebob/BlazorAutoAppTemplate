@@ -1,4 +1,4 @@
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public class HullImagesStorageOptions
 {

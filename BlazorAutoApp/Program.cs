@@ -82,7 +82,7 @@ builder.Services.AddHybridCache();
 builder.Services.AddScoped<IEmailApi, EmailServerService>();
 // Inspections subfeatures
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
-builder.Services.AddScoped<IInspectionApi, InspectionServerService>();
+builder.Services.AddScoped<IVerifyInspectionEmailApi, InspectionServerService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
 

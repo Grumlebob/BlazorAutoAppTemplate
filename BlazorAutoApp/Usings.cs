@@ -1,7 +1,7 @@
 ﻿global using BlazorAutoApp.Components;
 global using BlazorAutoApp.Data;
 global using BlazorAutoApp.Features.Movies;
-global using BlazorAutoApp.Features.HullImages;
+global using BlazorAutoApp.Features.Inspections.HullImages;
 global using Microsoft.EntityFrameworkCore;
 global using BlazorAutoApp.Core.Features.Movies;
 global using BlazorAutoApp.Core.Features.HullImages;

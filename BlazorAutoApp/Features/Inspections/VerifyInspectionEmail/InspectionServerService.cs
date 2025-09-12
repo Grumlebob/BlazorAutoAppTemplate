@@ -4,7 +4,7 @@ using BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail;
 
 namespace BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
 
-public class InspectionServerService(AppDbContext db, ILogger<InspectionServerService> log) : IInspectionApi
+public class InspectionServerService(AppDbContext db, ILogger<InspectionServerService> log) : IVerifyInspectionEmailApi
 {
     private readonly AppDbContext _db = db;
     private readonly ILogger<InspectionServerService> _log = log;

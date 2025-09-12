@@ -20,7 +20,7 @@
 
 @code {
     [Parameter] public Guid Id { get; set; }
-    [Inject] private IInspectionApi Api { get; set; } = default!;
+    [Inject] private IVerifyInspectionEmailApi Api { get; set; } = default!;
 
     private string _password = string.Empty;
     private bool _verifying;

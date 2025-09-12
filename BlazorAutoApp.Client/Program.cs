@@ -18,7 +18,7 @@ builder.Services.AddScoped(sp => new HttpClient
 builder.Services.AddScoped<IMoviesApi, MoviesClientService>();
 builder.Services.AddScoped<IHullImagesApi, HullImagesClientService>();
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailClientService>();
-builder.Services.AddScoped<IInspectionApi, InspectionClientService>();
+builder.Services.AddScoped<IVerifyInspectionEmailApi, InspectionClientService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowClientService>();
 builder.Services.AddScoped<IEmailApi, SendEmailClientService>();
 
