@@ -40,4 +40,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.8" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="shipNames.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -5,6 +5,7 @@ using BlazorAutoApp.Core.Features.Email;
 using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -18,6 +19,7 @@ builder.Services.AddScoped<IMoviesApi, MoviesClientService>();
 builder.Services.AddScoped<IHullImagesApi, HullImagesClientService>();
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailClientService>();
 builder.Services.AddScoped<IInspectionApi, InspectionClientService>();
+builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowClientService>();
 builder.Services.AddScoped<IEmailApi, SendEmailClientService>();
 
 await builder.Build().RunAsync();

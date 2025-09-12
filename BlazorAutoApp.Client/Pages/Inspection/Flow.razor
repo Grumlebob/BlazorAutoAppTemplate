@@ -13,21 +13,98 @@ else if (!_verified)
 else
 {
     <h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
-    <div class="max-w-md">
-        <label class="block text-black mb-1">Vessel Name</label>
-        <InputText class="border rounded w-full px-3 py-2 text-black" @bind-Value="_vesselName" placeholder="Enter vessel name" />
-        <div class="text-gray-500 mt-2">(Dummy field — no action yet)</div>
-    </div>
+    <EditForm Model="@this" OnValidSubmit="SaveAsync">
+        <div class="max-w-xl space-y-4">
+            <div>
+                <label class="block text-black mb-1">Inspection Type</label>
+                <InputSelect class="border rounded w-full px-3 py-2 text-black" @bind-Value="_type">
+                    @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>())
+                    {
+                        <option value="@it">@it</option>
+                    }
+                </InputSelect>
+            </div>
+            <div>
+                <label class="block text-black mb-1">Vessel Name</label>
+                <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" @bind="_vesselName" placeholder="Search vessel name" />
+                <datalist id="vesselList">
+                    @foreach (var v in _vesselNames)
+                    {
+                        <option value="@v"></option>
+                    }
+                </datalist>
+            </div>
+            <div>
+                <label class="block text-black mb-2">Vessel Parts</label>
+                @foreach (var cat in _catalog)
+                {
+                    <div class="mb-2">
+                        <div class="font-medium text-black">@cat.Category</div>
+                        <div class="grid grid-cols-2 gap-1 mt-1">
+                            @foreach (var part in cat.Parts)
+                            {
+                                var code = $"{cat.Category}::{part}";
+                                <label class="inline-flex items-center text-black">
+                                    <input type="checkbox" class="mr-2" checked="@_selected.Contains(code)" @onchange="(e)=>TogglePart(code, e.Value)" /> @part
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            @if (_selected.Count > 0)
+            {
+                <div>
+                    <div class="text-black font-medium mb-1">Hull Images (optional per part)</div>
+                    @foreach (var code in _selected)
+                    {
+                        <div class="flex items-center gap-2 mb-1 text-black">
+                            <span class="w-72 truncate"></span>
+                            <input type="number" class="border rounded px-2 py-1 w-32" @bind="_hullImageByPart[code]" />
+                        </div>
+                    }
+                </div>
+            }
+            <div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded" disabled="@_saving">@(_saving ? "Saving..." : "Save")</button>
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <span class="text-red-600 ml-3">@_error</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_info))
+                {
+                    <span class="text-green-700 ml-3">@_info</span>
+                }
+            </div>
+        </div>
+    </EditForm>
 }
 
 @code {
     [Parameter] public Guid Id { get; set; }
     [Inject] private IInspectionApi Api { get; set; } = default!;
+    [Inject] private IInspectionFlowApi FlowApi { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
     private bool _checking = true;
     private bool _verified;
     private string _vesselName = string.Empty;
+    private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection;
+    private HashSet<string> _selected = new();
+    private Dictionary<string, int?> _hullImageByPart = new();
+    private bool _saving;
+    private string? _error;
+    private string? _info;
+    private List<string> _vesselNames = new();
+    private (string Category, string[] Parts)[] _catalog = new[]
+    {
+        ("bow", new[]{"Port","Starboard","Flat Bottom"}),
+        ("midships", new[]{"Front Port","Rear Port","Front Starboard","Rear Starboard","Front Flat Bottom","Rear Flat Bottom"}),
+        ("aft", new[]{"Port","Starboard","Flat Bottom"}),
+        ("rudder", new[]{"Port-Up","Port-Down","Starboard-Up","Starboard-Down"}),
+        ("propeller", new[]{"Propeller","Rope Guard","Shaft"}),
+        ("other", new[]{"Sea Chest Grating","Bilge Keels","ICCP","Aft Thruster","Keel Block Mark"})
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -38,7 +115,74 @@ else
         {
             await Task.Delay(300);
             Nav.NavigateTo($"/inspection/{Id}");
+            return;
+        }
+        await LoadAsync();
+        await LoadVesselNamesAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var model = await FlowApi.GetAsync(Id);
+            // Do not prefill vessel name in UI; leave for user selection
+            _type = model.InspectionType;
+            _selected = model.VesselParts.Select(vp => vp.PartCode).ToHashSet(StringComparer.Ordinal);
+            _hullImageByPart = model.VesselParts.ToDictionary(vp => vp.PartCode, vp => vp.HullImageId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void TogglePart(string code, object? value)
+    {
+        var isChecked = value is bool b && b;
+        if (isChecked) _selected.Add(code); else _selected.Remove(code);
+        if (!_hullImageByPart.ContainsKey(code)) _hullImageByPart[code] = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true; _error = null; _info = null;
+        try
+        {
+            var payload = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UpsertInspectionFlowRequest
+            {
+                Id = Id,
+                VesselName = _vesselName,
+                InspectionType = _type,
+                VesselParts = _selected.Select(code => new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPartDto
+                {
+                    PartCode = code,
+                    HullImageId = _hullImageByPart.TryGetValue(code, out var v) ? v : null
+                }).ToList()
+            };
+            var res = await FlowApi.UpsertAsync(payload);
+            _info = res.Success ? "Saved" : $"Failed: {res.Error}";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task LoadVesselNamesAsync()
+    {
+        try
+        {
+            var res = await FlowApi.GetVesselsAsync();
+            _vesselNames = res.Items.Select(x => x.Name).Distinct(StringComparer.Ordinal).OrderBy(s => s).ToList();
+        }
+        catch
+        {
+            _vesselNames = new();
         }
     }
 }
-

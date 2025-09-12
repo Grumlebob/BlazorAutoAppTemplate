@@ -20,11 +20,18 @@
     <div class="mt-2 text-black">@_status</div>
 }
 
+<div class="mt-6">
+    <button class="bg-gray-800 text-white px-3 py-2 rounded" @onclick="GoToAdminFlow">Admin: Open Demo Inspection Flow</button>
+    <div class="text-gray-600 mt-1">Opens a pre-seeded verified flow.</div>
+</div>
+
 @code {
     [Inject] private IStartHullInspectionEmailApi Api { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
 
     private List<CompanyListItem> _companies = new();
     private string? _status;
+    private static readonly Guid AdminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     protected override async Task OnInitializedAsync()
     {
@@ -54,6 +61,11 @@
         {
             _status = ex.Message;
         }
+    }
+
+    private void GoToAdminFlow()
+    {
+        Nav.NavigateTo($"/inspection/{AdminFlowId}/flow");
     }
 }
 

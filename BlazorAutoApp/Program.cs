@@ -1,8 +1,10 @@
 using BlazorAutoApp.Core.Features.Email;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using tusdotnet;
 using BlazorAutoApp.Features.Email;
 using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
+using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using Microsoft.AspNetCore.DataProtection;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -80,6 +82,7 @@ builder.Services.AddScoped<IEmailApi, EmailServerService>();
 // Inspections subfeatures
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
 builder.Services.AddScoped<IInspectionApi, InspectionServerService>();
+builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
@@ -167,6 +170,65 @@ using (var scope = app.Services.CreateScope())
             else
             {
                 logger.LogInformation("CompanyDetails already seeded");
+            }
+
+            // Seed a fixed, verified Inspection for Admin demo flow
+            var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
+            if (existingAdmin is null)
+            {
+                // Ensure a company exists to associate with
+                var companyId = await db.CompanyDetails.Select(c => c.Id).OrderBy(x => x).FirstAsync();
+                db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection
+                {
+                    Id = adminFlowId,
+                    CompanyId = companyId,
+                    PasswordSalt = "seed",
+                    PasswordHash = "seed",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1),
+                    VerifiedAtUtc = DateTime.UtcNow
+                });
+                // Optional: seed an initial flow record
+                db.InspectionFlows.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
+                {
+                    Id = adminFlowId,
+                    CompanyId = companyId,
+                    VesselName = null,
+                    InspectionType = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection
+                });
+                await db.SaveChangesAsync();
+                logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
+            }
+
+            // Seed Vessels from shipNames.txt (reset to file content every startup)
+            try
+            {
+                var root = builder.Environment.ContentRootPath;
+                var namesPath = Path.Combine(root, "shipNames.txt");
+                if (File.Exists(namesPath))
+                {
+                    var lines = (await File.ReadAllLinesAsync(namesPath))
+                        .Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(s => s)
+                        .ToList();
+
+                    // Clear existing and insert fresh
+                    await db.Vessels.ExecuteDeleteAsync();
+                    var vessels = lines.Select(name => new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel { Name = name }).ToList();
+                    db.Vessels.AddRange(vessels);
+                    await db.SaveChangesAsync();
+                    logger.LogInformation("Seeded {Count} vessels from shipNames.txt (reset)", vessels.Count);
+                }
+                else
+                {
+                    logger.LogWarning("shipNames.txt not found; Vessels table not seeded");
+                }
+            }
+            catch (Exception vex)
+            {
+                logger.LogWarning(vex, "Failed to seed Vessels from shipNames.txt");
             }
         }
         catch (Exception seedEx)
@@ -293,6 +355,7 @@ app.MapHullImageEndpoints();
 app.MapEmailEndpoints();
 app.MapStartHullInspectionEmailEndpoints();
 app.MapInspectionEndpoints();
+app.MapInspectionFlowEndpoints();
 
 app.Run();
 

@@ -3,6 +3,7 @@ using System;
 using BlazorAutoApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BlazorAutoApp.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250912123103_AddInspectionFlow")]
+    partial class AddInspectionFlow
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,27 +132,6 @@ namespace BlazorAutoApp.Data.Migrations
                     b.HasIndex("InspectionId", "PartCode");
 
                     b.ToTable("InspectionVesselParts", (string)null);
-                });
-
-            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Vessels", (string)null);
                 });
 
             modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail", b =>

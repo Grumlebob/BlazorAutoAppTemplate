@@ -30,6 +30,42 @@ Go directly to implement Inspection Details, no 3D image "Vessel Parts Inspectio
 
 Vessel Parts Inspection
 
+bow
+ Port
+ Starboard
+ Flat Bottom
+
+midships
+ Front Port
+ Rear Port
+ Front Starboard
+ Rear Starboard
+ Front Flat Bottom
+ Rear Flat Bottom
+
+aft
+ Port
+ Starboard
+ Flat Bottom
+
+rudder
+ Port-Up
+ Port-Down
+ Starboard-Up
+ Starboard-Down
+
+propeller
+ Propeller
+ Rope Guard
+ Shaft
+
+other
+ Sea Chest Grating
+ Bilge Keels
+ ICCP
+ Aft Thruster
+ Keel Block Mark
+
 Select Vessel Part - copy directly
 Fouling Condition
 Coating Condition
