@@ -125,61 +125,11 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
-// Apply EF Core migrations at startup (and log)
+// Apply EF Core migrations at startup
 using (var scope = app.Services.CreateScope())
 {
-    var sp = scope.ServiceProvider;
-    var db = sp.GetRequiredService<AppDbContext>();
-    var logger = sp.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        var pending = db.Database.GetPendingMigrations().ToList();
-        if (pending.Count > 0)
-        {
-            logger.LogInformation("Applying {Count} EF migrations: {Migrations}", pending.Count, string.Join(", ", pending));
-        }
-        else
-        {
-            logger.LogInformation("No EF migrations pending");
-        }
-        db.Database.Migrate();
-        // Seed 20 dummy companies if table empty
-        try
-        {
-            if (!await db.CompanyDetails.AnyAsync())
-            {
-                var companies = Enumerable.Range(1, 20)
-                    .Select(i => new CompanyDetail
-                    {
-                        Name = $"TestCompany{i}",
-                        Email = $"testcompany{i}@example.com",
-                        HasActivatedLatestInspectionEmail = true
-                    }).ToList();
-                companies.Add(new CompanyDetail
-                {
-                    Name = "Jacob Grum",
-                    Email = "jgrum@live.dk",
-                    HasActivatedLatestInspectionEmail = true
-                });
-                db.CompanyDetails.AddRange(companies);
-                await db.SaveChangesAsync();
-                logger.LogInformation("Seeded {Count} CompanyDetails items", companies.Count);
-            }
-            else
-            {
-                logger.LogInformation("CompanyDetails already seeded");
-            }
-        }
-        catch (Exception seedEx)
-        {
-            logger.LogWarning(seedEx, "CompanyDetails seed step skipped due to error");
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "EF migrations failed at startup");
-        throw;
-    }
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
 }
 
 app.MapStaticAssets();
@@ -298,3 +248,4 @@ app.Run();
 
 //A hacky solution to use Testcontainers with WebApplication.CreateBuilder for integration tests
 public partial class Program;
+

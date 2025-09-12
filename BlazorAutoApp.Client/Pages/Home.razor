@@ -2,9 +2,58 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1 class="text-3xl font-bold text-black">
-    Hello Hafnia!
-</h1>
+<h1 class="text-3xl font-bold text-black">Hello Hafnia!</h1>
 
-<p class="text-black">rendermode: @RendererInfo.Name</p>
+<p class="text-black mb-4">rendermode: @RendererInfo.Name</p>
+
+<div class="mb-2 text-black">Start Hull Inspection Email</div>
+<select class="border rounded px-2 py-1 text-black" @onchange="OnCompanyChanged">
+    <option value="">-- Select company --</option>
+    @foreach (var c in _companies)
+    {
+        <option value="@c.Id">@c.Name</option>
+    }
+    </select>
+
+@if (!string.IsNullOrWhiteSpace(_status))
+{
+    <div class="mt-2 text-black">@_status</div>
+}
+
+@code {
+    [Inject] private IStartHullInspectionEmailApi Api { get; set; } = default!;
+
+    private List<CompanyListItem> _companies = new();
+    private string? _status;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var res = await Api.GetCompaniesAsync();
+            _companies = res.Items;
+        }
+        catch (Exception ex)
+        {
+            _status = ex.Message;
+        }
+    }
+
+    private async Task OnCompanyChanged(ChangeEventArgs e)
+    {
+        _status = null;
+        var val = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(val)) return;
+        if (!int.TryParse(val, out var id)) return;
+        try
+        {
+            var res = await Api.StartAsync(new StartHullInspectionRequest { CompanyId = id });
+            _status = res.Success ? $"Email queued for company #{id}" : $"Failed: {res.Error}";
+        }
+        catch (Exception ex)
+        {
+            _status = ex.Message;
+        }
+    }
+}
 
