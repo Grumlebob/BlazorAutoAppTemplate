@@ -1,0 +1,52 @@
+Requirements:
+- Avoid authentication
+- Copy https://hull-inspecto-3d.lovable.app/upload
+
+
+Main page - LinkCreator
+1. dropdown, with all company names  (with mock company name and email)
+2. They select themselves.
+3. An email gets sent to the InspectionSite with a one-time password.
+4. If company gets chosen multiple times, only a single email will be sent.
+5. We set boolean "HasInspectionLinkBeenOpenedWithPassword". If no = don't send email.
+
+
+---- "New Inspection for VESSELNAME by COMPANYNAME" Page-----------
+
+1 single form.
+
+Inspection Type
+- GoPro Inspection,
+  Diving Inspection,
+  Hull Cleaning,
+  Propeller Cleaning
+
+Vessel Metadata
+Form with 
+- Vessel Name
+- Inspection date
+- Rest of metadata is fetched from their database
+Go directly to implement Inspection Details, no 3D image "Vessel Parts Inspection"
+
+Vessel Parts Inspection
+
+Select Vessel Part - copy directly
+Fouling Condition
+Coating Condition
+Hull Condition
+Hull Rating
+Notes
+
+We need two AI scores
+- One for the specific part/image
+- One for the whole vessel.
+
+Idea with project:
+- Get labaled data. Some AI team trains on it later.
+
+
+Agreement:
+- After all this is completed, start on real integration.
+-- Actual company names and emails
+-- Azure Blob Storage
+
