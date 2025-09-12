@@ -213,13 +213,23 @@ Browser ── HTTP ─▶ Server (SSR)
 
 go to BlazorAutoApp\BlazorAutoApp.Client
 run:
-npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
+
+First time: npm install tailwindcss @tailwindcss/cli
+For future building: npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
 
 
 # Migrations
+
+In appsettings.json set the port to your Postgres usually Port=5433 or Port=5432
 
 Add migration, From project source root:
 dotnet ef migrations add AddVesselAndAiFields --project BlazorAutoApp --startup-project BlazorAutoApp
 
 Apply migrations,From project source root:
 dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
+
+
+# Dev certificate
+
+Go to: docker/create-dev-cert.ps1 
+run it.
