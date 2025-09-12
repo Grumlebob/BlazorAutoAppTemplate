@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.StartHullInspectionEmail;
+using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 
 namespace BlazorAutoApp.Client.Services;
 
@@ -24,4 +24,3 @@ public class StartHullInspectionEmailClientService(HttpClient http) : IStartHull
         return payload ?? new StartHullInspectionResponse { Success = false, Error = await httpRes.Content.ReadAsStringAsync(ct) };
     }
 }
-

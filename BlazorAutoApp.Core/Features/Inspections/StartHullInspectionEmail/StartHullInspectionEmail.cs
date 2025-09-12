@@ -1,4 +1,4 @@
-namespace BlazorAutoApp.Core.Features.StartHullInspectionEmail;
+namespace BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 
 // Entity mapped to table CompanyDetails (server config)
 public class CompanyDetail

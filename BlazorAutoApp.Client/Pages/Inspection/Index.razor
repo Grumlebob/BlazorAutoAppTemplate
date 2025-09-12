@@ -1,0 +1,60 @@
+@page "/inspection/{Id:guid}"
+
+<PageTitle>Inspection</PageTitle>
+
+<h1 class="text-2xl font-semibold text-black mb-4">Inspection</h1>
+
+<div class="max-w-md">
+    <p class="text-black mb-2">Enter the password from your email to proceed.</p>
+    <EditForm Model="this" OnValidSubmit="VerifyAsync">
+        <InputText type="password" class="border rounded w-full px-3 py-2 mb-2 text-black" @bind-Value="_password" placeholder="Password" />
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded" disabled="@_verifying">
+            @(_verifying ? "Verifying..." : "Verify")
+        </button>
+    </EditForm>
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="text-red-600 mt-2">@_error</div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private IInspectionApi Api { get; set; } = default!;
+
+    private string _password = string.Empty;
+    private bool _verifying;
+    private string? _error;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private async Task VerifyAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Password is required";
+            return;
+        }
+        _verifying = true;
+        try
+        {
+            var res = await Api.VerifyPasswordAsync(new VerifyInspectionPasswordRequest
+            {
+                Id = Id,
+                Password = _password
+            });
+            if (!res.Success)
+                _error = res.Error ?? "Invalid password";
+            else
+                Nav.NavigateTo($"/inspection/{Id}/flow", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _verifying = false;
+        }
+    }
+}

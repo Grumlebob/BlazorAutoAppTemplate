@@ -1,10 +1,8 @@
 using BlazorAutoApp.Core.Features.Email;
 using tusdotnet;
-using BlazorAutoApp.Core.Features.HullImages;
-using BlazorAutoApp.Core.Features.StartHullInspectionEmail;
 using BlazorAutoApp.Features.Email;
-using BlazorAutoApp.Features.HullImages;
-using BlazorAutoApp.Features.StartHullInspectionEmail;
+using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
+using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
 using Microsoft.AspNetCore.DataProtection;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -79,8 +77,9 @@ builder.Services.AddStackExchangeRedisCache(options => { options.Configuration =
 builder.Services.AddHybridCache();
 // Email services
 builder.Services.AddScoped<IEmailApi, EmailServerService>();
-// StartHullInspectionEmail slice
+// Inspections subfeatures
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
+builder.Services.AddScoped<IInspectionApi, InspectionServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
@@ -293,6 +292,7 @@ app.MapMovieEndpoints();
 app.MapHullImageEndpoints();
 app.MapEmailEndpoints();
 app.MapStartHullInspectionEmailEndpoints();
+app.MapInspectionEndpoints();
 
 app.Run();
 

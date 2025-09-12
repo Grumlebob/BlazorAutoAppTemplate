@@ -3,6 +3,7 @@ using System;
 using BlazorAutoApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BlazorAutoApp.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250912113936_AddCompanyVerify")]
+    partial class AddCompanyVerify
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -85,35 +88,7 @@ namespace BlazorAutoApp.Data.Migrations
                     b.ToTable("HullImages", (string)null);
                 });
 
-            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(320)
-                        .HasColumnType("character varying(320)");
-
-                    b.Property<bool>("HasActivatedLatestInspectionEmail")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("CompanyDetails", (string)null);
-                });
-
-            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection", b =>
+            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspection.Inspection", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
@@ -133,9 +108,6 @@ namespace BlazorAutoApp.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
-
-                    b.Property<DateTime?>("VerifiedAtUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -172,9 +144,37 @@ namespace BlazorAutoApp.Data.Migrations
                     b.ToTable("Movies");
                 });
 
-            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection", b =>
+            modelBuilder.Entity("BlazorAutoApp.Core.Features.StartHullInspectionEmail.CompanyDetail", b =>
                 {
-                    b.HasOne("BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail", null)
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("HasActivatedLatestInspectionEmail")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CompanyDetails", (string)null);
+                });
+
+            modelBuilder.Entity("BlazorAutoApp.Core.Features.Inspection.Inspection", b =>
+                {
+                    b.HasOne("BlazorAutoApp.Core.Features.StartHullInspectionEmail.CompanyDetail", null)
                         .WithMany()
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)

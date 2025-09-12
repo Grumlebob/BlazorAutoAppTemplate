@@ -1,7 +1,7 @@
-using BlazorAutoApp.Core.Features.StartHullInspectionEmail;
+using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Core.Features.Email;
 
-namespace BlazorAutoApp.Features.StartHullInspectionEmail;
+namespace BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 
 public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi email, ILogger<StartHullInspectionEmailServerService> log)
     : IStartHullInspectionEmailApi
@@ -31,12 +31,24 @@ public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi em
         try
         {
             company.HasActivatedLatestInspectionEmail = false;
+            // Create a new Inspection with id + password
+            var inspectionId = Guid.NewGuid();
+            var password = BlazorAutoApp.Features.Inspections.VerifyInspectionEmail.InspectionServerService.GeneratePassword(10);
+            var (salt, hash) = BlazorAutoApp.Features.Inspections.VerifyInspectionEmail.InspectionServerService.HashPassword(password);
+            _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection
+            {
+                Id = inspectionId,
+                CompanyId = company.Id,
+                PasswordSalt = salt,
+                PasswordHash = hash,
+                CreatedAtUtc = DateTime.UtcNow
+            });
             await _db.SaveChangesAsync(ct);
             var send = await _email.SendAsync(new SendEmailRequest
             {
                 To = company.Email,
                 Subject = "Start Hull Inspection",
-                Text = "hello world"
+                Text = $"Hello,\n\nAn inspection has been initiated.\n\nInspection ID: {inspectionId}\nPassword: {password}\n\nNavigate to /inspection/{inspectionId} and enter the password to proceed.\n"
             }, ct);
 
             return new StartHullInspectionResponse { Success = send.Success, Error = send.Error };

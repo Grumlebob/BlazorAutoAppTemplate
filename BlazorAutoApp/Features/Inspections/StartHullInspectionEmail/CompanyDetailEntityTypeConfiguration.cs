@@ -1,6 +1,6 @@
-using BlazorAutoApp.Core.Features.StartHullInspectionEmail;
+using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 
-namespace BlazorAutoApp.Features.StartHullInspectionEmail;
+namespace BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 
 public class CompanyDetailEntityTypeConfiguration : IEntityTypeConfiguration<CompanyDetail>
 {

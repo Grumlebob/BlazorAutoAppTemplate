@@ -1,0 +1,44 @@
+@page "/inspection/{Id:guid}/flow"
+
+<PageTitle>Inspection Flow</PageTitle>
+
+@if (_checking)
+{
+    <p class="text-black">Checking access…</p>
+}
+else if (!_verified)
+{
+    <p class="text-black">Access denied. Redirecting to verification…</p>
+}
+else
+{
+    <h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
+    <div class="max-w-md">
+        <label class="block text-black mb-1">Vessel Name</label>
+        <InputText class="border rounded w-full px-3 py-2 text-black" @bind-Value="_vesselName" placeholder="Enter vessel name" />
+        <div class="text-gray-500 mt-2">(Dummy field — no action yet)</div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private IInspectionApi Api { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private bool _checking = true;
+    private bool _verified;
+    private string _vesselName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var res = await Api.GetStatusAsync(Id);
+        _verified = res.Verified;
+        _checking = false;
+        if (!_verified)
+        {
+            await Task.Delay(300);
+            Nav.NavigateTo($"/inspection/{Id}");
+        }
+    }
+}
+
