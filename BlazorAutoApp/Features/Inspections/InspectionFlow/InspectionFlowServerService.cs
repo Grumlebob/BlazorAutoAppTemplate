@@ -74,16 +74,28 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
         flow.VesselName = req.VesselName;
         flow.InspectionType = req.InspectionType;
 
-        // Sync vessel parts (simple replace strategy)
-        _db.RemoveRange(flow.VesselParts);
-        flow.VesselParts.Clear();
-        foreach (var vp in req.VesselParts)
+        // Sync vessel parts by diffing on PartCode to preserve existing IDs (and linked images)
+        var existingByCode = flow.VesselParts.ToDictionary(v => v.PartCode, StringComparer.Ordinal);
+        var requestedCodes = new HashSet<string>(req.VesselParts.Select(v => v.PartCode), StringComparer.Ordinal);
+
+        // Remove parts that are no longer requested
+        var toRemove = flow.VesselParts.Where(v => !requestedCodes.Contains(v.PartCode)).ToList();
+        if (toRemove.Count > 0)
         {
-            flow.VesselParts.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart
+            _db.RemoveRange(toRemove);
+        }
+
+        // Add new parts that didn't exist before
+        foreach (var code in requestedCodes)
+        {
+            if (!existingByCode.ContainsKey(code))
             {
-                PartCode = vp.PartCode,
-                InspectionId = flow.Id
-            });
+                flow.VesselParts.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart
+                {
+                    PartCode = code,
+                    InspectionId = flow.Id
+                });
+            }
         }
 
         await _db.SaveChangesAsync(ct);

@@ -13,20 +13,20 @@ else if (!_verified)
 else
 {
     <h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
-    <EditForm Model="@this" OnValidSubmit="SaveAsync">
+    <EditForm Model="@this">
         <div class="max-w-xl space-y-4">
             <div>
                 <label class="block text-black mb-1">Inspection Type</label>
-                <InputSelect class="border rounded w-full px-3 py-2 text-black" @bind-Value="_type">
+                <select class="border rounded w-full px-3 py-2 text-black" value="@_type" @onchange="OnTypeChanged">
                     @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>())
                     {
                         <option value="@it">@it</option>
                     }
-                </InputSelect>
+                </select>
             </div>
             <div>
                 <label class="block text-black mb-1">Vessel Name</label>
-                <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" @bind="_vesselName" placeholder="Search vessel name" />
+                <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" value="@_vesselName" @onchange="OnVesselNameChanged" placeholder="Search vessel name" />
                 <datalist id="vesselList">
                     @foreach (var v in _vesselNames)
                     {
@@ -84,7 +84,7 @@ else
                                         }
                                         else
                                         {
-                                            <span class="text-gray-500 text-sm">Save to enable uploads</span>
+                                            <span class="text-gray-500 text-sm">@(_saving ? "Saving part..." : "Part will be ready after autosave")</span>
                                         }
                                     </td>
                                     <td class="px-3 py-2">
@@ -115,17 +115,8 @@ else
                     </table>
                 </div>
             }
-            <div>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded" disabled="@_saving">@(_saving ? "Saving..." : "Save")</button>
-                @if (!string.IsNullOrWhiteSpace(_error))
-                {
-                    <span class="text-red-600 ml-3">@_error</span>
-                }
-                @if (!string.IsNullOrWhiteSpace(_info))
-                {
-                    <span class="text-green-700 ml-3">@_info</span>
-                }
-            </div>
+            @if (!string.IsNullOrWhiteSpace(_error)) { <div class="text-red-600">@_error</div> }
+            @if (!string.IsNullOrWhiteSpace(_info)) { <div class="text-green-700">@_info</div> }
         </div>
     </EditForm>
 }
@@ -194,7 +185,24 @@ else
         }
     }
 
-    private void TogglePart(string code, object? value)
+    private Task OnVesselNameChanged(ChangeEventArgs e)
+    {
+        _vesselName = e?.Value?.ToString() ?? string.Empty;
+        return SaveFlowAsync();
+    }
+
+    private Task OnTypeChanged(ChangeEventArgs e)
+    {
+        var s = e?.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(s) && Enum.TryParse<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>(s, out var t))
+        {
+            _type = t;
+            return SaveFlowAsync();
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task TogglePart(string code, object? value)
     {
         var isChecked = value is bool b && b;
         if (isChecked) _selected.Add(code); else _selected.Remove(code);
@@ -202,9 +210,10 @@ else
         {
             _vesselParts.Add(new VesselPartVm(null, code));
         }
+        await SaveFlowAsync();
     }
 
-    private async Task SaveAsync()
+    private async Task SaveFlowAsync()
     {
         _saving = true; _error = null; _info = null;
         try
@@ -225,10 +234,13 @@ else
                 }).ToList()
             };
             var res = await FlowApi.UpsertAsync(payload);
-            _info = res.Success ? "Saved" : $"Failed: {res.Error}";
             if (res.Success)
             {
                 await LoadAsync();
+            }
+            else
+            {
+                _error = res.Error;
             }
         }
         catch (Exception ex)
