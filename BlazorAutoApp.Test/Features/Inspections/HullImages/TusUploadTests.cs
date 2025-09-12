@@ -9,7 +9,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Test.TestingSetup;
 using Xunit;
 
-namespace BlazorAutoApp.Test.Features.HullImages;
+namespace BlazorAutoApp.Test.Features.Inspections.HullImages;
 
 [Collection("MediaTestCollection")]
 public class TusUploadTests : IAsyncLifetime

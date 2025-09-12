@@ -1,6 +1,6 @@
 # Overview
 
-This solution enables Auto render mode across pages without duplicating UI code by abstracting data access behind a shared Core interface and using host-specific implementations for prerender (server) and post-hydration (client/WASM).
+This solution enables Auto render mode across pages without duplicating UI code by abstracting data access behind a shared Core interface and using host-specific implementations for prerender (server) and post‑hydration (client/WASM).
 
 ## Architecture
 
@@ -233,3 +233,35 @@ dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoAp
 
 Go to: docker/create-dev-cert.ps1 
 run it.
+## Inspections Feature (Flow + HullImages)
+
+- Structure:
+  - All server HullImages code lives under `BlazorAutoApp/Features/Inspections/HullImages` (endpoints, storage, TUS, EF config).
+  - Flow server code under `BlazorAutoApp/Features/Inspections/InspectionFlow`.
+  - Verification endpoints under `BlazorAutoApp/Features/Inspections/VerifyInspectionEmail`.
+  - Start email endpoints under `BlazorAutoApp/Features/Inspections/StartHullInspectionEmail`.
+
+- Client UI:
+  - `BlazorAutoApp.Client/Pages/Inspection/Flow.razor` auto‑saves vessel name, inspection type and selected vessel parts (no Save button).
+  - Per‑part uploads use TUS with a queue:
+    - First clicked upload starts immediately and shows green progress.
+    - Additional parts show “Upload image to queue”; each part runs when prior finishes.
+  - Images show a small thumbnail and “AI Score: X.XX” beneath the filename. The score is a temporary placeholder until a backend scorer populates it.
+  - Details page for images (`/hull-images/{id}`) remains available. Back link respects `?return=` when linked from Flow.
+
+- APIs and DI:
+  - Verification interface renamed to `IVerifyInspectionEmailApi` on both server and client.
+  - Routes remain stable (e.g., `/api/inspection/{id}/verify`, `/api/inspection/{id}/status`, `/api/hull-images` and `/api/hull-images/tus`).
+  - Flow upsert endpoint `/api/inspection-flow/{id}` diffs vessel parts by PartCode to preserve existing `InspectionVesselPart` ids (keeps linked images).
+
+- Tests:
+  - Integration tests cover: verification, flow upsert (positive/negative), hull image upload and filtering by vessel part, start‑email endpoints, and TUS upload path.
+  - Test fixtures stub `IEmailApi` to avoid external email dependency.
+
+Inspections endpoints (selected):
+- `/api/inspection/{id}/verify` (POST): verify password (uses `IVerifyInspectionEmailApi`).
+- `/api/inspection/{id}/status` (GET): gate for flow page.
+- `/api/inspection-flow/{id}` (GET/POST): get/upsert flow; upsert preserves part ids by `PartCode`.
+- `/api/inspection-flow/vessels` (GET): list known vessel names.
+- `/api/hull-images` (GET): supports filter by `VesselPartId`.
+- `/api/hull-images/tus` (POST + PATCH): TUS uploads; metadata supports `correlationId` and `vesselPartId`.

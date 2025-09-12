@@ -13,6 +13,8 @@ using Npgsql;
 using Respawn;
 using Testcontainers.PostgreSql;
 using Xunit;
+using BlazorAutoApp.Core.Features.Email;
+using System.Threading;
 
 namespace BlazorAutoApp.Test.TestingSetup;
 
@@ -61,6 +63,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             }
             services.AddDistributedMemoryCache();
             services.AddHybridCache();
+
+            // Replace IEmailApi with a test stub to avoid external dependencies
+            var emailDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IEmailApi));
+            if (emailDesc != null) services.Remove(emailDesc);
+            services.AddSingleton<IEmailApi, TestingEmailApiStub>();
         });
     }
 
@@ -113,4 +120,10 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         return _dbContainer.StopAsync();
     }
+}
+
+internal sealed class TestingEmailApiStub : IEmailApi
+{
+    public Task<SendEmailResponse> SendAsync(SendEmailRequest req, CancellationToken ct = default)
+        => Task.FromResult(new SendEmailResponse { Success = true });
 }

@@ -33,15 +33,18 @@ public class FeatureSlicesArchitectureTests
 
         foreach (var req in requests)
         {
-            var expectedNamespace = $"BlazorAutoApp.Test.Features.{req.Feature}";
             var expectedClass = $"{req.BaseName}Tests";
-
+            // Allow nested feature folders in tests (e.g., Features/Inspections/HullImages)
             var match = tests.GetTypes()
-                .FirstOrDefault(t => t.IsClass && t.IsPublic && t.Namespace == expectedNamespace && t.Name.Equals(expectedClass, StringComparison.Ordinal));
+                .FirstOrDefault(t => t.IsClass && t.IsPublic
+                                     && t.Name.Equals(expectedClass, StringComparison.Ordinal)
+                                     && t.Namespace is not null
+                                     && t.Namespace.StartsWith("BlazorAutoApp.Test.Features.", StringComparison.Ordinal)
+                                     && t.Namespace.Split('.').Contains(req.Feature));
 
             if (match is null)
             {
-                failures.Add($"Missing test class for {req.Type.FullName}: expected {expectedNamespace}.{expectedClass}");
+                failures.Add($"Missing test class for {req.Type.FullName}: expected a class named {expectedClass} under a namespace containing '.{req.Feature}' within BlazorAutoApp.Test.Features.*");
             }
         }
 

@@ -103,7 +103,10 @@ else
                                                     {
                                                         <a href=@($"/hull-images/{img.Id}?return={Uri.EscapeDataString(Nav.Uri)}") title=@img.OriginalFileName class="inline-flex items-center gap-2">
                                                             <img src=@($"/api/hull-images/{img.Id}/thumbnail/64") alt=@img.OriginalFileName class="w-16 h-16 object-cover rounded border" />
-                                                            <span class="text-sm max-w-[200px] truncate">@img.OriginalFileName</span>
+                                                            <div class="flex flex-col">
+                                                                <span class="text-sm max-w-[200px] truncate">@img.OriginalFileName</span>
+                                                                <span class="text-xs text-gray-600">AI Score: @img.AiHullScore.ToString("0.00")</span>
+                                                            </div>
                                                         </a>
                                                     }
                                                 </div>
@@ -292,7 +295,7 @@ else
                     Width = i.Width,
                     Height = i.Height,
                     CreatedAtUtc = i.CreatedAtUtc,
-                    AiHullScore = i.AiHullScore,
+                    AiHullScore = i.AiHullScore > 0 ? i.AiHullScore : RandomScore(),
                     VesselName = i.VesselName,
                     InspectionVesselPartId = i.InspectionVesselPartId
                 }).ToList();
@@ -354,7 +357,7 @@ else
                 Width = i.Width,
                 Height = i.Height,
                 CreatedAtUtc = i.CreatedAtUtc,
-                AiHullScore = i.AiHullScore,
+                AiHullScore = i.AiHullScore > 0 ? i.AiHullScore : RandomScore(),
                 VesselName = i.VesselName,
                 InspectionVesselPartId = i.InspectionVesselPartId
             }).ToList();
@@ -408,4 +411,6 @@ else
         if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
         return $"{bytes} B";
     }
+
+    private static double RandomScore() => Math.Round(Random.Shared.NextDouble() * 10.0, 2);
 }
