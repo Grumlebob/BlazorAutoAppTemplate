@@ -1,4 +1,5 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Core.Features.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
@@ -26,8 +27,8 @@ public class InspectionVesselPartEntityTypeConfiguration : IEntityTypeConfigurat
         entity.ToTable("InspectionVesselParts");
         entity.HasKey(x => x.Id);
         entity.Property(x => x.PartCode).IsRequired().HasMaxLength(100);
-        entity.Property(x => x.HullImageId).IsRequired(false);
         entity.HasIndex(x => new { x.InspectionId, x.PartCode });
+        // HullImages are linked from HullImages table via InspectionVesselPartId
     }
 }
 

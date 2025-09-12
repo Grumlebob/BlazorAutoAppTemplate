@@ -2,6 +2,7 @@ using BlazorAutoApp.Core.Features.Email;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using tusdotnet;
 using BlazorAutoApp.Features.Email;
+using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
@@ -284,6 +285,7 @@ app.UseTus(context =>
                 meta.TryGetValue("filename", out var fnameMeta);
                 meta.TryGetValue("contentType", out var ctypeMeta);
                 meta.TryGetValue("correlationId", out var correlationMeta);
+                meta.TryGetValue("vesselPartId", out var vesselPartMeta);
                 var fileName = fnameMeta?.GetString(System.Text.Encoding.UTF8) ?? "upload.bin";
                 var contentType = ctypeMeta?.GetString(System.Text.Encoding.UTF8);
 
@@ -306,6 +308,17 @@ app.UseTus(context =>
                     return;
                 }
 
+                int? vesselPartId = null;
+                if (vesselPartMeta is not null)
+                {
+                    try
+                    {
+                        var raw = vesselPartMeta.GetString(System.Text.Encoding.UTF8);
+                        if (int.TryParse(raw, out var vp)) vesselPartId = vp;
+                    }
+                    catch { }
+                }
+
                 var created = await api.CreateAsync(new CreateHullImageRequest
                 {
                     OriginalFileName = fileName,
@@ -314,7 +327,8 @@ app.UseTus(context =>
                     StorageKey = stored.StorageKey,
                     Sha256 = stored.Sha256,
                     Width = width,
-                    Height = height
+                    Height = height,
+                    InspectionVesselPartId = vesselPartId
                 });
                 logger.LogInformation("TUS upload completed -> HullImage {Id}", created.Id);
 

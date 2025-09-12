@@ -3,7 +3,7 @@ const tusSessions = new Map();
 
 function toB64(s) { return btoa(unescape(encodeURIComponent(s || ''))); }
 
-export async function startTusUploadFromInput(sessionId, inputId, fileIndex, endpoint, correlationId, chunkSizeMB = 4, dotNetRef) {
+export async function startTusUploadFromInput(sessionId, inputId, fileIndex, endpoint, correlationId, chunkSizeMB = 4, dotNetRef, vesselPartId) {
   if (!sessionId) throw new Error('Missing sessionId');
   const input = document.getElementById(inputId);
   if (!input || !input.files || input.files.length === 0) throw new Error('No files selected');
@@ -18,7 +18,10 @@ export async function startTusUploadFromInput(sessionId, inputId, fileIndex, end
   let ctx = tusSessions.get(sessionId);
   if (!ctx) {
     // Create
-    const meta = `filename ${toB64(file.name)},contentType ${toB64(file.type || 'application/octet-stream')},correlationId ${toB64(correlationId)}`;
+    let meta = `filename ${toB64(file.name)},contentType ${toB64(file.type || 'application/octet-stream')},correlationId ${toB64(correlationId)}`;
+    if (typeof vesselPartId === 'number' && Number.isFinite(vesselPartId)) {
+      meta += `,vesselPartId ${toB64(String(vesselPartId))}`;
+    }
     const createRes = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -52,7 +55,7 @@ export async function startTusUploadFromInput(sessionId, inputId, fileIndex, end
   await runTusLoop(sessionId);
 }
 
-export async function startTusUploadFromUrl(sessionId, url, fileName, contentType, endpoint, correlationId, chunkSizeMB = 4, dotNetRef) {
+export async function startTusUploadFromUrl(sessionId, url, fileName, contentType, endpoint, correlationId, chunkSizeMB = 4, dotNetRef, vesselPartId) {
   if (!sessionId) throw new Error('Missing sessionId');
   const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
@@ -67,7 +70,10 @@ export async function startTusUploadFromUrl(sessionId, url, fileName, contentTyp
 
   let ctx = tusSessions.get(sessionId);
   if (!ctx) {
-    const meta = `filename ${toB64(fileName || 'download.bin')},contentType ${toB64(contentType || 'application/octet-stream')},correlationId ${toB64(correlationId)}`;
+    let meta = `filename ${toB64(fileName || 'download.bin')},contentType ${toB64(contentType || 'application/octet-stream')},correlationId ${toB64(correlationId)}`;
+    if (typeof vesselPartId === 'number' && Number.isFinite(vesselPartId)) {
+      meta += `,vesselPartId ${toB64(String(vesselPartId))}`;
+    }
     const createRes = await fetch(endpoint, {
       method: 'POST',
       headers: {

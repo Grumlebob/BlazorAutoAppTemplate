@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Security.Cryptography;
 
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public record StoredHullImage(string StorageKey, long ByteSize, string Sha256);
 

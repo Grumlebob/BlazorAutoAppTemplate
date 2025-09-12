@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public class TusResultRegistryRedis : ITusResultRegistry
 {
@@ -36,4 +36,3 @@ public class TusResultRegistryRedis : ITusResultRegistry
         return false;
     }
 }
-

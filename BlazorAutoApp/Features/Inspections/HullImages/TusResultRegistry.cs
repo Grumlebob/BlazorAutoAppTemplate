@@ -1,4 +1,4 @@
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public interface ITusResultRegistry
 {
@@ -12,4 +12,3 @@ public class TusResultRegistry : ITusResultRegistry
     public void Set(Guid correlationId, int imageId) => _map[correlationId] = imageId;
     public bool TryGet(Guid correlationId, out int imageId) => _map.TryGetValue(correlationId, out imageId);
 }
-

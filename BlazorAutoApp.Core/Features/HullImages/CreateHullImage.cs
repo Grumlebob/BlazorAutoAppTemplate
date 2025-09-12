@@ -25,6 +25,9 @@ public class CreateHullImageRequest
     // Optional: allow client to set vessel name at creation time
     [MaxLength(128)]
     public string? VesselName { get; set; } = "BoatyBoat";
+
+    // Optional association to a specific vessel part
+    public int? InspectionVesselPartId { get; set; }
 }
 
 public class CreateHullImageResponse
@@ -37,4 +40,5 @@ public class CreateHullImageResponse
     public int? Width { get; init; }
     public int? Height { get; init; }
     public string VesselName { get; init; } = "BoatyBoat";
+    public int? InspectionVesselPartId { get; init; }
 }

@@ -21,7 +21,7 @@ public class AppDbContext : DbContext
 
         // Apply per-feature configurations
         modelBuilder.ApplyConfiguration(new Features.Movies.MovieEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.HullImages.HullImageEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.HullImages.HullImageEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.StartHullInspectionEmail.CompanyDetailEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.VerifyInspectionEmail.InspectionEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionFlowEntityTypeConfiguration());

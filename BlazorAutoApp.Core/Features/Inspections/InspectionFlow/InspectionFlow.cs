@@ -1,3 +1,5 @@
+using BlazorAutoApp.Core.Features.HullImages;
+
 namespace BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 
 public enum InspectionType
@@ -23,7 +25,7 @@ public class InspectionVesselPart
     public int Id { get; set; }
     public Guid InspectionId { get; set; }
     public required string PartCode { get; set; }
-    public int? HullImageId { get; set; } // references global HullImages.HullImage Id
+    public ICollection<HullImage> HullImages { get; set; } = new List<HullImage>();
 }
 
 // DTOs
@@ -40,7 +42,6 @@ public class InspectionVesselPartDto
 {
     public int? Id { get; set; }
     public required string PartCode { get; set; }
-    public int? HullImageId { get; set; }
 }
 
 public class UpsertInspectionFlowRequest

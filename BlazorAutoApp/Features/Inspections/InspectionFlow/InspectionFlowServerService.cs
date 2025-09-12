@@ -44,8 +44,7 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
             VesselParts = flow.VesselParts.Select(vp => new InspectionVesselPartDto
             {
                 Id = vp.Id,
-                PartCode = vp.PartCode,
-                HullImageId = vp.HullImageId
+                PartCode = vp.PartCode
             }).ToList()
         };
     }
@@ -83,7 +82,6 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
             flow.VesselParts.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart
             {
                 PartCode = vp.PartCode,
-                HullImageId = vp.HullImageId,
                 InspectionId = flow.Id
             });
         }

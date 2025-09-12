@@ -1,13 +1,18 @@
 using BlazorAutoApp.Core.Features.HullImages;
 
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry, IWebHostEnvironment env)
     : IHullImagesApi
 {
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
     {
-        var items = await db.Set<HullImage>().AsNoTracking().OrderByDescending(x => x.Id).ToListAsync();
+        var query = db.Set<HullImage>().AsNoTracking().AsQueryable();
+        if (req.VesselPartId is int vpId)
+        {
+            query = query.Where(x => x.InspectionVesselPartId == vpId);
+        }
+        var items = await query.OrderByDescending(x => x.Id).ToListAsync();
         return new GetHullImagesResponse { Items = items };
     }
 
@@ -26,7 +31,8 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             Height = item.Height,
             CreatedAtUtc = item.CreatedAtUtc,
             AiHullScore = item.AiHullScore,
-            VesselName = item.VesselName
+            VesselName = item.VesselName,
+            InspectionVesselPartId = item.InspectionVesselPartId
         };
     }
 
@@ -52,7 +58,8 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             Width = req.Width,
             Height = req.Height,
             VesselName = string.IsNullOrWhiteSpace(req.VesselName) ? "BoatyBoat" : req.VesselName!,
-            Status = "Ready"
+            Status = "Ready",
+            InspectionVesselPartId = req.InspectionVesselPartId
         };
         db.Add(entity);
         await db.SaveChangesAsync();
@@ -64,7 +71,8 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
             ContentType = entity.ContentType,
             ByteSize = entity.ByteSize,
             Sha256 = entity.Sha256,
-            VesselName = entity.VesselName
+            VesselName = entity.VesselName,
+            InspectionVesselPartId = entity.InspectionVesselPartId
         };
     }
 

@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using BlazorAutoApp.Core.Features.HullImages;
 
-namespace BlazorAutoApp.Features.HullImages;
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public static class HullImageEndpoints
 {

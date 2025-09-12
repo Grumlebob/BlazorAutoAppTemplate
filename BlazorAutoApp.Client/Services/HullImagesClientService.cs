@@ -10,7 +10,12 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
 
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
     {
-        var res = await _http.GetFromJsonAsync<GetHullImagesResponse>("api/hull-images");
+        var url = "api/hull-images";
+        if (req.VesselPartId is int vp)
+        {
+            url += $"?VesselPartId={vp}";
+        }
+        var res = await _http.GetFromJsonAsync<GetHullImagesResponse>(url);
         return res ?? new GetHullImagesResponse { Items = new() };
     }
 

@@ -55,14 +55,64 @@ else
             @if (_selected.Count > 0)
             {
                 <div>
-                    <div class="text-black font-medium mb-1">Hull Images (optional per part)</div>
-                    @foreach (var code in _selected)
-                    {
-                        <div class="flex items-center gap-2 mb-1 text-black">
-                            <span class="w-72 truncate"></span>
-                            <input type="number" class="border rounded px-2 py-1 w-32" @bind="_hullImageByPart[code]" />
-                        </div>
-                    }
+                    <div class="text-black font-medium mb-2">Hull Images per selected part</div>
+                    <table class="min-w-full text-left text-black border border-gray-200 rounded">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2">Part</th>
+                                <th class="px-3 py-2">Upload</th>
+                                <th class="px-3 py-2">Images</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var partCodeSelected in _selected)
+                            {
+                                var vp = _vesselParts.FirstOrDefault(v => v.PartCode == partCodeSelected);
+                                <tr class="border-t border-gray-200">
+                                    <td class="px-3 py-2 align-top w-64">@partCodeSelected</td>
+                                    <td class="px-3 py-2 align-top">
+                                        @if (vp?.Id is int vpId)
+                                        {
+                                            var isActiveUpload = _uploading && _uploadingPartId == vpId;
+                                            <InputFile id=@($"fileInput-{vpId}") class="sr-only" OnChange="(args)=>OnFilesSelectedForPart(args, vpId)" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
+                                            <button type="button" class="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed @(isActiveUpload ? "bg-emerald-600 hover:bg-emerald-700" : _uploading ? "bg-gray-400 hover:bg-gray-400" : "bg-blue-600 hover:bg-blue-700")"
+                                                    @onclick="(()=>TriggerFileDialogForPart(vpId))" disabled="@_uploading">
+                                                @(isActiveUpload
+                                                    ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_currentTotalBytes)}"
+                                                    : _uploading ? "Wait for other upload to finish" : "Upload")
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-500 text-sm">Save to enable uploads</span>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        @if (vp?.Id is int pId)
+                                        {
+                                            var imgs = _imagesByPart.TryGetValue(pId, out var list) ? list : new List<GetHullImageResponse>();
+                                            @if (imgs.Count == 0)
+                                            {
+                                                <span class="text-gray-400 text-sm">No images</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex flex-wrap gap-3">
+                                                    @foreach (var img in imgs)
+                                                    {
+                                                        <a href=@($"/hull-images/{img.Id}?return={Uri.EscapeDataString(Nav.Uri)}") title=@img.OriginalFileName class="inline-flex items-center gap-2">
+                                                            <img src=@($"/api/hull-images/{img.Id}/thumbnail/64") alt=@img.OriginalFileName class="w-16 h-16 object-cover rounded border" />
+                                                            <span class="text-sm max-w-[200px] truncate">@img.OriginalFileName</span>
+                                                        </a>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             }
             <div>
@@ -91,7 +141,13 @@ else
     private string _vesselName = string.Empty;
     private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection;
     private HashSet<string> _selected = new();
-    private Dictionary<string, int?> _hullImageByPart = new();
+    private record VesselPartVm(int? Id, string PartCode);
+    private List<VesselPartVm> _vesselParts = new();
+    private Dictionary<int, List<GetHullImageResponse>> _imagesByPart = new();
+    private bool _uploading;
+    private int? _uploadingPartId;
+    private long _bytesUploaded;
+    private long _currentTotalBytes;
     private bool _saving;
     private string? _error;
     private string? _info;
@@ -129,7 +185,8 @@ else
             // Do not prefill vessel name in UI; leave for user selection
             _type = model.InspectionType;
             _selected = model.VesselParts.Select(vp => vp.PartCode).ToHashSet(StringComparer.Ordinal);
-            _hullImageByPart = model.VesselParts.ToDictionary(vp => vp.PartCode, vp => vp.HullImageId);
+            _vesselParts = model.VesselParts.Select(vp => new VesselPartVm(vp.Id, vp.PartCode)).ToList();
+            await LoadImagesForPartsAsync();
         }
         catch (Exception ex)
         {
@@ -141,7 +198,10 @@ else
     {
         var isChecked = value is bool b && b;
         if (isChecked) _selected.Add(code); else _selected.Remove(code);
-        if (!_hullImageByPart.ContainsKey(code)) _hullImageByPart[code] = null;
+        if (!_vesselParts.Any(v => v.PartCode == code))
+        {
+            _vesselParts.Add(new VesselPartVm(null, code));
+        }
     }
 
     private async Task SaveAsync()
@@ -154,14 +214,22 @@ else
                 Id = Id,
                 VesselName = _vesselName,
                 InspectionType = _type,
-                VesselParts = _selected.Select(code => new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPartDto
+                VesselParts = _selected.Select(code =>
                 {
-                    PartCode = code,
-                    HullImageId = _hullImageByPart.TryGetValue(code, out var v) ? v : null
+                    var existing = _vesselParts.FirstOrDefault(v => string.Equals(v.PartCode, code, StringComparison.Ordinal));
+                    return new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPartDto
+                    {
+                        Id = existing?.Id,
+                        PartCode = code
+                    };
                 }).ToList()
             };
             var res = await FlowApi.UpsertAsync(payload);
             _info = res.Success ? "Saved" : $"Failed: {res.Error}";
+            if (res.Success)
+            {
+                await LoadAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -184,5 +252,125 @@ else
         {
             _vesselNames = new();
         }
+    }
+}
+
+@code {
+    [Inject] private IHullImagesApi HullApi { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private async Task LoadImagesForPartsAsync()
+    {
+        _imagesByPart.Clear();
+        foreach (var vp in _vesselParts)
+        {
+            if (vp.Id is int id)
+            {
+                var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = id });
+                _imagesByPart[id] = res.Items.Select(i => new GetHullImageResponse
+                {
+                    Id = i.Id,
+                    OriginalFileName = i.OriginalFileName,
+                    ContentType = i.ContentType,
+                    ByteSize = i.ByteSize,
+                    Sha256 = i.Sha256,
+                    Width = i.Width,
+                    Height = i.Height,
+                    CreatedAtUtc = i.CreatedAtUtc,
+                    AiHullScore = i.AiHullScore,
+                    VesselName = i.VesselName,
+                    InspectionVesselPartId = i.InspectionVesselPartId
+                }).ToList();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task TriggerFileDialogForPart(int vesselPartId)
+    {
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        await module.InvokeVoidAsync("triggerClick", $"fileInput-{vesselPartId}");
+    }
+
+    private async Task OnFilesSelectedForPart(InputFileChangeEventArgs e, int vesselPartId)
+    {
+        var file = e.File;
+        if (file is null) return;
+        try
+        {
+            _error = null; _info = null; _uploading = true; _uploadingPartId = vesselPartId; StateHasChanged();
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+            var correlationId = Guid.NewGuid();
+            var sessionId = Guid.NewGuid();
+            var dotNetRef = DotNetObjectReference.Create(this);
+            // Reuse TUS helper: start from input index 0 and include vesselPartId metadata
+            await module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), $"fileInput-{vesselPartId}", 0, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef, vesselPartId);
+            // Poll by correlation id and then refresh part images
+            var created = await HullApi.GetByCorrelationIdAsync(correlationId);
+            if (created is not null && created.InspectionVesselPartId == vesselPartId)
+            {
+                var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = vesselPartId });
+                _imagesByPart[vesselPartId] = res.Items.Select(i => new GetHullImageResponse
+                {
+                    Id = i.Id,
+                    OriginalFileName = i.OriginalFileName,
+                    ContentType = i.ContentType,
+                    ByteSize = i.ByteSize,
+                    Sha256 = i.Sha256,
+                    Width = i.Width,
+                    Height = i.Height,
+                    CreatedAtUtc = i.CreatedAtUtc,
+                    AiHullScore = i.AiHullScore,
+                    VesselName = i.VesselName,
+                    InspectionVesselPartId = i.InspectionVesselPartId
+                }).ToList();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _uploading = false; _uploadingPartId = null;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task ReportTusProgress(long uploaded)
+    {
+        _bytesUploaded = uploaded;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusInit(long total)
+    {
+        _currentTotalBytes = total;
+        _bytesUploaded = 0;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusCompleted()
+    {
+        _bytesUploaded = _currentTotalBytes;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+        if (bytes >= GB) return $"{bytes / (double)GB:0.#} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.#} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
+        return $"{bytes} B";
     }
 }

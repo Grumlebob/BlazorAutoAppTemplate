@@ -1,4 +1,6 @@
-namespace BlazorAutoApp.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+
+namespace BlazorAutoApp.Features.Inspections.HullImages;
 
 public class HullImageEntityTypeConfiguration : IEntityTypeConfiguration<HullImage>
 {
@@ -13,6 +15,14 @@ public class HullImageEntityTypeConfiguration : IEntityTypeConfiguration<HullIma
         entity.Property(x => x.VesselName).IsRequired().HasMaxLength(128).HasDefaultValue("BoatyBoat");
         entity.Property(x => x.AiHullScore).HasDefaultValue(0.0);
         entity.ToTable("HullImages");
+
+        // Optional link to a specific inspection vessel part
+        entity.HasOne<InspectionVesselPart>()
+              .WithMany(vp => vp.HullImages)
+              .HasForeignKey(x => x.InspectionVesselPartId)
+              .OnDelete(DeleteBehavior.SetNull);
+
+        entity.HasIndex(x => x.InspectionVesselPartId);
     }
 }
 

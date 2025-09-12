@@ -38,5 +38,8 @@ public class HullImage
 
     [MaxLength(128)]
     public string VesselName { get; set; } = "BoatyBoat";
+
+    // Link to Inspection Vessel Part (nullable; set when uploaded from Flow UI)
+    public int? InspectionVesselPartId { get; set; }
 }
 
