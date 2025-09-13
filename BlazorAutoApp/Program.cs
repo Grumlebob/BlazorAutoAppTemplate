@@ -6,6 +6,7 @@ using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -84,6 +85,7 @@ builder.Services.AddScoped<IEmailApi, EmailServerService>();
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
 builder.Services.AddScoped<IVerifyInspectionEmailApi, InspectionServerService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
+builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.IVesselPartDetailsApi, VesselPartDetailsServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
@@ -370,6 +372,7 @@ app.MapEmailEndpoints();
 app.MapStartHullInspectionEmailEndpoints();
 app.MapInspectionEndpoints();
 app.MapInspectionFlowEndpoints();
+app.MapVesselPartDetailsEndpoints();
 
 app.Run();
 

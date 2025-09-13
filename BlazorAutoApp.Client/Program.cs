@@ -6,6 +6,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -21,5 +22,6 @@ builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmai
 builder.Services.AddScoped<IVerifyInspectionEmailApi, InspectionClientService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowClientService>();
 builder.Services.AddScoped<IEmailApi, SendEmailClientService>();
+builder.Services.AddScoped<IVesselPartDetailsApi, VesselPartDetailsClientService>();
 
 await builder.Build().RunAsync();

@@ -118,6 +118,24 @@ else
                         </tbody>
                     </table>
                 </div>
+                <div class="mt-8">
+                    <div class="text-black font-medium mb-2">Part Details</div>
+                    @foreach (var partCodeSelected in _selected)
+                    {
+                        var vp = _vesselParts.FirstOrDefault(v => v.PartCode == partCodeSelected);
+                        if (vp?.Id is int vpId)
+                        {
+                            <div class="mb-6">
+                                <div class="text-black font-semibold mb-1">@partCodeSelected</div>
+                                <BlazorAutoApp.Client.Pages.Inspection.Components.VesselPartForm VesselPartId="@vpId" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-gray-600">Saving to create part container...</div>
+                        }
+                    }
+                </div>
             }
             @if (!string.IsNullOrWhiteSpace(_error)) { <div class="text-red-600">@_error</div> }
             @if (!string.IsNullOrWhiteSpace(_info)) { <div class="text-green-700">@_info</div> }

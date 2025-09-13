@@ -1,0 +1,158 @@
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails
+@inject IVesselPartDetailsApi Api
+
+<div class="border rounded p-3 mb-4 bg-white">
+    <div class="text-black font-semibold mb-2">Vessel Part Details</div>
+
+    @if (_loading)
+    {
+        <div class="text-gray-600">Loading...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="text-red-600">@_error</div>
+    }
+    else
+    {
+        <EditForm Model="this" OnValidSubmit="SaveAsync">
+            <div class="space-y-4 text-black">
+                <!-- Fouling Condition -->
+                <div>
+                    <div class="font-medium mb-1">Fouling Condition</div>
+                    @foreach (var item in _fouling)
+                    {
+                        <div class="flex items-center gap-2 mb-1">
+                            <input type="checkbox" checked="@item.IsPresent" @onchange="(e)=>OnFoulingToggle(item, e.Value)" />
+                            <label>@item.FoulingType</label>
+                            @if (item.IsPresent)
+                            {
+                                <span class="text-sm text-gray-600 ml-2">Coverage (%)</span>
+                                <InputNumber TValue="int?" class="border rounded px-2 py-1 w-24" @bind-Value="item.CoveragePercent" />
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Coating Condition -->
+                <div>
+                    <div class="font-medium mb-1">Coating Condition</div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <label>Intact Coating (%)</label>
+                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_coating.IntactPercent" />
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Peeling" class="mr-2" /> Peeling</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Blisters" class="mr-2" /> Blisters</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Scratching" class="mr-2" /> Scratching</label>
+                    </div>
+                </div>
+
+                <!-- Hull Condition -->
+                <div>
+                    <div class="font-medium mb-1">Hull Condition</div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <label>Hull integrity (%)</label>
+                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_hull.IntegrityPercent" />
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Corrosion" class="mr-2" /> Corrosion</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Dents" class="mr-2" /> Dents</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Cracks" class="mr-2" /> Cracks</label>
+                    </div>
+                </div>
+
+                <!-- Hull Rating -->
+                <div>
+                    <div class="font-medium mb-1">Hull Rating</div>
+                    <InputRadioGroup @bind-Value="_rating.Rating">
+                        <div class="space-y-1">
+                            <label class="block"><InputRadio Value="HullRatingValue.Clean" class="mr-2" /> 0 - Clean — No visible fouling</label>
+                            <label class="block"><InputRadio Value="HullRatingValue.Light" class="mr-2" /> 1 - Light Fouling — Slime and/or up to 5% coverage of any fouling</label>
+                            <label class="block"><InputRadio Value="HullRatingValue.Medium" class="mr-2" /> 2 - Medium Fouling — Fouling coverage between 5-20%</label>
+                            <label class="block"><InputRadio Value="HullRatingValue.Heavy" class="mr-2" /> 3 - Heavy Fouling — Fouling coverage between 20-50%</label>
+                            <label class="block"><InputRadio Value="HullRatingValue.VeryHeavy" class="mr-2" /> 4 - Very Heavy Fouling — Fouling coverage exceeding 50%</label>
+                        </div>
+                    </InputRadioGroup>
+                </div>
+
+                <div class="flex gap-2">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1 disabled:opacity-50" disabled="@_saving" type="submit">@(_saving ? "Saving..." : "Save")</button>
+                    @if (_info is not null)
+                    {
+                        <span class="text-green-700">@_info</span>
+                    }
+                    @if (_error is not null)
+                    {
+                        <span class="text-red-700">@_error</span>
+                    }
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code{
+    [Parameter] public required int VesselPartId { get; set; }
+
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _error;
+    private string? _info;
+
+    private List<FoulingObservationDto> _fouling = new();
+    private CoatingConditionDto _coating = new();
+    private HullConditionDto _hull = new();
+    private HullRatingDto _rating = new() { Rating = HullRatingValue.Clean };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true; _error = null; _info = null;
+        try
+        {
+            var res = await Api.GetAsync(VesselPartId);
+            _fouling = Enum.GetValues<FoulingType>().Select(t => res.Fouling.FirstOrDefault(f => f.FoulingType == t) ?? new FoulingObservationDto { FoulingType = t }).ToList();
+            _coating = res.Coating ?? new CoatingConditionDto();
+            _hull = res.Hull ?? new HullConditionDto();
+            _rating = res.Rating ?? new HullRatingDto { Rating = HullRatingValue.Clean };
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true; _error = null; _info = null;
+        try
+        {
+            var req = new UpsertVesselPartDetailsRequest
+            {
+                InspectionVesselPartId = VesselPartId,
+                Fouling = _fouling,
+                Coating = _coating,
+                Hull = _hull,
+                Rating = _rating
+            };
+            var res = await Api.UpsertAsync(req);
+            if (res.Success) _info = "Saved"; else _error = res.Error ?? "Save failed";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private void OnFoulingToggle(FoulingObservationDto item, object? value)
+    {
+        var on = value is bool b && b;
+        item.IsPresent = on;
+        if (!on) item.CoveragePercent = null;
+    }
+
+    private void OnCoverageChanged(FoulingObservationDto item, int? value) => item.CoveragePercent = value;
+}

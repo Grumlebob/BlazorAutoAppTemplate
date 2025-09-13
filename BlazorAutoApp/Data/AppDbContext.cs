@@ -14,6 +14,11 @@ public class AppDbContext : DbContext
     public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow> InspectionFlows => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>();
     public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart> InspectionVesselParts => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart>();
     public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel> Vessels => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel>();
+    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails> VesselPartDetails => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails>();
+    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.FoulingObservation> FoulingObservations => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.FoulingObservation>();
+    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.CoatingCondition> CoatingConditions => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.CoatingCondition>();
+    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullCondition> HullConditions => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullCondition>();
+    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullRating> HullRatings => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullRating>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,5 +32,10 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionFlowEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionVesselPartEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.VesselEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.VesselPartDetailsEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.FoulingObservationEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.CoatingConditionEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.HullConditionEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.HullRatingEntityTypeConfiguration());
     }
 }
