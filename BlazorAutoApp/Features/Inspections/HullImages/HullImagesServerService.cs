@@ -2,11 +2,12 @@ using BlazorAutoApp.Core.Features.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.HullImages;
 
-public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry, IWebHostEnvironment env)
+public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry, IWebHostEnvironment env)
     : IHullImagesApi
 {
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var query = db.Set<HullImage>().AsNoTracking().AsQueryable();
         if (req.VesselPartId is int vpId)
         {
@@ -18,6 +19,7 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
 
     public async Task<GetHullImageResponse?> GetByIdAsync(GetHullImageRequest req)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var item = await db.Set<HullImage>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == req.Id);
         if (item is null) return null;
         return new GetHullImageResponse
@@ -48,6 +50,7 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
 
     public async Task<CreateHullImageResponse> CreateAsync(CreateHullImageRequest req)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var entity = new HullImage
         {
             OriginalFileName = req.OriginalFileName,
@@ -78,6 +81,7 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var entity = await db.Set<HullImage>().FirstOrDefaultAsync(i => i.Id == id, ct);
         if (entity is null) return false;
         db.Remove(entity);
@@ -88,6 +92,7 @@ public class HullImagesServerService(AppDbContext db, IHullImageStore store, ILo
 
     public async Task<int> PruneMissingAsync(CancellationToken ct = default)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var set = db.Set<HullImage>();
         var items = await set.AsNoTracking().ToListAsync(ct);
         var removed = 0;

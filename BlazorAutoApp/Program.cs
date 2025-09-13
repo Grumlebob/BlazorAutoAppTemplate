@@ -62,6 +62,7 @@ var connString = builder.Configuration.GetConnectionString("DefaultConnection")
                  ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres";
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
+builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();

@@ -92,6 +92,14 @@ else
     private HashSet<string> _selected = new();
     private record VesselPartVm(int? Id, string PartCode);
     private List<VesselPartVm> _vesselParts = new();
+    private Dictionary<int, List<GetHullImageResponse>> _imagesByPart = new();
+    private bool _uploading;
+    private int? _uploadingPartId;
+    private long _bytesUploaded;
+    private long _currentTotalBytes;
+    private readonly Queue<int> _uploadQueue = new();
+    private readonly HashSet<int> _queuedPartIds = new();
+    private bool _saving;
     private string? _error;
     private string? _info;
     private List<string> _vesselNames = new();
@@ -129,6 +137,7 @@ else
             _type = model.InspectionType;
             _selected = model.VesselParts.Select(vp => vp.PartCode).ToHashSet(StringComparer.Ordinal);
             _vesselParts = model.VesselParts.Select(vp => new VesselPartVm(vp.Id, vp.PartCode)).ToList();
+            await LoadImagesForPartsAsync();
         }
         catch (Exception ex)
         {
@@ -166,7 +175,7 @@ else
 
     private async Task SaveFlowAsync()
     {
-        _error = null; _info = null;
+        _saving = true; _error = null; _info = null;
         try
         {
             var payload = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UpsertInspectionFlowRequest
@@ -200,7 +209,7 @@ else
         }
         finally
         {
-            // no-op
+            _saving = false;
         }
     }
 
@@ -217,3 +226,146 @@ else
         }
     }
 }
+
+@code {
+    [Inject] private IHullImagesApi HullApi { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private async Task LoadImagesForPartsAsync()
+    {
+        _imagesByPart.Clear();
+        foreach (var vp in _vesselParts)
+        {
+            if (vp.Id is int id)
+            {
+                var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = id });
+                _imagesByPart[id] = res.Items.Select(i => new GetHullImageResponse
+                {
+                    Id = i.Id,
+                    OriginalFileName = i.OriginalFileName,
+                    ContentType = i.ContentType,
+                    ByteSize = i.ByteSize,
+                    Sha256 = i.Sha256,
+                    Width = i.Width,
+                    Height = i.Height,
+                    CreatedAtUtc = i.CreatedAtUtc,
+                    AiHullScore = i.AiHullScore > 0 ? i.AiHullScore : RandomScore(),
+                    VesselName = i.VesselName,
+                    InspectionVesselPartId = i.InspectionVesselPartId
+                }).ToList();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task TriggerFileDialogForPart(int vesselPartId)
+    {
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        await module.InvokeVoidAsync("triggerClick", $"fileInput-{vesselPartId}");
+    }
+
+    private async Task OnFilesSelectedForPart(InputFileChangeEventArgs e, int vesselPartId)
+    {
+        var file = e.File;
+        if (file is null) return;
+        try
+        {
+            _error = null; _info = null;
+            if (_uploading || _uploadQueue.Count > 0)
+            {
+                if (!_queuedPartIds.Contains(vesselPartId))
+                {
+                    _uploadQueue.Enqueue(vesselPartId);
+                    _queuedPartIds.Add(vesselPartId);
+                }
+                StateHasChanged();
+                return;
+            }
+            await StartUploadForPartAsync(vesselPartId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task StartUploadForPartAsync(int vesselPartId)
+    {
+        _uploading = true; _uploadingPartId = vesselPartId; _bytesUploaded = 0; _currentTotalBytes = 0; StateHasChanged();
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        var correlationId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var dotNetRef = DotNetObjectReference.Create(this);
+        await module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), $"fileInput-{vesselPartId}", 0, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef, vesselPartId);
+        var created = await HullApi.GetByCorrelationIdAsync(correlationId);
+        if (created is not null && created.InspectionVesselPartId == vesselPartId)
+        {
+            var res = await HullApi.GetAsync(new GetHullImagesRequest { VesselPartId = vesselPartId });
+            _imagesByPart[vesselPartId] = res.Items.Select(i => new GetHullImageResponse
+            {
+                Id = i.Id,
+                OriginalFileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                ByteSize = i.ByteSize,
+                Sha256 = i.Sha256,
+                Width = i.Width,
+                Height = i.Height,
+                CreatedAtUtc = i.CreatedAtUtc,
+                AiHullScore = i.AiHullScore > 0 ? i.AiHullScore : RandomScore(),
+                VesselName = i.VesselName,
+                InspectionVesselPartId = i.InspectionVesselPartId
+            }).ToList();
+        }
+        _uploading = false; _uploadingPartId = null;
+        StateHasChanged();
+        await StartNextQueuedUploadAsync();
+    }
+
+    private async Task StartNextQueuedUploadAsync()
+    {
+        if (_uploading) return;
+        if (_uploadQueue.Count == 0) return;
+        var next = _uploadQueue.Dequeue();
+        _queuedPartIds.Remove(next);
+        await StartUploadForPartAsync(next);
+    }
+
+    [JSInvokable]
+    public Task ReportTusProgress(long uploaded)
+    {
+        _bytesUploaded = uploaded;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusInit(long total)
+    {
+        _currentTotalBytes = total;
+        _bytesUploaded = 0;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusCompleted()
+    {
+        _bytesUploaded = _currentTotalBytes;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+        if (bytes >= GB) return $"{bytes / (double)GB:0.#} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.#} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
+        return $"{bytes} B";
+    }
+
+    private static double RandomScore() => Math.Round(Random.Shared.NextDouble() * 10.0, 2);
+}
+

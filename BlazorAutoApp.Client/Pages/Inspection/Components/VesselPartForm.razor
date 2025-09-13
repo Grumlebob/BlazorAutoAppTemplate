@@ -14,6 +14,29 @@
     }
     else
     {
+        <!-- Upload + thumbnails -->
+        <div class="mb-3">
+            <InputFile id=@($"fileInput-{VesselPartId}") class="sr-only" OnChange="OnFilesSelected" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff" />
+            <button type="button" class="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed @( _uploading ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700" )" @onclick="TriggerFileDialog">
+                @_uploadButtonText
+            </button>
+            @if (_images.Count > 0)
+            {
+                <div class="mt-3 flex flex-wrap gap-3">
+                    @foreach (var img in _images)
+                    {
+                        <div class="inline-flex items-center gap-2">
+                            <img src=@($"/api/hull-images/{img.Id}/thumbnail/64") alt=@img.OriginalFileName class="w-16 h-16 object-cover rounded border" />
+                            <div class="flex flex-col">
+                                <span class="text-sm max-w-[200px] truncate">@img.OriginalFileName</span>
+                                <span class="text-xs text-gray-600">AI Score: @img.AiHullScore.ToString("0.00")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
         <EditForm Model="this" OnValidSubmit="SaveAsync">
             <div class="space-y-4 text-black">
                 <!-- Fouling Condition -->
@@ -99,6 +122,15 @@
     private string? _error;
     private string? _info;
 
+    [Inject] private BlazorAutoApp.Core.Features.HullImages.IHullImagesApi HullApi { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private List<BlazorAutoApp.Core.Features.HullImages.HullImage> _images = new();
+    private bool _uploading = false;
+    private long _bytesUploaded = 0;
+    private long _totalBytes = 0;
+    private string _uploadButtonText => _uploading ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_totalBytes)}" : "Upload";
+
     private List<FoulingObservationDto> _fouling = new();
     private CoatingConditionDto _coating = new();
     private HullConditionDto _hull = new();
@@ -107,6 +139,7 @@
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync();
+        await LoadImagesAsync();
     }
 
     private async Task LoadAsync()
@@ -145,6 +178,72 @@
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _saving = false; }
+    }
+
+    private async Task LoadImagesAsync()
+    {
+        try
+        {
+            var res = await HullApi.GetAsync(new BlazorAutoApp.Core.Features.HullImages.GetHullImagesRequest { VesselPartId = VesselPartId });
+            _images = res.Items.ToList();
+        }
+        catch { _images = new(); }
+    }
+
+    private async Task TriggerFileDialog()
+    {
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        await module.InvokeVoidAsync("triggerClick", $"fileInput-{VesselPartId}");
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        await StartUploadAsync();
+    }
+
+    private async Task StartUploadAsync()
+    {
+        _uploading = true; _bytesUploaded = 0; _totalBytes = 0; StateHasChanged();
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/tusUpload.js");
+        var correlationId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var dotNetRef = DotNetObjectReference.Create(this);
+        await module.InvokeVoidAsync("startTusUploadFromInput", sessionId.ToString(), $"fileInput-{VesselPartId}", 0, "/api/hull-images/tus", correlationId.ToString(), 4, dotNetRef, VesselPartId);
+        var created = await HullApi.GetByCorrelationIdAsync(correlationId);
+        if (created is not null && created.InspectionVesselPartId == VesselPartId)
+        {
+            await LoadImagesAsync();
+        }
+        _uploading = false; StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task ReportTusProgress(long uploaded)
+    {
+        _bytesUploaded = uploaded; StateHasChanged(); return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusInit(long total)
+    {
+        _totalBytes = total; _bytesUploaded = 0; StateHasChanged(); return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnTusCompleted()
+    {
+        _bytesUploaded = _totalBytes; StateHasChanged(); return Task.CompletedTask;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024; const long MB = KB * 1024; const long GB = MB * 1024;
+        if (bytes >= GB) return $"{bytes / (double)GB:0.#} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.#} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.#} KB";
+        return $"{bytes} B";
     }
 
     private void OnFoulingToggle(FoulingObservationDto item, object? value)
