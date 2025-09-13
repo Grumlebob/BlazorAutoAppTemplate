@@ -21,9 +21,9 @@ public static class VesselPartDetailsEndpoints
             var res = await api.UpsertAsync(req, ct);
             if (res.Success) return Results.Ok(res);
             return Results.BadRequest(res);
-        });
+        })
+        .AddEndpointFilter(new BlazorAutoApp.Features.Movies.MoviesValidateFilter<UpsertVesselPartDetailsRequest>());
 
         return routes;
     }
 }
-

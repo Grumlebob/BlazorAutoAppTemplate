@@ -39,7 +39,8 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
                 }).ToList(),
                 Coating = new CoatingConditionDto(),
                 Hull = new HullConditionDto(),
-                Rating = new HullRatingDto { Rating = HullRatingValue.Clean }
+                Rating = new HullRatingDto { Rating = HullRatingValue.Clean },
+                Notes = null
             };
         }
 
@@ -72,7 +73,8 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
             {
                 Rating = details.Rating.Rating,
                 Rationale = details.Rating.Rationale
-            }
+            },
+            Notes = details.Notes
         };
     }
 
@@ -127,6 +129,7 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
         details.Rating ??= new HullRating { VesselPartDetailsId = details.Id };
         details.Rating.Rating = req.Rating.Rating;
         details.Rating.Rationale = req.Rating.Rationale;
+        details.Notes = req.Notes;
 
         // Sync fouling entries
         var byType = details.Fouling.ToDictionary(f => f.FoulingType);

@@ -9,6 +9,7 @@ public class VesselPartDetailsEntityTypeConfiguration : IEntityTypeConfiguration
         b.ToTable("VesselPartDetails");
         b.HasKey(x => x.Id);
         b.HasIndex(x => x.InspectionVesselPartId).IsUnique();
+        b.Property(x => x.Notes).HasMaxLength(4000).IsRequired(false);
     }
 }
 
@@ -50,4 +51,3 @@ public class HullRatingEntityTypeConfiguration : IEntityTypeConfiguration<HullRa
         b.HasKey(x => x.Id);
     }
 }
-

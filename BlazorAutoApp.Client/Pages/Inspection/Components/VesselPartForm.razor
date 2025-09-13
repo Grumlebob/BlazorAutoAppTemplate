@@ -1,4 +1,5 @@
 @using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails
+@using System.ComponentModel.DataAnnotations
 @inject IVesselPartDetailsApi Api
 
 <div class="border rounded p-3 mb-4 bg-white">
@@ -37,20 +38,30 @@
             }
         </div>
 
-        <EditForm Model="this" OnValidSubmit="SaveAsync">
+        <EditForm Model="_vm" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
             <div class="space-y-4 text-black">
+                <!-- Notes -->
+                <div>
+                    <div class="font-medium mb-1">Notes</div>
+                    <textarea class="border rounded w-full px-3 py-2" placeholder="Enter any additonal notes for this part..." @bind="_vm.Notes"></textarea>
+                </div>
                 <!-- Fouling Condition -->
                 <div>
                     <div class="font-medium mb-1">Fouling Condition</div>
-                    @foreach (var item in _fouling)
+                    @for (var i = 0; i < _vm.Fouling.Count; i++)
                     {
+                        var item = _vm.Fouling[i];
+                        var idx = i;
                         <div class="flex items-center gap-2 mb-1">
                             <input type="checkbox" checked="@item.IsPresent" @onchange="(e)=>OnFoulingToggle(item, e.Value)" />
                             <label>@item.FoulingType</label>
                             @if (item.IsPresent)
                             {
                                 <span class="text-sm text-gray-600 ml-2">Coverage (%)</span>
-                                <InputNumber TValue="int?" class="border rounded px-2 py-1 w-24" @bind-Value="item.CoveragePercent" />
+                                <InputNumber TValue="int?" class="border rounded px-2 py-1 w-24" @bind-Value="_vm.Fouling[idx].CoveragePercent" min="0" max="100" />
+                                <ValidationMessage For="@(()=> _vm.Fouling[idx].CoveragePercent)" />
                             }
                         </div>
                     }
@@ -61,12 +72,13 @@
                     <div class="font-medium mb-1">Coating Condition</div>
                     <div class="flex items-center gap-2 mb-2">
                         <label>Intact Coating (%)</label>
-                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_coating.IntactPercent" />
+                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_vm.Coating.IntactPercent" />
+                        <ValidationMessage For="@(()=> _vm.Coating.IntactPercent)" />
                     </div>
                     <div class="flex items-center gap-4">
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Peeling" class="mr-2" /> Peeling</label>
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Blisters" class="mr-2" /> Blisters</label>
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_coating.Scratching" class="mr-2" /> Scratching</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Coating.Peeling" class="mr-2" /> Peeling</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Coating.Blisters" class="mr-2" /> Blisters</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Coating.Scratching" class="mr-2" /> Scratching</label>
                     </div>
                 </div>
 
@@ -75,19 +87,20 @@
                     <div class="font-medium mb-1">Hull Condition</div>
                     <div class="flex items-center gap-2 mb-2">
                         <label>Hull integrity (%)</label>
-                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_hull.IntegrityPercent" />
+                        <InputNumber class="border rounded px-2 py-1 w-24" @bind-Value="_vm.Hull.IntegrityPercent" />
+                        <ValidationMessage For="@(()=> _vm.Hull.IntegrityPercent)" />
                     </div>
                     <div class="flex items-center gap-4">
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Corrosion" class="mr-2" /> Corrosion</label>
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Dents" class="mr-2" /> Dents</label>
-                        <label class="inline-flex items-center"><input type="checkbox" @bind="_hull.Cracks" class="mr-2" /> Cracks</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Hull.Corrosion" class="mr-2" /> Corrosion</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Hull.Dents" class="mr-2" /> Dents</label>
+                        <label class="inline-flex items-center"><input type="checkbox" @bind="_vm.Hull.Cracks" class="mr-2" /> Cracks</label>
                     </div>
                 </div>
 
                 <!-- Hull Rating -->
                 <div>
                     <div class="font-medium mb-1">Hull Rating</div>
-                    <InputRadioGroup @bind-Value="_rating.Rating">
+                    <InputRadioGroup @bind-Value="_vm.Rating.Rating">
                         <div class="space-y-1">
                             <label class="block"><InputRadio Value="HullRatingValue.Clean" class="mr-2" /> 0 - Clean — No visible fouling</label>
                             <label class="block"><InputRadio Value="HullRatingValue.Light" class="mr-2" /> 1 - Light Fouling — Slime and/or up to 5% coverage of any fouling</label>
@@ -131,10 +144,7 @@
     private long _totalBytes = 0;
     private string _uploadButtonText => _uploading ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_totalBytes)}" : "Upload";
 
-    private List<FoulingObservationDto> _fouling = new();
-    private CoatingConditionDto _coating = new();
-    private HullConditionDto _hull = new();
-    private HullRatingDto _rating = new() { Rating = HullRatingValue.Clean };
+    private VesselPartDetailsVm _vm = new() { InspectionVesselPartId = 0, Fouling = new(), Coating = new(), Hull = new(), Rating = new() { Rating = HullRatingValue.Clean }, Notes = null };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -148,10 +158,15 @@
         try
         {
             var res = await Api.GetAsync(VesselPartId);
-            _fouling = Enum.GetValues<FoulingType>().Select(t => res.Fouling.FirstOrDefault(f => f.FoulingType == t) ?? new FoulingObservationDto { FoulingType = t }).ToList();
-            _coating = res.Coating ?? new CoatingConditionDto();
-            _hull = res.Hull ?? new HullConditionDto();
-            _rating = res.Rating ?? new HullRatingDto { Rating = HullRatingValue.Clean };
+            _vm = new VesselPartDetailsVm
+            {
+                InspectionVesselPartId = VesselPartId,
+                Fouling = Enum.GetValues<FoulingType>().Select(t => res.Fouling.FirstOrDefault(f => f.FoulingType == t) ?? new FoulingObservationDto { FoulingType = t }).ToList(),
+                Coating = res.Coating ?? new CoatingConditionDto(),
+                Hull = res.Hull ?? new HullConditionDto(),
+                Rating = res.Rating ?? new HullRatingDto { Rating = HullRatingValue.Clean },
+                Notes = res.Notes
+            };
         }
         catch (Exception ex)
         {
@@ -165,13 +180,15 @@
         _saving = true; _error = null; _info = null;
         try
         {
+            _vm.InspectionVesselPartId = VesselPartId;
             var req = new UpsertVesselPartDetailsRequest
             {
-                InspectionVesselPartId = VesselPartId,
-                Fouling = _fouling,
-                Coating = _coating,
-                Hull = _hull,
-                Rating = _rating
+                InspectionVesselPartId = _vm.InspectionVesselPartId,
+                Fouling = _vm.Fouling,
+                Coating = _vm.Coating,
+                Hull = _vm.Hull,
+                Rating = _vm.Rating,
+                Notes = _vm.Notes
             };
             var res = await Api.UpsertAsync(req);
             if (res.Success) _info = "Saved"; else _error = res.Error ?? "Save failed";
@@ -251,6 +268,19 @@
         var on = value is bool b && b;
         item.IsPresent = on;
         if (!on) item.CoveragePercent = null;
+    }
+
+    // Local mutable VM for form binding + client-side validation
+    private class VesselPartDetailsVm
+    {
+        [Required]
+        public int InspectionVesselPartId { get; set; }
+        public List<FoulingObservationDto> Fouling { get; set; } = new();
+        public CoatingConditionDto Coating { get; set; } = new();
+        public HullConditionDto Hull { get; set; } = new();
+        public HullRatingDto Rating { get; set; } = new();
+        [StringLength(4000)]
+        public string? Notes { get; set; }
     }
 
     private void OnCoverageChanged(FoulingObservationDto item, int? value) => item.CoveragePercent = value;
