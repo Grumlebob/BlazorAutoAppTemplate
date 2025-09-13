@@ -45,7 +45,9 @@ else
                             {
                                 var code = $"{cat.Category}::{part}";
                                 <label class="inline-flex items-center text-black">
-                                    <input type="checkbox" class="mr-2" checked="@_selected.Contains(code)" @onchange="(e)=>TogglePart(code, e.Value)" /> @part
+                                    <input type="checkbox" class="mr-2" checked="@_selected.Contains(code)" @onchange="(e)=>TogglePart(code, e.Value)" />
+                                    <span class="mr-1 text-xs" aria-hidden="true">@IconForPart(cat.Category, part)</span>
+                                    <span>@part</span>
                                 </label>
                             }
                         </div>
@@ -104,6 +106,30 @@ else
         ("propeller", new[]{"Propeller","Rope Guard","Shaft"}),
         ("other", new[]{"Sea Chest Grating","Bilge Keels","ICCP","Aft Thruster","Keel Block Mark"})
     };
+
+    private static string IconForPart(string category, string part)
+    {
+        var p = part.ToLowerInvariant();
+        var icons = new List<string>();
+        if (p.Contains("front")) icons.Add("⬆️");
+        if (p.Contains("rear")) icons.Add("⬇️");
+        if (p.Contains("port")) icons.Add("⬅️");
+        if (p.Contains("starboard")) icons.Add("➡️");
+        if (p.Contains("flat bottom") || p.Contains("bottom")) icons.Add("⬛");
+
+        var cat = category.ToLowerInvariant();
+        if (cat == "rudder" || p.Contains("rudder")) icons.Add("🧭");
+        if (cat == "propeller" || p.Contains("propeller") || p.Contains("thruster")) icons.Add("🌀");
+        if (p.Contains("rope")) icons.Add("🧵");
+        if (p.Contains("shaft")) icons.Add("⚙️");
+        if (p.Contains("sea chest")) icons.Add("#️⃣");
+        if (p.Contains("bilge")) icons.Add("🪝");
+        if (p.Contains("iccp")) icons.Add("🔋");
+        if (p.Contains("keel")) icons.Add("📏");
+
+        if (icons.Count == 0) icons.Add("🚢");
+        return string.Join(string.Empty, icons);
+    }
 
     protected override async Task OnInitializedAsync()
     {
