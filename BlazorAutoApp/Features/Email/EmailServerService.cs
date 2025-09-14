@@ -6,40 +6,51 @@ namespace BlazorAutoApp.Features.Email;
 
 public class EmailServerService(IConfiguration cfg, ILogger<EmailServerService> log) : IEmailApi
 {
-    private readonly IConfiguration _cfg = cfg;
-    private readonly ILogger<EmailServerService> _log = log;
-
     public async Task<SendEmailResponse> SendAsync(SendEmailRequest req, CancellationToken ct = default)
     {
-        var apiKey = _cfg["SendGrid:ApiKey"];
-        var from = _cfg["SendGrid:FromEmail"] ?? _cfg["SendGrid:From"];
-        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(from))
+        // Resolve API key (env var takes precedence, then config section)
+        var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY")
+                     ?? cfg["SENDGRID_API_KEY"]
+                     ?? cfg["SendGrid:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return new SendEmailResponse { Success = false, Error = "SendGrid ApiKey or FromEmail not configured" };
+            return new SendEmailResponse { Success = false, Error = "SendGrid ApiKey not configured" };
         }
+
+
+        // Data residency: only set if configured. If not provided, SDK uses US region.
+        var dataResidency = Environment.GetEnvironmentVariable("SENDGRID_DATA_RESIDENCY")
+                             ?? cfg["SENDGRID_DATA_RESIDENCY"]
+                             ?? cfg["SendGrid:DataResidency"];
 
         try
         {
-            var sg = new SendGridClient(apiKey);
-            var msg = new SendGridMessage();
-            msg.SetFrom(new EmailAddress(from));
-            msg.AddTo(new EmailAddress(req.To));
-            msg.SetSubject(string.IsNullOrWhiteSpace(req.Subject) ? "Notification" : req.Subject);
-            var anyContent = false;
-            if (!string.IsNullOrWhiteSpace(req.Text)) { msg.AddContent("text/plain", req.Text); anyContent = true; }
-            if (!string.IsNullOrWhiteSpace(req.Html)) { msg.AddContent("text/html", req.Html); anyContent = true; }
-            if (!anyContent) { msg.AddContent("text/plain", string.Empty); }
+            var options = new SendGridClientOptions
+            {
+                ApiKey = apiKey
+            };
+            if (!string.IsNullOrWhiteSpace(dataResidency))
+            {
+                options.SetDataResidency(dataResidency);
+            }
+            var client = new SendGridClient(options);
 
-            var res = await sg.SendEmailAsync(msg, ct);
-            if ((int)res.StatusCode == 202)
+            var fromEmail = new EmailAddress("shampoo148@live.dk", "Grumbo");
+            var to = new EmailAddress("grumlebet@gmail.com", "Grumbo");
+            var subject = req.Subject ?? string.Empty;
+            var plainTextContent = req.Text;
+            var htmlContent = req.Html;
+            var msg = MailHelper.CreateSingleEmail(fromEmail, to, subject, plainTextContent, htmlContent);
+            var response = await client.SendEmailAsync(msg);
+            if ((int)response.StatusCode == 202)
                 return new SendEmailResponse { Success = true };
-
-            _log.LogWarning("SendGrid send failed: {Status}", (int)res.StatusCode);
-            return new SendEmailResponse { Success = false, Error = $"SendGrid {(int)res.StatusCode}" };
+            log.LogWarning("SendGrid send failed: {Status}", (int)response.StatusCode);
+            var bodyText = await response.Body.ReadAsStringAsync();
+            return new SendEmailResponse { Success = false, Error = "SendGrid " + ((int)response.StatusCode).ToString() + "and" + bodyText };
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "SendGrid exception");
+            log.LogError(ex, "SendGrid exception");
             return new SendEmailResponse { Success = false, Error = ex.Message };
         }
     }
