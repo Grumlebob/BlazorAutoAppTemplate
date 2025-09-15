@@ -15,6 +15,13 @@ using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Central defaults + standard config + env variables (APP_ prefix)
+builder.Configuration
+    .AddJsonFile("config/settings.defaults.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables(prefix: "APP_");
+
 // Optional: include Docker-specific configuration when running in containers
 if (builder.Environment.IsEnvironment("Docker"))
 {
@@ -56,10 +63,15 @@ builder.Services.AddDataProtection()
     .SetApplicationName("BlazorAutoApp")
     .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
-// EF Core with PostgreSQL
-// Use DefaultConnection (overridden by Docker environment via appsettings.Docker.json)
-var connString = builder.Configuration.GetConnectionString("DefaultConnection")
-                 ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres";
+// EF Core with PostgreSQL (compose from Database:* unless ConnectionStrings:DefaultConnection provided)
+string? Cfg(string key) => builder.Configuration[key];
+var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");
+var dbHost = Cfg("Database:Host");
+var dbPort = Cfg("Database:Port") ?? Environment.GetEnvironmentVariable("POSTGRES_PORT");
+var dbName = Cfg("Database:Name");
+var dbUser = Cfg("Database:Username");
+var dbPass = Cfg("Database:Password");
+var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
@@ -77,8 +89,16 @@ builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
 builder.Services.AddSingleton<ITusResultRegistry, TusResultRegistryRedis>();
 
 // Redis (distributed cache) + Hybrid cache
-var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration") ?? "localhost:6379";
-builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
+var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
+if (!string.IsNullOrWhiteSpace(redisConn) && !string.Equals(redisConn, "CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
+}
+else
+{
+    // Fallback to in-memory distributed cache when Redis not configured
+    builder.Services.AddDistributedMemoryCache();
+}
 builder.Services.AddHybridCache();
 // Email services
 builder.Services.AddScoped<IEmailApi, EmailServerService>();
@@ -89,6 +109,42 @@ builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDet
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
+
+// Validate required configuration (fail-fast outside Development)
+static bool IsPlaceholder(string? v) => string.IsNullOrWhiteSpace(v) || string.Equals(v, "CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+var missing = new List<string>();
+void Require(string key, string? value)
+{
+    if (IsPlaceholder(value)) missing.Add(key);
+}
+
+// Required keys
+// Database can be provided either as components or as a full connection string
+if (IsPlaceholder(explicitConn))
+{
+    Require("Database:Host", dbHost);
+    Require("Database:Port", dbPort);
+    Require("Database:Name", dbName);
+    Require("Database:Username", dbUser);
+    Require("Database:Password", dbPass);
+}
+Require("Storage:HullImages:RootPath", Cfg("Storage:HullImages:RootPath"));
+Require("Redis:Configuration", redisConn);
+
+var bypass = string.Equals(Environment.GetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal);
+if (missing.Count > 0)
+{
+    var msg = "Missing required configuration values: " + string.Join(", ", missing) + ". Set via APP_ env vars (e.g., APP_Database__Host) or appsettings.";
+    if (!bypass)
+    {
+        Console.Error.WriteLine("[Startup] " + msg);
+        throw new InvalidOperationException(msg);
+    }
+    else
+    {
+        Console.WriteLine("[Startup] WARNING (bypassed): " + msg);
+    }
+}
 
 // Concise per-request logging
 app.UseSerilogRequestLogging(options =>

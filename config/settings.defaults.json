@@ -1,0 +1,25 @@
+{
+  "Database": {
+    "Host": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Port": "INJECT_THIS_IN_ORDER_TO_RUN", 
+    "Name": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Username": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Password": "INJECT_THIS_IN_ORDER_TO_RUN"
+  },
+  "Redis": {
+    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN" 
+  },
+  "Storage": {
+    "HullImages": {
+      "RootPath": "INJECT_THIS_IN_ORDER_TO_RUN" 
+    }
+  },
+  "SendGrid": {
+    "ApiKey": "INJECT_THIS_IN_ORDER_TO_RUN", 
+    "DataResidency": "INJECT_THIS_IN_ORDER_TO_RUN" 
+  },
+  "Serilog": {
+    "SeqUrl": "INJECT_THIS_IN_ORDER_TO_RUN" 
+  }
+}
+
