@@ -21,20 +21,28 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
+
+//
+string GetEnvVar(string key)
+{
+    var val = Environment.GetEnvironmentVariable(key);
+    if (string.IsNullOrWhiteSpace(val))
+    {
+        throw new InvalidOperationException($"Missing environment variable: {key}");
+    }
+    return val;
+}
+
+var appUrlEnv = GetEnvVar("App__Url");
+builder.Configuration["App:Url"] = appUrlEnv;
+// Sendgrid
+var sgKeyEnv = GetEnvVar("SENDGRID_API_KEY");
+var sgFromEmailEnv = GetEnvVar("SENDGRID_FROM_EMAIL");
+var sgFromAliasEnv = GetEnvVar("SENDGRID_FROM_ALIAS");
 // Map common env vars into configuration for services that read IConfiguration only
-var sgKeyEnv = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
-if (!string.IsNullOrWhiteSpace(sgKeyEnv)) builder.Configuration["SendGrid:ApiKey"] = sgKeyEnv;
-var sgFromEmailEnv = Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL");
-if (!string.IsNullOrWhiteSpace(sgFromEmailEnv)) builder.Configuration["SendGrid:FromEmail"] = sgFromEmailEnv;
-var sgFromAliasEnv = Environment.GetEnvironmentVariable("SENDGRID_FROM_ALIAS");
-if (!string.IsNullOrWhiteSpace(sgFromAliasEnv)) builder.Configuration["SendGrid:FromAlias"] = sgFromAliasEnv;
-var sgResidencyEnv = Environment.GetEnvironmentVariable("SENDGRID_DATA_RESIDENCY");
-if (!string.IsNullOrWhiteSpace(sgResidencyEnv)) builder.Configuration["SendGrid:DataResidency"] = sgResidencyEnv;
-// App base URL alias mapping (robust in case host doesn't pass through __ mapping)
-var appUrlEnv = Environment.GetEnvironmentVariable("App__Url")
-                 ?? Environment.GetEnvironmentVariable("APP_URL")
-                 ?? Environment.GetEnvironmentVariable("App:Url");
-if (!string.IsNullOrWhiteSpace(appUrlEnv)) builder.Configuration["App:Url"] = appUrlEnv;
+builder.Configuration["SendGrid:ApiKey"] = sgKeyEnv;
+builder.Configuration["SendGrid:FromEmail"] = sgFromEmailEnv;
+builder.Configuration["SendGrid:FromAlias"] = sgFromAliasEnv;
 
 // Optional: include Docker-specific configuration when running in containers
 if (builder.Environment.IsEnvironment("Docker"))
@@ -77,15 +85,16 @@ builder.Services.AddDataProtection()
     .SetApplicationName("BlazorAutoApp")
     .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
-// EF Core with PostgreSQL (compose from Database:* unless ConnectionStrings:DefaultConnection provided)
-string? Cfg(string key) => builder.Configuration[key];
+// EF Core with PostgreSQL (compose of Database:* unless ConnectionStrings:DefaultConnection provided)
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");
-var dbHost = Cfg("Database:Host");
-var dbPort = Cfg("Database:Port") ?? Environment.GetEnvironmentVariable("POSTGRES_PORT");
-var dbName = Cfg("Database:Name");
-var dbUser = Cfg("Database:Username");
-var dbPass = Cfg("Database:Password");
+
+var dbHost = GetEnvVar("Database__Host");
+var dbPort = GetEnvVar("Database__Port");
+var dbName = GetEnvVar("Database__Name");
+var dbUser = GetEnvVar("Database__Username");
+var dbPass = GetEnvVar("Database__Password");
 var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
+
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
@@ -123,50 +132,6 @@ builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDet
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
-
-// Validate required configuration (fail-fast outside Development)
-static bool IsPlaceholder(string? v)
-    => string.IsNullOrWhiteSpace(v)
-       || string.Equals(v, "CHANGE_ME", StringComparison.OrdinalIgnoreCase)
-       || string.Equals(v, "INJECT_THIS_IN_ORDER_TO_RUN", StringComparison.OrdinalIgnoreCase);
-var missing = new List<string>();
-void Require(string key, string? value)
-{
-    if (IsPlaceholder(value)) missing.Add(key);
-}
-
-// Required keys
-Require("App:Url", Cfg("App:Url"));
-// Database can be provided either as components or as a full connection string
-if (IsPlaceholder(explicitConn))
-{
-    Require("Database:Host", dbHost);
-    Require("Database:Port", dbPort);
-    Require("Database:Name", dbName);
-    Require("Database:Username", dbUser);
-    Require("Database:Password", dbPass);
-}
-Require("Storage:HullImages:RootPath", Cfg("Storage:HullImages:RootPath"));
-Require("Redis:Configuration", redisConn);
-Require("SendGrid:ApiKey", Cfg("SendGrid:ApiKey"));
-Require("SendGrid:FromEmail", Cfg("SendGrid:FromEmail"));
-Require("SendGrid:FromAlias", Cfg("SendGrid:FromAlias"));
-
-var bypass = string.Equals(Environment.GetEnvironmentVariable("BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal)
-             || string.Equals(Environment.GetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal);
-if (missing.Count > 0)
-{
-    var msg = "Missing required configuration values: " + string.Join(", ", missing) + ". Set env vars (e.g., Database__Host) or in appsettings.";
-    if (!bypass)
-    {
-        Console.Error.WriteLine("[Startup] " + msg);
-        throw new InvalidOperationException(msg);
-    }
-    else
-    {
-        Console.WriteLine("[Startup] WARNING (bypassed): " + msg);
-    }
-}
 
 // Concise per-request logging
 app.UseSerilogRequestLogging(options =>
