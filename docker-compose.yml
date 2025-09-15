@@ -3,10 +3,8 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
+    env_file:
+      - ./secrets.env
     ports:
       - "5432:5432"
     healthcheck:
@@ -21,12 +19,13 @@ services:
     build:
       context: .
       dockerfile: BlazorAutoApp/Dockerfile
+    env_file:
+      - ./secrets.env
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: "http://+:8080;https://+:8443"
       ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
       ASPNETCORE_Kestrel__Certificates__Default__Password: "localdevpassword"
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY:?SENDGRID_API_KEY not set on host}
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,9 +41,8 @@ services:
 
   seq:
     image: datalust/seq:latest
-    environment:
-      - ACCEPT_EULA=Y
-      - SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
+    env_file:
+      - ./secrets.env
     ports:
       - "8081:80"    # UI
       - "5341:5341"  # Ingestion
@@ -53,6 +51,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    env_file:
+      - ./secrets.env
     ports:
       - "6379:6379"
     healthcheck:
@@ -63,6 +63,8 @@ services:
 
   redisinsight:
     image: redis/redisinsight:latest
+    env_file:
+      - ./secrets.env
     depends_on:
       redis:
         condition: service_healthy

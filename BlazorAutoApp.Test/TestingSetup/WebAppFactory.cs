@@ -36,7 +36,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         //Setup dependency injection for this test application
         // Bypass strict env settings guard in tests
-        Environment.SetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS", "1");
+        Environment.SetEnvironmentVariable("BYPASS_REQUIRED_SETTINGS", "1");
         builder.ConfigureTestServices(services =>
         {
             //Remove the existing KinoContext from the services

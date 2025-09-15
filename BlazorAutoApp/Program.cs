@@ -15,12 +15,12 @@ using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Central defaults + standard config + env variables (APP_ prefix)
+// Central defaults + standard config + environment variables (no prefix)
 builder.Configuration
     .AddJsonFile("settings.defaults.json", optional: false, reloadOnChange: true)
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables(prefix: "APP_");
+    .AddEnvironmentVariables();
 // Map common env vars into configuration for services that read IConfiguration only
 var sgKeyEnv = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
 if (!string.IsNullOrWhiteSpace(sgKeyEnv)) builder.Configuration["SendGrid:ApiKey"] = sgKeyEnv;
@@ -30,6 +30,11 @@ var sgFromAliasEnv = Environment.GetEnvironmentVariable("SENDGRID_FROM_ALIAS");
 if (!string.IsNullOrWhiteSpace(sgFromAliasEnv)) builder.Configuration["SendGrid:FromAlias"] = sgFromAliasEnv;
 var sgResidencyEnv = Environment.GetEnvironmentVariable("SENDGRID_DATA_RESIDENCY");
 if (!string.IsNullOrWhiteSpace(sgResidencyEnv)) builder.Configuration["SendGrid:DataResidency"] = sgResidencyEnv;
+// App base URL alias mapping (robust in case host doesn't pass through __ mapping)
+var appUrlEnv = Environment.GetEnvironmentVariable("App__Url")
+                 ?? Environment.GetEnvironmentVariable("APP_URL")
+                 ?? Environment.GetEnvironmentVariable("App:Url");
+if (!string.IsNullOrWhiteSpace(appUrlEnv)) builder.Configuration["App:Url"] = appUrlEnv;
 
 // Optional: include Docker-specific configuration when running in containers
 if (builder.Environment.IsEnvironment("Docker"))
@@ -147,10 +152,11 @@ Require("SendGrid:ApiKey", Cfg("SendGrid:ApiKey"));
 Require("SendGrid:FromEmail", Cfg("SendGrid:FromEmail"));
 Require("SendGrid:FromAlias", Cfg("SendGrid:FromAlias"));
 
-var bypass = string.Equals(Environment.GetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal);
+var bypass = string.Equals(Environment.GetEnvironmentVariable("BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal)
+             || string.Equals(Environment.GetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal);
 if (missing.Count > 0)
 {
-    var msg = "Missing required configuration values: " + string.Join(", ", missing) + ". Set via APP_ env vars (e.g., APP_Database__Host) or appsettings.";
+    var msg = "Missing required configuration values: " + string.Join(", ", missing) + ". Set env vars (e.g., Database__Host) or in appsettings.";
     if (!bypass)
     {
         Console.Error.WriteLine("[Startup] " + msg);

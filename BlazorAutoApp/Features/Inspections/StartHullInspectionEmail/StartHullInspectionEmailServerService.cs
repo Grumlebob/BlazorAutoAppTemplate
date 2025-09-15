@@ -3,12 +3,13 @@ using BlazorAutoApp.Core.Features.Email;
 
 namespace BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 
-public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi email, ILogger<StartHullInspectionEmailServerService> log)
+public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi email, ILogger<StartHullInspectionEmailServerService> log, IConfiguration cfg)
     : IStartHullInspectionEmailApi
 {
     private readonly AppDbContext _db = db;
     private readonly IEmailApi _email = email;
     private readonly ILogger<StartHullInspectionEmailServerService> _log = log;
+    private readonly IConfiguration _cfg = cfg;
 
     public async Task<GetCompaniesResponse> GetCompaniesAsync(CancellationToken ct = default)
     {
@@ -40,11 +41,16 @@ public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi em
                 CreatedAtUtc = DateTime.UtcNow
             });
             await _db.SaveChangesAsync(ct);
+            var baseUrl = _cfg["App:Url"] ?? string.Empty;
+            var link = new Uri(new Uri(baseUrl, UriKind.Absolute), $"/inspection/{inspectionId}/flow").ToString();
+            
+
             var send = await _email.SendAsync(new SendEmailRequest
             {
                 To = company.Email,
                 Subject = "Start Hull Inspection",
-                Text = $"Hello,\n\nAn inspection has been initiated.\n\nInspection ID: {inspectionId}\n\nOpen the inspection flow directly at: /inspection/{inspectionId}/flow\n"
+                Text = $"Hello,\n\nAn inspection has been initiated.\n\nInspection ID: {inspectionId}\n\nOpen the inspection flow directly at: {link}\n",
+                Html = $"<p>Hello,</p><p>An inspection has been initiated.</p><p><strong>Inspection ID:</strong> {inspectionId}</p><p><a href=\"{link}\">Open the inspection flow</a></p>"
             }, ct);
 
             return new StartHullInspectionResponse { Success = send.Success, Error = send.Error };
