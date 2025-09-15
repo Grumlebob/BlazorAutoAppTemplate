@@ -8,39 +8,37 @@ public class EmailServerService(IConfiguration cfg, ILogger<EmailServerService> 
 {
     public async Task<SendEmailResponse> SendAsync(SendEmailRequest req, CancellationToken ct = default)
     {
-        // Resolve API key (env var takes precedence, then config section)
-        var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY")
-                     ?? cfg["SENDGRID_API_KEY"]
-                     ?? cfg["SendGrid:ApiKey"];
+        // Resolve from configuration only; Program.cs maps env vars into configuration
+        var apiKey = cfg["SendGrid:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             return new SendEmailResponse { Success = false, Error = "SendGrid ApiKey not configured" };
         }
+        
+        var fromEmail = cfg["SendGrid:FromEmail"];
+        if (string.IsNullOrWhiteSpace(fromEmail))
+        {
+            return new SendEmailResponse { Success = false, Error = "SendGrid FromEmail not configured" };
+        }
 
-
-        // Data residency: only set if configured. If not provided, SDK uses US region.
-        var dataResidency = Environment.GetEnvironmentVariable("SENDGRID_DATA_RESIDENCY")
-                             ?? cfg["SENDGRID_DATA_RESIDENCY"]
-                             ?? cfg["SendGrid:DataResidency"];
-
+        var fromAlias = cfg["SendGrid:FromAlias"];
+        if (string.IsNullOrWhiteSpace(fromAlias))
+        {
+            return new SendEmailResponse { Success = false, Error = "SendGrid fromAlias not configured" };
+        }
         try
         {
             var options = new SendGridClientOptions
             {
                 ApiKey = apiKey
             };
-            if (!string.IsNullOrWhiteSpace(dataResidency))
-            {
-                options.SetDataResidency(dataResidency);
-            }
             var client = new SendGridClient(options);
-
-            var fromEmail = new EmailAddress("shampoo148@live.dk", "Grumbo");
-            var to = new EmailAddress("grumlebet@gmail.com", "Grumbo");
+            
+            var to = new EmailAddress(req.To, "Grumbo");
             var subject = req.Subject ?? string.Empty;
             var plainTextContent = req.Text;
             var htmlContent = req.Html;
-            var msg = MailHelper.CreateSingleEmail(fromEmail, to, subject, plainTextContent, htmlContent);
+            var msg = MailHelper.CreateSingleEmail(new EmailAddress(fromEmail, fromAlias), to, subject, plainTextContent, htmlContent);
             var response = await client.SendEmailAsync(msg);
             if ((int)response.StatusCode == 202)
                 return new SendEmailResponse { Success = true };

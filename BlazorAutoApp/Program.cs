@@ -21,6 +21,15 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables(prefix: "APP_");
+// Map common env vars into configuration for services that read IConfiguration only
+var sgKeyEnv = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+if (!string.IsNullOrWhiteSpace(sgKeyEnv)) builder.Configuration["SendGrid:ApiKey"] = sgKeyEnv;
+var sgFromEmailEnv = Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL");
+if (!string.IsNullOrWhiteSpace(sgFromEmailEnv)) builder.Configuration["SendGrid:FromEmail"] = sgFromEmailEnv;
+var sgFromAliasEnv = Environment.GetEnvironmentVariable("SENDGRID_FROM_ALIAS");
+if (!string.IsNullOrWhiteSpace(sgFromAliasEnv)) builder.Configuration["SendGrid:FromAlias"] = sgFromAliasEnv;
+var sgResidencyEnv = Environment.GetEnvironmentVariable("SENDGRID_DATA_RESIDENCY");
+if (!string.IsNullOrWhiteSpace(sgResidencyEnv)) builder.Configuration["SendGrid:DataResidency"] = sgResidencyEnv;
 
 // Optional: include Docker-specific configuration when running in containers
 if (builder.Environment.IsEnvironment("Docker"))
@@ -111,7 +120,10 @@ builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDet
 var app = builder.Build();
 
 // Validate required configuration (fail-fast outside Development)
-static bool IsPlaceholder(string? v) => string.IsNullOrWhiteSpace(v) || string.Equals(v, "CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+static bool IsPlaceholder(string? v)
+    => string.IsNullOrWhiteSpace(v)
+       || string.Equals(v, "CHANGE_ME", StringComparison.OrdinalIgnoreCase)
+       || string.Equals(v, "INJECT_THIS_IN_ORDER_TO_RUN", StringComparison.OrdinalIgnoreCase);
 var missing = new List<string>();
 void Require(string key, string? value)
 {
@@ -119,6 +131,7 @@ void Require(string key, string? value)
 }
 
 // Required keys
+Require("App:Url", Cfg("App:Url"));
 // Database can be provided either as components or as a full connection string
 if (IsPlaceholder(explicitConn))
 {
@@ -130,6 +143,9 @@ if (IsPlaceholder(explicitConn))
 }
 Require("Storage:HullImages:RootPath", Cfg("Storage:HullImages:RootPath"));
 Require("Redis:Configuration", redisConn);
+Require("SendGrid:ApiKey", Cfg("SendGrid:ApiKey"));
+Require("SendGrid:FromEmail", Cfg("SendGrid:FromEmail"));
+Require("SendGrid:FromAlias", Cfg("SendGrid:FromAlias"));
 
 var bypass = string.Equals(Environment.GetEnvironmentVariable("APP_BYPASS_REQUIRED_SETTINGS"), "1", StringComparison.Ordinal);
 if (missing.Count > 0)
@@ -219,7 +235,7 @@ using (var scope = app.Services.CreateScope())
                 companies.Add(new CompanyDetail
                 {
                     Name = "Jacob Grum",
-                    Email = "jgrum@live.dk",
+                    Email = "grumlebob@gmail.com",
                     HasActivatedLatestInspectionEmail = true
                 });
                 db.CompanyDetails.AddRange(companies);
@@ -430,3 +446,5 @@ app.Run();
 
 //A hacky solution to use Testcontainers with WebApplication.CreateBuilder for integration tests
 public partial class Program;
+
+

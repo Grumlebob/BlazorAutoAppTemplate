@@ -1,4 +1,7 @@
 {
+  "App" : {
+    "Url": "INJECT_THIS_IN_ORDER_TO_RUN"
+  },
   "Database": {
     "Host": "INJECT_THIS_IN_ORDER_TO_RUN",
     "Port": "INJECT_THIS_IN_ORDER_TO_RUN", 
@@ -16,7 +19,9 @@
   },
   "SendGrid": {
     "ApiKey": "INJECT_THIS_IN_ORDER_TO_RUN", 
-    "DataResidency": "INJECT_THIS_IN_ORDER_TO_RUN" 
+    "FromEmail": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "FromAlias": "INJECT_THIS_IN_ORDER_TO_RUN"
+    
   },
   "Serilog": {
     "SeqUrl": "INJECT_THIS_IN_ORDER_TO_RUN" 

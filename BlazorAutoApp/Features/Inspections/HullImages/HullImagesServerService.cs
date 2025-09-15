@@ -137,12 +137,8 @@ public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, 
     /// - BlazorAutoApp.Client/wwwroot/js/tusUpload.js drives TUS (POST create + PATCH data), and the page
     ///   BlazorAutoApp.Client/Pages/HullImages/Index.razor wires the JS interop and progress.
     /// </summary>
-    public async Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
-    {
-        // Server-side IHullImagesApi is not responsible for driving TUS protocol.
-        // This method is not expected to be invoked on the server service directly.
-        throw new NotSupportedException("TUS upload is handled by tusdotnet middleware and endpoints, not via IHullImagesApi.UploadTusAsync on server.");
-    }
+    public Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
+        => Task.FromException(new NotSupportedException("TUS upload is handled by tusdotnet middleware and endpoints, not via IHullImagesApi.UploadTusAsync on server."));
 
     public Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)
     {

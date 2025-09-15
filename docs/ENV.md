@@ -1,6 +1,6 @@
 Environment Variables
 
-This app centralizes all environment-driven settings in `config/settings.defaults.json`.
+This app centralizes all environment-driven settings in `settings.defaults.json`.
 Every key in that file is present with a placeholder value (`INJECT_THIS_IN_ORDER_TO_RUN`) to make it
 obvious what needs to be configured. Real environment variables override these values.
 
@@ -35,3 +35,4 @@ Required settings (non-Development)
 If any required value remains `INJECT_THIS_IN_ORDER_TO_RUN` or empty, startup fails with a clear error listing missing keys.
 To bypass this behavior (used by integration tests), set `APP_BYPASS_REQUIRED_SETTINGS=1`.
 Supplying a full `ConnectionStrings:DefaultConnection` also satisfies database requirements.
+
