@@ -4,7 +4,7 @@ using tusdotnet;
 using BlazorAutoApp.Features.Email;
 using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
-using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail;
+// using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail; // removed: passwordless inspections
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
@@ -84,7 +84,6 @@ builder.Services.AddHybridCache();
 builder.Services.AddScoped<IEmailApi, EmailServerService>();
 // Inspections subfeatures
 builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
-builder.Services.AddScoped<IVerifyInspectionEmailApi, InspectionServerService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
 builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.IVesselPartDetailsApi, VesselPartDetailsServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
@@ -176,21 +175,18 @@ using (var scope = app.Services.CreateScope())
                 logger.LogInformation("CompanyDetails already seeded");
             }
 
-            // Seed a fixed, verified Inspection for Admin demo flow
+            // Seed a fixed Inspection for Admin demo flow
             var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
             var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
             if (existingAdmin is null)
             {
                 // Ensure a company exists to associate with
                 var companyId = await db.CompanyDetails.Select(c => c.Id).OrderBy(x => x).FirstAsync();
-                db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection
+                db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
                 {
                     Id = adminFlowId,
                     CompanyId = companyId,
-                    PasswordSalt = "seed",
-                    PasswordHash = "seed",
-                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1),
-                    VerifiedAtUtc = DateTime.UtcNow
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
                 });
                 // Optional: seed an initial flow record
                 db.InspectionFlows.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
@@ -371,7 +367,6 @@ app.MapMovieEndpoints();
 app.MapHullImageEndpoints();
 app.MapEmailEndpoints();
 app.MapStartHullInspectionEmailEndpoints();
-app.MapInspectionEndpoints();
 app.MapInspectionFlowEndpoints();
 app.MapVesselPartDetailsEndpoints();
 

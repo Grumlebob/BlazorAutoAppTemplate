@@ -32,8 +32,15 @@ public class StartHullInspectionResponse
     public string? Error { get; set; }
 }
 
+public class ActivateInspectionResponse
+{
+    public bool Success { get; set; }
+    public string? Error { get; set; }
+}
+
 public interface IStartHullInspectionEmailApi
 {
     Task<GetCompaniesResponse> GetCompaniesAsync(CancellationToken ct = default);
     Task<StartHullInspectionResponse> StartAsync(StartHullInspectionRequest req, CancellationToken ct = default);
+    Task<ActivateInspectionResponse> ActivateAsync(Guid id, CancellationToken ct = default);
 }

@@ -238,8 +238,7 @@ run it.
 - Structure:
   - All server HullImages code lives under `BlazorAutoApp/Features/Inspections/HullImages` (endpoints, storage, TUS, EF config).
   - Flow server code under `BlazorAutoApp/Features/Inspections/InspectionFlow`.
-  - Verification endpoints under `BlazorAutoApp/Features/Inspections/VerifyInspectionEmail`.
-  - Start email endpoints under `BlazorAutoApp/Features/Inspections/StartHullInspectionEmail`.
+  - Start email + activation endpoints under `BlazorAutoApp/Features/Inspections/StartHullInspectionEmail`.
 
 - Client UI:
   - `BlazorAutoApp.Client/Pages/Inspection/Flow.razor` auto‑saves vessel name, inspection type and selected vessel parts (no Save button).
@@ -250,8 +249,7 @@ run it.
   - Details page for images (`/hull-images/{id}`) remains available. Back link respects `?return=` when linked from Flow.
 
 - APIs and DI:
-  - Verification interface renamed to `IVerifyInspectionEmailApi` on both server and client.
-  - Routes remain stable (e.g., `/api/inspection/{id}/verify`, `/api/inspection/{id}/status`, `/api/hull-images` and `/api/hull-images/tus`).
+  - Passwordless: no verification interface; Flow page triggers activation on first visit.
   - Flow upsert endpoint `/api/inspection-flow/{id}` diffs vessel parts by PartCode to preserve existing `InspectionVesselPart` ids (keeps linked images).
 
 - Tests:
@@ -259,8 +257,7 @@ run it.
   - Test fixtures stub `IEmailApi` to avoid external email dependency.
 
 Inspections endpoints (selected):
-- `/api/inspection/{id}/verify` (POST): verify password (uses `IVerifyInspectionEmailApi`).
-- `/api/inspection/{id}/status` (GET): gate for flow page.
+- `/api/start-hull-inspection-email/activate/{id}` (POST): mark company activated on first Flow visit (idempotent).
 - `/api/inspection-flow/{id}` (GET/POST): get/upsert flow; upsert preserves part ids by `PartCode`.
 - `/api/inspection-flow/vessels` (GET): list known vessel names.
 - `/api/hull-images` (GET): supports filter by `VesselPartId`.

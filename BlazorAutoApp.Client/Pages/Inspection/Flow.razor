@@ -2,93 +2,80 @@
 
 <PageTitle>Inspection Flow</PageTitle>
 
-@if (_checking)
-{
-    <p class="text-black">Checking access…</p>
-}
-else if (!_verified)
-{
-    <p class="text-black">Access denied. Redirecting to verification…</p>
-}
-else
-{
-    <h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
-    <EditForm Model="@this">
-        <div class="max-w-xl space-y-4">
-            <div>
-                <label class="block text-black mb-1">Inspection Type</label>
-                <select class="border rounded w-full px-3 py-2 text-black" value="@_type" @onchange="OnTypeChanged">
-                    @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>())
-                    {
-                        <option value="@it">@it</option>
-                    }
-                </select>
-            </div>
-            <div>
-                <label class="block text-black mb-1">Vessel Name</label>
-                <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" value="@_vesselName" @onchange="OnVesselNameChanged" placeholder="Search vessel name" />
-                <datalist id="vesselList">
-                    @foreach (var v in _vesselNames)
-                    {
-                        <option value="@v"></option>
-                    }
-                </datalist>
-            </div>
-            <div>
-                <label class="block text-black mb-2">Vessel Parts</label>
-                @foreach (var cat in _catalog)
+@* Passwordless: always render flow; first visit triggers activation *@
+<h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
+<EditForm Model="@this">
+    <div class="max-w-xl space-y-4">
+        <div>
+            <label class="block text-black mb-1">Inspection Type</label>
+            <select class="border rounded w-full px-3 py-2 text-black" value="@_type" @onchange="OnTypeChanged">
+                @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>())
                 {
-                    <div class="mb-2">
-                        <div class="font-medium text-black">@cat.Category</div>
-                        <div class="grid grid-cols-2 gap-1 mt-1">
-                            @foreach (var part in cat.Parts)
-                            {
-                                var code = $"{cat.Category}::{part}";
-                                <label class="inline-flex items-center text-black">
-                                    <input type="checkbox" class="mr-2" checked="@_selected.Contains(code)" @onchange="(e)=>TogglePart(code, e.Value)" />
-                                    <span class="mr-1 text-xs" aria-hidden="true">@IconForPart(cat.Category, part)</span>
-                                    <span>@part</span>
-                                </label>
-                            }
-                        </div>
-                    </div>
+                    <option value="@it">@it</option>
                 }
-            </div>
-            @if (_selected.Count > 0)
+            </select>
+        </div>
+        <div>
+            <label class="block text-black mb-1">Vessel Name</label>
+            <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" value="@_vesselName" @onchange="OnVesselNameChanged" placeholder="Search vessel name" />
+            <datalist id="vesselList">
+                @foreach (var v in _vesselNames)
+                {
+                    <option value="@v"></option>
+                }
+            </datalist>
+        </div>
+        <div>
+            <label class="block text-black mb-2">Vessel Parts</label>
+            @foreach (var cat in _catalog)
             {
-                <div class="mt-4">
-                    <div class="text-black font-medium mb-2">Part Details</div>
-                    @foreach (var partCodeSelected in _selected)
-                    {
-                        var vp = _vesselParts.FirstOrDefault(v => v.PartCode == partCodeSelected);
-                        if (vp?.Id is int vpId)
+                <div class="mb-2">
+                    <div class="font-medium text-black">@cat.Category</div>
+                    <div class="grid grid-cols-2 gap-1 mt-1">
+                        @foreach (var part in cat.Parts)
                         {
-                            <div class="mb-6">
-                                <div class="text-black font-semibold mb-1">@partCodeSelected</div>
-                                <BlazorAutoApp.Client.Pages.Inspection.Components.VesselPartForm VesselPartId="@vpId" />
-                            </div>
+                            var code = $"{cat.Category}::{part}";
+                            <label class="inline-flex items-center text-black">
+                                <input type="checkbox" class="mr-2" checked="@_selected.Contains(code)" @onchange="(e)=>TogglePart(code, e.Value)" />
+                                <span>@part</span>
+                            </label>
                         }
-                        else
-                        {
-                            <div class="text-gray-600">Saving to create part container...</div>
-                        }
-                    }
+                    </div>
                 </div>
             }
-            @if (!string.IsNullOrWhiteSpace(_error)) { <div class="text-red-600">@_error</div> }
-            @if (!string.IsNullOrWhiteSpace(_info)) { <div class="text-green-700">@_info</div> }
         </div>
-    </EditForm>
-}
+        @if (_selected.Count > 0)
+        {
+            <div class="mt-4">
+                <div class="text-black font-medium mb-2">Part Details</div>
+                @foreach (var partCodeSelected in _selected)
+                {
+                    var vp = _vesselParts.FirstOrDefault(v => v.PartCode == partCodeSelected);
+                    if (vp?.Id is int vpId)
+                    {
+                        <div class="mb-6">
+                            <div class="text-black font-semibold mb-1">@partCodeSelected</div>
+                            <BlazorAutoApp.Client.Pages.Inspection.Components.VesselPartForm VesselPartId="@vpId" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-gray-600">Saving to create part container...</div>
+                    }
+                }
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_error)) { <div class="text-red-600">@_error</div> }
+        @if (!string.IsNullOrWhiteSpace(_info)) { <div class="text-green-700">@_info</div> }
+    </div>
+</EditForm>
 
 @code {
     [Parameter] public Guid Id { get; set; }
-    [Inject] private IVerifyInspectionEmailApi Api { get; set; } = default!;
+    [Inject] private IStartHullInspectionEmailApi StartEmailApi { get; set; } = default!;
     [Inject] private IInspectionFlowApi FlowApi { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    private bool _checking = true;
-    private bool _verified;
     private string _vesselName = string.Empty;
     private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection;
     private HashSet<string> _selected = new();
@@ -107,41 +94,12 @@ else
         ("other", new[]{"Sea Chest Grating","Bilge Keels","ICCP","Aft Thruster","Keel Block Mark"})
     };
 
-    private static string IconForPart(string category, string part)
-    {
-        var p = part.ToLowerInvariant();
-        var icons = new List<string>();
-        if (p.Contains("front")) icons.Add("⬆️");
-        if (p.Contains("rear")) icons.Add("⬇️");
-        if (p.Contains("port")) icons.Add("⬅️");
-        if (p.Contains("starboard")) icons.Add("➡️");
-        if (p.Contains("flat bottom") || p.Contains("bottom")) icons.Add("⬛");
-
-        var cat = category.ToLowerInvariant();
-        if (cat == "rudder" || p.Contains("rudder")) icons.Add("🧭");
-        if (cat == "propeller" || p.Contains("propeller") || p.Contains("thruster")) icons.Add("🌀");
-        if (p.Contains("rope")) icons.Add("🧵");
-        if (p.Contains("shaft")) icons.Add("⚙️");
-        if (p.Contains("sea chest")) icons.Add("#️⃣");
-        if (p.Contains("bilge")) icons.Add("🪝");
-        if (p.Contains("iccp")) icons.Add("🔋");
-        if (p.Contains("keel")) icons.Add("📏");
-
-        if (icons.Count == 0) icons.Add("🚢");
-        return string.Join(string.Empty, icons);
-    }
+    // Icons removed to avoid unknown emoji rendering
 
     protected override async Task OnInitializedAsync()
     {
-        var res = await Api.GetStatusAsync(Id);
-        _verified = res.Verified;
-        _checking = false;
-        if (!_verified)
-        {
-            await Task.Delay(300);
-            Nav.NavigateTo($"/inspection/{Id}");
-            return;
-        }
+        // Flip activation flag on first visit (idempotent)
+        try { await StartEmailApi.ActivateAsync(Id); } catch { }
         await LoadAsync();
         await LoadVesselNamesAsync();
     }

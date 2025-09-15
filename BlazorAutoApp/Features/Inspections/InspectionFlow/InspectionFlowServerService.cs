@@ -9,23 +9,17 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
 
     public async Task<GetInspectionFlowResponse> GetAsync(Guid id, CancellationToken ct = default)
     {
-        // Gate by verification
-        var verified = await _db.Set<BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection>()
+        // Load inspection record (passwordless) and bootstrap company linkage
+        var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
             .AsNoTracking()
-            .AnyAsync(x => x.Id == id && x.VerifiedAtUtc != null, ct);
-        if (!verified)
-        {
-            return new GetInspectionFlowResponse { Id = id, CompanyId = 0, VesselName = null, InspectionType = InspectionType.GoProInspection, VesselParts = new() };
-        }
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
             .Include(x => x.VesselParts)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (flow is null)
         {
-            // bootstrap from verification record
-            var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection>()
-                .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            // bootstrap from inspection record
             return new GetInspectionFlowResponse
             {
                 Id = id,
@@ -51,13 +45,11 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
 
     public async Task<UpsertInspectionFlowResponse> UpsertAsync(UpsertInspectionFlowRequest req, CancellationToken ct = default)
     {
-        // Gate: must be verified
-        var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection>()
+        // Require the inspection to exist
+        var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
             .FirstOrDefaultAsync(x => x.Id == req.Id, ct);
-        if (insp is null || insp.VerifiedAtUtc is null)
-        {
-            return new UpsertInspectionFlowResponse { Success = false, Error = "Inspection not verified" };
-        }
+        if (insp is null)
+            return new UpsertInspectionFlowResponse { Success = false, Error = "Inspection not found" };
 
         var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
             .Include(x => x.VesselParts)

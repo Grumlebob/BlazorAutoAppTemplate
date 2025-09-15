@@ -30,7 +30,7 @@ public class UpsertInspectionFlowTests
     }
 
     [Fact]
-    public async Task Upsert_Blocked_When_NotVerified()
+    public async Task Upsert_Blocked_When_Inspection_Not_Found()
     {
         await _resetDatabase();
         var id = Guid.NewGuid();
@@ -44,7 +44,7 @@ public class UpsertInspectionFlowTests
     {
         await _resetDatabase();
         var id = Guid.NewGuid();
-        SeedVerifiedInspection(id);
+        SeedInspection(id);
 
         var req = new UpsertInspectionFlowRequest
         {
@@ -85,21 +85,18 @@ public class UpsertInspectionFlowTests
     }
     
 
-    private void SeedVerifiedInspection(Guid id)
+    private void SeedInspection(Guid id)
     {
-        // minimal seed; verification gate only checks VerifiedAtUtc != null
+        // minimal seed: inspection record must exist
         var company = new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "Acme", Email = "x@y.z" };
         _db.CompanyDetails.Add(company);
         _db.SaveChanges();
 
-        _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail.Inspection
+        _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = id,
             CompanyId = company.Id,
-            PasswordSalt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16)),
-            PasswordHash = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
-            CreatedAtUtc = DateTime.UtcNow,
-            VerifiedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow
         });
         _db.SaveChanges();
     }

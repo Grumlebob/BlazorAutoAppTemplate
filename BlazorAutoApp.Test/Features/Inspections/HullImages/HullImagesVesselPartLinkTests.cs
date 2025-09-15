@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Test.TestingSetup;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Inspections.HullImages;
@@ -19,11 +20,15 @@ public class HullImagesVesselPartLinkTests
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
+    private readonly IServiceScope _scope;
+    private readonly BlazorAutoApp.Data.AppDbContext _db;
 
     public HullImagesVesselPartLinkTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
+        _scope = factory.Services.CreateScope();
+        _db = _scope.ServiceProvider.GetRequiredService<BlazorAutoApp.Data.AppDbContext>();
     }
 
     [Fact]
@@ -32,21 +37,28 @@ public class HullImagesVesselPartLinkTests
         await _resetDatabase();
         var id = Guid.NewGuid();
 
-        // Seed verification directly via flow upsert helper (server gates on verification only)
-        // First: insert verification record through API is more involved; easier path: use flow upsert seed
+        // Seed minimal inspection and company
+        if (!_db.CompanyDetails.Any())
+        {
+            _db.CompanyDetails.Add(new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
+            _db.SaveChanges();
+        }
+        var companyId = _db.CompanyDetails.Select(c => c.Id).First();
+        _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        {
+            Id = id,
+            CompanyId = companyId,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+        _db.SaveChanges();
+
+        // Now upsert flow to create vessel part container
         var seed = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", new UpsertInspectionFlowRequest
         {
             Id = id, VesselName = "VesselB", InspectionType = InspectionType.GoProInspection,
             VesselParts = new() { new InspectionVesselPartDto { PartCode = "bow::Port" } }
         });
-        // If verification gate blocks, the server returns 400; instead, seed via verify endpoint:
-        if (seed.StatusCode != HttpStatusCode.OK)
-        {
-            // Create a verified inspection using verify endpoint: first insert record with known hash
-            var salt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
-            var (hs, hh) = (salt, Hash("ok", salt));
-            // direct DB seeding is handled in other tests; here just try verify endpoint against a not-yet-existing record gracefully skip
-        }
+        seed.EnsureSuccessStatusCode();
 
         var flow = await _client.GetFromJsonAsync<GetInspectionFlowResponse>($"/api/inspection-flow/{id}");
         Assert.NotNull(flow);
@@ -82,10 +94,5 @@ public class HullImagesVesselPartLinkTests
         Assert.All(list.Items, i => Assert.Equal(vpId, i.InspectionVesselPartId));
     }
 
-    private static string Hash(string password, string salt)
-    {
-        using var sha = SHA256.Create();
-        var combined = Encoding.UTF8.GetBytes(password + ":" + salt);
-        return Convert.ToBase64String(sha.ComputeHash(combined));
-    }
+    // no hashing needed in passwordless flow
 }

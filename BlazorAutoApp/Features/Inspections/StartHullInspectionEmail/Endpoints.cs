@@ -22,6 +22,13 @@ public static class StartHullInspectionEmailEndpoints
             return Results.BadRequest(res);
         });
 
+        group.MapPost("/activate/{id:guid}", async (Guid id, IStartHullInspectionEmailApi api, CancellationToken ct) =>
+        {
+            var res = await api.ActivateAsync(id, ct);
+            if (res.Success) return Results.Ok(res);
+            return Results.BadRequest(res);
+        });
+
         return routes;
     }
 }

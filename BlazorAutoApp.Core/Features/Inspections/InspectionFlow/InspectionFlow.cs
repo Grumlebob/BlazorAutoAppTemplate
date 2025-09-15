@@ -13,7 +13,7 @@ public enum InspectionType
 
 public class InspectionFlow
 {
-    public Guid Id { get; set; } // same as VerifyInspectionEmail.Inspection.Id
+    public Guid Id { get; set; } // same as Inspection.Inspection.Id
     public int CompanyId { get; set; }
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
