@@ -17,7 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Central defaults + standard config + env variables (APP_ prefix)
 builder.Configuration
-    .AddJsonFile("config/settings.defaults.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("settings.defaults.json", optional: false, reloadOnChange: true)
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables(prefix: "APP_");

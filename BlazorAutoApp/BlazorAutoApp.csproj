@@ -44,10 +44,10 @@
     <Content Include="shipNames.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="config\settings.defaults.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    <Content Update="settings.defaults.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+
   </ItemGroup>
 
 </Project>
