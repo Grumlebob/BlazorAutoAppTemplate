@@ -7,6 +7,7 @@ using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Inspections.VesselPartDetails;
@@ -17,14 +18,14 @@ public class UpsertVesselPartDetailsTests
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly IServiceScope _scope;
-    private readonly BlazorAutoApp.Data.AppDbContext _db;
+    private readonly IDbContextFactory<BlazorAutoApp.Data.AppDbContext> _dbFactory;
 
     public UpsertVesselPartDetailsTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<BlazorAutoApp.Data.AppDbContext>();
+        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<BlazorAutoApp.Data.AppDbContext>>();
     }
 
     [Fact]
@@ -33,20 +34,21 @@ public class UpsertVesselPartDetailsTests
         await _resetDatabase();
 
         // Ensure a company + inspection exist
-        if (!_db.CompanyDetails.Any())
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        if (!db.CompanyDetails.Any())
         {
-            _db.CompanyDetails.Add(new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
-            _db.SaveChanges();
+            db.CompanyDetails.Add(new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
+            db.SaveChanges();
         }
-        var companyId = _db.CompanyDetails.Select(c => c.Id).First();
+        var companyId = db.CompanyDetails.Select(c => c.Id).First();
         var inspId = Guid.NewGuid();
-        _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = inspId,
             CompanyId = companyId,
             CreatedAtUtc = DateTime.UtcNow
         });
-        _db.SaveChanges();
+        db.SaveChanges();
 
         // Create vessel part via inspection flow
         var upsertFlow = await _client.PostAsJsonAsync($"/api/inspection-flow/{inspId}", new UpsertInspectionFlowRequest
@@ -93,4 +95,3 @@ public class UpsertVesselPartDetailsTests
         Assert.Equal(30, algae.CoveragePercent);
     }
 }
-

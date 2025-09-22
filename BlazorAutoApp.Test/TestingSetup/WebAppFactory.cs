@@ -68,12 +68,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 services.Remove(factoryDesc);
             }
 
-            //Setup our new Context connection to our docker postgres container
-            services.AddDbContext<AppDbContext>(options =>
-            {
-                options.UseNpgsql(_dbContainer.GetConnectionString());
-            }, contextLifetime: ServiceLifetime.Scoped, optionsLifetime: ServiceLifetime.Singleton);
-            // Also register factory using the same connection and ensure it is added AFTER AddDbContext
+            // Register factory (factory-only approach)
             services.AddDbContextFactory<AppDbContext>(options =>
             {
                 options.UseNpgsql(_dbContainer.GetConnectionString());
@@ -120,9 +115,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         //THIS IS WHERE YOU CAN ADD SEED DATA
         using var scope = Services.CreateScope();
         var services = scope.ServiceProvider;
-        var context = services.GetRequiredService<AppDbContext>();
-        
-        await context.Database.MigrateAsync();
+        var dbFactory = services.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var context = await dbFactory.CreateDbContextAsync())
+        {
+            await context.Database.MigrateAsync();
+        }
         await InitializeRespawner();
     }
 

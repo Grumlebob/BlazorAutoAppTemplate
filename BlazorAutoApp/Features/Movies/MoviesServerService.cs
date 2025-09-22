@@ -2,13 +2,13 @@ namespace BlazorAutoApp.Features.Movies;
 
 public class MoviesServerService : IMoviesApi
 {
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly HybridCache _cache;
     private readonly MoviesCacheOptions _cacheOptions;
 
-    public MoviesServerService(AppDbContext db, HybridCache cache, IOptions<MoviesCacheOptions> cacheOptions)
+    public MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, HybridCache cache, IOptions<MoviesCacheOptions> cacheOptions)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _cache = cache;
         _cacheOptions = cacheOptions.Value ?? new MoviesCacheOptions();
     }
@@ -39,13 +39,15 @@ public class MoviesServerService : IMoviesApi
 
     private async Task<GetMoviesResponse> LoadMoviesAsync(CancellationToken ct)
     {
-        var items = await _db.Movies.AsNoTracking().ToListAsync(ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var items = await db.Movies.AsNoTracking().ToListAsync(ct);
         return new GetMoviesResponse { Movies = items };
     }
 
     private async Task<GetMovieResponse?> LoadMovieAsync(int id, CancellationToken ct)
     {
-        var movie = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        var movie = await db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
         if (movie is null) return null;
         return new GetMovieResponse
         {
@@ -58,14 +60,15 @@ public class MoviesServerService : IMoviesApi
 
     public async Task<CreateMovieResponse> CreateAsync(CreateMovieRequest req)
     {
+        await using var db = await _dbFactory.CreateDbContextAsync();
         var movie = new Movie
         {
             Title = req.Title,
             Director = req.Director,
             Rating = req.Rating
         };
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
+        db.Movies.Add(movie);
+        await db.SaveChangesAsync();
         await InvalidateAsync(movie.Id);
         return new CreateMovieResponse
         {
@@ -78,22 +81,24 @@ public class MoviesServerService : IMoviesApi
 
     public async Task<bool> UpdateAsync(UpdateMovieRequest req)
     {
-        var movie = await _db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
         if (movie is null) return false;
         movie.Title = req.Title;
         movie.Director = req.Director;
         movie.Rating = req.Rating;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
         await InvalidateAsync(req.Id);
         return true;
     }
 
     public async Task<bool> DeleteAsync(DeleteMovieRequest req)
     {
-        var movie = await _db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
         if (movie is null) return false;
-        _db.Movies.Remove(movie);
-        await _db.SaveChangesAsync();
+        db.Movies.Remove(movie);
+        await db.SaveChangesAsync();
         await InvalidateAsync(req.Id);
         return true;
     }

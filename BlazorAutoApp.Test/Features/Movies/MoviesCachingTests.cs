@@ -19,25 +19,21 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly DataGenerator _data = new();
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public MoviesCachingTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
 
     public Task DisposeAsync() => _resetDatabase();
 
-    public void Dispose()
-    {
-        _db?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 
     [Fact]
     public async Task GetList_IsCached_UntilInvalidatedByCreate()
@@ -45,8 +41,11 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
         // Seed two movies directly (bypass API so cache must read DB)
         var m1 = _data.Generator.Generate();
         var m2 = _data.Generator.Generate();
-        _db.Movies.AddRange(m1, m2);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.AddRange(m1, m2);
+            await db.SaveChangesAsync();
+        }
 
         // Warm list cache
         var list1 = await _client.GetFromJsonAsync<GetMoviesResponse>("/api/movies");
@@ -55,8 +54,11 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
 
         // Change DB underneath (cache should still return old list)
         var m3 = _data.Generator.Generate();
-        _db.Movies.Add(m3);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.Add(m3);
+            await db.SaveChangesAsync();
+        }
 
         var list2 = await _client.GetFromJsonAsync<GetMoviesResponse>("/api/movies");
         Assert.NotNull(list2);
@@ -88,9 +90,12 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
         Assert.Equal("Original", item1!.Title);
 
         // Change DB underneath (bypass API)
-        var dbMovie = await _db.Movies.FirstAsync(m => m.Id == id);
-        dbMovie.Title = "DB Changed";
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            var dbMovie = await db.Movies.FirstAsync(m => m.Id == id);
+            dbMovie.Title = "DB Changed";
+            await db.SaveChangesAsync();
+        }
 
         // Still cached
         var item2 = await _client.GetFromJsonAsync<GetMovieResponse>($"/api/movies/{id}");
@@ -136,4 +141,3 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
         Assert.Equal(created2!.Id, list.Movies[0].Id);
     }
 }
-

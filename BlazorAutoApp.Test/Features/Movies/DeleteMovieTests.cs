@@ -16,28 +16,32 @@ public class DeleteMovieTests : IAsyncLifetime, IDisposable
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly DataGenerator _data = new();
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public DeleteMovieTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
     public async Task Delete_Existing_ReturnsNoContent()
     {
         var movie = _data.Generator.Generate();
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync();
+        }
 
         var response = await _client.DeleteAsync($"/api/movies/{movie.Id}");
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        _db.ChangeTracker.Clear();
-        var stillThere = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == movie.Id);
+        await using var verifyDb = await _dbFactory.CreateDbContextAsync();
+        verifyDb.ChangeTracker.Clear();
+        var stillThere = await verifyDb.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == movie.Id);
         Assert.Null(stillThere);
     }
 
@@ -52,9 +56,5 @@ public class DeleteMovieTests : IAsyncLifetime, IDisposable
 
     public Task DisposeAsync() => _resetDatabase();
 
-    public void Dispose()
-    {
-        _db?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

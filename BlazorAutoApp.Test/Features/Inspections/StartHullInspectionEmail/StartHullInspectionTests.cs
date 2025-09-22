@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
 using BlazorAutoApp.Data;
+using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -15,23 +16,26 @@ namespace BlazorAutoApp.Test.Features.Inspections.StartHullInspectionEmail;
 public class StartHullInspectionTests
 {
     private readonly WebAppFactory _factory;
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public StartHullInspectionTests(WebAppFactory factory)
     {
         _factory = factory;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
     public async Task GetCompanies_And_Start_Returns_Accepted()
     {
         // ensure at least one company exists (Program seeds some; but guard anyway)
-        if (!_db.CompanyDetails.Any())
+        await using (var db = await _dbFactory.CreateDbContextAsync())
         {
-            _db.CompanyDetails.Add(new CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
-            await _db.SaveChangesAsync();
+            if (!db.CompanyDetails.Any())
+            {
+                db.CompanyDetails.Add(new CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
+                await db.SaveChangesAsync();
+            }
         }
 
         var companies = await _factory.HttpClient.GetFromJsonAsync<GetCompaniesResponse>("/api/start-hull-inspection-email/companies");

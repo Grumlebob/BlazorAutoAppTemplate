@@ -9,6 +9,7 @@ using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Inspections.InspectionFlow;
@@ -19,14 +20,14 @@ public class UpsertInspectionFlowTests
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly IServiceScope _scope;
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public UpsertInspectionFlowTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -44,7 +45,7 @@ public class UpsertInspectionFlowTests
     {
         await _resetDatabase();
         var id = Guid.NewGuid();
-        SeedInspection(id);
+        await SeedInspectionAsync(id);
 
         var req = new UpsertInspectionFlowRequest
         {
@@ -85,19 +86,20 @@ public class UpsertInspectionFlowTests
     }
     
 
-    private void SeedInspection(Guid id)
+    private async Task SeedInspectionAsync(Guid id)
     {
         // minimal seed: inspection record must exist
+        await using var db = await _dbFactory.CreateDbContextAsync();
         var company = new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "Acme", Email = "x@y.z" };
-        _db.CompanyDetails.Add(company);
-        _db.SaveChanges();
+        db.CompanyDetails.Add(company);
+        await db.SaveChangesAsync();
 
-        _db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = id,
             CompanyId = company.Id,
             CreatedAtUtc = DateTime.UtcNow
         });
-        _db.SaveChanges();
+        await db.SaveChangesAsync();
     }
 }

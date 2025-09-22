@@ -3,16 +3,17 @@ using BlazorAutoApp.Core.Features.Email;
 
 namespace BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
 
-public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi email, ILogger<StartHullInspectionEmailServerService> log, IConfiguration cfg)
+public class StartHullInspectionEmailServerService(IDbContextFactory<AppDbContext> dbFactory, IEmailApi email, ILogger<StartHullInspectionEmailServerService> log, IConfiguration cfg)
     : IStartHullInspectionEmailApi
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly IEmailApi _email = email;
     private readonly ILogger<StartHullInspectionEmailServerService> _log = log;
     private readonly IConfiguration _cfg = cfg;
 
     public async Task<GetCompaniesResponse> GetCompaniesAsync(CancellationToken ct = default)
     {
+        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         var items = await _db.CompanyDetails
             .AsNoTracking()
             .OrderBy(c => c.Id)
@@ -23,6 +24,7 @@ public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi em
 
     public async Task<StartHullInspectionResponse> StartAsync(StartHullInspectionRequest req, CancellationToken ct = default)
     {
+        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         var company = await _db.CompanyDetails.FirstOrDefaultAsync(c => c.Id == req.CompanyId, ct);
         if (company is null)
         {
@@ -68,6 +70,7 @@ public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi em
     {
         try
         {
+            await using var _db = await _dbFactory.CreateDbContextAsync(ct);
             var insp = await _db.Inspections.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, ct);
             if (insp is null)
                 return new ActivateInspectionResponse { Success = false, Error = "Inspection not found" };

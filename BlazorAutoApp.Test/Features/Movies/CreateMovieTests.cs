@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using BlazorAutoApp.Core.Features.Movies;
 using BlazorAutoApp.Data;
+using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -16,14 +17,14 @@ public class CreateMovieTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public CreateMovieTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -44,7 +45,8 @@ public class CreateMovieTests : IAsyncLifetime, IDisposable
         Assert.True(payload!.Id > 0);
         Assert.Equal(create.Title, payload.Title);
 
-        var persisted = await _db.Movies.FindAsync(payload.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var persisted = await db.Movies.FindAsync(payload.Id);
         Assert.NotNull(persisted);
         Assert.Equal(create.Title, persisted!.Title);
     }
@@ -75,9 +77,5 @@ public class CreateMovieTests : IAsyncLifetime, IDisposable
 
     public Task DisposeAsync() => _resetDatabase();
 
-    public void Dispose()
-    {
-        _db?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

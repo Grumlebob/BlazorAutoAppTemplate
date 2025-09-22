@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Data;
+using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -18,14 +19,14 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public CreateHullImageTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -62,7 +63,8 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         var list = await _client.GetFromJsonAsync<GetHullImagesResponse>("/api/hull-images");
         Assert.NotNull(list);
         var created = list!.Items.First();
-        var persisted = await _db.HullImages.FindAsync(created.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var persisted = await db.HullImages.FindAsync(created.Id);
         Assert.NotNull(persisted);
 
         // Download full
@@ -89,7 +91,7 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
     public Task DisposeAsync() => _resetDatabase();
     public void Dispose()
     {
-        _db?.Dispose();
+        // factory is container-owned; no disposal required here
         GC.SuppressFinalize(this);
     }
 }

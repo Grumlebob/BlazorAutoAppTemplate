@@ -18,22 +18,25 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly DataGenerator _data = new();
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public UpdateMovieTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
     public async Task Update_Valid_ReturnsNoContentAndPersists()
     {
         var movie = _data.Generator.Generate();
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync();
+        }
 
         var update = new UpdateMovieRequest
         {
@@ -46,18 +49,24 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
         var response = await _client.PutAsJsonAsync($"/api/movies/{movie.Id}", update);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        _db.ChangeTracker.Clear();
-        var refreshed = await _db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == movie.Id);
-        Assert.NotNull(refreshed);
-        Assert.Equal(update.Title, refreshed!.Title);
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.ChangeTracker.Clear();
+            var refreshed = await db.Movies.AsNoTracking().FirstOrDefaultAsync(m => m.Id == movie.Id);
+            Assert.NotNull(refreshed);
+            Assert.Equal(update.Title, refreshed!.Title);
+        }
     }
 
     [Fact]
     public async Task Update_IdMismatch_ReturnsBadRequest()
     {
         var movie = _data.Generator.Generate();
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync();
+        }
 
         var update = new UpdateMovieRequest
         {
@@ -90,8 +99,11 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
     public async Task Update_InvalidBody_ReturnsBadRequest()
     {
         var movie = _data.Generator.Generate();
-        _db.Movies.Add(movie);
-        await _db.SaveChangesAsync();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync();
+        }
 
         var update = new UpdateMovieRequest
         {
@@ -109,9 +121,5 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
 
     public Task DisposeAsync() => _resetDatabase();
 
-    public void Dispose()
-    {
-        _db?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

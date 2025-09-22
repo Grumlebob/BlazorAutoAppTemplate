@@ -2,13 +2,14 @@ using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
-public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlowServerService> log) : IInspectionFlowApi
+public class InspectionFlowServerService(IDbContextFactory<AppDbContext> dbFactory, ILogger<InspectionFlowServerService> log) : IInspectionFlowApi
 {
-    private readonly AppDbContext _db = db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly ILogger<InspectionFlowServerService> _log = log;
 
     public async Task<GetInspectionFlowResponse> GetAsync(Guid id, CancellationToken ct = default)
     {
+        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         // Load inspection record (passwordless) and bootstrap company linkage
         var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
             .AsNoTracking()
@@ -45,6 +46,7 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
 
     public async Task<UpsertInspectionFlowResponse> UpsertAsync(UpsertInspectionFlowRequest req, CancellationToken ct = default)
     {
+        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         // Require the inspection to exist
         var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
             .FirstOrDefaultAsync(x => x.Id == req.Id, ct);
@@ -96,6 +98,7 @@ public class InspectionFlowServerService(AppDbContext db, ILogger<InspectionFlow
 
     public async Task<GetVesselsResponse> GetVesselsAsync(CancellationToken ct = default)
     {
+        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         var items = await _db.Vessels.AsNoTracking().OrderBy(v => v.Name)
             .Select(v => new VesselDto { Id = v.Id, Name = v.Name }).ToListAsync(ct);
         return new GetVesselsResponse { Items = items };

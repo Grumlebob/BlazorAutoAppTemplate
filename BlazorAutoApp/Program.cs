@@ -96,7 +96,7 @@ var dbPass = GetEnvVar("Database__Password");
 var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
 
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString), contextLifetime: ServiceLifetime.Scoped, optionsLifetime: ServiceLifetime.Singleton);
+// Only use factory; avoid registering DbContext as a scoped service
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
@@ -177,7 +177,8 @@ app.UseAntiforgery();
 using (var scope = app.Services.CreateScope())
 {
     var sp = scope.ServiceProvider;
-    var db = sp.GetRequiredService<AppDbContext>();
+    var dbFactory = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    await using var db = await dbFactory.CreateDbContextAsync();
     var logger = sp.GetRequiredService<ILogger<Program>>();
     try
     {

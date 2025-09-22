@@ -9,6 +9,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Inspections.HullImages;
@@ -18,14 +19,14 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
-    private readonly AppDbContext _db;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public GetHullImagesTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         var scope = factory.Services.CreateScope();
-        _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -65,9 +66,5 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
 
     public Task InitializeAsync() => Task.CompletedTask;
     public Task DisposeAsync() => _resetDatabase();
-    public void Dispose()
-    {
-        _db?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

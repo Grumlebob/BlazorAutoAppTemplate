@@ -30,8 +30,9 @@ public static class HullImageEndpoints
         // Single-shot upload removed; use TUS-only client flow which stores file first
 
         // Download original with basic streaming
-        group.MapGet("/{id:int}/original", async (int id, AppDbContext db, IHullImageStore store, CancellationToken ct) =>
+        group.MapGet("/{id:int}/original", async (int id, IDbContextFactory<AppDbContext> dbFactory, IHullImageStore store, CancellationToken ct) =>
         {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var item = await db.Set<HullImage>().AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, ct);
             if (item is null) return Results.NotFound();
             var stream = await store.OpenReadAsync(item.StorageKey, ct);
@@ -39,9 +40,10 @@ public static class HullImageEndpoints
         });
 
         // Thumbnail on-demand: generates and caches JPEG thumbnail
-        group.MapGet("/{id:int}/thumbnail/{size:int}", async (int id, int size, AppDbContext db, IHullImageStore store, IThumbnailService thumbs, CancellationToken ct) =>
+        group.MapGet("/{id:int}/thumbnail/{size:int}", async (int id, int size, IDbContextFactory<AppDbContext> dbFactory, IHullImageStore store, IThumbnailService thumbs, CancellationToken ct) =>
         {
             if (size <= 0) size = 256;
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var item = await db.Set<HullImage>().AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, ct);
             if (item is null) return Results.NotFound();
             var rel = await thumbs.GetOrCreateThumbnailAsync(item.StorageKey, size, ct);
