@@ -25,7 +25,8 @@
                 }
             </datalist>
         </div>
-        <BlazorAutoApp.Client.Pages.Inspection.Components.FormSegmentToggle/>
+        <ImageSegmentToggle ShipSide="Starboard" ImagePath="starboard_hull.PNG" GridRows="@([65, 35])" Segments="@StarboardSegments"/>
+        <ImageSegmentToggle ShipSide="Flat Bottom" ImagePath="port_hull.PNG" GridRows="@([50, 50])" Segments="FlatBottomSegments"/>
         <div>
             <label class="block text-black mb-2">Vessel Parts</label>
             @foreach (var cat in _catalog)
@@ -56,7 +57,7 @@
                     {
                         <div class="mb-6">
                             <div class="text-black font-semibold mb-1">@partCodeSelected</div>
-                            <BlazorAutoApp.Client.Pages.Inspection.Components.VesselPartForm VesselPartId="@vpId" />
+                            <VesselPartForm VesselPartId="@vpId" />
                         </div>
                     }
                     else
@@ -201,4 +202,26 @@
             _vesselNames = new();
         }
     }
+
+    List<ImageSegmentToggle.Segment> StarboardSegments =
+    [
+        new() { Label = "Above water" },
+        new() { Label = "Aft" },
+        new() { Label = "Mid-ships aft" },
+        new() { Label = "Mid-ships forward" },
+        new() { Label = "Bow" }
+    ];
+    
+    List<ImageSegmentToggle.Segment> FlatBottomSegments =
+    [
+        new() { Label = "Bow starboard" },
+        new() { Label = "Mid-ships forward starboard" },
+        new() { Label = "Mid-ships aft starboard" },
+        new() { Label = "Aft starboard" },
+        new() { Label = "Bow port" },
+        new() { Label = "Mid-ships forward port" },
+        new() { Label = "Mid-ships aft port" },
+        new() { Label = "Aft port" },
+    ];
+
 }

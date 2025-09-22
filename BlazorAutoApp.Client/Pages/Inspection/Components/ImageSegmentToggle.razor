@@ -1,0 +1,92 @@
+﻿<div class="bg-contain bg-no-repeat before:block before:pt-43 relative hover:cursor-pointer w-100" style="background-image: url(@ImagePath)">
+    <div class="absolute inset-0 grid grid-cols-@Columns grid-rows-[@GridRowsToString()]">
+        @for (var i = 0; i < Segments.Count; i++)
+        {
+            var localIndex = i;
+            var cell = Segments[localIndex];
+            cell.Layout ??= SetLayoutBasedOnIndexAndNumberOfSegments(localIndex);
+            <div
+                class="@StyleSegmentBasedOnToggleSelection(localIndex, cell)"
+                @onclick="@(() => Toggle(localIndex))">
+                <p>@cell.Label</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div>Inspecting: @ShipSide :: @(Segments[_currentlyToggled].Label)</div>
+
+@code {
+    public class Segment
+    {
+        public string Label { get; init; } = "";
+        public bool IsCompleted { get; set; }
+        public string? Layout { get; set; } // Tailwind grid placement per cell
+    }
+    
+    [Parameter] public int Columns { get; set; } = 4; 
+
+    [Parameter] public required string ShipSide { get; set; }
+    
+    [Parameter] public required string ImagePath { get; set; }
+
+    /**
+     * Set how much space each row should take up. E.g. [65, 35]
+     * translates to: First row height: 65% second row height 35%
+     */
+    [Parameter]
+    public required int[] GridRows { get; set; } = [100];
+
+    private string GridRowsToString() => string.Join('_', GridRows.Select(n => n + "%")); // [65, 35] => 65%_35%
+
+    [Parameter] public List<Segment> Segments { get; set; } = [new() { Label = "Segment" }];
+    
+    private int _currentlyToggled = 0;
+
+    private void Toggle(int index)
+    {
+        _currentlyToggled = index;
+        StateHasChanged();
+    }
+
+    private string SetLayoutBasedOnIndexAndNumberOfSegments(int index)
+    {
+        var colStart = 1;
+        var colSpan = 1;
+        var rowStart = 1;
+        var rowSpan = 1;
+        
+        //first cell is stretched if *Columns* don't add up to number of segments
+        var firstCellWidth = Columns - (Segments.Count - 1) % Columns; // 4 - (8-1) % 4 = 1,  4 - (5-1) % 4 = 4
+        if (index == 0)
+        {
+            colSpan = firstCellWidth;
+        }
+        else
+        {
+            colStart = (index + firstCellWidth - 1) % Columns + 1; // minus one because division and % needs zero indexing
+            rowStart = (index + firstCellWidth - 1) / Columns + 1; // add one because grid is not zero indexed
+        }
+
+        return $"col-start-{colStart} row-start-{rowStart} col-span-{colSpan} row-span-{rowSpan}";
+    }
+
+    private string StyleSegmentBasedOnToggleSelection(int index, Segment segment)
+    {
+        var selection = _currentlyToggled == index ? "border-4 border-blue-700" : "border";
+        var state = segment.IsCompleted ? "bg-green-700/50 hover:bg-green-700/30" : "hover:bg-blue-50/50";
+        return $"{segment.Layout} {selection} {state}";
+    }
+
+// -------- PUBLIC API --------
+
+    /// <summary>
+    /// Mark/unmark a cell (0 to {number of cells} ) as completed. Completed cells turn green.
+    /// </summary>
+    public void SetCompleted(int index, bool completed = true)
+    {
+        if (index < 0 || index >= Segments.Count) return;
+        Segments[index].IsCompleted = completed;
+        StateHasChanged();
+    }
+}
