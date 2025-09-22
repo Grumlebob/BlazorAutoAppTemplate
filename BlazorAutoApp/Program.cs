@@ -96,7 +96,8 @@ var dbPass = GetEnvVar("Database__Password");
 var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
 
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString), contextLifetime: ServiceLifetime.Scoped, optionsLifetime: ServiceLifetime.Singleton);
+builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();

@@ -35,8 +35,20 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         //Setup dependency injection for this test application
-        // Bypass strict env settings guard in tests
-        Environment.SetEnvironmentVariable("BYPASS_REQUIRED_SETTINGS", "1");
+        // Provide required env vars so Program.cs doesn't throw GetEnvVar() exceptions
+        Environment.SetEnvironmentVariable("App__Url", "http://localhost");
+        Environment.SetEnvironmentVariable("SENDGRID_API_KEY", "test-key");
+        Environment.SetEnvironmentVariable("SENDGRID_FROM_EMAIL", "no-reply@example.com");
+        Environment.SetEnvironmentVariable("SENDGRID_FROM_ALIAS", "Test");
+        // Database envs are ignored in tests (DI overridden), but set to avoid early checks
+        Environment.SetEnvironmentVariable("Database__Host", "localhost");
+        Environment.SetEnvironmentVariable("Database__Port", "5432");
+        Environment.SetEnvironmentVariable("Database__Name", "testdb");
+        Environment.SetEnvironmentVariable("Database__Username", "postgres");
+        Environment.SetEnvironmentVariable("Database__Password", "postgres");
+        // Optional env-backed config
+        Environment.SetEnvironmentVariable("Redis__Configuration", "localhost:6379");
+        Environment.SetEnvironmentVariable("Storage__HullImages__RootPath", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "HullImages-Test"));
         builder.ConfigureTestServices(services =>
         {
             //Remove the existing KinoContext from the services
@@ -49,13 +61,23 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 services.Remove(descriptor);
             }
 
+            // Remove any existing factory to avoid lifetime mismatches
+            var factoryDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IDbContextFactory<AppDbContext>));
+            if (factoryDesc != null)
+            {
+                services.Remove(factoryDesc);
+            }
+
             //Setup our new Context connection to our docker postgres container
-            services.AddDbContext<AppDbContext>(
-                options =>
-                {
-                    options.UseNpgsql(_dbContainer.GetConnectionString());
-                }
-            );
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseNpgsql(_dbContainer.GetConnectionString());
+            }, contextLifetime: ServiceLifetime.Scoped, optionsLifetime: ServiceLifetime.Singleton);
+            // Also register factory using the same connection and ensure it is added AFTER AddDbContext
+            services.AddDbContextFactory<AppDbContext>(options =>
+            {
+                options.UseNpgsql(_dbContainer.GetConnectionString());
+            });
 
             // Ensure HybridCache uses in-memory distributed cache in tests (no Redis)
             var dcDescs = services.Where(d => d.ServiceType == typeof(Microsoft.Extensions.Caching.Distributed.IDistributedCache)).ToList();
