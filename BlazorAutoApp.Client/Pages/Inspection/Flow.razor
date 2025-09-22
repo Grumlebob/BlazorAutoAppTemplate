@@ -25,28 +25,7 @@
                 }
             </datalist>
         </div>
-        <!--Clickable boat image-->
-        <div class="starboard-hull-image relative">
-            <div class="absolute inset-0 grid grid-cols-4 grid-rows-2 gap-4">
-                <div key="item-1" class="col-start-1 row-start-1 col-span-4 row-span-1 bg-green-100 bg-opacity-50">
-                    1
-                </div>
-                <div key="item-2" class="col-start-1 row-start-2 col-span-1 row-span-1 border-4 border-blue-200">
-                    2
-                </div>
-                <div key="item-3" class="col-start-2 row-start-2 col-span-1 row-span-1 border">
-                    3
-                </div>
-                <div key="item-4" class="col-start-3 row-start-2 col-span-1 row-span-1 border">
-                    4
-                </div>
-                <div key="item-5" class="col-start-4 row-start-2 col-span-1 row-span-1 border">
-                    5
-                </div>
-            </div>
-
-        </div>
-        <!--end boat image-->
+        <BlazorAutoApp.Client.Pages.Inspection.Components.FormSegmentToggle/>
         <div>
             <label class="block text-black mb-2">Vessel Parts</label>
             @foreach (var cat in _catalog)

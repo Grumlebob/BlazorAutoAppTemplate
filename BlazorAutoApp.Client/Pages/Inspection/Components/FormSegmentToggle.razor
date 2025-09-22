@@ -1,0 +1,61 @@
+﻿<div class="starboard-hull-image bg-[url(starboard_hull.PNG)] bg-contain bg-no-repeat before:block before:pt-43 relative hover:cursor-pointer w-100">
+    <div class="absolute inset-0 grid grid-cols-4 grid-rows-[65%_35%]">
+        @for (var i = 0; i < _segments.Count; i++)
+        {
+            var localIndex = i;
+            var cell = _segments[localIndex];
+            <div
+                class="@StyleSegmentBasedOnToggleSelection(localIndex, cell)"
+                @onclick="@(() => Toggle(localIndex))">
+                <p>@cell.Label</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div>Inspecting: Starboard :: @(_segments[_currentlyToggled].Label)</div>
+
+@code {
+    private sealed class Segment
+    {
+        public string Label { get; init; } = "";
+        public bool IsCompleted { get; set; }
+        public string Layout { get; init; } = ""; // Tailwind grid placement per cell
+    }
+
+    private readonly List<Segment> _segments =
+    [
+        new() { Label = "Above water", Layout = "col-start-1 row-start-1 col-span-4 row-span-1" },
+        new() { Label = "Aft", Layout = "col-start-1 row-start-2 col-span-1 row-span-1" },
+        new() { Label = "Mid-ships aft", Layout = "col-start-2 row-start-2 col-span-1 row-span-1" },
+        new() { Label = "Mid-ships forward", Layout = "col-start-3 row-start-2 col-span-1 row-span-1" },
+        new() { Label = "Bow", Layout = "col-start-4 row-start-2 col-span-1 row-span-1" }
+    ];
+    
+    private int _currentlyToggled = 0;
+
+    private void Toggle(int index)
+    {
+        _currentlyToggled = index;
+        StateHasChanged();
+    }
+
+    private string StyleSegmentBasedOnToggleSelection(int index, Segment segment)
+    {
+        var selection = _currentlyToggled == index ? "border-4 border-blue-700" : "border";
+        var state = segment.IsCompleted ? "bg-green-700/50 hover:bg-green-700/30" : "hover:bg-blue-50/50";
+        return $"{segment.Layout} {selection} {state}";
+    }
+
+// -------- PUBLIC API --------
+
+    /// <summary>
+    /// Mark/unmark a cell (0 to {number of cells} ) as completed. Completed cells turn green.
+    /// </summary>
+    public void SetCompleted(int index, bool completed = true)
+    {
+        if (index < 0 || index >= _segments.Count) return;
+        _segments[index].IsCompleted = completed;
+        StateHasChanged();
+    }
+}
