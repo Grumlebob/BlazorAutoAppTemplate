@@ -24,6 +24,8 @@ public class GetCompaniesResponse
 public class StartHullInspectionRequest
 {
     public required int CompanyId { get; set; }
+    public string? RecipientEmail { get; set; }
+    public string? RecipientName { get; set; }
 }
 
 public class StartHullInspectionResponse

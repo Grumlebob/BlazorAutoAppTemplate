@@ -26,6 +26,11 @@ public class InspectionVesselPart
     public Guid InspectionId { get; set; }
     public required string PartCode { get; set; }
     public ICollection<HullImage> HullImages { get; set; } = new List<HullImage>();
+    
+    //ShipSide  Enum [STARBOARD,PORT,BOTTOM]
+    // ["Starboard-bow]
+    //partCode: String "Aft, Bow"
+    
 }
 
 // DTOs

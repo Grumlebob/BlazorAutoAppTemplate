@@ -97,7 +97,6 @@ var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName}
 
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connString));
-builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
 
 // Movies service for server-side prerendering
 builder.Services.AddScoped<IMoviesApi, MoviesServerService>();

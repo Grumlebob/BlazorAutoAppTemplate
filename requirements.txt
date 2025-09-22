@@ -2,6 +2,9 @@ Requirements:
 - Avoid authentication
 - Copy https://hull-inspecto-3d.lovable.app/upload
 
+Design document:
+https://docs.google.com/drawings/d/10KDh_9FXPJrdnwL4GHxaAZfZEPwH5_zAEWBHnwrbvpI/edit
+
 
 Main page - LinkCreator
 1. dropdown, with all company names  (with mock company name and email)

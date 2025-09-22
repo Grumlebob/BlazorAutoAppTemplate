@@ -43,14 +43,16 @@ public class StartHullInspectionEmailServerService(AppDbContext db, IEmailApi em
             await _db.SaveChangesAsync(ct);
             var baseUrl = _cfg["App:Url"] ?? string.Empty;
             var link = new Uri(new Uri(baseUrl, UriKind.Absolute), $"/inspection/{inspectionId}/flow").ToString();
-            
+
+            var toEmail = string.IsNullOrWhiteSpace(req.RecipientEmail) ? company.Email : req.RecipientEmail;
+            var helloName = string.IsNullOrWhiteSpace(req.RecipientName) ? null : req.RecipientName;
 
             var send = await _email.SendAsync(new SendEmailRequest
             {
-                To = company.Email,
+                To = toEmail,
                 Subject = "Start Hull Inspection",
-                Text = $"Hello,\n\nAn inspection has been initiated.\n\nInspection ID: {inspectionId}\n\nOpen the inspection flow directly at: {link}\n",
-                Html = $"<p>Hello,</p><p>An inspection has been initiated.</p><p><strong>Inspection ID:</strong> {inspectionId}</p><p><a href=\"{link}\">Open the inspection flow</a></p>"
+                Text = $"Hello{(helloName is null ? string.Empty : " " + helloName)},\n\nAn inspection has been initiated.\n\nInspection ID: {inspectionId}\n\nOpen the inspection flow directly at: {link} \n",
+                Html = $"<p>Hello{(helloName is null ? string.Empty : " " + System.Net.WebUtility.HtmlEncode(helloName))},</p><p>An inspection has been initiated.</p><p><strong>Inspection ID:</strong> {inspectionId}</p><p><a href=\"{link}\">Open the inspection flow</a></p>"
             }, ct);
 
             return new StartHullInspectionResponse { Success = send.Success, Error = send.Error };

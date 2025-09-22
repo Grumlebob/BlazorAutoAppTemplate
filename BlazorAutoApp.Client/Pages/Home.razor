@@ -15,6 +15,13 @@
     }
     </select>
 
+<div class="mt-3 text-black">Recipient</div>
+<div class="flex gap-2 mt-1">
+    <input class="border rounded px-2 py-1 text-black" placeholder="Name" @bind="_personName" />
+    <input class="border rounded px-2 py-1 text-black" placeholder="Email" type="email" @bind="_personEmail" />
+    <button class="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50" @onclick="SendToRecipient" disabled="@(_selectedCompanyId is null)">Send</button>
+    </div>
+
 @if (!string.IsNullOrWhiteSpace(_status))
 {
     <div class="mt-2 text-black">@_status</div>
@@ -31,6 +38,9 @@
 
     private List<CompanyListItem> _companies = new();
     private string? _status;
+    private int? _selectedCompanyId;
+    private string? _personEmail;
+    private string? _personName;
     private static readonly Guid AdminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     protected override async Task OnInitializedAsync()
@@ -46,16 +56,34 @@
         }
     }
 
-    private async Task OnCompanyChanged(ChangeEventArgs e)
+    private void OnCompanyChanged(ChangeEventArgs e)
     {
         _status = null;
         var val = e.Value?.ToString();
-        if (string.IsNullOrWhiteSpace(val)) return;
-        if (!int.TryParse(val, out var id)) return;
+        if (string.IsNullOrWhiteSpace(val)) { _selectedCompanyId = null; return; }
+        if (!int.TryParse(val, out var id)) { _selectedCompanyId = null; return; }
+        _selectedCompanyId = id;
+    }
+
+    private async Task SendToRecipient()
+    {
+        _status = null;
+        if (_selectedCompanyId is null)
+        {
+            _status = "Please select a company first.";
+            return;
+        }
         try
         {
-            var res = await Api.StartAsync(new StartHullInspectionRequest { CompanyId = id });
-            _status = res.Success ? $"Email queued for company #{id}" : $"Failed: {res.Error}";
+            var res = await Api.StartAsync(new StartHullInspectionRequest
+            {
+                CompanyId = _selectedCompanyId.Value,
+                RecipientEmail = _personEmail,
+                RecipientName = _personName
+            });
+            _status = res.Success
+                ? $"Email queued for company #{_selectedCompanyId}"
+                : $"Failed: {res.Error}";
         }
         catch (Exception ex)
         {

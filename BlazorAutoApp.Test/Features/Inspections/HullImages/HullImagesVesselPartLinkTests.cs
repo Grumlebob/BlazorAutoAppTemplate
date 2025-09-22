@@ -68,7 +68,8 @@ public class HullImagesVesselPartLinkTests
         var vpId = flow.VesselParts.First().Id!.Value;
 
         // TUS create (include vesselPartId metadata)
-        var bytes = Encoding.UTF8.GetBytes("dummy-bytes-for-image");
+        // Use a real decodable PNG to satisfy server-side validation
+        var bytes = BlazorAutoApp.Test.TestingSetup.TestImageProvider.GetBytes();
         using var create = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/tus");
         create.Headers.Add("Tus-Resumable", "1.0.0");
         create.Headers.Add("Upload-Length", bytes.Length.ToString());

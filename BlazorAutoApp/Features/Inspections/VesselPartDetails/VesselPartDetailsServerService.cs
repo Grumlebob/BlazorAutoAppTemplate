@@ -2,9 +2,9 @@ using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
 
 namespace BlazorAutoApp.Features.Inspections.VesselPartDetails;
 
-public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFactory, ILogger<VesselPartDetailsServerService> log) : IVesselPartDetailsApi
+public class VesselPartDetailsServerService(AppDbContext db, ILogger<VesselPartDetailsServerService> log) : IVesselPartDetailsApi
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private readonly AppDbContext _db = db;
     private readonly ILogger<VesselPartDetailsServerService> _log = log;
 
     public async Task<GetVesselPartDetailsResponse> GetAsync(int vesselPartId, CancellationToken ct = default)
@@ -12,7 +12,6 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
         BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails? details = null;
         try
         {
-            await using var _db = await _dbFactory.CreateDbContextAsync(ct);
             // Load details; if missing, return empty template
             details = await _db.Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails>()
                 .Include(d => d.Fouling)
@@ -81,7 +80,6 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
     public async Task<UpsertVesselPartDetailsResponse> UpsertAsync(UpsertVesselPartDetailsRequest req, CancellationToken ct = default)
     {
         // Ensure vessel part exists
-        await using var _db = await _dbFactory.CreateDbContextAsync(ct);
         var vpExists = await _db.InspectionVesselParts.AsNoTracking().AnyAsync(x => x.Id == req.InspectionVesselPartId, ct);
         if (!vpExists)
         {
