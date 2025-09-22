@@ -1,1 +1,17 @@
 ﻿@import "tailwindcss";
+
+.starboard-hull-image {
+    background-image: url(starboard_hull.PNG);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: left top; /* or center */
+    width: 100%;
+    position: relative; /* important */
+}
+
+/* this creates the height without pushing real content down */
+.starboard-hull-image::before {
+    content: "";
+    display: block;
+    padding-top: 43.73%; /* (img-height / img-width) */
+}
