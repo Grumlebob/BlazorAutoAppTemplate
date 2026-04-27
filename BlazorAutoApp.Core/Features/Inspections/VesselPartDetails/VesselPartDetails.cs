@@ -75,6 +75,7 @@ public class HullRating
 public class GetVesselPartDetailsResponse
 {
     public required int InspectionVesselPartId { get; init; }
+    public bool HasSaved { get; init; }
     public List<FoulingObservationDto> Fouling { get; init; } = new();
     public CoatingConditionDto Coating { get; init; } = new();
     public HullConditionDto Hull { get; init; } = new();

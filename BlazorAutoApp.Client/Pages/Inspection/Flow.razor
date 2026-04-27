@@ -1,4 +1,6 @@
 @page "/inspection/{Id:guid}/flow"
+@using BlazorAutoApp.Core.Features.HullImages
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails
 
 <PageTitle>Inspection Flow</PageTitle>
 
@@ -26,8 +28,22 @@
             </datalist>
         </div>
 
-        <div>
-            <label class="block text-black mb-2">Viewing Angle</label>
+        <div class="flex flex-wrap items-center gap-2 text-sm font-medium" style="margin-top: 0.75rem;">
+            <span class="badge rounded-pill" style="background-color:#ffffff;color:#111111;border:1px solid #111111;padding:0.45rem 0.75rem;">
+                Incomplete: @IncompletePartCount
+            </span>
+            <span class="badge rounded-pill" style="background-color:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:0.45rem 0.75rem;">
+                Partially Completed: @PartiallyCompletedPartCount
+            </span>
+            <span class="badge rounded-pill" style="background-color:#d1fae5;color:#065f46;border:1px solid #10b981;padding:0.45rem 0.75rem;">
+                Fully Completed: @FullyCompletedPartCount
+            </span>
+            <span class="badge rounded-pill" style="background-color:#dbeafe;color:#1e3a8a;border:1px solid #3b82f6;padding:0.45rem 0.75rem;">
+                Inspection Not Needed: @InspectionNotNeededPartCount
+            </span>
+        </div>
+
+        <div class="mt-2">
             <div class="inline-flex flex-wrap rounded border border-slate-300 overflow-hidden">
                 <button
                     type="button"
@@ -69,18 +85,15 @@
         </div>
 
         <ImageSegmentToggle
-            ShipSide="@CurrentShipSideLabel"
             ImagePath="@CurrentImagePath"
             Columns="@CurrentColumns"
             GridRows="@CurrentGridRows"
             Segments="@CurrentSegments"
             ActiveIndex="@GetActiveIndex(CurrentBindings)"
-            SelectedIndices="@GetSelectedIndices(CurrentBindings)"
+            PartialIndices="@GetPartialIndices(CurrentBindings)"
+            CompletedIndices="@GetCompletedIndices(CurrentBindings)"
+            NotNeededIndices="@GetNotNeededIndices(CurrentBindings)"
             OnActiveIndexChanged="OnCurrentViewActiveChanged" />
-
-        <div class="text-sm text-slate-700">
-            Selected parts: @_selectedPartCodes.Count / @_mappedPartCodes.Count.
-        </div>
 
         @if (_activePartCode is null)
         {
@@ -91,23 +104,33 @@
         else
         {
             <div class="rounded border border-slate-300 bg-white px-3 py-3">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <div>
-                        <div class="text-xs uppercase tracking-wide text-slate-500">Active Part</div>
-                        <div class="text-black font-semibold">@ActivePartLabel</div>
-                        <div class="text-slate-500 text-sm">@_activePartCode</div>
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                    <div class="text-black font-semibold">Vessel Part Details: @ActivePartLabel</div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            class="rounded border border-blue-300 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled="@(!CanMarkActivePartAsNotNeeded)"
+                            @onclick="MarkActivePartAsInspectionNotNeededAsync">
+                            Part does not need inspection
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-700 hover:bg-red-50"
+                            @onclick="RemoveActivePartAsync">
+                            Clear information for part
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        class="rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-700 hover:bg-red-50"
-                        @onclick="RemoveActivePartAsync">
-                        Remove Part
-                    </button>
                 </div>
 
                 @if (TryGetActiveVesselPartId(out var activeVesselPartId))
                 {
-                    <VesselPartForm VesselPartId="@activeVesselPartId" />
+                    <VesselPartForm
+                        VesselPartId="@activeVesselPartId"
+                        ShowContainer="false"
+                        ShowTitle="false"
+                        OnSaved="OnActivePartSavedAsync"
+                        OnImagesChanged="OnActivePartImagesChangedAsync" />
                 }
                 else
                 {
@@ -133,6 +156,7 @@
 
     private sealed record SegmentBinding(string Label, string? PartCode, bool IsInteractive = true);
     private record VesselPartVm(int? Id, string PartCode);
+    private const string InspectionNotNeededMarker = "__INSPECTION_NOT_NEEDED__";
 
     private static readonly SegmentBinding[] _starboardBindings =
     [
@@ -211,6 +235,8 @@
     [Parameter] public Guid Id { get; set; }
     [Inject] private IStartHullInspectionEmailApi StartEmailApi { get; set; } = default!;
     [Inject] private IInspectionFlowApi FlowApi { get; set; } = default!;
+    [Inject] private IVesselPartDetailsApi VesselPartDetailsApi { get; set; } = default!;
+    [Inject] private IHullImagesApi HullImagesApi { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private readonly int[] _sideRows = [8, 92];
@@ -229,6 +255,9 @@
     private string _vesselName = string.Empty;
     private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection;
     private HashSet<string> _selectedPartCodes = new(StringComparer.Ordinal);
+    private HashSet<string> _partiallyCompletedPartCodes = new(StringComparer.Ordinal);
+    private HashSet<string> _completedPartCodes = new(StringComparer.Ordinal);
+    private HashSet<string> _inspectionNotNeededPartCodes = new(StringComparer.Ordinal);
     private string? _activePartCode;
     private List<VesselPartVm> _vesselParts = new();
     private string? _error;
@@ -261,6 +290,7 @@
                 .Select(vp => new VesselPartVm(vp.Id, vp.PartCode))
                 .ToList();
             _activePartCode = ResolveActivePartCode(_activePartCode);
+            await RefreshPartProgressCodesAsync();
 
             if (allowAutoPrune && removedMismatches)
             {
@@ -340,17 +370,6 @@
         _ => "starboard_hull.PNG"
     };
 
-    private string CurrentShipSideLabel => _angle switch
-    {
-        FlowAngle.Starboard => "Starboard",
-        FlowAngle.Port => "Port",
-        FlowAngle.FlatBottom => "Flat Bottom",
-        FlowAngle.Rudder => "Rudder",
-        FlowAngle.Propeller => "Propeller",
-        FlowAngle.Other => "Other",
-        _ => "Starboard"
-    };
-
     private Task OnCurrentViewActiveChanged(int index) => ActivateSegmentAsync(CurrentBindings, index);
 
     private void SetAngle(FlowAngle angle) => _angle = angle;
@@ -406,10 +425,60 @@
         }
 
         _selectedPartCodes.Remove(_activePartCode);
+        _partiallyCompletedPartCodes.Remove(_activePartCode);
+        _completedPartCodes.Remove(_activePartCode);
+        _inspectionNotNeededPartCodes.Remove(_activePartCode);
         _vesselParts.RemoveAll(v => string.Equals(v.PartCode, _activePartCode, StringComparison.Ordinal));
         _activePartCode = ResolveActivePartCode(null);
 
         await SaveFlowAsync();
+    }
+
+    private async Task MarkActivePartAsInspectionNotNeededAsync()
+    {
+        if (_activePartCode is null || !TryGetActiveVesselPartId(out var vesselPartId))
+        {
+            return;
+        }
+
+        _error = null;
+        _info = null;
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Set '{ActivePartLabel}' as inspection not needed?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            var details = await VesselPartDetailsApi.GetAsync(vesselPartId);
+            var response = await VesselPartDetailsApi.UpsertAsync(new UpsertVesselPartDetailsRequest
+            {
+                InspectionVesselPartId = vesselPartId,
+                Fouling = details.Fouling,
+                Coating = details.Coating,
+                Hull = details.Hull,
+                Rating = new HullRatingDto
+                {
+                    Rating = details.Rating.Rating,
+                    Rationale = InspectionNotNeededMarker
+                },
+                Notes = details.Notes
+            });
+
+            if (!response.Success)
+            {
+                _error = response.Error ?? "Unable to mark part as inspection not needed.";
+                return;
+            }
+
+            await RefreshPartProgressForVesselPartAsync(vesselPartId);
+            _info = $"'{ActivePartLabel}' marked as inspection not needed.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task SaveFlowAsync()
@@ -493,13 +562,41 @@
         return -1;
     }
 
-    private IReadOnlySet<int> GetSelectedIndices(IReadOnlyList<SegmentBinding> bindings)
+    private IReadOnlySet<int> GetCompletedIndices(IReadOnlyList<SegmentBinding> bindings)
     {
         var set = new HashSet<int>();
         for (var i = 0; i < bindings.Count; i++)
         {
             var code = bindings[i].PartCode;
-            if (!string.IsNullOrWhiteSpace(code) && _selectedPartCodes.Contains(code))
+            if (!string.IsNullOrWhiteSpace(code) && _completedPartCodes.Contains(code))
+            {
+                set.Add(i);
+            }
+        }
+        return set;
+    }
+
+    private IReadOnlySet<int> GetPartialIndices(IReadOnlyList<SegmentBinding> bindings)
+    {
+        var set = new HashSet<int>();
+        for (var i = 0; i < bindings.Count; i++)
+        {
+            var code = bindings[i].PartCode;
+            if (!string.IsNullOrWhiteSpace(code) && _partiallyCompletedPartCodes.Contains(code))
+            {
+                set.Add(i);
+            }
+        }
+        return set;
+    }
+
+    private IReadOnlySet<int> GetNotNeededIndices(IReadOnlyList<SegmentBinding> bindings)
+    {
+        var set = new HashSet<int>();
+        for (var i = 0; i < bindings.Count; i++)
+        {
+            var code = bindings[i].PartCode;
+            if (!string.IsNullOrWhiteSpace(code) && _inspectionNotNeededPartCodes.Contains(code))
             {
                 set.Add(i);
             }
@@ -524,6 +621,8 @@
 
         return false;
     }
+
+    private bool CanMarkActivePartAsNotNeeded => TryGetActiveVesselPartId(out _);
 
     private string? ResolveActivePartCode(string? preferredPartCode)
     {
@@ -552,6 +651,124 @@
                 IsInteractive = binding.IsInteractive
             })
             .ToList();
+    }
+
+    private int FullyCompletedPartCount => _completedPartCodes.Count;
+    private int PartiallyCompletedPartCount => _partiallyCompletedPartCodes.Count;
+    private int InspectionNotNeededPartCount => _inspectionNotNeededPartCodes.Count;
+    private int IncompletePartCount => Math.Max(0, _mappedPartCodes.Count - FullyCompletedPartCount - PartiallyCompletedPartCount - InspectionNotNeededPartCount);
+
+    private async Task OnActivePartSavedAsync(int vesselPartId)
+    {
+        await RefreshPartProgressForVesselPartAsync(vesselPartId);
+    }
+
+    private async Task OnActivePartImagesChangedAsync(int vesselPartId)
+    {
+        await RefreshPartProgressForVesselPartAsync(vesselPartId);
+    }
+
+    private async Task RefreshPartProgressForVesselPartAsync(int vesselPartId)
+    {
+        var vesselPart = _vesselParts.FirstOrDefault(v => v.Id == vesselPartId);
+        if (vesselPart is null)
+        {
+            return;
+        }
+
+        var state = await GetPartProgressStateAsync(vesselPartId);
+        ApplyPartProgress(vesselPart.PartCode, state);
+    }
+
+    private async Task RefreshPartProgressCodesAsync()
+    {
+        var selectedPartEntries = _vesselParts
+            .Where(v => v.Id is int && _selectedPartCodes.Contains(v.PartCode))
+            .ToList();
+        if (selectedPartEntries.Count == 0)
+        {
+            _partiallyCompletedPartCodes.Clear();
+            _completedPartCodes.Clear();
+            _inspectionNotNeededPartCodes.Clear();
+            return;
+        }
+
+        _partiallyCompletedPartCodes.Clear();
+        _completedPartCodes.Clear();
+        _inspectionNotNeededPartCodes.Clear();
+
+        var completionChecks = selectedPartEntries.Select(async x =>
+            (x.PartCode, State: await GetPartProgressStateAsync(x.Id!.Value))).ToList();
+        var completionResults = await Task.WhenAll(completionChecks);
+        foreach (var result in completionResults)
+        {
+            ApplyPartProgress(result.PartCode, result.State);
+        }
+    }
+
+    private void ApplyPartProgress(string partCode, PartProgressState state)
+    {
+        _partiallyCompletedPartCodes.Remove(partCode);
+        _completedPartCodes.Remove(partCode);
+        _inspectionNotNeededPartCodes.Remove(partCode);
+
+        switch (state)
+        {
+            case PartProgressState.PartiallyCompleted:
+                _partiallyCompletedPartCodes.Add(partCode);
+                break;
+            case PartProgressState.FullyCompleted:
+                _completedPartCodes.Add(partCode);
+                break;
+            case PartProgressState.InspectionNotNeeded:
+                _inspectionNotNeededPartCodes.Add(partCode);
+                break;
+            case PartProgressState.Incomplete:
+            default:
+                break;
+        }
+    }
+
+    private async Task<PartProgressState> GetPartProgressStateAsync(int vesselPartId)
+    {
+        var detailsTask = VesselPartDetailsApi.GetAsync(vesselPartId);
+        var imagesTask = HullImagesApi.GetAsync(new GetHullImagesRequest { VesselPartId = vesselPartId });
+        try
+        {
+            await Task.WhenAll(detailsTask, imagesTask);
+        }
+        catch
+        {
+            return PartProgressState.Incomplete;
+        }
+
+        if (IsInspectionNotNeeded(detailsTask.Result))
+        {
+            return PartProgressState.InspectionNotNeeded;
+        }
+
+        var hasSavedDetails = detailsTask.Result.HasSaved;
+        if (!hasSavedDetails)
+        {
+            return PartProgressState.Incomplete;
+        }
+
+        return imagesTask.Result.Items.Count > 0
+            ? PartProgressState.FullyCompleted
+            : PartProgressState.PartiallyCompleted;
+    }
+
+    private enum PartProgressState
+    {
+        Incomplete = 0,
+        PartiallyCompleted = 1,
+        FullyCompleted = 2,
+        InspectionNotNeeded = 3
+    }
+
+    private static bool IsInspectionNotNeeded(GetVesselPartDetailsResponse details)
+    {
+        return string.Equals(details.Rating.Rationale, InspectionNotNeededMarker, StringComparison.Ordinal);
     }
 
     private static SegmentBinding CreateBinding(string partCode) => new(FormatLabel(partCode), partCode);

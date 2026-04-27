@@ -2,8 +2,11 @@
 @using System.ComponentModel.DataAnnotations
 @inject IVesselPartDetailsApi Api
 
-<div class="border rounded p-3 mb-4 bg-white">
-    <div class="text-black font-semibold mb-2">Vessel Part Details</div>
+<div class="@ContainerCssClass">
+    @if (ShowTitle)
+    {
+        <div class="text-black font-semibold mb-2">Vessel Part Details</div>
+    }
 
     @if (_loading)
     {
@@ -129,6 +132,8 @@
 
 @code{
     [Parameter] public required int VesselPartId { get; set; }
+    [Parameter] public bool ShowContainer { get; set; } = true;
+    [Parameter] public bool ShowTitle { get; set; } = true;
     [Parameter] public EventCallback<int> OnSaved { get; set; }
     [Parameter] public EventCallback<int> OnImagesChanged { get; set; }
 
@@ -144,7 +149,8 @@
     private bool _uploading = false;
     private long _bytesUploaded = 0;
     private long _totalBytes = 0;
-    private string _uploadButtonText => _uploading ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_totalBytes)}" : "Upload";
+    private string _uploadButtonText => _uploading ? $"Uploading: {FormatBytes(_bytesUploaded)} / {FormatBytes(_totalBytes)}" : "Upload image(s) of the part";
+    private string ContainerCssClass => ShowContainer ? "border rounded p-3 mb-4 bg-white" : string.Empty;
 
     private VesselPartDetailsVm _vm = new() { InspectionVesselPartId = 0, Fouling = new(), Coating = new(), Hull = new(), Rating = new() { Rating = HullRatingValue.Clean }, Notes = null };
 
@@ -297,5 +303,4 @@
         public string? Notes { get; set; }
     }
 
-    private void OnCoverageChanged(FoulingObservationDto item, int? value) => item.CoveragePercent = value;
 }

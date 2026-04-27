@@ -8,26 +8,30 @@
             <div
                 class="@StyleSegment(localIndex, cell)"
                 @onclick="@(() => ToggleAsync(localIndex))">
-                <p>@cell.Label</p>
+                @if (!string.IsNullOrWhiteSpace(cell.Label))
+                {
+                    <p class="text-sm font-semibold leading-tight select-none"
+                       style="color:#ffffff; text-shadow:-1px -1px 0 #111111, 1px -1px 0 #111111, -1px 1px 0 #111111, 1px 1px 0 #111111;">
+                        @cell.Label
+                    </p>
+                }
             </div>
         }
     </div>
 </div>
-
-<div>Inspecting: @ShipSide :: @CurrentLabel</div>
 
 @code {
     public class Segment
     {
         public string Label { get; init; } = "";
         public bool IsInteractive { get; init; } = true;
-        public bool IsSelected { get; set; }
+        public bool IsPartial { get; set; }
         public bool IsCompleted { get; set; }
+        public bool IsNotNeeded { get; set; }
         public string? Layout { get; set; } // Tailwind grid placement per cell
     }
 
     [Parameter] public int Columns { get; set; } = 4;
-    [Parameter] public required string ShipSide { get; set; }
     [Parameter] public required string ImagePath { get; set; }
 
     /**
@@ -40,29 +44,12 @@
     [Parameter] public List<Segment> Segments { get; set; } = [new() { Label = "Segment" }];
     [Parameter] public int ActiveIndex { get; set; }
     [Parameter] public EventCallback<int> OnActiveIndexChanged { get; set; }
-    [Parameter] public IReadOnlySet<int> SelectedIndices { get; set; } = new HashSet<int>();
+    [Parameter] public IReadOnlySet<int> PartialIndices { get; set; } = new HashSet<int>();
     [Parameter] public IReadOnlySet<int> CompletedIndices { get; set; } = new HashSet<int>();
+    [Parameter] public IReadOnlySet<int> NotNeededIndices { get; set; } = new HashSet<int>();
 
     private int _currentlyToggled = -1;
     private string GridRowsToString() => string.Join('_', GridRows.Select(n => n + "%")); // [65, 35] => 65%_35%
-    private string CurrentLabel
-    {
-        get
-        {
-            if (_currentlyToggled < 0 || _currentlyToggled >= Segments.Count)
-            {
-                return "-";
-            }
-
-            var segment = Segments[_currentlyToggled];
-            if (!segment.IsInteractive || string.IsNullOrWhiteSpace(segment.Label))
-            {
-                return "-";
-            }
-
-            return segment.Label;
-        }
-    }
 
     protected override void OnParametersSet()
     {
@@ -77,8 +64,9 @@
             : -1;
         for (var i = 0; i < Segments.Count; i++)
         {
-            Segments[i].IsSelected = SelectedIndices.Contains(i);
+            Segments[i].IsPartial = PartialIndices.Contains(i);
             Segments[i].IsCompleted = CompletedIndices.Contains(i);
+            Segments[i].IsNotNeeded = NotNeededIndices.Contains(i);
         }
     }
 
@@ -127,15 +115,17 @@
     {
         if (!segment.IsInteractive)
         {
-            return $"{segment.Layout} border-b border-slate-400 bg-transparent text-transparent pointer-events-none select-none";
+            return $"{segment.Layout} flex items-start justify-start p-1 border-b border-slate-400 bg-transparent text-transparent pointer-events-none select-none";
         }
 
         var selection = _currentlyToggled == index ? "border-4 border-blue-700" : "border border-slate-300";
-        var state = segment.IsCompleted
+        var state = segment.IsNotNeeded
+            ? "bg-blue-500/45 hover:bg-blue-500/35 text-white"
+            : segment.IsCompleted
             ? "bg-green-700/50 hover:bg-green-700/35 text-white"
-            : segment.IsSelected
-                ? "bg-blue-500/35 hover:bg-blue-500/25"
-                : "hover:bg-blue-50/50";
-        return $"{segment.Layout} cursor-pointer {selection} {state}";
+            : segment.IsPartial
+                ? "bg-amber-400/55 hover:bg-amber-400/45 text-black"
+                : "hover:bg-slate-100/60";
+        return $"{segment.Layout} flex items-start justify-start p-1 cursor-pointer {selection} {state}";
     }
 }

@@ -31,6 +31,7 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
             return new GetVesselPartDetailsResponse
             {
                 InspectionVesselPartId = vesselPartId,
+                HasSaved = false,
                 Fouling = Enum.GetValues<FoulingType>().Select(t => new FoulingObservationDto
                 {
                     FoulingType = t,
@@ -47,6 +48,7 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
         return new GetVesselPartDetailsResponse
         {
             InspectionVesselPartId = vesselPartId,
+            HasSaved = true,
             Fouling = details.Fouling
                 .OrderBy(f => f.FoulingType)
                 .Select(f => new FoulingObservationDto
