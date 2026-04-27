@@ -1,11 +1,14 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Core.Features.Inspections.HullImages;
+using InspectionFlowEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
+using InspectionVesselPartEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart;
+using VesselEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
-public class InspectionFlowEntityTypeConfiguration : IEntityTypeConfiguration<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>
+public class InspectionFlowEntityTypeConfiguration : IEntityTypeConfiguration<InspectionFlowEntity>
 {
-    public void Configure(EntityTypeBuilder<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow> entity)
+    public void Configure(EntityTypeBuilder<InspectionFlowEntity> entity)
     {
         entity.ToTable("InspectionFlows");
         entity.HasKey(x => x.Id);
@@ -20,9 +23,9 @@ public class InspectionFlowEntityTypeConfiguration : IEntityTypeConfiguration<Bl
     }
 }
 
-public class InspectionVesselPartEntityTypeConfiguration : IEntityTypeConfiguration<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart>
+public class InspectionVesselPartEntityTypeConfiguration : IEntityTypeConfiguration<InspectionVesselPartEntity>
 {
-    public void Configure(EntityTypeBuilder<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart> entity)
+    public void Configure(EntityTypeBuilder<InspectionVesselPartEntity> entity)
     {
         entity.ToTable("InspectionVesselParts");
         entity.HasKey(x => x.Id);
@@ -32,9 +35,9 @@ public class InspectionVesselPartEntityTypeConfiguration : IEntityTypeConfigurat
     }
 }
 
-public class VesselEntityTypeConfiguration : IEntityTypeConfiguration<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel>
+public class VesselEntityTypeConfiguration : IEntityTypeConfiguration<VesselEntity>
 {
-    public void Configure(EntityTypeBuilder<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel> entity)
+    public void Configure(EntityTypeBuilder<VesselEntity> entity)
     {
         entity.ToTable("Vessels");
         entity.HasKey(x => x.Id);

@@ -6,7 +6,7 @@ public class GetVesselPartDetailsResponse
 {
     public required int InspectionVesselPartId { get; init; }
     public bool HasSaved { get; init; }
-    public List<FoulingObservationDto> Fouling { get; init; } = new();
+    public List<FoulingObservationDto> Fouling { get; init; } = [];
     public CoatingConditionDto Coating { get; init; } = new();
     public HullConditionDto Hull { get; init; } = new();
     public HullRatingDto Rating { get; init; } = new();
@@ -16,7 +16,7 @@ public class GetVesselPartDetailsResponse
 public class UpsertVesselPartDetailsRequest
 {
     public required int InspectionVesselPartId { get; init; }
-    public List<FoulingObservationDto> Fouling { get; init; } = new();
+    public List<FoulingObservationDto> Fouling { get; init; } = [];
     public required CoatingConditionDto Coating { get; init; } = new();
     public required HullConditionDto Hull { get; init; } = new();
     public required HullRatingDto Rating { get; init; } = new();
@@ -43,11 +43,11 @@ public class FoulingObservationDto : IValidatableObject
     {
         if (IsPresent && CoveragePercent is null)
         {
-            yield return new ValidationResult("Coverage is required when fouling is selected.", new[] { nameof(CoveragePercent) });
+            yield return new ValidationResult("Coverage is required when fouling is selected.", [nameof(CoveragePercent)]);
         }
         if (CoveragePercent is int v && (v < 0 || v > 100))
         {
-            yield return new ValidationResult("Coverage must be 0-100.", new[] { nameof(CoveragePercent) });
+            yield return new ValidationResult("Coverage must be 0-100.", [nameof(CoveragePercent)]);
         }
     }
 }

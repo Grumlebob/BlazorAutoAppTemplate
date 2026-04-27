@@ -41,7 +41,7 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         var b64name = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("test-image.PNG"));
         var b64type = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("image/png"));
         create.Headers.Add("Upload-Metadata", $"filename {b64name},contentType {b64type}");
-        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        create.Content = new ByteArrayContent([]);
         var createRes = await _client.SendAsync(create);
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
         var location = createRes.Headers.Location?.ToString() ?? createRes.Headers.GetValues("Location").FirstOrDefault();

@@ -10,14 +10,9 @@ using Xunit;
 namespace BlazorAutoApp.Test.Architecture;
 
 [Collection("MediaTestCollection")]
-public class EndpointSurfaceTests
+public class EndpointSurfaceTests(WebAppFactory factory)
 {
-    private readonly IServiceProvider _services;
-
-    public EndpointSurfaceTests(WebAppFactory factory)
-    {
-        _services = factory.Services;
-    }
+    private readonly IServiceProvider _services = factory.Services;
 
     [Fact]
     public void MoviesEndpoints_Exist_With_Expected_Routes()

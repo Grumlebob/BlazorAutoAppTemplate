@@ -38,7 +38,7 @@ public static class Composition
                     OnBeforeCreateAsync = async ctx =>
                     {
                         // Enforce required metadata
-                        var meta = ctx.Metadata ?? new Dictionary<string, tusdotnet.Models.Metadata>();
+                        var meta = ctx.Metadata ?? [];
                         if (!meta.ContainsKey("filename"))
                         {
                             ctx.FailRequest("Missing 'filename' metadata.");
@@ -73,9 +73,7 @@ public static class Composition
                         try
                         {
                             await using var verify = await store.OpenReadAsync(stored.StorageKey, http.RequestAborted);
-                            var info = SixLabors.ImageSharp.Image.Identify(verify);
-                            if (info is null)
-                                throw new InvalidOperationException("Unrecognized image format");
+                            var info = SixLabors.ImageSharp.Image.Identify(verify) ?? throw new InvalidOperationException("Unrecognized image format");
                             width = info.Width;
                             height = info.Height;
                         }

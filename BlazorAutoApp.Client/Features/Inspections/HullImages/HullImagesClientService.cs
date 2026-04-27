@@ -16,7 +16,7 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
             url += $"?VesselPartId={vp}";
         }
         var res = await _http.GetFromJsonAsync<GetHullImagesResponse>(url);
-        return res ?? new GetHullImagesResponse { Items = new() };
+        return res ?? new GetHullImagesResponse { Items = [] };
     }
 
     public async Task<CreateHullImageResponse> CreateAsync(CreateHullImageRequest req)
@@ -53,7 +53,7 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
             metadata += $",correlationId {ToB64(c.ToString())}";
         }
         create.Headers.TryAddWithoutValidation("Upload-Metadata", metadata);
-        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        create.Content = new ByteArrayContent([]);
         var createRes = await _http.SendAsync(create, ct);
         createRes.EnsureSuccessStatusCode();
         var location = createRes.Headers.Location?.ToString() ?? (createRes.Headers.TryGetValues("Location", out var locs) ? locs.FirstOrDefault() : null);
@@ -66,7 +66,7 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         var buffer = new byte[chunkSize];
         long offset = 0;
         int read;
-        while ((read = await content.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+        while ((read = await content.ReadAsync(buffer, ct)) > 0)
         {
             using var patch = new HttpRequestMessage(new HttpMethod("PATCH"), uploadUri);
             patch.Headers.TryAddWithoutValidation("Tus-Resumable", "1.0.0");

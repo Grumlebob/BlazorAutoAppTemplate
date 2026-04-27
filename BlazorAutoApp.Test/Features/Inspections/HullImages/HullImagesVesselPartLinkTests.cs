@@ -8,7 +8,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using BlazorAutoApp.Core.Features.Inspections.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.Inspection;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
@@ -22,14 +24,14 @@ public class HullImagesVesselPartLinkTests
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly IServiceScope _scope;
-    private readonly IDbContextFactory<BlazorAutoApp.Data.AppDbContext> _dbFactory;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public HullImagesVesselPartLinkTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
-        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<BlazorAutoApp.Data.AppDbContext>>();
+        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -40,7 +42,7 @@ public class HullImagesVesselPartLinkTests
 
         // Seed minimal inspection
         await using var db = await _dbFactory.CreateDbContextAsync();
-        db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        db.Inspections.Add(new Inspection
         {
             Id = id,
             CreatedAtUtc = DateTime.UtcNow
@@ -51,7 +53,7 @@ public class HullImagesVesselPartLinkTests
         var seed = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", new UpsertInspectionFlowRequest
         {
             Id = id, VesselName = "VesselB", InspectionType = InspectionType.GoProInspection,
-            VesselParts = new() { new InspectionVesselPartDto { PartCode = "bow::Port" } }
+            VesselParts = [new InspectionVesselPartDto { PartCode = "bow::Port" }]
         });
         seed.EnsureSuccessStatusCode();
 
@@ -64,13 +66,13 @@ public class HullImagesVesselPartLinkTests
 
         // TUS create (include vesselPartId metadata)
         // Use a real decodable PNG to satisfy server-side validation
-        var bytes = BlazorAutoApp.Test.TestingSetup.TestImageProvider.GetBytes();
+        var bytes = TestImageProvider.GetBytes();
         using var create = new HttpRequestMessage(HttpMethod.Post, "/api/hull-images/tus");
         create.Headers.Add("Tus-Resumable", "1.0.0");
         create.Headers.Add("Upload-Length", bytes.Length.ToString());
-        string ToB64(string s) => Convert.ToBase64String(Encoding.UTF8.GetBytes(s));
+        static string ToB64(string s) => Convert.ToBase64String(Encoding.UTF8.GetBytes(s));
         create.Headers.Add("Upload-Metadata", $"filename {ToB64("test.png")},contentType {ToB64("image/png")},vesselPartId {ToB64(vpId.ToString())}");
-        create.Content = new ByteArrayContent(Array.Empty<byte>());
+        create.Content = new ByteArrayContent([]);
         var createRes = await _client.SendAsync(create);
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
         var location = createRes.Headers.Location?.ToString() ?? createRes.Headers.GetValues("Location").First();
@@ -86,7 +88,7 @@ public class HullImagesVesselPartLinkTests
         // Filter by vessel part
         var list = await _client.GetFromJsonAsync<GetHullImagesResponse>($"/api/hull-images?VesselPartId={vpId}");
         Assert.NotNull(list);
-        Assert.True(list!.Items.Any());
+        Assert.NotEmpty(list!.Items);
         Assert.All(list.Items, i => Assert.Equal(vpId, i.InspectionVesselPartId));
     }
 

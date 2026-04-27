@@ -50,7 +50,7 @@ namespace BlazorAutoApp.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_InspectionVesselParts_InspectionId_PartCode",
                 table: "InspectionVesselParts",
-                columns: new[] { "InspectionId", "PartCode" });
+                columns: ["InspectionId", "PartCode"]);
         }
 
         /// <inheritdoc />

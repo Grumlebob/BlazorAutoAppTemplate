@@ -1,4 +1,7 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using InspectionEntity = BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection;
+using InspectionFlowEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
+using InspectionVesselPartEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
@@ -16,7 +19,7 @@ public class InspectionFlowServerService(
         try
         {
             await using var _db = await _dbFactory.CreateDbContextAsync(ct);
-            var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
+            var flow = await _db.Set<InspectionFlowEntity>()
                 .Include(x => x.VesselParts)
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
             if (flow is null)
@@ -27,7 +30,7 @@ public class InspectionFlowServerService(
                     Id = id,
                     VesselName = null,
                     InspectionType = InspectionType.GoProInspection,
-                    VesselParts = new()
+                    VesselParts = []
                 };
             }
 
@@ -41,11 +44,11 @@ public class InspectionFlowServerService(
                 Id = flow.Id,
                 VesselName = flow.VesselName,
                 InspectionType = flow.InspectionType,
-                VesselParts = flow.VesselParts.Select(vp => new InspectionVesselPartDto
+                VesselParts = [.. flow.VesselParts.Select(vp => new InspectionVesselPartDto
                 {
                     Id = vp.Id,
                     PartCode = vp.PartCode
-                }).ToList()
+                })]
             };
         }
         catch (Exception ex)
@@ -66,11 +69,11 @@ public class InspectionFlowServerService(
         {
             await using var _db = await _dbFactory.CreateDbContextAsync(ct);
             // Auto-bootstrap inspection if it does not exist yet.
-            var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
+            var insp = await _db.Set<InspectionEntity>()
                 .FirstOrDefaultAsync(x => x.Id == req.Id, ct);
             if (insp is null)
             {
-                insp = new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+                insp = new InspectionEntity
                 {
                     Id = req.Id,
                     CreatedAtUtc = DateTime.UtcNow
@@ -79,12 +82,12 @@ public class InspectionFlowServerService(
                 _log.LogDebug("Inspection {InspectionId} bootstrapped during flow upsert", req.Id);
             }
 
-            var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
+            var flow = await _db.Set<InspectionFlowEntity>()
                 .Include(x => x.VesselParts)
                 .FirstOrDefaultAsync(x => x.Id == req.Id, ct);
             if (flow is null)
             {
-                flow = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
+                flow = new InspectionFlowEntity
                 {
                     Id = req.Id
                 };
@@ -111,7 +114,7 @@ public class InspectionFlowServerService(
             {
                 if (!existingByCode.ContainsKey(code))
                 {
-                    flow.VesselParts.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart
+                    flow.VesselParts.Add(new InspectionVesselPartEntity
                     {
                         PartCode = code,
                         InspectionId = flow.Id

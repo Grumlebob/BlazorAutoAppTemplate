@@ -27,7 +27,7 @@ public class VesselPartDetails
     public CoatingCondition? Coating { get; set; }
     public HullCondition? Hull { get; set; }
     public HullRating? Rating { get; set; }
-    public ICollection<FoulingObservation> Fouling { get; set; } = new List<FoulingObservation>();
+    public ICollection<FoulingObservation> Fouling { get; set; } = [];
     public string? Notes { get; set; }
 }
 

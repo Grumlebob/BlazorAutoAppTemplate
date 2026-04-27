@@ -1,3 +1,4 @@
+using BlazorAutoApp.Core.Features.Movies;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ public class FeatureSlicesArchitectureTests
     [Fact]
     public void EachCoreRequest_HasMatchingFeatureTestClass()
     {
-        var core = typeof(BlazorAutoApp.Core.Features.Movies.IMoviesApi).Assembly;
+        var core = typeof(IMoviesApi).Assembly;
         var tests = typeof(WebAppFactory).Assembly;
 
         // Find all request DTOs in Core under Features

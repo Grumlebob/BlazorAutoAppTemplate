@@ -3,8 +3,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using BlazorAutoApp.Core.Features.Inspections.Inspection;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
@@ -18,14 +20,14 @@ public class UpsertVesselPartDetailsTests
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
     private readonly IServiceScope _scope;
-    private readonly IDbContextFactory<BlazorAutoApp.Data.AppDbContext> _dbFactory;
+    private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public UpsertVesselPartDetailsTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
-        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<BlazorAutoApp.Data.AppDbContext>>();
+        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -36,7 +38,7 @@ public class UpsertVesselPartDetailsTests
         // Ensure an inspection exists
         await using var db = await _dbFactory.CreateDbContextAsync();
         var inspId = Guid.NewGuid();
-        db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        db.Inspections.Add(new Inspection
         {
             Id = inspId,
             CreatedAtUtc = DateTime.UtcNow
@@ -49,7 +51,7 @@ public class UpsertVesselPartDetailsTests
             Id = inspId,
             VesselName = "Vessel Z",
             InspectionType = InspectionType.GoProInspection,
-            VesselParts = new() { new InspectionVesselPartDto { PartCode = "bow::Port" } }
+            VesselParts = [new InspectionVesselPartDto { PartCode = "bow::Port" }]
         });
         upsertFlow.EnsureSuccessStatusCode();
 

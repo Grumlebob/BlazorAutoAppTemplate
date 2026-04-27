@@ -1,3 +1,5 @@
+using BlazorAutoApp.Client.Features.Movies;
+using BlazorAutoApp.Features.Movies;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,14 +27,14 @@ public class HttpClientUsageTests
     {
         var folder = Path.Combine(root, searchIn);
         if (!Directory.Exists(folder)) yield break;
-        var exts = extensions.Length == 0 ? new[] { ".cs", ".razor" } : extensions;
+        var exts = extensions.Length == 0 ? [".cs", ".razor"] : extensions;
         foreach (var file in Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
                                        .Where(f => exts.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)))
         {
             var lines = File.ReadAllLines(file);
             for (int i = 0; i < lines.Length; i++)
             {
-                if (lines[i].IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0)
+                if (lines[i].Contains(search, StringComparison.OrdinalIgnoreCase))
                     yield return $"{Path.GetRelativePath(root, file)}:{i + 1}: {lines[i].Trim()}";
             }
         }
@@ -41,7 +43,7 @@ public class HttpClientUsageTests
     [Fact]
     public void ServerAssembly_HasNo_HttpClient_InjectionOrSurface()
     {
-        var server = typeof(BlazorAutoApp.Features.Movies.MoviesServerService).Assembly;
+        var server = typeof(MoviesServerService).Assembly;
         var offenders = new List<string>();
 
         foreach (var t in server.GetTypes())
@@ -92,7 +94,7 @@ public class HttpClientUsageTests
     [Fact]
     public void BlazorComponents_DoNotInject_HttpClient()
     {
-        var client = typeof(BlazorAutoApp.Client.Features.Movies.MoviesClientService).Assembly;
+        var client = typeof(MoviesClientService).Assembly;
         var offenders = new List<string>();
         var componentType = typeof(ComponentBase);
         const string injectAttrName = "InjectAttribute";

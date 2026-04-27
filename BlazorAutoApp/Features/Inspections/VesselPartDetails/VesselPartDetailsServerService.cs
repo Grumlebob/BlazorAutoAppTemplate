@@ -1,4 +1,5 @@
 using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using VesselPartDetailsEntity = BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails;
 
 namespace BlazorAutoApp.Features.Inspections.VesselPartDetails;
 
@@ -9,12 +10,12 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
 
     public async Task<GetVesselPartDetailsResponse> GetAsync(int vesselPartId, CancellationToken ct = default)
     {
-        BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails? details = null;
+        VesselPartDetailsEntity? details = null;
         try
         {
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
             // Load details; if missing, return empty template
-            details = await db.Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails>()
+            details = await db.Set<VesselPartDetailsEntity>()
                 .Include(d => d.Fouling)
                 .Include(d => d.Coating)
                 .Include(d => d.Hull)
@@ -32,12 +33,12 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
             {
                 InspectionVesselPartId = vesselPartId,
                 HasSaved = false,
-                Fouling = Enum.GetValues<FoulingType>().Select(t => new FoulingObservationDto
+                Fouling = [.. Enum.GetValues<FoulingType>().Select(t => new FoulingObservationDto
                 {
                     FoulingType = t,
                     IsPresent = false,
                     CoveragePercent = null
-                }).ToList(),
+                })],
                 Coating = new CoatingConditionDto(),
                 Hull = new HullConditionDto(),
                 Rating = new HullRatingDto { Rating = HullRatingValue.Clean },
@@ -49,14 +50,14 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
         {
             InspectionVesselPartId = vesselPartId,
             HasSaved = true,
-            Fouling = details.Fouling
+            Fouling = [.. details.Fouling
                 .OrderBy(f => f.FoulingType)
                 .Select(f => new FoulingObservationDto
                 {
                     FoulingType = f.FoulingType,
                     IsPresent = f.IsPresent,
                     CoveragePercent = f.CoveragePercent
-                }).ToList(),
+                })],
             Coating = details.Coating is null ? new CoatingConditionDto() : new CoatingConditionDto
             {
                 IntactPercent = details.Coating.IntactPercent,
@@ -90,10 +91,10 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
             return new UpsertVesselPartDetailsResponse { Success = false, Error = "Vessel part not found" };
         }
 
-        BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails? details = null;
+        VesselPartDetailsEntity? details = null;
         try
         {
-            details = await _db.Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails>()
+            details = await _db.Set<VesselPartDetailsEntity>()
                 .Include(d => d.Fouling)
                 .Include(d => d.Coating)
                 .Include(d => d.Hull)
@@ -108,7 +109,7 @@ public class VesselPartDetailsServerService(IDbContextFactory<AppDbContext> dbFa
 
         if (details is null)
         {
-            details = new BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails
+            details = new VesselPartDetailsEntity
             {
                 InspectionVesselPartId = req.InspectionVesselPartId
             };

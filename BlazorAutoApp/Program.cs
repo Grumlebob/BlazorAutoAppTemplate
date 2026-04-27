@@ -1,4 +1,8 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using InspectionRecord = BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection;
+using InspectionFlowRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
+using VesselRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel;
+using ClientImports = BlazorAutoApp.Client._Imports;
 using BlazorAutoApp.Features.IdentityShowcase;
 using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
@@ -220,17 +224,17 @@ using (var scope = app.Services.CreateScope())
             var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
             if (existingAdmin is null)
             {
-                db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+                db.Inspections.Add(new InspectionRecord
                 {
                     Id = adminFlowId,
                     CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
                 });
                 // Optional: seed an initial flow record
-                db.InspectionFlows.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
+                db.InspectionFlows.Add(new InspectionFlowRecord
                 {
                     Id = adminFlowId,
                     VesselName = null,
-                    InspectionType = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection
+                    InspectionType = InspectionType.GoProInspection
                 });
                 await db.SaveChangesAsync();
                 logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
@@ -252,7 +256,7 @@ using (var scope = app.Services.CreateScope())
 
                     // Clear existing and insert fresh
                     await db.Vessels.ExecuteDeleteAsync();
-                    var vessels = lines.Select(name => new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel { Name = name }).ToList();
+                    var vessels = lines.Select(name => new VesselRecord { Name = name }).ToList();
                     db.Vessels.AddRange(vessels);
                     await db.SaveChangesAsync();
                     logger.LogInformation("Seeded {Count} vessels from shipNames.txt (reset)", vessels.Count);
@@ -284,7 +288,7 @@ app.UseHullImagesTus();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(BlazorAutoApp.Client._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(ClientImports).Assembly);
 app.MapRazorPages();
 
 // Minimal API endpoints
@@ -294,7 +298,7 @@ app.MapInspectionFlowFeature();
 app.MapVesselPartDetailsFeature();
 app.MapIdentityShowcaseFeature();
 
-async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, Microsoft.Extensions.Logging.ILogger<Program> logger, string roleName)
+async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, ILogger<Program> logger, string roleName)
 {
     if (await roleManager.RoleExistsAsync(roleName))
     {

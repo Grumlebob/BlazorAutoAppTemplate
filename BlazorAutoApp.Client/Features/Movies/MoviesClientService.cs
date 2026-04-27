@@ -3,19 +3,14 @@ using BlazorAutoApp.Core.Features.Movies;
 
 namespace BlazorAutoApp.Client.Features.Movies;
 
-public class MoviesClientService : IMoviesApi
+public class MoviesClientService(HttpClient http) : IMoviesApi
 {
-    private readonly HttpClient _http;
-
-    public MoviesClientService(HttpClient http)
-    {
-        _http = http;
-    }
+    private readonly HttpClient _http = http;
 
     public async Task<GetMoviesResponse> GetAsync(GetMoviesRequest req)
     {
         var res = await _http.GetFromJsonAsync<GetMoviesResponse>("api/movies");
-        return res ?? new GetMoviesResponse { Movies = new List<Movie>() };
+        return res ?? new GetMoviesResponse { Movies = [] };
     }
 
     public async Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req)

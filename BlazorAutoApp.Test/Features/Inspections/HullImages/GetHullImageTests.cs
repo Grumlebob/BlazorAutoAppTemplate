@@ -10,16 +10,10 @@ using Xunit;
 namespace BlazorAutoApp.Test.Features.Inspections.HullImages;
 
 [Collection("MediaTestCollection")]
-public class GetHullImageTests : IAsyncLifetime
+public class GetHullImageTests(WebAppFactory factory) : IAsyncLifetime
 {
-    private readonly HttpClient _client;
-    private readonly Func<Task> _reset;
-
-    public GetHullImageTests(WebAppFactory factory)
-    {
-        _client = factory.HttpClient;
-        _reset = factory.ResetDatabaseAsync;
-    }
+    private readonly HttpClient _client = factory.HttpClient;
+    private readonly Func<Task> _reset = factory.ResetDatabaseAsync;
 
     [Fact]
     public async Task GetById_Returns_404_When_NotFound()

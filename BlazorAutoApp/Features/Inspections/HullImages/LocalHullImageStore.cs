@@ -49,7 +49,7 @@ public class LocalHullImageStore(IWebHostEnvironment env, IOptions<HullImagesSto
                 sha.TransformBlock(rented, 0, read, null, 0);
                 total += read;
             }
-            sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            sha.TransformFinalBlock([], 0, 0);
         }
         finally
         {

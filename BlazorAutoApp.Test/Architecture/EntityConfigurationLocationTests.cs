@@ -1,3 +1,4 @@
+using BlazorAutoApp.Features.Movies;
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ public class EntityConfigurationLocationTests
     [Fact]
     public void EntityConfigurations_LiveUnder_FeaturesNamespace()
     {
-        var server = typeof(BlazorAutoApp.Features.Movies.MoviesServerService).Assembly;
+        var server = typeof(MoviesServerService).Assembly;
 
         var configTypes = server.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract)

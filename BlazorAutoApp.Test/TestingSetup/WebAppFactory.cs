@@ -120,7 +120,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             new RespawnerOptions()
             {
                 DbAdapter = DbAdapter.Postgres,
-                SchemasToInclude = new[] { "public" }
+                SchemasToInclude = ["public"]
             }
         );
     }

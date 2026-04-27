@@ -5,7 +5,7 @@ namespace BlazorAutoApp.Test.TestingSetup;
 
 public class DataGenerator //  test
 {
-    public readonly Faker<Movie> Generator = new Faker<Movie>(locale: "en");
+    public readonly Faker<Movie> Generator = new(locale: "en");
 
     public DataGenerator()
     {

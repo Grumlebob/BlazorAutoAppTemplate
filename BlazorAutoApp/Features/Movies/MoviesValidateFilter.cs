@@ -20,16 +20,16 @@ public class MoviesValidateFilter<T> : IEndpointFilter where T : class
             var errors = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
             foreach (var result in validationResults)
             {
-                var members = result.MemberNames?.Any() == true ? result.MemberNames : new[] { string.Empty };
+                var members = result.MemberNames?.Any() == true ? result.MemberNames : [string.Empty];
                 foreach (var member in members)
                 {
                     if (!errors.TryGetValue(member, out var list))
                     {
-                        errors[member] = new[] { result.ErrorMessage ?? "Validation error" };
+                        errors[member] = [result.ErrorMessage ?? "Validation error"];
                     }
                     else
                     {
-                        errors[member] = list.Concat(new[] { result.ErrorMessage ?? "Validation error" }).ToArray();
+                        errors[member] = [.. list, .. new[] { result.ErrorMessage ?? "Validation error" }];
                     }
                 }
             }

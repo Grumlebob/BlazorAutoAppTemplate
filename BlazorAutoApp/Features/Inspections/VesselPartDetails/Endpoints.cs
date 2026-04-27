@@ -1,4 +1,5 @@
 using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using BlazorAutoApp.Features.Movies;
 
 namespace BlazorAutoApp.Features.Inspections.VesselPartDetails;
 
@@ -22,7 +23,7 @@ public static class VesselPartDetailsEndpoints
             if (res.Success) return Results.Ok(res);
             return Results.BadRequest(res);
         })
-        .AddEndpointFilter(new BlazorAutoApp.Features.Movies.MoviesValidateFilter<UpsertVesselPartDetailsRequest>());
+        .AddEndpointFilter(new MoviesValidateFilter<UpsertVesselPartDetailsRequest>());
 
         return routes;
     }

@@ -5,7 +5,7 @@ public class GetInspectionFlowResponse
     public Guid Id { get; set; }
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
-    public List<InspectionVesselPartDto> VesselParts { get; set; } = new();
+    public List<InspectionVesselPartDto> VesselParts { get; set; } = [];
 }
 
 public class InspectionVesselPartDto
@@ -19,7 +19,7 @@ public class UpsertInspectionFlowRequest
     public required Guid Id { get; set; }
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
-    public List<InspectionVesselPartDto> VesselParts { get; set; } = new();
+    public List<InspectionVesselPartDto> VesselParts { get; set; } = [];
 }
 
 public class UpsertInspectionFlowResponse
@@ -37,7 +37,7 @@ public interface IInspectionFlowApi
 
 public class GetVesselsResponse
 {
-    public List<VesselDto> Items { get; set; } = new();
+    public List<VesselDto> Items { get; set; } = [];
 }
 
 public class VesselDto

@@ -1,3 +1,6 @@
+using BlazorAutoApp.Core.Features.Inspections.Inspection;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -5,26 +8,22 @@ using Microsoft.EntityFrameworkCore;
 namespace BlazorAutoApp.Data;
 
 
-public class AppDbContext : IdentityDbContext<ApplicationUser>
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     private const string AdminRoleName = "Admin";
     private const string ViewerRoleName = "Viewer";
 
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
-
     public DbSet<Movie> Movies => Set<Movie>();
     public DbSet<HullImage> HullImages => Set<HullImage>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection> Inspections => Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow> InspectionFlows => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart> InspectionVesselParts => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel> Vessels => Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails> VesselPartDetails => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.VesselPartDetails>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.FoulingObservation> FoulingObservations => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.FoulingObservation>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.CoatingCondition> CoatingConditions => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.CoatingCondition>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullCondition> HullConditions => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullCondition>();
-    public DbSet<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullRating> HullRatings => Set<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.HullRating>();
+    public DbSet<Inspection> Inspections => Set<Inspection>();
+    public DbSet<InspectionFlow> InspectionFlows => Set<InspectionFlow>();
+    public DbSet<InspectionVesselPart> InspectionVesselParts => Set<InspectionVesselPart>();
+    public DbSet<Vessel> Vessels => Set<Vessel>();
+    public DbSet<VesselPartDetails> VesselPartDetails => Set<VesselPartDetails>();
+    public DbSet<FoulingObservation> FoulingObservations => Set<FoulingObservation>();
+    public DbSet<CoatingCondition> CoatingConditions => Set<CoatingCondition>();
+    public DbSet<HullCondition> HullConditions => Set<HullCondition>();
+    public DbSet<HullRating> HullRatings => Set<HullRating>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

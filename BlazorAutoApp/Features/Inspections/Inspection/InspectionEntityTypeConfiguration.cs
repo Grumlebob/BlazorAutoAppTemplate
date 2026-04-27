@@ -1,8 +1,10 @@
+using InspectionEntity = BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection;
+
 namespace BlazorAutoApp.Features.Inspections.Inspection;
 
-public class InspectionEntityTypeConfiguration : IEntityTypeConfiguration<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>
+public class InspectionEntityTypeConfiguration : IEntityTypeConfiguration<InspectionEntity>
 {
-    public void Configure(EntityTypeBuilder<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection> entity)
+    public void Configure(EntityTypeBuilder<InspectionEntity> entity)
     {
         entity.ToTable("Inspections");
         entity.HasKey(x => x.Id);

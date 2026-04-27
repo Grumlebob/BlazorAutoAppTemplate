@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using BlazorAutoApp.Core.Features.Inspections.Inspection;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
@@ -37,7 +39,7 @@ public class UpsertInspectionFlowTests
         var id = Guid.NewGuid();
         var req = new UpsertInspectionFlowRequest { Id = id, VesselName = "X", InspectionType = InspectionType.GoProInspection };
         var res = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", req);
-        Assert.Equal(System.Net.HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
 
         await using var db = await _dbFactory.CreateDbContextAsync();
         var insp = await db.Inspections.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
@@ -56,11 +58,11 @@ public class UpsertInspectionFlowTests
             Id = id,
             VesselName = "VesselA",
             InspectionType = InspectionType.GoProInspection,
-            VesselParts = new()
-            {
+            VesselParts =
+            [
                 new InspectionVesselPartDto { PartCode = "bow::Port" },
                 new InspectionVesselPartDto { PartCode = "bow::Starboard" }
-            }
+            ]
         };
         var up1 = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", req);
         up1.EnsureSuccessStatusCode();
@@ -81,7 +83,7 @@ public class UpsertInspectionFlowTests
         Assert.Equal(p2, p2b);
 
         // Remove one part; remaining id should stay
-        req.VesselParts = new() { new InspectionVesselPartDto { PartCode = "bow::Port" } };
+        req.VesselParts = [new InspectionVesselPartDto { PartCode = "bow::Port" }];
         var up3 = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", req);
         up3.EnsureSuccessStatusCode();
         var flow3 = await _client.GetFromJsonAsync<GetInspectionFlowResponse>($"/api/inspection-flow/{id}");
@@ -94,7 +96,7 @@ public class UpsertInspectionFlowTests
     {
         // minimal seed: inspection record must exist
         await using var db = await _dbFactory.CreateDbContextAsync();
-        db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+        db.Inspections.Add(new Inspection
         {
             Id = id,
             CreatedAtUtc = DateTime.UtcNow

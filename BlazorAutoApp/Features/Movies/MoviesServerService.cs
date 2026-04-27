@@ -1,17 +1,10 @@
 namespace BlazorAutoApp.Features.Movies;
 
-public class MoviesServerService : IMoviesApi
+public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, HybridCache cache, IOptions<MoviesCacheOptions> cacheOptions) : IMoviesApi
 {
-    private readonly IDbContextFactory<AppDbContext> _dbFactory;
-    private readonly HybridCache _cache;
-    private readonly MoviesCacheOptions _cacheOptions;
-
-    public MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, HybridCache cache, IOptions<MoviesCacheOptions> cacheOptions)
-    {
-        _dbFactory = dbFactory;
-        _cache = cache;
-        _cacheOptions = cacheOptions.Value ?? new MoviesCacheOptions();
-    }
+    private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
+    private readonly HybridCache _cache = cache;
+    private readonly MoviesCacheOptions _cacheOptions = cacheOptions.Value ?? new MoviesCacheOptions();
 
     public async Task<GetMoviesResponse> GetAsync(GetMoviesRequest req)
     {

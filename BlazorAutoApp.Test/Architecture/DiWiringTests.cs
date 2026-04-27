@@ -8,14 +8,9 @@ using Xunit;
 namespace BlazorAutoApp.Test.Architecture;
 
 [Collection("MediaTestCollection")]
-public class DiWiringTests
+public class DiWiringTests(WebAppFactory factory)
 {
-    private readonly IServiceProvider _services;
-
-    public DiWiringTests(WebAppFactory factory)
-    {
-        _services = factory.Services;
-    }
+    private readonly IServiceProvider _services = factory.Services;
 
     [Fact]
     public void IMoviesApi_Resolves_To_ServerService()

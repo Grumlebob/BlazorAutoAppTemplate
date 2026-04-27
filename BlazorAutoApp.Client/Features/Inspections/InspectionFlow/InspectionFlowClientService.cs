@@ -23,6 +23,6 @@ public class InspectionFlowClientService(HttpClient http) : IInspectionFlowApi
     public async Task<GetVesselsResponse> GetVesselsAsync(CancellationToken ct = default)
     {
         var res = await _http.GetFromJsonAsync<GetVesselsResponse>("api/inspection-flow/vessels", ct);
-        return res ?? new GetVesselsResponse { Items = new() };
+        return res ?? new GetVesselsResponse { Items = [] };
     }
 }

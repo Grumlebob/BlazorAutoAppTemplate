@@ -16,7 +16,7 @@ public class InspectionFlow
     public Guid Id { get; set; } // same as Inspection.Inspection.Id
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
-    public List<InspectionVesselPart> VesselParts { get; set; } = new();
+    public List<InspectionVesselPart> VesselParts { get; set; } = [];
 }
 
 public class InspectionVesselPart
@@ -24,7 +24,7 @@ public class InspectionVesselPart
     public int Id { get; set; }
     public Guid InspectionId { get; set; }
     public required string PartCode { get; set; }
-    public ICollection<HullImage> HullImages { get; set; } = new List<HullImage>();
+    public ICollection<HullImage> HullImages { get; set; } = [];
 }
 
 public class Vessel

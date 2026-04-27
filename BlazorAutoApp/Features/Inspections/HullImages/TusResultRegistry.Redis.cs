@@ -2,15 +2,10 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace BlazorAutoApp.Features.Inspections.HullImages;
 
-public class TusResultRegistryRedis : ITusResultRegistry
+public class TusResultRegistryRedis(IDistributedCache cache) : ITusResultRegistry
 {
-    private readonly IDistributedCache _cache;
+    private readonly IDistributedCache _cache = cache;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromHours(1);
-
-    public TusResultRegistryRedis(IDistributedCache cache)
-    {
-        _cache = cache;
-    }
 
     private static string Key(Guid id) => $"tus:result:{id}";
 

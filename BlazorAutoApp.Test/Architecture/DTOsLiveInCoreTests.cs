@@ -1,3 +1,4 @@
+using BlazorAutoApp.Client;
 using System;
 using System.Linq;
 using Xunit;
@@ -25,7 +26,7 @@ public class DTOsLiveInCoreTests
     [Fact]
     public void Client_Assembly_Defines_No_Public_Request_Or_Response_DTOs()
     {
-        var asm = typeof(BlazorAutoApp.Client._Imports).Assembly; // Client
+        var asm = typeof(_Imports).Assembly; // Client
         var offenders = asm.GetExportedTypes()
             .Where(t => t.IsClass && t.IsPublic)
             .Where(t => t.Name.EndsWith("Request", StringComparison.Ordinal)
@@ -38,4 +39,3 @@ public class DTOsLiveInCoreTests
             "Client assembly should not declare Request/Response DTOs. Found:\n" + string.Join("\n", offenders));
     }
 }
-
