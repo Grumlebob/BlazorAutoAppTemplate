@@ -21,7 +21,7 @@ public class NoInfrastructureNamespaceTests
             var hints = offendingTypes.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp", t)).ToList();
             var msg = "Found types under an Infrastructure namespace:\n" + string.Join("\n", offending)
                       + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 
@@ -40,7 +40,7 @@ public class NoInfrastructureNamespaceTests
             var hints = offendingTypes.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp.Client", t)).ToList();
             var msg = "Found types under an Infrastructure namespace in client:\n" + string.Join("\n", offending)
                       + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 
@@ -59,7 +59,7 @@ public class NoInfrastructureNamespaceTests
             var hints = offendingTypes.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp.Core", t)).ToList();
             var msg = "Found types under an Infrastructure namespace in core:\n" + string.Join("\n", offending)
                       + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 }

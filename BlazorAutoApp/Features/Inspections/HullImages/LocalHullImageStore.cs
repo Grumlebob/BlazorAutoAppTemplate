@@ -12,7 +12,7 @@ public interface IHullImageStore
     Task<bool> DeleteAsync(string storageKey, CancellationToken ct = default);
 }
 
-public class LocalHullImageStore(IWebHostEnvironment env, IOptions<HullImagesStorageOptions> opts, ILogger<LocalHullImageStore> log) : IHullImageStore
+public class LocalHullImageStore(IWebHostEnvironment env, IOptions<HullImagesStorageOptions> opts) : IHullImageStore
 {
     private readonly string _root = BuildRoot(env, opts?.Value?.RootPath);
 

@@ -2,7 +2,7 @@ using BlazorAutoApp.Core.Features.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.HullImages;
 
-public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry, IWebHostEnvironment env)
+public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, IHullImageStore store, ILogger<HullImagesServerService> log, ITusResultRegistry tusRegistry)
     : IHullImagesApi
 {
     public async Task<GetHullImagesResponse> GetAsync(GetHullImagesRequest req)
@@ -139,19 +139,4 @@ public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, 
     /// </summary>
     public Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
         => Task.FromException(new NotSupportedException("TUS upload is handled by tusdotnet middleware and endpoints, not via IHullImagesApi.UploadTusAsync on server."));
-
-    public Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)
-    {
-        var root = env.WebRootPath ?? string.Empty;
-        var dir = Path.Combine(root, "test-assets");
-        if (!Directory.Exists(dir))
-            return Task.FromResult((IReadOnlyList<string>)Array.Empty<string>());
-        var items = Directory.EnumerateFiles(dir)
-            .Select(Path.GetFileName)
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .Select(n => n!)
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return Task.FromResult((IReadOnlyList<string>)items);
-    }
 }

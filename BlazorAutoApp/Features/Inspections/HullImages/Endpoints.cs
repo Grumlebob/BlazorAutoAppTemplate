@@ -74,21 +74,6 @@ public static class HullImageEndpoints
             return Results.Ok(new { removed = count });
         });
 
-        // Dev tools: list test assets under wwwroot/test-assets
-        group.MapGet("/test-assets", (IWebHostEnvironment env) =>
-        {
-            var webroot = env.WebRootPath ?? string.Empty;
-            var dir = Path.Combine(webroot, "test-assets");
-            if (!Directory.Exists(dir)) return Results.Ok(Array.Empty<string>());
-            var items = Directory.EnumerateFiles(dir)
-                .Select(Path.GetFileName)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Select(n => n!)
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            return Results.Ok(items);
-        });
-
         // TUS result lookup by correlationId
         group.MapGet("/tus/result", async (string correlationId, IHullImagesApi api, CancellationToken ct) =>
         {

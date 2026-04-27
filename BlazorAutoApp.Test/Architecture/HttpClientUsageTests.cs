@@ -76,7 +76,7 @@ public class HttpClientUsageTests
             var msg = "Server must not use HttpClient directly:\n"
                       + string.Join("\n", offenders)
                       + (hints.Count > 0 ? "\n\nSource locations containing 'HttpClient':\n" + string.Join("\n", hints) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 
@@ -118,8 +118,7 @@ public class HttpClientUsageTests
             var msg = "Blazor components must not inject HttpClient directly:\n"
                       + string.Join("\n", offenders)
                       + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints.Distinct()) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 }
-

@@ -14,7 +14,4 @@ public interface IHullImagesApi
 
     Task<bool> DeleteAsync(int id, CancellationToken ct = default);
     Task<int> PruneMissingAsync(CancellationToken ct = default);
-
-    // Dev tools: list server static test assets under wwwroot/test-assets
-    Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default);
 }

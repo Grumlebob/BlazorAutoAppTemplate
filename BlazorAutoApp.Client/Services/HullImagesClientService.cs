@@ -100,10 +100,4 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         var payload = await res.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct);
         return payload is not null && payload.TryGetValue("removed", out var removed) ? removed : 0;
     }
-
-    public async Task<IReadOnlyList<string>> ListTestAssetsAsync(CancellationToken ct = default)
-    {
-        var items = await _http.GetFromJsonAsync<string[]>("api/hull-images/test-assets", cancellationToken: ct);
-        return items ?? Array.Empty<string>();
-    }
 }

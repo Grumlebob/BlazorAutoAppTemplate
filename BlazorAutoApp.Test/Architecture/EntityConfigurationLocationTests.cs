@@ -37,7 +37,7 @@ public class EntityConfigurationLocationTests
             var msg = "EntityTypeConfiguration classes must be under BlazorAutoApp.Features.*:\n"
                       + string.Join("\n", offenders)
                       + (hints.Count > 0 ? "\n\nSource locations:\n" + string.Join("\n", hints) : string.Empty);
-            Assert.True(false, msg);
+            Assert.Fail(msg);
         }
     }
 }
