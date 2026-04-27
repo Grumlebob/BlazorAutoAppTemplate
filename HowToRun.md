@@ -26,6 +26,30 @@ Notes
 - App reads `appsettings.Docker.json` in `ASPNETCORE_ENVIRONMENT=Docker` (set by compose).
 - Serilog sinks: Console + Seq (to `http://seq:5341` inside the compose network).
 - Caching: HybridCache is enabled; Redis is required in Docker. TTLs can be tuned via `Cache:Movies:*`.
+- Identity uses the same application DbContext (`AppDbContext`) and works without Google OAuth setup.
+
+Identity quick verification
+--------------------------
+After startup:
+1) Open `/` and find the `IdentityShowcase` card.
+2) As anonymous user, you should see `Guest view`.
+3) Click `Login` or `Register` and complete sign-in.
+4) Return to `/` and click `Refresh` in IdentityShowcase.
+5) You should now see authenticated user details loaded from the secured endpoint.
+
+Relevant endpoints:
+- Public showcase: `/api/identity-showcase/public`
+- Authorized showcase: `/api/identity-showcase/secure`
+- Login: `/Identity/Account/Login`
+- Register: `/Identity/Account/Register`
+
+Optional Google login
+---------------------
+Google login is optional and only activates when both values are configured:
+- `Authentication__Google__ClientId`
+- `Authentication__Google__ClientSecret`
+
+See `Plans/GoogleLoginGuideThatNeedsFinishing.md` for the full Google setup checklist.
 
 Redis specifics (Docker Compose)
 - No local install needed: compose runs a `redis` service exposed on `6379`.

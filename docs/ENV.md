@@ -22,16 +22,17 @@ Examples (Windows PowerShell)
 Aliases
 - POSTGRES_PORT is supported as an alias for Database:Port.
 
-Required settings (non-Development)
-- Database:Host
-- Database:Port (or POSTGRES_PORT)
-- Database:Name
-- Database:Username
-- Database:Password
-- Storage:HullImages:RootPath
-- Redis:Configuration
+Database configuration behavior
+- If `ConnectionStrings:DefaultConnection` is provided (for example from `appsettings.json` or env var), it is used directly.
+- If it is not provided, the app falls back to:
+  - `Database__Host`
+  - `Database__Port` (or `POSTGRES_PORT`)
+  - `Database__Name`
+  - `Database__Username`
+  - `Database__Password`
 
-If any required value remains `INJECT_THIS_IN_ORDER_TO_RUN` or empty, startup fails with a clear error listing missing keys.
-To bypass this behavior (used by integration tests), set `BYPASS_REQUIRED_SETTINGS=1`.
-Supplying a full `ConnectionStrings:DefaultConnection` also satisfies database requirements.
+Optional auth settings
+- Google login is optional. It is only enabled when both are non-empty:
+  - `Authentication__Google__ClientId`
+  - `Authentication__Google__ClientSecret`
 

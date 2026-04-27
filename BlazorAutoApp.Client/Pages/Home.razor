@@ -2,25 +2,145 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1 class="text-3xl font-bold text-black">Welcome to a sample site showcasing Blazor Auto mode with TUS file upload protocol</h1>
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold text-black">Welcome to a sample site showcasing Blazor Auto mode with TUS file upload protocol</h1>
+        <p class="text-black mb-4">Current rendering mode: @RendererInfo.Name</p>
+    </div>
 
-<p class="text-black mb-4">Current rendering mode: @RendererInfo.Name</p>
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-xl font-semibold text-slate-900">IdentityShowcase</h2>
+                <p class="text-sm text-slate-600">Live identity awareness with a secured API call.</p>
+            </div>
+            <button class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    @onclick="RefreshIdentityShowcaseAsync"
+                    disabled="@_identityLoading">
+                Refresh
+            </button>
+        </div>
 
-<div class="mt-3">
-    <button class="bg-blue-600 text-white px-3 py-1 rounded" @onclick="StartInspection">
-        Start New Inspection
-    </button>
-</div>
+        @if (_identityLoading)
+        {
+            <div class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                Loading identity diagnostics...
+            </div>
+        }
+        else if (_identityError is not null)
+        {
+            <div class="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                @_identityError
+            </div>
+        }
+        else
+        {
+            <div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                <p class="font-medium">Public endpoint: @_publicInfo.Message</p>
+                <p class="mt-1 text-xs text-blue-800">Server UTC: @_publicInfo.ServerTimeUtc.ToString("u")</p>
+            </div>
 
-<div class="mt-6">
-    <button class="bg-gray-800 text-white px-3 py-2 rounded" @onclick="GoToAdminFlow">Admin: Open Demo Inspection Flow</button>
-    <div class="text-gray-600 mt-1">Opens a pre-seeded flow.</div>
+            @if (_secureInfo is not null)
+            {
+                <div class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    <h3 class="font-semibold">Authenticated view unlocked</h3>
+                    <p class="mt-1">Secure endpoint call succeeded for <span class="font-medium">@_secureInfo.UserName</span>.</p>
+                    <div class="mt-3 grid gap-2 text-xs text-emerald-800 md:grid-cols-2">
+                        <div>User ID: @_secureInfo.UserId</div>
+                        <div>Auth Type: @_secureInfo.AuthenticationType</div>
+                        <div>Claims: @_secureInfo.ClaimCount</div>
+                        <div>Server UTC: @_secureInfo.ServerTimeUtc.ToString("u")</div>
+                    </div>
+                    @if (_secureInfo.Roles.Length > 0)
+                    {
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @foreach (var role in _secureInfo.Roles)
+                            {
+                                <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900">@role</span>
+                            }
+                        </div>
+                    }
+                    <button class="mt-4 rounded border border-emerald-400 px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+                            @onclick="GoToAccount">
+                        Open Account
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    <h3 class="font-semibold">Guest view</h3>
+                    <p class="mt-1">Sign in to unlock the secure identity panel and authorized endpoint data.</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button class="rounded border border-amber-300 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                                @onclick="GoToLogin">
+                            Login
+                        </button>
+                        <button class="rounded bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                                @onclick="GoToRegister">
+                            Register
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-900">Inspection Actions</h2>
+        <p class="mt-1 text-sm text-slate-600">Quick actions for demo and real inspection flow.</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <button class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    @onclick="StartInspection">
+                Start New Inspection
+            </button>
+            <button class="rounded bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700"
+                    @onclick="GoToAdminFlow">
+                Admin: Open Demo Inspection Flow
+            </button>
+        </div>
+    </section>
 </div>
 
 @code {
+    [Inject] private IIdentityShowcaseApi IdentityShowcaseApi { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
     private static readonly Guid AdminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private bool _identityLoading = true;
+    private string? _identityError;
+    private IdentityShowcasePublicInfo _publicInfo = new()
+    {
+        AppName = "BlazorAutoApp",
+        Message = "Identity showcase has not loaded yet.",
+        ServerTimeUtc = DateTimeOffset.UtcNow
+    };
+    private IdentityShowcaseSecureInfo? _secureInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshIdentityShowcaseAsync();
+    }
+
+    private async Task RefreshIdentityShowcaseAsync()
+    {
+        _identityLoading = true;
+        _identityError = null;
+        try
+        {
+            _publicInfo = await IdentityShowcaseApi.GetPublicAsync();
+            _secureInfo = await IdentityShowcaseApi.GetSecureAsync();
+        }
+        catch (Exception ex)
+        {
+            _identityError = $"Unable to load IdentityShowcase right now: {ex.Message}";
+            _secureInfo = null;
+        }
+        finally
+        {
+            _identityLoading = false;
+        }
+    }
 
     private void StartInspection()
     {
@@ -31,5 +151,20 @@
     private void GoToAdminFlow()
     {
         Nav.NavigateTo($"/inspection/{AdminFlowId}/flow");
+    }
+
+    private void GoToLogin()
+    {
+        Nav.NavigateTo("/Identity/Account/Login", forceLoad: true);
+    }
+
+    private void GoToRegister()
+    {
+        Nav.NavigateTo("/Identity/Account/Register", forceLoad: true);
+    }
+
+    private void GoToAccount()
+    {
+        Nav.NavigateTo("/Identity/Account/Manage", forceLoad: true);
     }
 }

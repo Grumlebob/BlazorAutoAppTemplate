@@ -1,8 +1,10 @@
+using BlazorAutoApp.Client.Features.IdentityShowcase;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using BlazorAutoApp.Client.Features.Inspections.HullImages;
 using BlazorAutoApp.Client.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Client.Features.Inspections.VesselPartDetails;
 using BlazorAutoApp.Client.Features.Movies;
+using BlazorAutoApp.Core.Features.IdentityShowcase;
 using BlazorAutoApp.Core.Features.Movies;
 using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
@@ -20,6 +22,7 @@ builder.Services.AddScoped<IMoviesApi, MoviesClientService>();
 builder.Services.AddScoped<IHullImagesApi, HullImagesClientService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowClientService>();
 builder.Services.AddScoped<IVesselPartDetailsApi, VesselPartDetailsClientService>();
+builder.Services.AddScoped<IIdentityShowcaseApi, IdentityShowcaseClientService>();
 
 await builder.Build().RunAsync();
 

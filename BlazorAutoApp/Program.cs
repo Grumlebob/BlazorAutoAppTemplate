@@ -1,4 +1,5 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Features.IdentityShowcase;
 using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
@@ -94,7 +95,8 @@ builder.Services
     .AddMoviesFeature(builder.Configuration)
     .AddHullImagesFeature(builder.Configuration)
     .AddInspectionFlowFeature()
-    .AddVesselPartDetailsFeature();
+    .AddVesselPartDetailsFeature()
+    .AddIdentityShowcaseFeature();
 
 // Redis (distributed cache) + Hybrid cache
 var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
@@ -116,6 +118,19 @@ builder.Services
         options.SignIn.RequireConfirmedAccount = false;
     })
     .AddEntityFrameworkStores<AppDbContext>();
+
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    builder.Services
+        .AddAuthentication()
+        .AddGoogle(options =>
+        {
+            options.ClientId = googleClientId;
+            options.ClientSecret = googleClientSecret;
+        });
+}
 
 var app = builder.Build();
 
@@ -268,6 +283,7 @@ app.MapMoviesFeature();
 app.MapHullImagesFeature();
 app.MapInspectionFlowFeature();
 app.MapVesselPartDetailsFeature();
+app.MapIdentityShowcaseFeature();
 
 app.Run();
 

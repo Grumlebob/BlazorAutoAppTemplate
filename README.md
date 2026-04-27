@@ -35,6 +35,7 @@ Production‑ready Blazor (Auto render) template with vertical slices, EF Core +
 - `docker-compose.yml` — Orchestration for web + postgres + seq.
 - `overview.md` — Deeper architecture walkthrough.
 - `HowToRun.md` — Docker‑first run instructions.
+- `Plans/GoogleLoginGuideThatNeedsFinishing.md` — setup checklist for Google OAuth credentials and redirect URIs.
 
 ## Architecture Overview
 Blazor Auto render is enabled in `BlazorAutoApp/Components/App.razor` via:
@@ -57,6 +58,16 @@ Minimal APIs (example behavior):
 - POST create → `201 Created` with location header.
 - PUT update → `204 No Content` (or `404`/`400` on errors).
 - DELETE → `204 No Content` (or `404`).
+
+Identity and auth behavior:
+- Identity uses the same `AppDbContext` (no separate Identity DbContext).
+- Login and register pages are available at:
+  - `/Identity/Account/Login`
+  - `/Identity/Account/Register`
+- Home page includes an `IdentityShowcase` module:
+  - Public endpoint: `GET /api/identity-showcase/public`
+  - Secure endpoint: `GET /api/identity-showcase/secure` (`RequireAuthorization`)
+  - The authenticated UI card only renders when the secure endpoint succeeds.
 
 ## Logging and Observability
 - Serilog is wired via `Program.cs` with configuration from `appsettings*.json`.
@@ -90,6 +101,12 @@ Docker Compose (recommended full stack):
 
 More details in `HowToRun.md`.
 
+Quick identity check after startup:
+1) Open `/` and verify the `IdentityShowcase` section appears.
+2) As a guest, verify `Guest view` appears.
+3) Register/login via `/Identity/Account/Register` or `/Identity/Account/Login`.
+4) Return to `/` and click `Refresh` in IdentityShowcase; authenticated details should appear.
+
 ## GitHub Actions
 - `.github/workflows/BuildAndTest.yml` runs on pushes and PRs to `main`:
   - Setup .NET 9 (prerelease allowed), restore, build, test.
@@ -108,8 +125,19 @@ More details in `HowToRun.md`.
 - `ASPNETCORE_ENVIRONMENT=Docker` activates `appsettings.Docker.json` (ports 8080/8443, Seq sink, container DB host).
 - If Seq isn’t reachable in Docker, the server adds a safe default `http://seq:5341` sink at startup.
 - Override connection string with env var: `ConnectionStrings__DefaultConnection`.
+- If `ConnectionStrings:DefaultConnection` is present, `Database__*` variables are optional.
+- If `ConnectionStrings:DefaultConnection` is absent, these are required:
+  - `Database__Host`
+  - `Database__Port`
+  - `Database__Name`
+  - `Database__Username`
+  - `Database__Password`
 - Redis connection: `Redis:Configuration` (defaults to `localhost:6379`, Docker `redis:6379`).
 - Movies cache TTLs: `Cache:Movies:ListTtlMinutes` and `Cache:Movies:ItemTtlMinutes`.
+- Optional Google auth (only enabled if both are set):
+  - `Authentication__Google__ClientId`
+  - `Authentication__Google__ClientSecret`
+  - See `Plans/GoogleLoginGuideThatNeedsFinishing.md` for full setup.
 
 ## Extending the Template
 - Add a new feature slice in Core under `Features/<Feature>` with entity and request/response.

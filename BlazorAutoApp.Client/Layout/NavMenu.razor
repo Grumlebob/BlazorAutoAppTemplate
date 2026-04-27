@@ -20,8 +20,8 @@
             <NavLink class="md:px-4" href="/movies">Movies</NavLink>
             <button type="button"
                     class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100"
-                    @onclick="GoToRegister">
-                Register
+                    @onclick="GoToAccount">
+                Account
             </button>
             <button type="button"
                     class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700"
@@ -44,8 +44,8 @@ var menuVisibleClass = _menuVisible ? "" : "hidden";
     <li class="py-2">
         <button type="button"
                 class="w-full rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100"
-                @onclick="GoToRegister">
-            Register
+                @onclick="GoToAccount">
+            Account
         </button>
     </li>
     <li class="py-2">
@@ -69,8 +69,8 @@ private void GoToLogin()
     Navigation.NavigateTo("/Identity/Account/Login", forceLoad: true);
 }
 
-private void GoToRegister()
+private void GoToAccount()
 {
-    Navigation.NavigateTo("/Identity/Account/Register", forceLoad: true);
+    Navigation.NavigateTo("/Identity/Account/Manage", forceLoad: true);
 }
 }

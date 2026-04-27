@@ -1,0 +1,26 @@
+using BlazorAutoApp.Core.Features.IdentityShowcase;
+
+namespace BlazorAutoApp.Features.IdentityShowcase;
+
+public static class Endpoints
+{
+    public static IEndpointRouteBuilder MapIdentityShowcaseEndpoints(this IEndpointRouteBuilder routes)
+    {
+        var group = routes.MapGroup("/api/identity-showcase");
+
+        group.MapGet("/public", async (IIdentityShowcaseApi api, CancellationToken ct) =>
+        {
+            var result = await api.GetPublicAsync(ct);
+            return Results.Ok(result);
+        });
+
+        group.MapGet("/secure", async (IIdentityShowcaseApi api, CancellationToken ct) =>
+        {
+            var result = await api.GetSecureAsync(ct);
+            return result is null ? Results.Unauthorized() : Results.Ok(result);
+        })
+        .RequireAuthorization();
+
+        return routes;
+    }
+}
