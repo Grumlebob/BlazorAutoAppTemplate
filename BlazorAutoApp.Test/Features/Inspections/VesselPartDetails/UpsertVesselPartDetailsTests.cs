@@ -33,19 +33,12 @@ public class UpsertVesselPartDetailsTests
     {
         await _resetDatabase();
 
-        // Ensure a company + inspection exist
+        // Ensure an inspection exists
         await using var db = await _dbFactory.CreateDbContextAsync();
-        if (!db.CompanyDetails.Any())
-        {
-            db.CompanyDetails.Add(new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
-            db.SaveChanges();
-        }
-        var companyId = db.CompanyDetails.Select(c => c.Id).First();
         var inspId = Guid.NewGuid();
         db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = inspId,
-            CompanyId = companyId,
             CreatedAtUtc = DateTime.UtcNow
         });
         db.SaveChanges();

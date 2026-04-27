@@ -38,18 +38,11 @@ public class HullImagesVesselPartLinkTests
         await _resetDatabase();
         var id = Guid.NewGuid();
 
-        // Seed minimal inspection and company
+        // Seed minimal inspection
         await using var db = await _dbFactory.CreateDbContextAsync();
-        if (!db.CompanyDetails.Any())
-        {
-            db.CompanyDetails.Add(new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "AcmeCo", Email = "acme@example.com" });
-            db.SaveChanges();
-        }
-        var companyId = db.CompanyDetails.Select(c => c.Id).First();
         db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = id,
-            CompanyId = companyId,
             CreatedAtUtc = DateTime.UtcNow
         });
         db.SaveChanges();

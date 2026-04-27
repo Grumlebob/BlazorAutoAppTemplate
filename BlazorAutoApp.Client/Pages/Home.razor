@@ -1,94 +1,31 @@
-﻿@page "/"
+@page "/"
 
 <PageTitle>Home</PageTitle>
 
-<h1 class="text-3xl font-bold text-black">Hello Hafnia!</h1>
+<h1 class="text-3xl font-bold text-black">Welcome to a sample site showcasing Blazor Auto mode with TUS file upload protocol</h1>
 
-<p class="text-black mb-4">rendermode: @RendererInfo.Name</p>
+<p class="text-black mb-4">Current rendering mode: @RendererInfo.Name</p>
 
-<div class="mb-2 text-black">Start Hull Inspection Email</div>
-<select class="border rounded px-2 py-1 text-black" @onchange="OnCompanyChanged">
-    <option value="">-- Select company --</option>
-    @foreach (var c in _companies)
-    {
-        <option value="@c.Id">@c.Name</option>
-    }
-    </select>
-
-<div class="mt-3 text-black">Recipient</div>
-<div class="flex gap-2 mt-1">
-    <input class="border rounded px-2 py-1 text-black" placeholder="Name" @bind="_personName" />
-    <input class="border rounded px-2 py-1 text-black" placeholder="Email" type="email" @bind="_personEmail" />
-    <button class="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50" @onclick="SendToRecipient" disabled="@(_selectedCompanyId is null)">Send</button>
-    </div>
-
-@if (!string.IsNullOrWhiteSpace(_status))
-{
-    <div class="mt-2 text-black">@_status</div>
-}
+<div class="mt-3">
+    <button class="bg-blue-600 text-white px-3 py-1 rounded" @onclick="StartInspection">
+        Start New Inspection
+    </button>
+</div>
 
 <div class="mt-6">
     <button class="bg-gray-800 text-white px-3 py-2 rounded" @onclick="GoToAdminFlow">Admin: Open Demo Inspection Flow</button>
-    <div class="text-gray-600 mt-1">Opens a pre-seeded verified flow.</div>
+    <div class="text-gray-600 mt-1">Opens a pre-seeded flow.</div>
 </div>
 
 @code {
-    [Inject] private IStartHullInspectionEmailApi Api { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    private List<CompanyListItem> _companies = new();
-    private string? _status;
-    private int? _selectedCompanyId;
-    private string? _personEmail;
-    private string? _personName;
     private static readonly Guid AdminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    protected override async Task OnInitializedAsync()
+    private void StartInspection()
     {
-        try
-        {
-            var res = await Api.GetCompaniesAsync();
-            _companies = res.Items;
-        }
-        catch (Exception ex)
-        {
-            _status = ex.Message;
-        }
-    }
-
-    private void OnCompanyChanged(ChangeEventArgs e)
-    {
-        _status = null;
-        var val = e.Value?.ToString();
-        if (string.IsNullOrWhiteSpace(val)) { _selectedCompanyId = null; return; }
-        if (!int.TryParse(val, out var id)) { _selectedCompanyId = null; return; }
-        _selectedCompanyId = id;
-    }
-
-    private async Task SendToRecipient()
-    {
-        _status = null;
-        if (_selectedCompanyId is null)
-        {
-            _status = "Please select a company first.";
-            return;
-        }
-        try
-        {
-            var res = await Api.StartAsync(new StartHullInspectionRequest
-            {
-                CompanyId = _selectedCompanyId.Value,
-                RecipientEmail = _personEmail,
-                RecipientName = _personName
-            });
-            _status = res.Success
-                ? $"Email queued for company #{_selectedCompanyId}"
-                : $"Failed: {res.Error}";
-        }
-        catch (Exception ex)
-        {
-            _status = ex.Message;
-        }
+        var id = Guid.NewGuid();
+        Nav.NavigateTo($"/inspection/{id}/flow");
     }
 
     private void GoToAdminFlow()
@@ -96,4 +33,3 @@
         Nav.NavigateTo($"/inspection/{AdminFlowId}/flow");
     }
 }
-

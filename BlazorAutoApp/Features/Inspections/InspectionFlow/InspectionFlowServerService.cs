@@ -10,21 +10,14 @@ public class InspectionFlowServerService(IDbContextFactory<AppDbContext> dbFacto
     public async Task<GetInspectionFlowResponse> GetAsync(Guid id, CancellationToken ct = default)
     {
         await using var _db = await _dbFactory.CreateDbContextAsync(ct);
-        // Load inspection record (passwordless) and bootstrap company linkage
-        var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
-
         var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
             .Include(x => x.VesselParts)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (flow is null)
         {
-            // bootstrap from inspection record
             return new GetInspectionFlowResponse
             {
                 Id = id,
-                CompanyId = insp?.CompanyId ?? 0,
                 VesselName = null,
                 InspectionType = InspectionType.GoProInspection,
                 VesselParts = new()
@@ -33,7 +26,6 @@ public class InspectionFlowServerService(IDbContextFactory<AppDbContext> dbFacto
         return new GetInspectionFlowResponse
         {
             Id = flow.Id,
-            CompanyId = flow.CompanyId,
             VesselName = flow.VesselName,
             InspectionType = flow.InspectionType,
             VesselParts = flow.VesselParts.Select(vp => new InspectionVesselPartDto
@@ -47,11 +39,18 @@ public class InspectionFlowServerService(IDbContextFactory<AppDbContext> dbFacto
     public async Task<UpsertInspectionFlowResponse> UpsertAsync(UpsertInspectionFlowRequest req, CancellationToken ct = default)
     {
         await using var _db = await _dbFactory.CreateDbContextAsync(ct);
-        // Require the inspection to exist
+        // Auto-bootstrap inspection if it does not exist yet.
         var insp = await _db.Set<BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection>()
             .FirstOrDefaultAsync(x => x.Id == req.Id, ct);
         if (insp is null)
-            return new UpsertInspectionFlowResponse { Success = false, Error = "Inspection not found" };
+        {
+            insp = new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
+            {
+                Id = req.Id,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _db.Add(insp);
+        }
 
         var flow = await _db.Set<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow>()
             .Include(x => x.VesselParts)
@@ -60,8 +59,7 @@ public class InspectionFlowServerService(IDbContextFactory<AppDbContext> dbFacto
         {
             flow = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
             {
-                Id = req.Id,
-                CompanyId = insp.CompanyId
+                Id = req.Id
             };
             _db.Add(flow);
         }

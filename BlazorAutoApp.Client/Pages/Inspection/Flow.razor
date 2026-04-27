@@ -4,7 +4,6 @@
 
 <PageTitle>Inspection Flow</PageTitle>
 
-@* Passwordless: always render flow; first visit triggers activation *@
 <h1 class="text-2xl font-semibold text-black mb-4">Inspection Flow</h1>
 <EditForm Model="@this">
     <div class="max-w-5xl space-y-5">
@@ -233,7 +232,6 @@
         .ToDictionary(g => g.Key, g => g.First().Label, StringComparer.Ordinal);
 
     [Parameter] public Guid Id { get; set; }
-    [Inject] private IStartHullInspectionEmailApi StartEmailApi { get; set; } = default!;
     [Inject] private IInspectionFlowApi FlowApi { get; set; } = default!;
     [Inject] private IVesselPartDetailsApi VesselPartDetailsApi { get; set; } = default!;
     [Inject] private IHullImagesApi HullImagesApi { get; set; } = default!;
@@ -266,8 +264,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Flip activation flag on first visit (idempotent)
-        try { await StartEmailApi.ActivateAsync(Id); } catch { }
         await LoadAsync();
         await LoadVesselNamesAsync();
     }

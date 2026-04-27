@@ -31,13 +31,17 @@ public class UpsertInspectionFlowTests
     }
 
     [Fact]
-    public async Task Upsert_Blocked_When_Inspection_Not_Found()
+    public async Task Upsert_Bootstraps_When_Inspection_Not_Found()
     {
         await _resetDatabase();
         var id = Guid.NewGuid();
         var req = new UpsertInspectionFlowRequest { Id = id, VesselName = "X", InspectionType = InspectionType.GoProInspection };
         var res = await _client.PostAsJsonAsync($"/api/inspection-flow/{id}", req);
-        Assert.Equal(System.Net.HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, res.StatusCode);
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var insp = await db.Inspections.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        Assert.NotNull(insp);
     }
 
     [Fact]
@@ -90,14 +94,9 @@ public class UpsertInspectionFlowTests
     {
         // minimal seed: inspection record must exist
         await using var db = await _dbFactory.CreateDbContextAsync();
-        var company = new BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail.CompanyDetail { Name = "Acme", Email = "x@y.z" };
-        db.CompanyDetails.Add(company);
-        await db.SaveChangesAsync();
-
         db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
         {
             Id = id,
-            CompanyId = company.Id,
             CreatedAtUtc = DateTime.UtcNow
         });
         await db.SaveChangesAsync();

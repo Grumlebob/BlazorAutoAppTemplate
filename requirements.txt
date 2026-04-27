@@ -6,15 +6,12 @@ Design document:
 https://docs.google.com/drawings/d/10KDh_9FXPJrdnwL4GHxaAZfZEPwH5_zAEWBHnwrbvpI/edit
 
 
-Main page - LinkCreator
-1. dropdown, with all company names  (with mock company name and email)
-2. They select themselves.
-3. An email gets sent to the InspectionSite with a one-time password.
-4. If company gets chosen multiple times, only a single email will be sent.
-5. We set boolean "HasInspectionLinkBeenOpenedWithPassword". If no = don't send email.
+Main page
+1. Start new inspection directly.
+2. Open inspection flow with generated inspection id.
 
 
----- "New Inspection for VESSELNAME by COMPANYNAME" Page-----------
+---- "New Inspection for VESSELNAME" Page-----------
 
 1 single form.
 
@@ -86,6 +83,5 @@ Idea with project:
 
 Agreement:
 - After all this is completed, start on real integration.
--- Actual company names and emails
 -- Azure Blob Storage
 

@@ -1,10 +1,6 @@
-using BlazorAutoApp.Core.Features.Email;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using tusdotnet;
-using BlazorAutoApp.Features.Email;
 using BlazorAutoApp.Features.Inspections.HullImages;
-using BlazorAutoApp.Features.Inspections.StartHullInspectionEmail;
-// using BlazorAutoApp.Features.Inspections.VerifyInspectionEmail; // removed: passwordless inspections
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
@@ -33,16 +29,6 @@ string GetEnvVar(string key)
     return val;
 }
 
-var appUrlEnv = GetEnvVar("App__Url");
-builder.Configuration["App:Url"] = appUrlEnv;
-// Sendgrid
-var sgKeyEnv = GetEnvVar("SENDGRID_API_KEY");
-var sgFromEmailEnv = GetEnvVar("SENDGRID_FROM_EMAIL");
-var sgFromAliasEnv = GetEnvVar("SENDGRID_FROM_ALIAS");
-// Map common env vars into configuration for services that read IConfiguration only
-builder.Configuration["SendGrid:ApiKey"] = sgKeyEnv;
-builder.Configuration["SendGrid:FromEmail"] = sgFromEmailEnv;
-builder.Configuration["SendGrid:FromAlias"] = sgFromAliasEnv;
 
 // Optional: include Docker-specific configuration when running in containers
 if (builder.Environment.IsEnvironment("Docker"))
@@ -127,10 +113,7 @@ else
     builder.Services.AddDistributedMemoryCache();
 }
 builder.Services.AddHybridCache();
-// Email services
-builder.Services.AddScoped<IEmailApi, EmailServerService>();
 // Inspections subfeatures
-builder.Services.AddScoped<IStartHullInspectionEmailApi, StartHullInspectionEmailServerService>();
 builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
 builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.IVesselPartDetailsApi, VesselPartDetailsServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
@@ -196,51 +179,23 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("No EF migrations pending");
         }
         db.Database.Migrate();
-        // Seed 20 dummy companies if table empty
+        // Seed demo inspection and vessel list
         try
         {
-            if (!await db.CompanyDetails.AnyAsync())
-            {
-                var companies = Enumerable.Range(1, 20)
-                    .Select(i => new CompanyDetail
-                    {
-                        Name = $"TestCompany{i}",
-                        Email = $"testcompany{i}@example.com",
-                        HasActivatedLatestInspectionEmail = true
-                    }).ToList();
-                companies.Add(new CompanyDetail
-                {
-                    Name = "Jacob Grum",
-                    Email = "grumlebob@gmail.com",
-                    HasActivatedLatestInspectionEmail = true
-                });
-                db.CompanyDetails.AddRange(companies);
-                await db.SaveChangesAsync();
-                logger.LogInformation("Seeded {Count} CompanyDetails items", companies.Count);
-            }
-            else
-            {
-                logger.LogInformation("CompanyDetails already seeded");
-            }
-
             // Seed a fixed Inspection for Admin demo flow
             var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
             var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
             if (existingAdmin is null)
             {
-                // Ensure a company exists to associate with
-                var companyId = await db.CompanyDetails.Select(c => c.Id).OrderBy(x => x).FirstAsync();
                 db.Inspections.Add(new BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection
                 {
                     Id = adminFlowId,
-                    CompanyId = companyId,
                     CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
                 });
                 // Optional: seed an initial flow record
                 db.InspectionFlows.Add(new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow
                 {
                     Id = adminFlowId,
-                    CompanyId = companyId,
                     VesselName = null,
                     InspectionType = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection
                 });
@@ -281,7 +236,7 @@ using (var scope = app.Services.CreateScope())
         }
         catch (Exception seedEx)
         {
-            logger.LogWarning(seedEx, "CompanyDetails seed step skipped due to error");
+            logger.LogWarning(seedEx, "Inspection/Vessel seed step skipped due to error");
         }
     }
     catch (Exception ex)
@@ -413,8 +368,6 @@ app.MapRazorComponents<App>()
 // Minimal API endpoints
 app.MapMovieEndpoints();
 app.MapHullImageEndpoints();
-app.MapEmailEndpoints();
-app.MapStartHullInspectionEmailEndpoints();
 app.MapInspectionFlowEndpoints();
 app.MapVesselPartDetailsEndpoints();
 

@@ -13,8 +13,6 @@ using Npgsql;
 using Respawn;
 using Testcontainers.PostgreSql;
 using Xunit;
-using BlazorAutoApp.Core.Features.Email;
-using System.Threading;
 
 namespace BlazorAutoApp.Test.TestingSetup;
 
@@ -36,10 +34,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         //Setup dependency injection for this test application
         // Provide required env vars so Program.cs doesn't throw GetEnvVar() exceptions
-        Environment.SetEnvironmentVariable("App__Url", "http://localhost");
-        Environment.SetEnvironmentVariable("SENDGRID_API_KEY", "test-key");
-        Environment.SetEnvironmentVariable("SENDGRID_FROM_EMAIL", "no-reply@example.com");
-        Environment.SetEnvironmentVariable("SENDGRID_FROM_ALIAS", "Test");
         // Database envs are ignored in tests (DI overridden), but set to avoid early checks
         Environment.SetEnvironmentVariable("Database__Host", "localhost");
         Environment.SetEnvironmentVariable("Database__Port", "5432");
@@ -82,11 +76,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             }
             services.AddDistributedMemoryCache();
             services.AddHybridCache();
-
-            // Replace IEmailApi with a test stub to avoid external dependencies
-            var emailDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IEmailApi));
-            if (emailDesc != null) services.Remove(emailDesc);
-            services.AddSingleton<IEmailApi, TestingEmailApiStub>();
         });
     }
 
@@ -141,10 +130,4 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         return _dbContainer.StopAsync();
     }
-}
-
-internal sealed class TestingEmailApiStub : IEmailApi
-{
-    public Task<SendEmailResponse> SendAsync(SendEmailRequest req, CancellationToken ct = default)
-        => Task.FromResult(new SendEmailResponse { Success = true });
 }

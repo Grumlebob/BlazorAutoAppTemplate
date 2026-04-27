@@ -14,7 +14,6 @@ public enum InspectionType
 public class InspectionFlow
 {
     public Guid Id { get; set; } // same as Inspection.Inspection.Id
-    public int CompanyId { get; set; }
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
     public List<InspectionVesselPart> VesselParts { get; set; } = new();
@@ -37,7 +36,6 @@ public class InspectionVesselPart
 public class GetInspectionFlowResponse
 {
     public Guid Id { get; set; }
-    public int CompanyId { get; set; }
     public string? VesselName { get; set; }
     public InspectionType InspectionType { get; set; }
     public List<InspectionVesselPartDto> VesselParts { get; set; } = new();

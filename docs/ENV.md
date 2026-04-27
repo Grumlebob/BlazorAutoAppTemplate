@@ -18,9 +18,6 @@ Examples (Windows PowerShell)
 - $env:Redis__Configuration = "localhost:6379"
 - $env:Storage__HullImages__RootPath = "C:\\Data\\HullImages"
 - $env:Serilog__SeqUrl = "http://seq:5341"   # optional
-- $env:SENDGRID_API_KEY = "<key>"            # or set SendGrid__ApiKey
-Aliases
-- APP_URL is accepted as an alias for App:Url (App__Url) for hosts that prefer a single variable without nesting.
 
 Aliases
 - POSTGRES_PORT is supported as an alias for Database:Port.

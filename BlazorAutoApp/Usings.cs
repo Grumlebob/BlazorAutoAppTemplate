@@ -5,8 +5,6 @@ global using BlazorAutoApp.Features.Inspections.HullImages;
 global using Microsoft.EntityFrameworkCore;
 global using BlazorAutoApp.Core.Features.Movies;
 global using BlazorAutoApp.Core.Features.HullImages;
-global using BlazorAutoApp.Core.Features.Inspections.StartHullInspectionEmail;
-// global using BlazorAutoApp.Core.Features.Inspections.VerifyInspectionEmail; // removed: passwordless inspections
 global using Microsoft.AspNetCore.Mvc;
 global using Serilog;
 global using Serilog.Events;
