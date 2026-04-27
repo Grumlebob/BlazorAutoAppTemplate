@@ -45,8 +45,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.12" />
   </ItemGroup>
   <ItemGroup>
-    <Content Update="shipNames.txt">
+    <None Update="shipNames.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 </Project>

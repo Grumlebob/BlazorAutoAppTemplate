@@ -14,5 +14,4 @@ Write-Host "Exporting ASP.NET Core HTTPS dev cert to: $pfxPath"
 & dotnet dev-certs https --trust | Out-Null
 & dotnet dev-certs https -ep $pfxPath -p $Password
 
-Write-Host "Done. Mounting this folder in docker-compose enables HTTPS on port 8443."
-
+Write-Host "Done. Mounting this folder in docker-compose enables HTTPS on port 7186."

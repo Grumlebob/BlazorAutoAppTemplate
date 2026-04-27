@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,10 +74,35 @@ Directory.CreateDirectory(dpKeysPath);
 var dataProtectionBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("BlazorAutoApp")
     .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
-if (OperatingSystem.IsWindows() && !builder.Environment.IsEnvironment("Docker"))
+if (builder.Environment.IsEnvironment("Docker"))
+{
+    var certPath = Environment.GetEnvironmentVariable("ASPNETCORE_Kestrel__Certificates__Default__Path");
+    var certPassword = Environment.GetEnvironmentVariable("ASPNETCORE_Kestrel__Certificates__Default__Password");
+    if (!string.IsNullOrWhiteSpace(certPath) && File.Exists(certPath))
+    {
+        try
+        {
+            dataProtectionBuilder.ProtectKeysWithCertificate(
+                X509CertificateLoader.LoadPkcs12FromFile(certPath, certPassword));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] Failed to configure DataProtection certificate encryption: {ex.Message}");
+        }
+    }
+}
+else if (OperatingSystem.IsWindows())
 {
     dataProtectionBuilder.ProtectKeysWithDpapi();
 }
+
+builder.Services.AddAntiforgery(options =>
+{
+    // Avoid cross-environment stale-token decrypt errors (local vs docker key rings).
+    options.Cookie.Name = builder.Environment.IsEnvironment("Docker")
+        ? "BlazorAutoApp.Antiforgery.Docker"
+        : "BlazorAutoApp.Antiforgery";
+});
 
 // EF Core with PostgreSQL: prefer ConnectionStrings:DefaultConnection; fallback to Database__* env vars.
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");

@@ -14,8 +14,7 @@ Steps
 2) Launch: `docker compose up --build`
 
 URLs
-- App (HTTP): http://localhost:8080
-- App (HTTPS): https://localhost:8443
+- App (HTTPS): https://localhost:7186
 - Seq UI: http://localhost:8081
 - Seq ingestion: http://localhost:5341
 - Postgres: localhost:5432 (db=app, user=postgres, pwd=postgres)

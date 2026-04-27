@@ -94,9 +94,6 @@ Example implementations in this repo:
 - Apply to database:
   - `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
 - Runtime apply: `Program.cs` calls `db.Database.Migrate()` on startup.
-- Current migrations:
-  - `InitialCreate` (Movies table) — applied.
-  - `AddReleaseYearToMovie` (nullable `ReleaseYear` column) — applied.
 - EF CLI: updated to `9.0.8` to match runtime.
 
 ## Architecture Tests

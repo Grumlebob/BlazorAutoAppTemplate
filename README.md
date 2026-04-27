@@ -88,13 +88,13 @@ Identity and auth behavior:
 Local (no Docker):
 1) Ensure PostgreSQL is available (defaults to localhost:5432, db `app`, user `postgres`, pwd `postgres`).
 2) From repo root: `dotnet run --project BlazorAutoApp`.
-3) Open: `https://localhost:7190` or the port shown in logs.
+3) Open: `https://localhost:7186` or the port shown in logs.
 
 Docker Compose (recommended full stack):
 1) Export HTTPS dev cert: `pwsh -File ./docker/create-dev-cert.ps1`.
 2) `docker compose up --build`.
 3) URLs:
-   - App: `http://localhost:8080` and `https://localhost:8443`
+   - App: `https://localhost:7186`
    - Seq: `http://localhost:8081`
    - Redis: `localhost:6379`
    - Postgres: `localhost:5432`
@@ -122,7 +122,7 @@ Quick identity check after startup:
 - Run tests: `dotnet test`.
 
 ## Configuration Notes
-- `ASPNETCORE_ENVIRONMENT=Docker` activates `appsettings.Docker.json` (ports 8080/8443, Seq sink, container DB host).
+- `ASPNETCORE_ENVIRONMENT=Docker` activates `appsettings.Docker.json` (HTTPS exposed on 7186, Seq sink, container DB host).
 - If Seq isn’t reachable in Docker, the server adds a safe default `http://seq:5341` sink at startup.
 - Override connection string with env var: `ConnectionStrings__DefaultConnection`.
 - If `ConnectionStrings:DefaultConnection` is present, `Database__*` variables are optional.
