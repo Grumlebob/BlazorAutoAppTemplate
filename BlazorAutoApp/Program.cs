@@ -81,9 +81,13 @@ builder.Services.AddRazorComponents()
 // Persist Data Protection keys to a shared folder so antiforgery/state survives container restarts
 var dpKeysPath = Path.Combine(builder.Environment.ContentRootPath, "Storage", "DataProtection-Keys");
 Directory.CreateDirectory(dpKeysPath);
-builder.Services.AddDataProtection()
+var dataProtectionBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("BlazorAutoApp")
     .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
+if (OperatingSystem.IsWindows() && !builder.Environment.IsEnvironment("Docker"))
+{
+    dataProtectionBuilder.ProtectKeysWithDpapi();
+}
 
 // EF Core with PostgreSQL (compose of Database:* unless ConnectionStrings:DefaultConnection provided)
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");

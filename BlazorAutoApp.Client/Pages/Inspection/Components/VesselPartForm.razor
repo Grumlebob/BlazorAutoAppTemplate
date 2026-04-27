@@ -129,6 +129,8 @@
 
 @code{
     [Parameter] public required int VesselPartId { get; set; }
+    [Parameter] public EventCallback<int> OnSaved { get; set; }
+    [Parameter] public EventCallback<int> OnImagesChanged { get; set; }
 
     private bool _loading = true;
     private bool _saving = false;
@@ -191,7 +193,15 @@
                 Notes = _vm.Notes
             };
             var res = await Api.UpsertAsync(req);
-            if (res.Success) _info = "Saved"; else _error = res.Error ?? "Save failed";
+            if (res.Success)
+            {
+                _info = "Saved";
+                if (OnSaved.HasDelegate)
+                {
+                    await OnSaved.InvokeAsync(VesselPartId);
+                }
+            }
+            else _error = res.Error ?? "Save failed";
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _saving = false; }
@@ -232,6 +242,10 @@
         if (created is not null && created.InspectionVesselPartId == VesselPartId)
         {
             await LoadImagesAsync();
+            if (OnImagesChanged.HasDelegate)
+            {
+                await OnImagesChanged.InvokeAsync(VesselPartId);
+            }
         }
         _uploading = false; StateHasChanged();
     }

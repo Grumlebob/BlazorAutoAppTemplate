@@ -6,11 +6,13 @@
 **InspectionFlow Page**
 - **Route**: `/inspection/{id}/flow`.
 - **Gate**: None. Flow loads if the `Inspection` exists. First visit triggers activation via StartHullInspectionEmail slice.
-- **Auto-save**: Vessel name, inspection type and the set of selected vessel parts are persisted immediately on change (no Save button).
-- **Per-part uploads**: Each selected part row has an Upload button.
-  - First clicked upload starts immediately and shows green progress: `Uploading: X / Y`.
-  - Additional uploads can be queued by clicking Upload on other parts; their buttons show "Upload image to queue".
-  - The queue processes in the order clicked; images appear under their part upon completion.
+- **Image-first selection**: Vessel parts are selected only from the existing clickable image segments (`ImageSegmentToggle`). The checkbox list is removed.
+- **Viewing angle buttons**: A button group above the ship switches between `Starboard`, `Port`, `Flat Bottom`, `Rudder`, `Propeller`, and `Other` views.
+- **Starboard/port horizontal divider**: Side views include a thin non-interactive horizontal divider line; it is not a vessel part.
+- **Active part workflow**: Clicking a segment activates that mapped vessel part and opens a single `VesselPartForm` panel for the active part.
+- **Auto-save**: Vessel name, inspection type and selected vessel parts are persisted immediately on change (no Save button).
+- **Part status states**: Hotspots visualize `Not selected`, `Selected`, `Active`, and `Completed` states.
+- **Per-part uploads**: The active part form has upload support; uploaded files are linked to the active `InspectionVesselPart`.
 
 **Server Slices**
 - **StartHullInspectionEmail**: Creates a passwordless `Inspection` (ID + CompanyId), sends email with direct Flow link. Provides `POST /api/start-hull-inspection-email/activate/{id}` to flip the activation flag on first visit.
@@ -19,4 +21,5 @@
 **Notes**
 - **DTO Hygiene**: Client lists companies via DTO without exposing emails; server looks up email for sending.
 - **Migrations**: `Inspections` table no longer includes password or verified columns; keep `CreatedAtUtc` and FK to `CompanyDetails`. `CompanyDetails.HasActivatedLatestInspectionEmail` is flipped on first Flow visit.
-- **Data integrity**: Upserts of `InspectionFlow` still diff by `PartCode` to preserve existing `InspectionVesselPart` Ids so previously uploaded images remain linked.
+- **Data integrity**: Upserts of `InspectionFlow` diff by `PartCode` to preserve existing `InspectionVesselPart` Ids so previously uploaded images and details remain linked.
+- **Auto-pruning mismatch parts**: Any persisted vessel parts that do not match the image-mapped segment set are removed on load/save to keep flow data aligned with selectable image segments.

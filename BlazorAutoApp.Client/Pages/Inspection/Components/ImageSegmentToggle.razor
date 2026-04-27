@@ -1,4 +1,4 @@
-﻿<div class="bg-contain bg-no-repeat before:block before:pt-43 relative hover:cursor-pointer w-100" style="background-image: url(@ImagePath)">
+<div class="bg-contain bg-no-repeat before:block before:pt-43 relative w-100" style="background-image: url(@ImagePath)">
     <div class="absolute inset-0 grid grid-cols-@Columns grid-rows-[@GridRowsToString()]">
         @for (var i = 0; i < Segments.Count; i++)
         {
@@ -6,28 +6,28 @@
             var cell = Segments[localIndex];
             cell.Layout ??= SetLayoutBasedOnIndexAndNumberOfSegments(localIndex);
             <div
-                class="@StyleSegmentBasedOnToggleSelection(localIndex, cell)"
-                @onclick="@(() => Toggle(localIndex))">
+                class="@StyleSegment(localIndex, cell)"
+                @onclick="@(() => ToggleAsync(localIndex))">
                 <p>@cell.Label</p>
             </div>
         }
     </div>
 </div>
 
-<div>Inspecting: @ShipSide :: @(Segments[_currentlyToggled].Label)</div>
+<div>Inspecting: @ShipSide :: @CurrentLabel</div>
 
 @code {
     public class Segment
     {
         public string Label { get; init; } = "";
+        public bool IsInteractive { get; init; } = true;
+        public bool IsSelected { get; set; }
         public bool IsCompleted { get; set; }
         public string? Layout { get; set; } // Tailwind grid placement per cell
     }
-    
-    [Parameter] public int Columns { get; set; } = 4; 
 
+    [Parameter] public int Columns { get; set; } = 4;
     [Parameter] public required string ShipSide { get; set; }
-    
     [Parameter] public required string ImagePath { get; set; }
 
     /**
@@ -37,16 +37,68 @@
     [Parameter]
     public required int[] GridRows { get; set; } = [100];
 
-    private string GridRowsToString() => string.Join('_', GridRows.Select(n => n + "%")); // [65, 35] => 65%_35%
-
     [Parameter] public List<Segment> Segments { get; set; } = [new() { Label = "Segment" }];
-    
-    private int _currentlyToggled = 0;
+    [Parameter] public int ActiveIndex { get; set; }
+    [Parameter] public EventCallback<int> OnActiveIndexChanged { get; set; }
+    [Parameter] public IReadOnlySet<int> SelectedIndices { get; set; } = new HashSet<int>();
+    [Parameter] public IReadOnlySet<int> CompletedIndices { get; set; } = new HashSet<int>();
 
-    private void Toggle(int index)
+    private int _currentlyToggled = -1;
+    private string GridRowsToString() => string.Join('_', GridRows.Select(n => n + "%")); // [65, 35] => 65%_35%
+    private string CurrentLabel
     {
+        get
+        {
+            if (_currentlyToggled < 0 || _currentlyToggled >= Segments.Count)
+            {
+                return "-";
+            }
+
+            var segment = Segments[_currentlyToggled];
+            if (!segment.IsInteractive || string.IsNullOrWhiteSpace(segment.Label))
+            {
+                return "-";
+            }
+
+            return segment.Label;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Segments.Count == 0)
+        {
+            _currentlyToggled = -1;
+            return;
+        }
+
+        _currentlyToggled = ActiveIndex >= 0 && ActiveIndex < Segments.Count
+            ? ActiveIndex
+            : -1;
+        for (var i = 0; i < Segments.Count; i++)
+        {
+            Segments[i].IsSelected = SelectedIndices.Contains(i);
+            Segments[i].IsCompleted = CompletedIndices.Contains(i);
+        }
+    }
+
+    private async Task ToggleAsync(int index)
+    {
+        if (index < 0 || index >= Segments.Count)
+        {
+            return;
+        }
+
+        if (!Segments[index].IsInteractive)
+        {
+            return;
+        }
+
         _currentlyToggled = index;
-        StateHasChanged();
+        if (OnActiveIndexChanged.HasDelegate)
+        {
+            await OnActiveIndexChanged.InvokeAsync(index);
+        }
     }
 
     private string SetLayoutBasedOnIndexAndNumberOfSegments(int index)
@@ -55,38 +107,35 @@
         var colSpan = 1;
         var rowStart = 1;
         var rowSpan = 1;
-        
-        //first cell is stretched if *Columns* don't add up to number of segments
-        var firstCellWidth = Columns - (Segments.Count - 1) % Columns; // 4 - (8-1) % 4 = 1,  4 - (5-1) % 4 = 4
+
+        // first cell is stretched if *Columns* don't add up to number of segments
+        var firstCellWidth = Columns - (Segments.Count - 1) % Columns;
         if (index == 0)
         {
             colSpan = firstCellWidth;
         }
         else
         {
-            colStart = (index + firstCellWidth - 1) % Columns + 1; // minus one because division and % needs zero indexing
-            rowStart = (index + firstCellWidth - 1) / Columns + 1; // add one because grid is not zero indexed
+            colStart = (index + firstCellWidth - 1) % Columns + 1;
+            rowStart = (index + firstCellWidth - 1) / Columns + 1;
         }
 
         return $"col-start-{colStart} row-start-{rowStart} col-span-{colSpan} row-span-{rowSpan}";
     }
 
-    private string StyleSegmentBasedOnToggleSelection(int index, Segment segment)
+    private string StyleSegment(int index, Segment segment)
     {
-        var selection = _currentlyToggled == index ? "border-4 border-blue-700" : "border";
-        var state = segment.IsCompleted ? "bg-green-700/50 hover:bg-green-700/30" : "hover:bg-blue-50/50";
-        return $"{segment.Layout} {selection} {state}";
-    }
+        if (!segment.IsInteractive)
+        {
+            return $"{segment.Layout} border-b border-slate-400 bg-transparent text-transparent pointer-events-none select-none";
+        }
 
-// -------- PUBLIC API --------
-
-    /// <summary>
-    /// Mark/unmark a cell (0 to {number of cells} ) as completed. Completed cells turn green.
-    /// </summary>
-    public void SetCompleted(int index, bool completed = true)
-    {
-        if (index < 0 || index >= Segments.Count) return;
-        Segments[index].IsCompleted = completed;
-        StateHasChanged();
+        var selection = _currentlyToggled == index ? "border-4 border-blue-700" : "border border-slate-300";
+        var state = segment.IsCompleted
+            ? "bg-green-700/50 hover:bg-green-700/35 text-white"
+            : segment.IsSelected
+                ? "bg-blue-500/35 hover:bg-blue-500/25"
+                : "hover:bg-blue-50/50";
+        return $"{segment.Layout} cursor-pointer {selection} {state}";
     }
 }
