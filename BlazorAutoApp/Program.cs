@@ -146,6 +146,14 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
+// This app does not need browser local-network access permissions.
+// Explicitly opt out to avoid browser permission prompts related to local network access.
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["Permissions-Policy"] = "local-network-access=()";
+    await next();
+});
+
 // Apply EF Core migrations at startup (and log)
 using (var scope = app.Services.CreateScope())
 {
