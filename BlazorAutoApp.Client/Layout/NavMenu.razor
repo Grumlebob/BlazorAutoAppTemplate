@@ -1,3 +1,5 @@
+@inject NavigationManager Navigation
+
 <div class="max-h-16 h-16 bg-stone-50 text-gray-900 border-b border-gray-200 flex justify-between items-center px-4 w-full">
 
     <a href="/" class="overflow-hidden flex-shrink-0 w-fit pl-2">
@@ -16,6 +18,16 @@
         <div class="hidden md:flex items-center space-x-4">
             <NavLink class="md:px-4" href="/">Home</NavLink>
             <NavLink class="md:px-4" href="/movies">Movies</NavLink>
+            <button type="button"
+                    class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100"
+                    @onclick="GoToRegister">
+                Register
+            </button>
+            <button type="button"
+                    class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700"
+                    @onclick="GoToLogin">
+                Login
+            </button>
         </div>
         
     </div>
@@ -29,6 +41,20 @@ var menuVisibleClass = _menuVisible ? "" : "hidden";
 <ul class="@($"flex flex-col {menuVisibleClass} bg-stone-50 border-b border-gray-200 text-gray-900 px-4 py-2 md:hidden w-full")">
     <NavLink class="py-2" href="/">Home</NavLink>
     <NavLink class="py-2" href="/movies">Movies</NavLink>
+    <li class="py-2">
+        <button type="button"
+                class="w-full rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100"
+                @onclick="GoToRegister">
+            Register
+        </button>
+    </li>
+    <li class="py-2">
+        <button type="button"
+                class="w-full rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700"
+                @onclick="GoToLogin">
+            Login
+        </button>
+    </li>
 </ul>
 
 @code {
@@ -36,5 +62,15 @@ private bool _menuVisible = false;
 
 private void ToggleMenu() {
 _menuVisible = !_menuVisible;
+}
+
+private void GoToLogin()
+{
+    Navigation.NavigateTo("/Identity/Account/Login", forceLoad: true);
+}
+
+private void GoToRegister()
+{
+    Navigation.NavigateTo("/Identity/Account/Register", forceLoad: true);
 }
 }

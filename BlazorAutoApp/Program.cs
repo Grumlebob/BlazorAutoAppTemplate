@@ -3,6 +3,9 @@ using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,19 +73,22 @@ if (OperatingSystem.IsWindows() && !builder.Environment.IsEnvironment("Docker"))
     dataProtectionBuilder.ProtectKeysWithDpapi();
 }
 
-// EF Core with PostgreSQL (compose of Database:* unless ConnectionStrings:DefaultConnection provided)
+// EF Core with PostgreSQL: prefer ConnectionStrings:DefaultConnection; fallback to Database__* env vars.
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");
+var connString = !string.IsNullOrWhiteSpace(explicitConn)
+    ? explicitConn
+    : $"Host={GetEnvVar("Database__Host")};Port={GetEnvVar("Database__Port")};Database={GetEnvVar("Database__Name")};Username={GetEnvVar("Database__Username")};Password={GetEnvVar("Database__Password")}";
 
-var dbHost = GetEnvVar("Database__Host");
-var dbPort = GetEnvVar("Database__Port");
-var dbName = GetEnvVar("Database__Name");
-var dbUser = GetEnvVar("Database__Username");
-var dbPass = GetEnvVar("Database__Password");
-var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
+void ConfigureDbContext(DbContextOptionsBuilder options)
+{
+    options.UseNpgsql(connString);
+    // Identity + IDbContextFactory can produce runtime-only model diffs; do not crash startup on that warning.
+    options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+}
 
-
-// Only use factory; avoid registering DbContext as a scoped service
-builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
+builder.Services.AddDbContext<AppDbContext>(ConfigureDbContext, optionsLifetime: ServiceLifetime.Singleton);
+builder.Services.AddDbContextFactory<AppDbContext>(ConfigureDbContext);
+builder.Services.AddRazorPages();
 
 builder.Services
     .AddMoviesFeature(builder.Configuration)
@@ -102,7 +108,14 @@ else
     builder.Services.AddDistributedMemoryCache();
 }
 builder.Services.AddHybridCache();
-// Note: Do NOT register HttpClient in server (architecture rule)
+
+
+builder.Services
+    .AddDefaultIdentity<ApplicationUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false;
+    })
+    .AddEntityFrameworkStores<AppDbContext>();
 
 var app = builder.Build();
 
@@ -144,6 +157,9 @@ else
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 // This app does not need browser local-network access permissions.
@@ -158,8 +174,7 @@ app.Use(async (ctx, next) =>
 using (var scope = app.Services.CreateScope())
 {
     var sp = scope.ServiceProvider;
-    var dbFactory = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    await using var db = await dbFactory.CreateDbContextAsync();
+    var db = sp.GetRequiredService<AppDbContext>();
     var logger = sp.GetRequiredService<ILogger<Program>>();
     try
     {
@@ -246,6 +261,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(BlazorAutoApp.Client._Imports).Assembly);
+app.MapRazorPages();
 
 // Minimal API endpoints
 app.MapMoviesFeature();
