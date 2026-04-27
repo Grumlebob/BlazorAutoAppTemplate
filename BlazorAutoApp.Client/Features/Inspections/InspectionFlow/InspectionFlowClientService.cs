@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 
-namespace BlazorAutoApp.Client.Services;
+namespace BlazorAutoApp.Client.Features.Inspections.InspectionFlow;
 
 public class InspectionFlowClientService(HttpClient http) : IInspectionFlowApi
 {

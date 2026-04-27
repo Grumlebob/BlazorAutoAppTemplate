@@ -20,7 +20,7 @@ Conventions
 Architecture Enforcement
 ------------------------
 - `FeatureSlicesArchitectureTests` scans Core for all public classes ending with `Request` under any `Features.{Feature}` namespace and asserts a matching test class exists with the conventions above.
-- `ArchitectureTests` enforces Client/Server service implementations for Core `*Api` interfaces and their naming (`*ClientService` / `*ServerService`).
+- `ArchitectureTests` enforces that each Core `*Api` interface has both client and server implementations and that implementations live under feature namespaces (`BlazorAutoApp.Client.Features.*`, `BlazorAutoApp.Features.*`).
 
 Authoring a New Feature's Tests
 -------------------------------
@@ -42,4 +42,3 @@ Notes
 -----
 - Integration tests use Testcontainers + PostgreSQL; ensure Docker is running when executing `dotnet test`.
 - If you add new Core requests, the architecture test will fail until you add matching test classes.
-

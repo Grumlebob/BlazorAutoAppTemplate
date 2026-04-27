@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 
-namespace BlazorAutoApp.Client.Services.Http;
+namespace BlazorAutoApp.Client.Features.Inspections.HullImages.Http;
 
 public sealed class ProgressStreamContent : HttpContent
 {

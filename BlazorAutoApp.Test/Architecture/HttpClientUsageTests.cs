@@ -92,7 +92,7 @@ public class HttpClientUsageTests
     [Fact]
     public void BlazorComponents_DoNotInject_HttpClient()
     {
-        var client = typeof(BlazorAutoApp.Client.Services.MoviesClientService).Assembly;
+        var client = typeof(BlazorAutoApp.Client.Features.Movies.MoviesClientService).Assembly;
         var offenders = new List<string>();
         var componentType = typeof(ComponentBase);
         const string injectAttrName = "InjectAttribute";

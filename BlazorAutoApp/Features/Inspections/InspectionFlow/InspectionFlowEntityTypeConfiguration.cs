@@ -1,5 +1,5 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
@@ -42,3 +42,4 @@ public class VesselEntityTypeConfiguration : IEntityTypeConfiguration<BlazorAuto
         entity.HasIndex(x => x.Name).IsUnique();
     }
 }
+

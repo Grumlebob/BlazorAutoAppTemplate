@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using BlazorAutoApp.Core.Features.Movies;
 
-namespace BlazorAutoApp.Client.Services;
+namespace BlazorAutoApp.Client.Features.Movies;
 
 public class MoviesClientService : IMoviesApi
 {

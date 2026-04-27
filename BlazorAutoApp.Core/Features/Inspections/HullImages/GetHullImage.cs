@@ -1,4 +1,4 @@
-namespace BlazorAutoApp.Core.Features.HullImages;
+namespace BlazorAutoApp.Core.Features.Inspections.HullImages;
 
 public class GetHullImageRequest
 {

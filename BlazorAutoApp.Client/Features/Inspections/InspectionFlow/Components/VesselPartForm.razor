@@ -142,10 +142,10 @@
     private string? _error;
     private string? _info;
 
-    [Inject] private BlazorAutoApp.Core.Features.HullImages.IHullImagesApi HullApi { get; set; } = default!;
+    [Inject] private BlazorAutoApp.Core.Features.Inspections.HullImages.IHullImagesApi HullApi { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
-    private List<BlazorAutoApp.Core.Features.HullImages.HullImage> _images = new();
+    private List<BlazorAutoApp.Core.Features.Inspections.HullImages.HullImage> _images = new();
     private bool _uploading = false;
     private long _bytesUploaded = 0;
     private long _totalBytes = 0;
@@ -217,7 +217,7 @@
     {
         try
         {
-            var res = await HullApi.GetAsync(new BlazorAutoApp.Core.Features.HullImages.GetHullImagesRequest { VesselPartId = VesselPartId });
+            var res = await HullApi.GetAsync(new BlazorAutoApp.Core.Features.Inspections.HullImages.GetHullImagesRequest { VesselPartId = VesselPartId });
             _images = res.Items.ToList();
         }
         catch { _images = new(); }
@@ -304,3 +304,4 @@
     }
 
 }
+

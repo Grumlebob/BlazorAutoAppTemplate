@@ -1,13 +1,8 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
-using tusdotnet;
 using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
-using tusdotnet.Interfaces;
-using tusdotnet.Models;
-using tusdotnet.Models.Configuration;
-using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,17 +84,11 @@ var connString = explicitConn ?? $"Host={dbHost};Port={dbPort};Database={dbName}
 // Only use factory; avoid registering DbContext as a scoped service
 builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connString));
 
-// Movies service for server-side prerendering
-builder.Services.AddScoped<IMoviesApi, MoviesServerService>();
-builder.Services.Configure<MoviesCacheOptions>(
-    builder.Configuration.GetSection("Cache:Movies"));
-
-// HullImages services
-builder.Services.Configure<HullImagesStorageOptions>(builder.Configuration.GetSection("Storage:HullImages"));
-builder.Services.AddScoped<IHullImagesApi, HullImagesServerService>();
-builder.Services.AddSingleton<IHullImageStore, LocalHullImageStore>();
-builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
-builder.Services.AddSingleton<ITusResultRegistry, TusResultRegistryRedis>();
+builder.Services
+    .AddMoviesFeature(builder.Configuration)
+    .AddHullImagesFeature(builder.Configuration)
+    .AddInspectionFlowFeature()
+    .AddVesselPartDetailsFeature();
 
 // Redis (distributed cache) + Hybrid cache
 var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
@@ -113,9 +102,6 @@ else
     builder.Services.AddDistributedMemoryCache();
 }
 builder.Services.AddHybridCache();
-// Inspections subfeatures
-builder.Services.AddScoped<IInspectionFlowApi, InspectionFlowServerService>();
-builder.Services.AddScoped<BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.IVesselPartDetailsApi, VesselPartDetailsServerService>();
 // Note: Do NOT register HttpClient in server (architecture rule)
 
 var app = builder.Build();
@@ -247,129 +233,17 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapStaticAssets();
-// TUS resumable uploads at /api/hull-images/tus
-app.UseTus(context =>
-{
-    var env = context.RequestServices.GetRequiredService<IHostEnvironment>();
-    var contentRoot = env.ContentRootPath;
-    var tusRoot = Path.Combine(contentRoot, "Storage", "Tus");
-    Directory.CreateDirectory(tusRoot);
-
-    var cfg = new DefaultTusConfiguration
-    {
-        UrlPath = "/api/hull-images/tus",
-        Store = new TusDiskStore(tusRoot),
-        MaxAllowedUploadSizeInBytesLong = 10_737_418_240L,
-        Events = new Events
-        {
-            OnBeforeCreateAsync = async ctx =>
-            {
-                // Enforce required metadata
-                var meta = ctx.Metadata ?? new Dictionary<string, tusdotnet.Models.Metadata>();
-                if (!meta.ContainsKey("filename"))
-                {
-                    ctx.FailRequest("Missing 'filename' metadata.");
-                    return;
-                }
-                // Optional contentType
-                await Task.CompletedTask;
-            },
-            OnFileCompleteAsync = async ctx =>
-            {
-                var http = ctx.HttpContext;
-                var sp = http.RequestServices;
-                var store = sp.GetRequiredService<IHullImageStore>();
-                var api = sp.GetRequiredService<IHullImagesApi>();
-                var logger = sp.GetRequiredService<ILogger<Program>>();
-
-                var file = await ctx.GetFileAsync();
-                var meta = await file.GetMetadataAsync(http.RequestAborted);
-                meta.TryGetValue("filename", out var fnameMeta);
-                meta.TryGetValue("contentType", out var ctypeMeta);
-                meta.TryGetValue("correlationId", out var correlationMeta);
-                meta.TryGetValue("vesselPartId", out var vesselPartMeta);
-                var fileName = fnameMeta?.GetString(System.Text.Encoding.UTF8) ?? "upload.bin";
-                var contentType = ctypeMeta?.GetString(System.Text.Encoding.UTF8);
-
-                await using var src = await file.GetContentAsync(http.RequestAborted);
-                var stored = await store.SaveAsync(src, fileName, contentType, http.RequestAborted);
-
-                int? width = null, height = null;
-                try
-                {
-                    await using var verify = await store.OpenReadAsync(stored.StorageKey, http.RequestAborted);
-                    var info = SixLabors.ImageSharp.Image.Identify(verify);
-                    if (info is null)
-                        throw new InvalidOperationException("Unrecognized image format");
-                    width = info.Width; height = info.Height;
-                }
-                catch
-                {
-                    await store.DeleteAsync(stored.StorageKey, http.RequestAborted);
-                    logger.LogWarning("TUS upload rejected (not decodable image): {File}", fileName);
-                    return;
-                }
-
-                int? vesselPartId = null;
-                if (vesselPartMeta is not null)
-                {
-                    try
-                    {
-                        var raw = vesselPartMeta.GetString(System.Text.Encoding.UTF8);
-                        if (int.TryParse(raw, out var vp)) vesselPartId = vp;
-                    }
-                    catch { }
-                }
-
-                var created = await api.CreateAsync(new CreateHullImageRequest
-                {
-                    OriginalFileName = fileName,
-                    ContentType = contentType,
-                    ByteSize = stored.ByteSize,
-                    StorageKey = stored.StorageKey,
-                    Sha256 = stored.Sha256,
-                    Width = width,
-                    Height = height,
-                    InspectionVesselPartId = vesselPartId
-                });
-                logger.LogInformation("TUS upload completed -> HullImage {Id}", created.Id);
-
-                // If client provided correlationId, record the mapping for lookup
-                if (correlationMeta is not null)
-                {
-                    try
-                    {
-                        var s = correlationMeta.GetString(System.Text.Encoding.UTF8);
-                        if (Guid.TryParse(s, out var corr))
-                        {
-                            var reg = sp.GetRequiredService<ITusResultRegistry>();
-                            reg.Set(corr, created.Id);
-                        }
-                    }
-                    catch { /* ignore correlation issues */ }
-                }
-
-                // Clean up the TUS file after completion
-                // Attempt to delete TUS temp file if termination is supported
-                if (ctx.Store is ITusTerminationStore term)
-                {
-                    try { await term.DeleteFileAsync(ctx.FileId, http.RequestAborted); } catch { }
-                }
-            }
-        }
-    };
-    return cfg;
-});
+app.UseHullImagesTus();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(BlazorAutoApp.Client._Imports).Assembly);
 
 // Minimal API endpoints
-app.MapMovieEndpoints();
-app.MapHullImageEndpoints();
-app.MapInspectionFlowEndpoints();
-app.MapVesselPartDetailsEndpoints();
+app.MapMoviesFeature();
+app.MapHullImagesFeature();
+app.MapInspectionFlowFeature();
+app.MapVesselPartDetailsFeature();
 
 app.Run();
 

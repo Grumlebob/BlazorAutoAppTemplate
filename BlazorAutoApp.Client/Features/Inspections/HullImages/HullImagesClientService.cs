@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.HullImages;
-using BlazorAutoApp.Client.Services.Http;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
+using BlazorAutoApp.Client.Features.Inspections.HullImages.Http;
 
-namespace BlazorAutoApp.Client.Services;
+namespace BlazorAutoApp.Client.Features.Inspections.HullImages;
 
 public class HullImagesClientService(HttpClient http) : IHullImagesApi
 {
@@ -101,3 +101,4 @@ public class HullImagesClientService(HttpClient http) : IHullImagesApi
         return payload is not null && payload.TryGetValue("removed", out var removed) ? removed : 0;
     }
 }
+

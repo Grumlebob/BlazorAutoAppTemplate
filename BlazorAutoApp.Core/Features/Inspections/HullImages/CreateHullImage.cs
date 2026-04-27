@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace BlazorAutoApp.Core.Features.HullImages;
+namespace BlazorAutoApp.Core.Features.Inspections.HullImages;
 
 public class CreateHullImageRequest
 {

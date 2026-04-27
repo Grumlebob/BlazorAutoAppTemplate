@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
 
-namespace BlazorAutoApp.Client.Services;
+namespace BlazorAutoApp.Client.Features.Inspections.VesselPartDetails;
 
 public class VesselPartDetailsClientService(HttpClient http) : IVesselPartDetailsApi
 {
@@ -20,4 +20,3 @@ public class VesselPartDetailsClientService(HttpClient http) : IVesselPartDetail
                ?? new UpsertVesselPartDetailsResponse { Success = false, Error = "No response" };
     }
 }
-

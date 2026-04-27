@@ -1,4 +1,4 @@
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.HullImages;
 
@@ -140,3 +140,4 @@ public class HullImagesServerService(IDbContextFactory<AppDbContext> dbFactory, 
     public Task UploadTusAsync(string fileName, string? contentType, Stream content, long size, IProgress<long>? progress = null, Guid? correlationId = null, CancellationToken ct = default)
         => Task.FromException(new NotSupportedException("TUS upload is handled by tusdotnet middleware and endpoints, not via IHullImagesApi.UploadTusAsync on server."));
 }
+

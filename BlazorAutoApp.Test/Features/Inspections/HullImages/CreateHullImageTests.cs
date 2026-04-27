@@ -5,7 +5,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using BlazorAutoApp.Data;
 using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestingSetup;
@@ -95,3 +95,4 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         GC.SuppressFinalize(this);
     }
 }
+

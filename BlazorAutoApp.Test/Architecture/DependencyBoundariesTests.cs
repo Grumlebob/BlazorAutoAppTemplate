@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using BlazorAutoApp.Client.Services;
+using BlazorAutoApp.Client.Features.Movies;
 using BlazorAutoApp.Core.Features.Movies;
 using BlazorAutoApp.Features.Movies;
 using Xunit;
@@ -40,4 +40,3 @@ public class DependencyBoundariesTests
         Assert.DoesNotContain(refs, n => n.Equals("BlazorAutoApp", StringComparison.Ordinal));
     }
 }
-

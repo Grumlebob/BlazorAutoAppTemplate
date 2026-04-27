@@ -7,7 +7,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,3 +92,4 @@ public class HullImagesVesselPartLinkTests
 
     // no hashing needed in passwordless flow
 }
+

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,3 +68,4 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
     public Task DisposeAsync() => _resetDatabase();
     public void Dispose() => GC.SuppressFinalize(this);
 }
+

@@ -28,7 +28,7 @@ public class NoInfrastructureNamespaceTests
     [Fact]
     public void ClientAssembly_HasNo_Infrastructure_Namespace()
     {
-        var client = typeof(BlazorAutoApp.Client.Services.MoviesClientService).Assembly;
+        var client = typeof(BlazorAutoApp.Client.Features.Movies.MoviesClientService).Assembly;
         var offendingTypes = client.GetTypes()
             .Where(t => t.Namespace != null && t.Namespace.Split('.').Contains("Infrastructure", StringComparer.Ordinal))
             .ToList();

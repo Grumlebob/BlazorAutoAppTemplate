@@ -1,6 +1,6 @@
 using System.Buffers;
 using System.Globalization;
-using BlazorAutoApp.Core.Features.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages;
 
 namespace BlazorAutoApp.Features.Inspections.HullImages;
 
@@ -85,3 +85,4 @@ public static class HullImageEndpoints
         return routes;
     }
 }
+
