@@ -117,6 +117,7 @@ builder.Services
     {
         options.SignIn.RequireConfirmedAccount = false;
     })
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>();
 
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
@@ -203,6 +204,14 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("No EF migrations pending");
         }
         db.Database.Migrate();
+
+        if (app.Environment.IsDevelopment())
+        {
+            var roleManager = sp.GetRequiredService<RoleManager<IdentityRole>>();
+            await EnsureRoleExistsAsync(roleManager, logger, "Admin");
+            await EnsureRoleExistsAsync(roleManager, logger, "Viewer");
+        }
+
         // Seed demo inspection and vessel list
         try
         {
@@ -284,6 +293,23 @@ app.MapHullImagesFeature();
 app.MapInspectionFlowFeature();
 app.MapVesselPartDetailsFeature();
 app.MapIdentityShowcaseFeature();
+
+async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, Microsoft.Extensions.Logging.ILogger<Program> logger, string roleName)
+{
+    if (await roleManager.RoleExistsAsync(roleName))
+    {
+        return;
+    }
+
+    var result = await roleManager.CreateAsync(new IdentityRole(roleName));
+    if (!result.Succeeded)
+    {
+        var errors = string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Description}"));
+        throw new InvalidOperationException($"Failed creating role '{roleName}'. {errors}");
+    }
+
+    logger.LogInformation("Created identity role {RoleName}", roleName);
+}
 
 app.Run();
 

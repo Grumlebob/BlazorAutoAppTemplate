@@ -5,6 +5,9 @@ namespace BlazorAutoApp.Features.IdentityShowcase;
 
 public class IdentityShowcaseServerService(IHttpContextAccessor httpContextAccessor) : IIdentityShowcaseApi
 {
+    private const string AdminRole = "Admin";
+    private const string ViewerRole = "Viewer";
+
     public Task<IdentityShowcasePublicInfo> GetPublicAsync(CancellationToken ct = default)
     {
         return Task.FromResult(new IdentityShowcasePublicInfo
@@ -43,6 +46,28 @@ public class IdentityShowcaseServerService(IHttpContextAccessor httpContextAcces
             UserId = userId,
             AuthenticationType = user.Identity?.AuthenticationType ?? "Unknown",
             ClaimCount = user.Claims.Count(),
+            HasAnyRole = roles.Length > 0,
+            IsAdmin = roles.Contains(AdminRole, StringComparer.Ordinal),
+            IsViewer = roles.Contains(ViewerRole, StringComparer.Ordinal),
+            Roles = roles,
+            ServerTimeUtc = DateTimeOffset.UtcNow
+        });
+    }
+
+    public Task<IdentityShowcaseAdminProbeResponse> GetAdminProbeAsync(CancellationToken ct = default)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+        var roles = user?.Claims
+            .Where(c => c.Type is ClaimTypes.Role or "role" or "roles")
+            .Select(c => c.Value)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(v => v, StringComparer.Ordinal)
+            .ToArray() ?? [];
+
+        return Task.FromResult(new IdentityShowcaseAdminProbeResponse
+        {
+            Success = true,
+            Message = "Admin role probe passed. You can access admin-only endpoints.",
             Roles = roles,
             ServerTimeUtc = DateTimeOffset.UtcNow
         });

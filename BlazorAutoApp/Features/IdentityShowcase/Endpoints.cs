@@ -21,6 +21,13 @@ public static class Endpoints
         })
         .RequireAuthorization();
 
+        group.MapGet("/admin-probe", async (IIdentityShowcaseApi api, CancellationToken ct) =>
+        {
+            var result = await api.GetAdminProbeAsync(ct);
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("Admin"));
+
         return routes;
     }
 }

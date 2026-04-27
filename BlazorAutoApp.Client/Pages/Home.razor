@@ -60,6 +60,34 @@
                             }
                         </div>
                     }
+                    <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                        <span class="@(_secureInfo.IsViewer ? "rounded-full bg-sky-100 px-2 py-1 font-medium text-sky-900" : "rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700")">
+                            Viewer: @(_secureInfo.IsViewer ? "Yes" : "No")
+                        </span>
+                        <span class="@(_secureInfo.IsAdmin ? "rounded-full bg-violet-100 px-2 py-1 font-medium text-violet-900" : "rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700")">
+                            Admin: @(_secureInfo.IsAdmin ? "Yes" : "No")
+                        </span>
+                    </div>
+                    <div class="mt-4 rounded-md border border-emerald-300 bg-emerald-100 p-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button class="rounded border border-emerald-500 px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                    @onclick="RunAdminProbeAsync"
+                                    disabled="@_adminProbeLoading">
+                                @(_adminProbeLoading ? "Running Admin Probe..." : "Run Admin Probe")
+                            </button>
+                            <span class="text-xs text-emerald-900">Checks `Admin` role authorization through a protected endpoint.</span>
+                        </div>
+                        @if (_adminProbeResult is not null)
+                        {
+                            <div class="@($"mt-3 rounded p-2 text-xs {(_adminProbeResult.Success ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900")}")">
+                                @_adminProbeResult.Message
+                                @if (_adminProbeResult.Roles.Length > 0)
+                                {
+                                    <div class="mt-1">Roles from probe: @string.Join(", ", _adminProbeResult.Roles)</div>
+                                }
+                            </div>
+                        }
+                    </div>
                     <button class="mt-4 rounded border border-emerald-400 px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
                             @onclick="GoToAccount">
                         Open Account
@@ -116,6 +144,8 @@
         ServerTimeUtc = DateTimeOffset.UtcNow
     };
     private IdentityShowcaseSecureInfo? _secureInfo;
+    private bool _adminProbeLoading;
+    private IdentityShowcaseAdminProbeResponse? _adminProbeResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -126,6 +156,8 @@
     {
         _identityLoading = true;
         _identityError = null;
+        _adminProbeLoading = false;
+        _adminProbeResult = null;
         try
         {
             _publicInfo = await IdentityShowcaseApi.GetPublicAsync();
@@ -139,6 +171,19 @@
         finally
         {
             _identityLoading = false;
+        }
+    }
+
+    private async Task RunAdminProbeAsync()
+    {
+        _adminProbeLoading = true;
+        try
+        {
+            _adminProbeResult = await IdentityShowcaseApi.GetAdminProbeAsync();
+        }
+        finally
+        {
+            _adminProbeLoading = false;
         }
     }
 
