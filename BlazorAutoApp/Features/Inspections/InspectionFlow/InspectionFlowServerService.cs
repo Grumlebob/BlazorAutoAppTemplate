@@ -137,22 +137,4 @@ public class InspectionFlowServerService(
             throw;
         }
     }
-
-    public async Task<GetVesselsResponse> GetVesselsAsync(CancellationToken ct = default)
-    {
-        _log.LogDebug("InspectionFlow GetVessels requested");
-        try
-        {
-            await using var _db = await _dbFactory.CreateDbContextAsync(ct);
-            var items = await _db.Vessels.AsNoTracking().OrderBy(v => v.Name)
-                .Select(v => new VesselDto { Id = v.Id, Name = v.Name }).ToListAsync(ct);
-            _log.LogDebug("InspectionFlow GetVessels returned {Count} vessels", items.Count);
-            return new GetVesselsResponse { Items = items };
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "InspectionFlow GetVessels failed");
-            throw;
-        }
-    }
 }

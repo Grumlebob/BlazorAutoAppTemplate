@@ -26,9 +26,3 @@ public class InspectionVesselPart
     public required string PartCode { get; set; }
     public ICollection<HullImage> HullImages { get; set; } = [];
 }
-
-public class Vessel
-{
-    public int Id { get; set; }
-    public required string Name { get; set; }
-}

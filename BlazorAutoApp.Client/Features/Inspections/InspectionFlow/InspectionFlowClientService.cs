@@ -19,10 +19,4 @@ public class InspectionFlowClientService(HttpClient http) : IInspectionFlowApi
         return (await res.Content.ReadFromJsonAsync<UpsertInspectionFlowResponse>(cancellationToken: ct))
                ?? new UpsertInspectionFlowResponse { Success = false, Error = "No response" };
     }
-
-    public async Task<GetVesselsResponse> GetVesselsAsync(CancellationToken ct = default)
-    {
-        var res = await _http.GetFromJsonAsync<GetVesselsResponse>("api/inspection-flow/vessels", ct);
-        return res ?? new GetVesselsResponse { Items = [] };
-    }
 }

@@ -44,10 +44,4 @@
     <!-- Pin EFCore.Relational to 9.0.8 for dependency unification -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.12" />
   </ItemGroup>
-  <ItemGroup>
-    <None Update="shipNames.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-    </None>
-  </ItemGroup>
 </Project>

@@ -32,16 +32,4 @@ public interface IInspectionFlowApi
 {
     Task<GetInspectionFlowResponse> GetAsync(Guid id, CancellationToken ct = default);
     Task<UpsertInspectionFlowResponse> UpsertAsync(UpsertInspectionFlowRequest req, CancellationToken ct = default);
-    Task<GetVesselsResponse> GetVesselsAsync(CancellationToken ct = default);
-}
-
-public class GetVesselsResponse
-{
-    public List<VesselDto> Items { get; set; } = [];
-}
-
-public class VesselDto
-{
-    public int Id { get; set; }
-    public required string Name { get; set; }
 }

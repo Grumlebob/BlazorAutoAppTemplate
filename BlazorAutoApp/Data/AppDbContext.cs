@@ -18,7 +18,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Inspection> Inspections => Set<Inspection>();
     public DbSet<InspectionFlow> InspectionFlows => Set<InspectionFlow>();
     public DbSet<InspectionVesselPart> InspectionVesselParts => Set<InspectionVesselPart>();
-    public DbSet<Vessel> Vessels => Set<Vessel>();
     public DbSet<VesselPartDetails> VesselPartDetails => Set<VesselPartDetails>();
     public DbSet<FoulingObservation> FoulingObservations => Set<FoulingObservation>();
     public DbSet<CoatingCondition> CoatingConditions => Set<CoatingCondition>();
@@ -111,7 +110,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         modelBuilder.ApplyConfiguration(new Features.Inspections.Inspection.InspectionEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionFlowEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionVesselPartEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.VesselEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.VesselPartDetailsEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.FoulingObservationEntityTypeConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.CoatingConditionEntityTypeConfiguration());

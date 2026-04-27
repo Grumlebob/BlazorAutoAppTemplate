@@ -22,13 +22,6 @@ public static class InspectionFlowEndpoints
             return Results.BadRequest(res);
         });
 
-        group.MapGet("/vessels", async (IInspectionFlowApi api, CancellationToken ct) =>
-        {
-            var res = await api.GetVesselsAsync(ct);
-            return Results.Ok(res);
-        });
-
-
         return routes;
     }
 }

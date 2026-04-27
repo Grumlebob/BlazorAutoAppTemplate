@@ -2,7 +2,6 @@ using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using InspectionFlowEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
 using InspectionVesselPartEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPart;
-using VesselEntity = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 
@@ -32,17 +31,6 @@ public class InspectionVesselPartEntityTypeConfiguration : IEntityTypeConfigurat
         entity.Property(x => x.PartCode).IsRequired().HasMaxLength(100);
         entity.HasIndex(x => new { x.InspectionId, x.PartCode });
         // HullImages are linked from HullImages table via InspectionVesselPartId
-    }
-}
-
-public class VesselEntityTypeConfiguration : IEntityTypeConfiguration<VesselEntity>
-{
-    public void Configure(EntityTypeBuilder<VesselEntity> entity)
-    {
-        entity.ToTable("Vessels");
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
-        entity.HasIndex(x => x.Name).IsUnique();
     }
 }
 

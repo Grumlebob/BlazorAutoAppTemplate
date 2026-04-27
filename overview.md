@@ -253,6 +253,5 @@ run it.
 
 Inspections endpoints (selected):
  - `/api/inspection-flow/{id}` (GET/POST): get/upsert flow; upsert preserves part ids by `PartCode`.
- - `/api/inspection-flow/vessels` (GET): list known vessel names.
 - `/api/hull-images` (GET): supports filter by `VesselPartId`.
 - `/api/hull-images/tus` (POST + PATCH): TUS uploads; metadata supports `correlationId` and `vesselPartId`.

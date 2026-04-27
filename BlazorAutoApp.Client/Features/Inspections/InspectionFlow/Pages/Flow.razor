@@ -18,13 +18,7 @@
         </div>
         <div>
             <label class="block text-black mb-1">Vessel Name</label>
-            <input class="border rounded w-full px-3 py-2 text-black" list="vesselList" value="@_vesselName" @onchange="OnVesselNameChanged" placeholder="Search vessel name" />
-            <datalist id="vesselList">
-                @foreach (var v in _vesselNames)
-                {
-                    <option value="@v"></option>
-                }
-            </datalist>
+            <input class="border rounded w-full px-3 py-2 text-black" value="@_vesselName" @onchange="OnVesselNameChanged" placeholder="Enter vessel name" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2 text-sm font-medium" style="margin-top: 0.75rem;">
@@ -260,12 +254,9 @@
     private List<VesselPartVm> _vesselParts = new();
     private string? _error;
     private string? _info;
-    private List<string> _vesselNames = new();
-
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
-        await LoadVesselNamesAsync();
     }
 
     private async Task LoadAsync(bool allowAutoPrune = true)
@@ -510,19 +501,6 @@
         catch (Exception ex)
         {
             _error = ex.Message;
-        }
-    }
-
-    private async Task LoadVesselNamesAsync()
-    {
-        try
-        {
-            var res = await FlowApi.GetVesselsAsync();
-            _vesselNames = res.Items.Select(x => x.Name).Distinct(StringComparer.Ordinal).OrderBy(s => s).ToList();
-        }
-        catch
-        {
-            _vesselNames = [];
         }
     }
 

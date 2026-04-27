@@ -1,7 +1,6 @@
 using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
 using InspectionRecord = BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection;
 using InspectionFlowRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
-using VesselRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Vessel;
 using ClientImports = BlazorAutoApp.Client._Imports;
 using BlazorAutoApp.Features.IdentityShowcase;
 using BlazorAutoApp.Features.Inspections.HullImages;
@@ -242,7 +241,7 @@ using (var scope = app.Services.CreateScope())
             await EnsureRoleExistsAsync(roleManager, logger, "Viewer");
         }
 
-        // Seed demo inspection and vessel list
+        // Seed demo inspection
         try
         {
             // Seed a fixed Inspection for Admin demo flow
@@ -265,41 +264,10 @@ using (var scope = app.Services.CreateScope())
                 await db.SaveChangesAsync();
                 logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
             }
-
-            // Seed Vessels from shipNames.txt (reset to file content every startup)
-            try
-            {
-                var root = builder.Environment.ContentRootPath;
-                var namesPath = Path.Combine(root, "shipNames.txt");
-                if (File.Exists(namesPath))
-                {
-                    var lines = (await File.ReadAllLinesAsync(namesPath))
-                        .Select(s => s.Trim())
-                        .Where(s => !string.IsNullOrEmpty(s))
-                        .Distinct(StringComparer.Ordinal)
-                        .OrderBy(s => s)
-                        .ToList();
-
-                    // Clear existing and insert fresh
-                    await db.Vessels.ExecuteDeleteAsync();
-                    var vessels = lines.Select(name => new VesselRecord { Name = name }).ToList();
-                    db.Vessels.AddRange(vessels);
-                    await db.SaveChangesAsync();
-                    logger.LogInformation("Seeded {Count} vessels from shipNames.txt (reset)", vessels.Count);
-                }
-                else
-                {
-                    logger.LogWarning("shipNames.txt not found; Vessels table not seeded");
-                }
-            }
-            catch (Exception vex)
-            {
-                logger.LogWarning(vex, "Failed to seed Vessels from shipNames.txt");
-            }
         }
         catch (Exception seedEx)
         {
-            logger.LogWarning(seedEx, "Inspection/Vessel seed step skipped due to error");
+            logger.LogWarning(seedEx, "Inspection seed step skipped due to error");
         }
     }
     catch (Exception ex)
