@@ -274,7 +274,15 @@ paket-files/
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Cake - Uncomment if you are using it
 # tools/
@@ -765,6 +773,10 @@ $RECYCLE.BIN/
 
 BlazorAutoApp/Storage/*
 /data/storage/
+/Runtime/Temp/
+/Runtime/Garbage/
+/Runtime/*.log
+/artifacts/
 BlazorAutoApp/wwwroot/test-assets/*
 !/Deployment/.deploy.local.env.example
 
