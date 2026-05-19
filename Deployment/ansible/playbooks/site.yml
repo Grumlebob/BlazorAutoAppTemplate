@@ -1,6 +1,6 @@
 ---
 - name: Deploy PostgreSQL and Redis
-  hosts: db_redis
+  hosts: node_db
   become: true
   vars_files:
     - ../../inventory/prod/vault.yml
@@ -30,7 +30,7 @@
       when: run_migrations | default(false) | bool
 
 - name: Run database migrations once
-  hosts: db_redis
+  hosts: node_db
   become: true
   vars_files:
     - ../../inventory/prod/vault.yml

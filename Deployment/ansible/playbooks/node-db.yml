@@ -1,6 +1,6 @@
 ---
 - name: Deploy PostgreSQL and Redis
-  hosts: db_redis
+  hosts: node_db
   become: true
   vars_files:
     - ../../inventory/prod/vault.yml

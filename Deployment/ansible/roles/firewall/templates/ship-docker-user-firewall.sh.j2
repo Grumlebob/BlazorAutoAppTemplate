@@ -12,7 +12,7 @@ iptables -A DOCKER-USER -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansibl
 iptables -A DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ app_port }} -j DROP
 {% endif %}
 
-{% if inventory_hostname in groups["db_redis"] %}
+{% if inventory_hostname in groups["node_db"] %}
 # Data containers: only app servers may reach PostgreSQL and Redis.
 {% for host in groups["app_servers"] %}
 iptables -A DOCKER-USER -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ postgres_port }} -j ACCEPT

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-REQUIRED_NODES = ["node-main", "node-app1", "node-app2", "node-db-redis"]
+REQUIRED_NODES = ["node-main", "node-app1", "node-app2", "node-db"]
 
 
 def parse_simple_machines_yaml(path: Path) -> dict[str, dict[str, str]]:
@@ -78,10 +78,10 @@ def render_hosts(nodes: dict[str, dict[str, str]]) -> str:
         node-app2:
           ansible_host: {nodes["node-app2"]["ip"]}
 
-    db_redis:
+    node_db:
       hosts:
-        node-db-redis:
-          ansible_host: {nodes["node-db-redis"]["ip"]}
+        node-db:
+          ansible_host: {nodes["node-db"]["ip"]}
 """
 
 
@@ -103,11 +103,11 @@ def render_bootstrap_hosts(nodes: dict[str, dict[str, str]]) -> str:
           ansible_host: {nodes["node-app2"]["ip"]}
           ansible_user: {nodes["node-app2"]["install_user"]}
 
-    db_redis:
+    node_db:
       hosts:
-        node-db-redis:
-          ansible_host: {nodes["node-db-redis"]["ip"]}
-          ansible_user: {nodes["node-db-redis"]["install_user"]}
+        node-db:
+          ansible_host: {nodes["node-db"]["ip"]}
+          ansible_user: {nodes["node-db"]["install_user"]}
 """
 
 

@@ -86,10 +86,13 @@ required_files = [
     "Deployment/machines.example.yml",
     "Deployment/inventory/prod/hosts.yml",
     "Deployment/inventory/prod/group_vars/all.yml",
+    "Deployment/inventory/prod/group_vars/node_db.yml",
     "Deployment/inventory/prod/vault.example.yml",
+    "Deployment/inventory/prod/host_vars/node-db.yml",
     "Deployment/inventory/prod/host_vars/node-app1.yml",
     "Deployment/inventory/prod/host_vars/node-app2.yml",
     "Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml",
+    "Deployment/ansible/playbooks/node-db.yml",
     "Deployment/ansible/playbooks/site.yml",
     "Deployment/ansible/ansible.cfg",
     "Deployment/ansible/roles/mint_base/tasks/main.yml",
@@ -98,8 +101,9 @@ required_files = [
     "Deployment/ansible/roles/cloudflared/tasks/main.yml",
     "Deployment/ansible/roles/caddy/templates/ship.caddy.j2",
     "Deployment/ansible/roles/app/tasks/main.yml",
+    "Deployment/ansible/roles/postgres/templates/node-db.env.j2",
     "Deployment/compose/app-server/docker-compose.yml",
-    "Deployment/compose/db-redis/docker-compose.yml",
+    "Deployment/compose/node-db/docker-compose.yml",
     "Deployment/scripts/install-ansible.sh",
     "Deployment/scripts/preflight.sh",
     "Deployment/scripts/discover-machines.sh",
@@ -216,6 +220,10 @@ for path in deployment_text_files():
         continue
     if "improveddb" in text or "/opt/improveddb" in text:
         fail(f"{rel}: stale improveddb reference")
+    if "node-db-redis" in text or "NODE_DB_REDIS" in text:
+        fail(f"{rel}: stale node-db-redis reference")
+    if "db_redis" in text or "db-redis" in text:
+        fail(f"{rel}: stale db_redis/db-redis reference; use node_db or node-db")
     if "releases/latest" in text:
         fail(f"{rel}: unpinned GitHub release URL")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
@@ -624,7 +632,7 @@ for needle, why in [
     ("Deployment/inventory/prod/hosts.yml", "inventory IP source of truth"),
     ("Deployment/inventory/prod/group_vars/all.yml", "shared deployment settings location"),
     ("Deployment/inventory/prod/vault.yml", "vault location"),
-    ("Deployment/compose/db-redis/docker-compose.yml", "DB/Redis compose location"),
+    ("Deployment/compose/node-db/docker-compose.yml", "DB/Redis compose location"),
     ("Deployment/compose/app-server/docker-compose.yml", "app compose location"),
     ("Deployment/ansible/roles/caddy/templates/ship.caddy.j2", "Caddy template location"),
     ("Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml", "fresh-machine playbook location"),

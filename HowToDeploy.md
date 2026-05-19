@@ -9,7 +9,7 @@ Cloudflare
   -> Cloudflare Tunnel
   -> node-main: cloudflared + Caddy ingress/control
   -> node-app1 / node-app2: app containers
-  -> node-db-redis: PostgreSQL + Redis
+  -> node-db: PostgreSQL + Redis
 ```
 
 Public hostname:
@@ -25,7 +25,7 @@ Use this checklist while following the guide:
 ```text
 [ ] Local setup files copied: Deployment/machines.yml and Deployment/.deploy.local.env
 [ ] Linux Mint installed on all four nodes
-[ ] Hostnames set to node-main, node-app1, node-app2, node-db-redis
+[ ] Hostnames set to node-main, node-app1, node-app2, node-db
 [ ] SSH enabled on all four nodes
 [ ] Username, LAN IP, and MAC discovered for every node
 [ ] DHCP reservations created in the router
@@ -51,7 +51,7 @@ Install Linux Mint on four physical machines and use exactly these hostnames:
 node-main
 node-app1
 node-app2
-node-db-redis
+node-db
 ```
 
 Roles:
@@ -59,7 +59,9 @@ Roles:
 - `node-main`: Cloudflare Tunnel, Caddy, GitHub Actions self-hosted runner, and deployment/control responsibilities.
 - `node-app1`: app container.
 - `node-app2`: app container.
-- `node-db-redis`: PostgreSQL and Redis.
+- `node-db`: PostgreSQL and Redis.
+
+`node-db` is the physical machine hostname. `node_db` is the Ansible inventory group and role-variable name for the PostgreSQL/Redis services on that host; Ansible group names use underscores so they remain valid inventory identifiers.
 
 `node-main` is intentionally not an app server in the recommended first deployment. Keeping it focused on ingress and deployment control makes failures easier to reason about: app CPU/memory spikes do not compete with Caddy/cloudflared, and a bad app deployment is less likely to interfere with the node that controls access and deployment.
 
@@ -71,7 +73,7 @@ Roles:
 - Cloudflare terminates public HTTPS.
 - Caddy listens on `node-main` and load balances to both app nodes over LAN HTTP port `8080`.
 - `node-main` is the ingress/control node, not an app backend by default.
-- PostgreSQL and Redis run on `node-db-redis`.
+- PostgreSQL and Redis run on `node-db`.
 - EF Core migrations run once during deployment, before app containers restart.
 - App containers do not run startup migrations in production.
 - Data Protection keys are shared through Redis so auth and antiforgery state work across app nodes.
@@ -99,11 +101,11 @@ These useful files mean the following:
 - `Deployment/inventory/prod/bootstrap-hosts.yml`: generated local bootstrap inventory using the Linux Mint install users from `machines.yml`; this file is ignored by git.
 - `Deployment/inventory/prod/vault.example.yml`: template showing the required secret names for `vault.yml`.
 - `Deployment/inventory/prod/group_vars/app_servers.yml`: app-server role settings.
-- `Deployment/inventory/prod/group_vars/db_redis.yml`: PostgreSQL/Redis role settings.
+- `Deployment/inventory/prod/group_vars/node_db.yml`: PostgreSQL/Redis role settings.
 - `Deployment/inventory/prod/group_vars/load_balancer.yml`: Caddy/cloudflared role settings.
 - `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`: prepares fresh Linux Mint nodes.
 - `Deployment/ansible/playbooks/site.yml`: deploys DB/Redis, Caddy/cloudflared, migrations, and app servers.
-- `Deployment/compose/db-redis/docker-compose.yml`: runtime compose file copied to `node-db-redis`.
+- `Deployment/compose/node-db/docker-compose.yml`: runtime compose file copied to `node-db`.
 - `Deployment/compose/app-server/docker-compose.yml`: runtime compose file copied to app nodes.
 - `Deployment/compose/load-balancer/docker-compose.yml`: runtime compose file for load-balancer support services.
 - `Deployment/ansible/roles/caddy/templates/ship.caddy.j2`: generated Caddy config template using app-node IPs from inventory.
@@ -117,8 +119,8 @@ These useful files mean the following:
 - `Deployment/scripts/preflight.sh`: checks prerequisites before bootstrap or deploy.
 - `Deployment/scripts/prepare-fresh-linux-machines.sh`: runs the fresh-machine playbook correctly.
 - `Deployment/scripts/deploy.sh`: runs the normal deployment playbook.
-- `Deployment/scripts/backup-db.sh`: database backup helper copied to `node-db-redis`.
-- `Deployment/scripts/restore-db.sh`: database restore helper copied to `node-db-redis`.
+- `Deployment/scripts/backup-db.sh`: database backup helper copied to `node-db`.
+- `Deployment/scripts/restore-db.sh`: database restore helper copied to `node-db`.
 - `.github/workflows/ci.yml`: builds/tests, creates migration bundle, builds image, and pushes image to GHCR.
 - `.github/workflows/deploy-lan.yml`: deploys from the self-hosted runner.
 
@@ -146,7 +148,7 @@ Commands in this guide use values wrapped in angle brackets, such as `<linux-min
 Common placeholders:
 
 - `<repo-root>`: the folder where this repository is checked out. Example: `/home/jacob/BlazorAutoApp`.
-- `<node-name>`: one of `node-main`, `node-app1`, `node-app2`, or `node-db-redis`.
+- `<node-name>`: one of `node-main`, `node-app1`, `node-app2`, or `node-db`.
 - `<linux-mint-install-user>`: the username you created while installing Linux Mint on the node.
 - `<node-main-lan-ip>`: the reserved LAN IP for `node-main` from `Deployment/inventory/prod/hosts.yml`.
 - `<git-sha>`: the commit SHA that passed CI and was pushed as a GHCR image tag.
@@ -221,7 +223,7 @@ Use the matching value from:
 node-main
 node-app1
 node-app2
-node-db-redis
+node-db
 ```
 
 Disable sleep/suspend in Linux Mint power settings:
@@ -371,7 +373,7 @@ Replace `<linux-mint-install-user>` with the username from `whoami`. Replace eac
 ssh <linux-mint-install-user>@<node-main-lan-ip> hostname
 ssh <linux-mint-install-user>@<node-app1-lan-ip> hostname
 ssh <linux-mint-install-user>@<node-app2-lan-ip> hostname
-ssh <linux-mint-install-user>@<node-db-redis-lan-ip> hostname
+ssh <linux-mint-install-user>@<node-db-lan-ip> hostname
 ```
 
 Example if your Linux Mint username is `jacob` and `node-main` is `192.168.1.20`:
@@ -446,7 +448,7 @@ Deploy root on nodes: /opt/ship
   migrations/
 ```
 
-Each node gets only the runtime files for its role. App nodes get the app compose file. `node-db-redis` gets the PostgreSQL/Redis compose file. `node-main` gets Caddy/cloudflared configuration.
+Each node gets only the runtime files for its role. App nodes get the app compose file. `node-db` gets the PostgreSQL/Redis compose file. `node-main` gets Caddy/cloudflared configuration.
 
 Verify the prepared nodes:
 
@@ -567,7 +569,7 @@ Role-specific variables live here:
 
 ```text
 Deployment/inventory/prod/group_vars/app_servers.yml
-Deployment/inventory/prod/group_vars/db_redis.yml
+Deployment/inventory/prod/group_vars/node_db.yml
 Deployment/inventory/prod/group_vars/load_balancer.yml
 ```
 
@@ -578,10 +580,10 @@ Those files hold role-specific ports, container names, and service paths. You no
 PostgreSQL and Redis run from:
 
 ```text
-Deployment/compose/db-redis/docker-compose.yml
+Deployment/compose/node-db/docker-compose.yml
 ```
 
-Ansible renders `/opt/ship/.env` on `node-db-redis` with:
+Ansible renders `/opt/ship/.env` on `node-db` with:
 
 ```env
 POSTGRES_USER=<vault_postgres_user>
@@ -601,11 +603,11 @@ Ansible renders `/opt/ship/.env` on each app node with:
 ```env
 APP_IMAGE=ghcr.io/grumlebob/ship
 APP_VERSION=<git-sha>
-POSTGRES_HOST=<node-db-redis IP from inventory>
+POSTGRES_HOST=<node-db IP from inventory>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
 POSTGRES_DB=<vault_postgres_db>
-REDIS_HOST=<node-db-redis IP from inventory>
+REDIS_HOST=<node-db IP from inventory>
 REDIS_PASSWORD=<vault_redis_password>
 ```
 
@@ -663,7 +665,7 @@ The production deployment order is:
 
 The `site.yml` playbook handles that order when `run_migrations=true`.
 
-Manual migration bundle run from `node-db-redis`, if you need to inspect the exact command:
+Manual migration bundle run from `node-db`, if you need to inspect the exact command:
 
 ```bash
 cd /opt/ship
@@ -690,7 +692,7 @@ With a local migration bundle:
 bash ./Deployment/scripts/deploy.sh <git-sha> --migrate <path-to-ship-migrate>
 ```
 
-For the normal first real deployment, use migrations. The deployment stops app containers, backs up the database, runs the migration bundle once on `node-db-redis`, then starts the app servers.
+For the normal first real deployment, use migrations. The deployment stops app containers, backs up the database, runs the migration bundle once on `node-db`, then starts the app servers.
 
 If you do not already have the migration bundle locally, use the GitHub Actions deployment flow in the next step. It builds the bundle on the runner.
 
@@ -851,7 +853,7 @@ ansible app_servers -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && d
 Check DB/Redis:
 
 ```bash
-ansible db_redis -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && docker compose ps"
+ansible node_db -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && docker compose ps"
 ```
 
 Check Caddy and cloudflared:
@@ -882,13 +884,13 @@ Backups are created before deployment migrations.
 Manual backup:
 
 ```bash
-ansible db_redis -i Deployment/inventory/prod/hosts.yml -a "/opt/ship/backup-db.sh"
+ansible node_db -i Deployment/inventory/prod/hosts.yml -a "/opt/ship/backup-db.sh"
 ```
 
 Restore is intentionally manual and should be done carefully:
 
 ```bash
-ansible db_redis -i Deployment/inventory/prod/hosts.yml -a "/opt/ship/restore-db.sh /opt/ship/backups/<backup-file>.sql.gz"
+ansible node_db -i Deployment/inventory/prod/hosts.yml -a "/opt/ship/restore-db.sh /opt/ship/backups/<backup-file>.sql.gz"
 ```
 
 ## Rollback
@@ -915,7 +917,7 @@ Common checks:
 ansible all -i Deployment/inventory/prod/hosts.yml -m ping
 ansible all -i Deployment/inventory/prod/hosts.yml -a "docker compose version"
 ansible app_servers -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && docker compose logs --tail=100"
-ansible db_redis -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && docker compose logs --tail=100"
+ansible node_db -i Deployment/inventory/prod/hosts.yml -a "cd /opt/ship && docker compose logs --tail=100"
 ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "journalctl -u caddy --no-pager -n 100"
 ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "journalctl -u cloudflared --no-pager -n 100"
 ```

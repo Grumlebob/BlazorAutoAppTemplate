@@ -15,14 +15,14 @@
   changed_when: "'Rules updated' in ufw_postgres.stdout"
   register: ufw_postgres
   loop: "{{ groups['app_servers'] }}"
-  when: inventory_hostname in groups["db_redis"]
+  when: inventory_hostname in groups["node_db"]
 
 - name: Allow Redis from app servers
   ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port {{ redis_port }} proto tcp"
   changed_when: "'Rules updated' in ufw_redis.stdout"
   register: ufw_redis
   loop: "{{ groups['app_servers'] }}"
-  when: inventory_hostname in groups["db_redis"]
+  when: inventory_hostname in groups["node_db"]
 
 - name: Enable UFW
   ansible.builtin.command: ufw --force enable
