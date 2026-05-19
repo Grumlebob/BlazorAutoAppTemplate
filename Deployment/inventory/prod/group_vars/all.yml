@@ -1,0 +1,8 @@
+app_name: ship
+app_image: ghcr.io/grumlebob/ship
+app_port: 8080
+public_hostname: ship.jacobgrum.com
+deploy_root: /opt/ship
+cloudflare_tunnel_name: ship-prod
+cloudflared_version: 2026.5.0
+caddy_sticky_cookie_name: ship_lb

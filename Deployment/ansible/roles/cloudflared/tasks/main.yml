@@ -1,0 +1,45 @@
+---
+- name: Require pinned cloudflared version
+  ansible.builtin.assert:
+    that:
+      - cloudflared_version is defined
+      - cloudflared_version | length > 0
+      - cloudflared_version != "latest"
+    fail_msg: "Set cloudflared_version to an explicit release in inventory/prod/group_vars/all.yml."
+
+- name: Map machine architecture to cloudflared deb architecture
+  ansible.builtin.set_fact:
+    cloudflared_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64', 'armv7l': 'armhf', 'armv6l': 'armhf', 'i386': '386', 'i686': '386'}.get(ansible_architecture, ansible_architecture) }}"
+
+- name: Download cloudflared package
+  ansible.builtin.get_url:
+    url: "https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-{{ cloudflared_deb_arch }}.deb"
+    dest: "/tmp/cloudflared-{{ cloudflared_version }}-{{ cloudflared_deb_arch }}.deb"
+    mode: "0644"
+
+- name: Install cloudflared package
+  ansible.builtin.apt:
+    deb: "/tmp/cloudflared-{{ cloudflared_version }}-{{ cloudflared_deb_arch }}.deb"
+
+- name: Verify cloudflared version
+  ansible.builtin.command: cloudflared --version
+  register: cloudflared_installed_version
+  changed_when: false
+  failed_when: cloudflared_version not in cloudflared_installed_version.stdout
+
+- name: Check if cloudflared service is installed
+  ansible.builtin.stat:
+    path: /etc/systemd/system/cloudflared.service
+  register: cloudflared_service
+
+- name: Install cloudflared service with tunnel token
+  ansible.builtin.command: "cloudflared service install {{ vault_cloudflare_tunnel_token }}"
+  no_log: true
+  when: not cloudflared_service.stat.exists
+
+- name: Enable and start cloudflared
+  ansible.builtin.systemd:
+    name: cloudflared
+    daemon_reload: true
+    enabled: true
+    state: started

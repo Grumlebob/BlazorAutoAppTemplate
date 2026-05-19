@@ -1,0 +1,84 @@
+name: Deploy Ship To LAN
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Immutable Docker image tag to deploy, normally a Git SHA
+        required: true
+      run_migrations:
+        description: Run the EF migration bundle before starting app servers
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, homelab]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.image_tag }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Build migration bundle
+        run: |
+          mkdir -p artifacts/migrations
+          dotnet ef migrations bundle \
+            --project BlazorAutoApp/BlazorAutoApp.csproj \
+            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
+            --configuration Release \
+            --self-contained \
+            --runtime linux-x64 \
+            --output artifacts/migrations/ship-migrate
+
+      - name: Install Ansible
+        run: bash Deployment/scripts/install-ansible.sh
+
+      - name: Write Ansible Vault password
+        run: |
+          umask 077
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/ship_ansible_vault_password
+
+      - name: Deployment preflight
+        run: bash Deployment/scripts/preflight.sh deploy
+
+      - name: Deploy with migrations
+        if: inputs.run_migrations == 'true'
+        working-directory: Deployment/ansible
+        run: |
+          ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
+            --vault-password-file /tmp/ship_ansible_vault_password \
+            -e app_version=${{ inputs.image_tag }} \
+            -e run_migrations=true \
+            -e migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/ship-migrate
+
+      - name: Deploy without migrations
+        if: inputs.run_migrations == 'false'
+        working-directory: Deployment/ansible
+        run: |
+          ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
+            --vault-password-file /tmp/ship_ansible_vault_password \
+            -e app_version=${{ inputs.image_tag }}
+
+      - name: Verify public health
+        run: curl -fsS https://ship.jacobgrum.com/health/ready

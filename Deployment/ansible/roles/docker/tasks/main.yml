@@ -1,0 +1,54 @@
+---
+- name: Ensure Docker keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Docker apt key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Read Ubuntu base codename from Linux Mint
+  ansible.builtin.shell: |
+    . /etc/os-release
+    echo "$UBUNTU_CODENAME"
+  args:
+    executable: /bin/bash
+  register: ubuntu_codename
+  changed_when: false
+
+- name: Map machine architecture to Docker apt architecture
+  ansible.builtin.set_fact:
+    docker_apt_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64', 'armv7l': 'armhf', 'armv6l': 'armhf', 'i386': '386', 'i686': '386'}.get(ansible_architecture, ansible_architecture) }}"
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
+    filename: docker
+    state: present
+
+- name: Install Docker Engine and Compose plugin
+  ansible.builtin.apt:
+    name:
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+    update_cache: true
+    state: present
+
+- name: Add deploy user to docker group
+  ansible.builtin.user:
+    name: deploy
+    groups: docker
+    append: true
+
+- name: Enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

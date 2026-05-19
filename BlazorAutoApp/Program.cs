@@ -7,9 +7,13 @@ using BlazorAutoApp.Features.Inspections.HullImages;
 using BlazorAutoApp.Features.Inspections.InspectionFlow;
 using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using StackExchange.Redis;
 using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,8 +22,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
     .AddJsonFile("settings.defaults.json", optional: false, reloadOnChange: true)
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables();
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
 //
 string GetEnvVar(string key)
@@ -38,6 +41,9 @@ if (builder.Environment.IsEnvironment("Docker"))
 {
     builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: true);
 }
+
+// Environment variables must be last so deployment-provided values override Docker defaults.
+builder.Configuration.AddEnvironmentVariables();
 
 // SERILOG CONFIGURATION ---
 builder.Host.UseSerilog((ctx, _, config) =>
@@ -67,12 +73,30 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
-// Persist Data Protection keys to a shared folder so antiforgery/state survives container restarts
-var dpKeysPath = Path.Combine(builder.Environment.ContentRootPath, "Storage", "DataProtection-Keys");
-Directory.CreateDirectory(dpKeysPath);
+// Redis (distributed cache) + Hybrid cache
+var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
+var hasRedis = !string.IsNullOrWhiteSpace(redisConn) &&
+               !string.Equals(redisConn, "CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+IConnectionMultiplexer? redisMultiplexer = null;
+if (hasRedis)
+{
+    redisMultiplexer = ConnectionMultiplexer.Connect(redisConn!);
+    builder.Services.AddSingleton(redisMultiplexer);
+}
+
 var dataProtectionBuilder = builder.Services.AddDataProtection()
-    .SetApplicationName("BlazorAutoApp")
-    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
+    .SetApplicationName("BlazorAutoApp");
+if (redisMultiplexer is not null)
+{
+    dataProtectionBuilder.PersistKeysToStackExchangeRedis(redisMultiplexer, "DataProtection-Keys");
+}
+else
+{
+    // Local fallback when Redis is not configured.
+    var dpKeysPath = Path.Combine(builder.Environment.ContentRootPath, "Storage", "DataProtection-Keys");
+    Directory.CreateDirectory(dpKeysPath);
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
+}
 if (builder.Environment.IsEnvironment("Docker"))
 {
     var certPath = Environment.GetEnvironmentVariable("ASPNETCORE_Kestrel__Certificates__Default__Path");
@@ -103,6 +127,16 @@ builder.Services.AddAntiforgery(options =>
         : "BlazorAutoApp.Antiforgery";
 });
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto |
+        ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // EF Core with PostgreSQL: prefer ConnectionStrings:DefaultConnection; fallback to Database__* env vars.
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");
 var connString = !string.IsNullOrWhiteSpace(explicitConn)
@@ -120,6 +154,9 @@ builder.Services.AddDbContext<AppDbContext>(ConfigureDbContext, optionsLifetime:
 builder.Services.AddDbContextFactory<AppDbContext>(ConfigureDbContext);
 builder.Services.AddRazorPages();
 
+var healthChecksBuilder = builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+
 builder.Services
     .AddMoviesFeature(builder.Configuration)
     .AddHullImagesFeature(builder.Configuration)
@@ -127,17 +164,17 @@ builder.Services
     .AddVesselPartDetailsFeature()
     .AddIdentityShowcaseFeature();
 
-// Redis (distributed cache) + Hybrid cache
-var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
-if (!string.IsNullOrWhiteSpace(redisConn) && !string.Equals(redisConn, "CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+if (hasRedis)
 {
     builder.Services.AddStackExchangeRedisCache(options => { options.Configuration = redisConn; });
+    healthChecksBuilder.AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
 }
 else
 {
     // Fallback to in-memory distributed cache when Redis not configured
     builder.Services.AddDistributedMemoryCache();
 }
+healthChecksBuilder.AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);
 builder.Services.AddHybridCache();
 
 
@@ -188,6 +225,7 @@ app.UseSerilogRequestLogging(options =>
     };
 });
 
+app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -215,65 +253,69 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-// Apply EF Core migrations at startup (and log)
-using (var scope = app.Services.CreateScope())
+// Apply EF Core migrations at startup in local development, or when explicitly enabled.
+var runMigrationsAtStartup = builder.Configuration.GetValue("Database:RunMigrationsAtStartup", app.Environment.IsDevelopment());
+if (runMigrationsAtStartup)
 {
-    var sp = scope.ServiceProvider;
-    var db = sp.GetRequiredService<AppDbContext>();
-    var logger = sp.GetRequiredService<ILogger<Program>>();
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var pending = db.Database.GetPendingMigrations().ToList();
-        if (pending.Count > 0)
-        {
-            logger.LogInformation("Applying {Count} EF migrations: {Migrations}", pending.Count, string.Join(", ", pending));
-        }
-        else
-        {
-            logger.LogInformation("No EF migrations pending");
-        }
-        db.Database.Migrate();
-
-        if (app.Environment.IsDevelopment())
-        {
-            var roleManager = sp.GetRequiredService<RoleManager<IdentityRole>>();
-            await EnsureRoleExistsAsync(roleManager, logger, "Admin");
-            await EnsureRoleExistsAsync(roleManager, logger, "Viewer");
-        }
-
-        // Seed demo inspection
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<AppDbContext>();
+        var logger = sp.GetRequiredService<ILogger<Program>>();
         try
         {
-            // Seed a fixed Inspection for Admin demo flow
-            var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
-            if (existingAdmin is null)
+            var pending = db.Database.GetPendingMigrations().ToList();
+            if (pending.Count > 0)
             {
-                db.Inspections.Add(new InspectionRecord
+                logger.LogInformation("Applying {Count} EF migrations: {Migrations}", pending.Count, string.Join(", ", pending));
+            }
+            else
+            {
+                logger.LogInformation("No EF migrations pending");
+            }
+            db.Database.Migrate();
+
+            if (app.Environment.IsDevelopment())
+            {
+                var roleManager = sp.GetRequiredService<RoleManager<IdentityRole>>();
+                await EnsureRoleExistsAsync(roleManager, logger, "Admin");
+                await EnsureRoleExistsAsync(roleManager, logger, "Viewer");
+            }
+
+            // Seed demo inspection
+            try
+            {
+                // Seed a fixed Inspection for Admin demo flow
+                var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+                var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
+                if (existingAdmin is null)
                 {
-                    Id = adminFlowId,
-                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
-                });
-                // Optional: seed an initial flow record
-                db.InspectionFlows.Add(new InspectionFlowRecord
-                {
-                    Id = adminFlowId,
-                    VesselName = null,
-                    InspectionType = InspectionType.GoProInspection
-                });
-                await db.SaveChangesAsync();
-                logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
+                    db.Inspections.Add(new InspectionRecord
+                    {
+                        Id = adminFlowId,
+                        CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                    });
+                    // Optional: seed an initial flow record
+                    db.InspectionFlows.Add(new InspectionFlowRecord
+                    {
+                        Id = adminFlowId,
+                        VesselName = null,
+                        InspectionType = InspectionType.GoProInspection
+                    });
+                    await db.SaveChangesAsync();
+                    logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
+                }
+            }
+            catch (Exception seedEx)
+            {
+                logger.LogWarning(seedEx, "Inspection seed step skipped due to error");
             }
         }
-        catch (Exception seedEx)
+        catch (Exception ex)
         {
-            logger.LogWarning(seedEx, "Inspection seed step skipped due to error");
+            logger.LogError(ex, "EF migrations failed at startup");
+            throw;
         }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "EF migrations failed at startup");
-        throw;
     }
 }
 
@@ -284,6 +326,18 @@ app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(ClientImports).Assembly);
 app.MapRazorPages();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // Minimal API endpoints
 app.MapMoviesFeature();
@@ -314,4 +368,43 @@ app.Run();
 //A hacky solution to use Testcontainers with WebApplication.CreateBuilder for integration tests
 public partial class Program;
 
+internal sealed class PostgresHealthCheck(IDbContextFactory<AppDbContext> dbFactory) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+            return await db.Database.CanConnectAsync(cancellationToken)
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Unhealthy("PostgreSQL connection failed.");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("PostgreSQL health check failed.", ex);
+        }
+    }
+}
+
+internal sealed class RedisHealthCheck(IConnectionMultiplexer redis) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await redis.GetDatabase().PingAsync();
+            return redis.IsConnected
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Unhealthy("Redis is disconnected.");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("Redis health check failed.", ex);
+        }
+    }
+}
 

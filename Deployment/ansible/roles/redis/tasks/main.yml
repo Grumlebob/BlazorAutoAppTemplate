@@ -1,0 +1,4 @@
+---
+- name: Redis is managed by the db-redis compose stack
+  ansible.builtin.debug:
+    msg: "Redis runs from {{ deploy_root }}/docker-compose.yml on node-db-redis."

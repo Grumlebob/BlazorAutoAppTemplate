@@ -1,0 +1,94 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Upgrade installed packages
+  ansible.builtin.apt:
+    upgrade: dist
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - debian-archive-keyring
+      - debian-keyring
+      - git
+      - gnupg
+      - lsb-release
+      - openssh-server
+      - python3-apt
+      - tar
+      - ufw
+    state: present
+
+- name: Check whether package upgrades require a reboot
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required
+
+- name: Reboot after package upgrades when required
+  ansible.builtin.reboot:
+    reboot_timeout: 900
+  when: reboot_required.stat.exists
+
+- name: Ensure deploy user exists
+  ansible.builtin.user:
+    name: deploy
+    groups: sudo
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Allow deploy user to run sudo without password
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-ship-deploy
+    content: "deploy ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Ensure deploy SSH directory exists
+  ansible.builtin.file:
+    path: /home/deploy/.ssh
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0700"
+
+- name: Install deploy SSH public key
+  ansible.builtin.lineinfile:
+    path: /home/deploy/.ssh/authorized_keys
+    line: "{{ lookup('file', deploy_public_key_file | default(lookup('env', 'HOME') + '/.ssh/ship_deploy.pub')) }}"
+    create: true
+    owner: deploy
+    group: deploy
+    mode: "0600"
+
+- name: Disable sleep and suspend targets
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop:
+    - sleep.target
+    - suspend.target
+    - hibernate.target
+    - hybrid-sleep.target
+
+- name: Enable SSH service
+  ansible.builtin.systemd:
+    name: ssh
+    enabled: true
+    state: started
+
+- name: Ensure deployment root exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"

@@ -1,0 +1,9 @@
+---
+- name: Prepare fresh Linux Mint machines for Ship
+  hosts: all
+  become: true
+  roles:
+    - mint_base
+    - ssh_hardening
+    - docker
+    - firewall

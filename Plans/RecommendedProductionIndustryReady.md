@@ -49,8 +49,7 @@ Definition of done:
 
 Implementation targets:
 - `.gitignore`
-- `docs/ENV.md`
-- `HowToRun.md`
+- `HowToRunLocally.md`
 - deployment environment configuration
 
 Definition of done:
@@ -127,7 +126,7 @@ Implementation targets:
 - `BlazorAutoApp/Program.cs`
 - `BlazorAutoApp/appsettings.Development.json`
 - `BlazorAutoApp/appsettings.Docker.json`
-- `docs/ENV.md`
+- `HowToRunLocally.md`
 
 Acceptance criteria:
 - Production boot path never attempts schema mutation.
@@ -142,7 +141,7 @@ Acceptance criteria:
 4. Fail deployment if bundle exits non-zero.
 
 Implementation targets:
-- `.github/workflows/BuildAndTest.yml` (or new deploy workflow)
+- `.github/workflows/ci.yml`
 - deployment pipeline definition
 - release notes template
 
@@ -264,8 +263,8 @@ Recommended trigger to add this project:
 1. Update:
    - `BlazorAutoApp/Program.cs` (gate startup migrations by config/environment)
    - `BlazorAutoApp/appsettings*.json` (new migration flag)
-   - `docs/ENV.md` (document new flag and deployment behavior)
-   - `HowToRun.md` and `README.md` (developer and production flows)
+   - `HowToRunLocally.md` (developer flow)
+   - `Plans/DEPLOYMENT_PLAN.md` (production flow)
 2. Add:
    - `docs/DatabaseMigrationRunbook.md`
    - optional `BlazorAutoApp.Migrator/` project
@@ -348,7 +347,7 @@ Definition of done:
    - CODEOWNERS review for security-sensitive files.
 
 Implementation targets:
-- `.github/workflows/BuildAndTest.yml`
+- `.github/workflows/ci.yml`
 - `.github/dependabot.yml`
 - repo settings / `CODEOWNERS`
 

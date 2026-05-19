@@ -1,0 +1,53 @@
+---
+- name: Allow SSH
+  ansible.builtin.command: ufw allow OpenSSH
+  changed_when: "'Rules updated' in ufw_ssh.stdout"
+  register: ufw_ssh
+
+- name: Allow app traffic from load balancer
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].ansible_host }} to any port {{ app_port }} proto tcp"
+  changed_when: "'Rules updated' in ufw_app.stdout"
+  register: ufw_app
+  when: inventory_hostname in groups["app_servers"]
+
+- name: Allow PostgreSQL from app servers
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port {{ postgres_port }} proto tcp"
+  changed_when: "'Rules updated' in ufw_postgres.stdout"
+  register: ufw_postgres
+  loop: "{{ groups['app_servers'] }}"
+  when: inventory_hostname in groups["db_redis"]
+
+- name: Allow Redis from app servers
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port {{ redis_port }} proto tcp"
+  changed_when: "'Rules updated' in ufw_redis.stdout"
+  register: ufw_redis
+  loop: "{{ groups['app_servers'] }}"
+  when: inventory_hostname in groups["db_redis"]
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  changed_when: "'Firewall is active' in ufw_enable.stdout"
+  register: ufw_enable
+
+- name: Install Docker published-port firewall script
+  ansible.builtin.template:
+    src: ship-docker-user-firewall.sh.j2
+    dest: /usr/local/sbin/ship-docker-user-firewall
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Docker published-port firewall service
+  ansible.builtin.template:
+    src: ship-docker-user-firewall.service.j2
+    dest: /etc/systemd/system/ship-docker-user-firewall.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable Docker published-port firewall service
+  ansible.builtin.systemd:
+    name: ship-docker-user-firewall
+    daemon_reload: true
+    enabled: true
+    state: started

@@ -26,6 +26,7 @@ services:
       ASPNETCORE_HTTPS_PORTS: "7186"
       ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
       ASPNETCORE_Kestrel__Certificates__Default__Password: "localdevpassword"
+      Database__RunMigrationsAtStartup: "true"
     depends_on:
       postgres:
         condition: service_healthy

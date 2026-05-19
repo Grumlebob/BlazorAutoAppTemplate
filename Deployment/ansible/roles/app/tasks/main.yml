@@ -1,0 +1,55 @@
+---
+- name: Require app_version
+  ansible.builtin.assert:
+    that:
+      - app_version is defined
+      - app_version | length > 0
+    fail_msg: "Pass -e app_version=<git-sha> when deploying app servers."
+
+- name: Ensure deployment root exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+
+- name: Copy app compose file
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../compose/app-server/docker-compose.yml"
+    dest: "{{ deploy_root }}/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render app environment file
+  ansible.builtin.template:
+    src: app.env.j2
+    dest: "{{ deploy_root }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Log in to GHCR
+  ansible.builtin.shell: |
+    set -eu
+    echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
+  args:
+    executable: /bin/bash
+  become_user: deploy
+  no_log: true
+
+- name: Pull and start app container
+  ansible.builtin.command: docker compose up -d --pull always
+  args:
+    chdir: "{{ deploy_root }}"
+  become_user: deploy
+
+- name: Wait for app health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/health/ready"
+    status_code: 200
+  register: app_health
+  retries: 30
+  delay: 3
+  until: app_health.status == 200

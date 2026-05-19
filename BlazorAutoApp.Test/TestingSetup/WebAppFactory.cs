@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Data.Common;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -22,11 +21,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const int MaxWaitTimeMinutes = 5;
 
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:latest")
+        .WithImage("postgres:16-alpine")
         .Build();
 
     //Default! cause we are not initializing it here, but in the InitializeAsync method
-    private DbConnection _dbConnection = default!;
+    private string _connectionString = default!;
     private Respawner _respawner = default!;
     public HttpClient HttpClient { get; private set; } = default!;
 
@@ -40,8 +39,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("Database__Name", "testdb");
         Environment.SetEnvironmentVariable("Database__Username", "postgres");
         Environment.SetEnvironmentVariable("Database__Password", "postgres");
-        // Optional env-backed config
-        Environment.SetEnvironmentVariable("Redis__Configuration", "localhost:6379");
+        // Tests replace distributed caching with memory; do not require a host Redis instance.
+        Environment.SetEnvironmentVariable("Redis__Configuration", "CHANGE_ME");
         Environment.SetEnvironmentVariable("Storage__HullImages__RootPath", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "HullImages-Test"));
         builder.ConfigureTestServices(services =>
         {
@@ -81,7 +80,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public async Task ResetDatabaseAsync()
     {
-        await _respawner.ResetAsync(_dbConnection);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await _respawner.ResetAsync(connection);
         // Clear known cache keys used by features to avoid stale results between tests
         using var scope = Services.CreateScope();
         var cache = scope.ServiceProvider.GetService<Microsoft.Extensions.Caching.Hybrid.HybridCache>();
@@ -95,7 +96,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _dbContainer.StartAsync();
 
-        _dbConnection = new NpgsqlConnection(_dbContainer.GetConnectionString());
+        _connectionString = _dbContainer.GetConnectionString();
 
         HttpClient = CreateClient();
         //Seeding data can take a long time, so we set a longer timeout
@@ -114,9 +115,10 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private async Task InitializeRespawner()
     {
-        await _dbConnection.OpenAsync();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
         _respawner = await Respawner.CreateAsync(
-            _dbConnection,
+            connection,
             new RespawnerOptions()
             {
                 DbAdapter = DbAdapter.Postgres,

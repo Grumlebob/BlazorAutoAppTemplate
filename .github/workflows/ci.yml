@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deployment audit
+        run: python Deployment/scripts/audit_deployment.py
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Build EF migration bundle
+        run: |
+          mkdir -p artifacts/migrations
+          dotnet ef migrations bundle \
+            --project BlazorAutoApp/BlazorAutoApp.csproj \
+            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
+            --configuration Release \
+            --self-contained \
+            --runtime linux-x64 \
+            --output artifacts/migrations/ship-migrate
+
+      - name: Upload migration bundle
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ship-migrate-linux-x64
+          path: artifacts/migrations/ship-migrate
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f BlazorAutoApp/Dockerfile \
+            -t ghcr.io/grumlebob/ship:${{ github.sha }} \
+            -t ghcr.io/grumlebob/ship:latest \
+            .
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/grumlebob/ship:${{ github.sha }}
+          docker push ghcr.io/grumlebob/ship:latest

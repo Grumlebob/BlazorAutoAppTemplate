@@ -1,0 +1,103 @@
+---
+- name: Deploy PostgreSQL and Redis
+  hosts: db_redis
+  become: true
+  vars_files:
+    - ../../inventory/prod/vault.yml
+  roles:
+    - postgres
+    - redis
+
+- name: Deploy Caddy and Cloudflare Tunnel
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../inventory/prod/vault.yml
+  roles:
+    - caddy
+    - cloudflared
+
+- name: Stop app containers before migration
+  hosts: app_servers
+  become: true
+  tasks:
+    - name: Stop existing app stack
+      ansible.builtin.command: docker compose down
+      args:
+        chdir: "{{ deploy_root }}"
+      become_user: deploy
+      failed_when: false
+      when: run_migrations | default(false) | bool
+
+- name: Run database migrations once
+  hosts: db_redis
+  become: true
+  vars_files:
+    - ../../inventory/prod/vault.yml
+  tasks:
+    - name: Require local migration bundle when migrations are enabled
+      ansible.builtin.assert:
+        that:
+          - migration_bundle_local_path is defined
+          - migration_bundle_local_path | length > 0
+        fail_msg: "Pass -e run_migrations=true -e migration_bundle_local_path=<local path to ship-migrate>."
+      when: run_migrations | default(false) | bool
+
+    - name: Ensure migration directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}/migrations"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Copy migration bundle
+      ansible.builtin.copy:
+        src: "{{ migration_bundle_local_path }}"
+        dest: "{{ deploy_root }}/migrations/ship-migrate"
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Ensure backup directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}/backups"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Create pre-migration database backup
+      ansible.builtin.shell: |
+        set -eu
+        cd {{ deploy_root }}
+        set -a
+        . ./.env
+        set +a
+        docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "backups/predeploy-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+      args:
+        executable: /bin/bash
+      when: run_migrations | default(false) | bool
+
+    - name: Run migration bundle
+      ansible.builtin.shell: |
+        set -eu
+        cd {{ deploy_root }}
+        set -a
+        . ./.env
+        set +a
+        ./migrations/ship-migrate --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+      args:
+        executable: /bin/bash
+      when: run_migrations | default(false) | bool
+
+- name: Deploy app servers
+  hosts: app_servers
+  become: true
+  vars_files:
+    - ../../inventory/prod/vault.yml
+  roles:
+    - app

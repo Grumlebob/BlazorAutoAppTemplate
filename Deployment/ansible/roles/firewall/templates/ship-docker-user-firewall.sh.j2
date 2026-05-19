@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+iptables -N DOCKER-USER 2>/dev/null || true
+iptables -F DOCKER-USER
+
+iptables -A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+{% if inventory_hostname in groups["app_servers"] %}
+# App containers: only node-main may reach the published app port.
+iptables -A DOCKER-USER -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ app_port }} -j ACCEPT
+iptables -A DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ app_port }} -j DROP
+{% endif %}
+
+{% if inventory_hostname in groups["db_redis"] %}
+# Data containers: only app servers may reach PostgreSQL and Redis.
+{% for host in groups["app_servers"] %}
+iptables -A DOCKER-USER -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ postgres_port }} -j ACCEPT
+iptables -A DOCKER-USER -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ redis_port }} -j ACCEPT
+{% endfor %}
+iptables -A DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ postgres_port }} -j DROP
+iptables -A DOCKER-USER -p tcp -m conntrack --ctorigdstport {{ redis_port }} -j DROP
+{% endif %}
+
+iptables -A DOCKER-USER -j RETURN

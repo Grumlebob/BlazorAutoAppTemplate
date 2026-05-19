@@ -1,0 +1,9 @@
+---
+- name: Deploy Caddy and Cloudflare Tunnel
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../inventory/prod/vault.yml
+  roles:
+    - caddy
+    - cloudflared

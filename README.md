@@ -1,154 +1,57 @@
-# Blazor Auto App Template
+# Ship
 
-Production‑ready Blazor (Auto render) template with vertical slices, EF Core + PostgreSQL, Serilog logging with Seq, Minimal APIs, Docker Compose, and CI via GitHub Actions. It prerenders on the server, hydrates to WASM, and avoids double‑fetches using PersistentComponentState.
+Ship is a Blazor Web App using Interactive Auto render mode, EF Core with PostgreSQL, Redis-backed caching/Data Protection, Serilog with Seq, Docker Compose for local development, and Ansible for the local Linux Mint production cluster.
 
-![Build Status](./.github/workflows/BuildAndTest.yml/badge.svg)
+## Start Here
 
-## Why This Template
-- Auto render mode across pages (SSR → WASM) without duplicate UI code.
-- Vertical slices: each feature owns its model + requests/responses + endpoints.
-- One shared Core interface per feature; host‑specific implementations for server (EF) and client (HTTP).
-- Observability out of the box with Serilog and Seq.
-- First‑class local dev using Docker Compose (web + Postgres + Seq) and EF Core migrations.
-- CI ready: build and test on PRs, Dependabot and optional auto‑merge.
+- `HowToRunLocally.md` explains local Docker and developer setup.
+- `HowToDeploy.md` explains the practical deployment steps and where to enter machine-specific values.
+- `overview.md` is the deeper architecture walkthrough.
+- `Plans/DEPLOYMENT_PLAN.md` is the detailed production deployment design.
 
 ## Tech Stack
-- Blazor Web App (.NET 9) with `InteractiveAuto` render mode and PersistentComponentState.
-- EF Core 9 + Npgsql (PostgreSQL).
-- Minimal APIs for feature endpoints.
-- Serilog (Console + Seq sink), enrichment with environment and context.
-- Docker Compose for app, database, and logging.
-- Hybrid Caching with Redis for query performance (configurable TTLs).
-- GitHub Actions: build/test workflow + Dependabot auto‑merge.
+
+- .NET 9 Blazor Web App with `InteractiveAuto`.
+- EF Core 9 and Npgsql for PostgreSQL.
+- ASP.NET Core Identity on the application `AppDbContext`.
+- Redis for HybridCache and production Data Protection keys.
+- Serilog console logging and Seq in local Docker.
+- GitHub Actions CI, migration bundle build, GHCR image publish, and LAN deployment workflow.
 
 ## Repository Layout
-- `BlazorAutoApp.Core/Features/*` — Vertical slices (contracts + DTOs). Example: `Features/Movies` with `Movie`, request/response DTOs, and `IMoviesApi`.
-- `BlazorAutoApp` — Server host (SSR/prerender):
-  - EF Core `AppDbContext` (PostgreSQL), migrations under `Data/Migrations`.
-  - Serilog configuration via `appsettings.json` and `appsettings.Docker.json`.
-  - Minimal API endpoints per feature (see `Features/Movies/Endpoints.cs`).
-  - Registers `IMoviesApi` → `MoviesServerService` for prerender.
-- `BlazorAutoApp.Client` — Client host (WASM after hydration):
-  - Registers `IMoviesApi` → `MoviesClientService` (uses `HttpClient` to call server `/api/*`).
-  - Pages use PersistentComponentState to rehydrate data fetched during SSR.
-- `.github/workflows` — CI pipelines for .NET build/test and Dependabot auto‑merge.
-- `docker-compose.yml` — Orchestration for web + postgres + seq.
-- `overview.md` — Deeper architecture walkthrough.
-- `HowToRun.md` — Docker‑first run instructions.
-- `Plans/GoogleLoginGuideThatNeedsFinishing.md` — setup checklist for Google OAuth credentials and redirect URIs.
 
-## Architecture Overview
-Blazor Auto render is enabled in `BlazorAutoApp/Components/App.razor` via:
-- `<HeadOutlet @rendermode="InteractiveAuto" />` and `<Routes @rendermode="InteractiveAuto" />`.
+- `BlazorAutoApp.Core/Features/*` contains vertical slices with contracts, entities, requests, and responses.
+- `BlazorAutoApp` is the server host, EF Core owner, Minimal API owner, and SSR/prerender runtime.
+- `BlazorAutoApp.Client` is the WASM client loaded after hydration.
+- `BlazorAutoApp.Test` contains xUnit tests and architecture checks.
+- `Deployment` contains Ansible, compose files, deployment scripts, and production inventory.
+- `.github/workflows/ci.yml` is the single CI workflow.
+- `.github/workflows/deploy-lan.yml` deploys a selected image tag through the self-hosted LAN runner.
+- `docker-compose.yml` runs the local app stack.
 
-Vertical slice pattern:
-- Core defines the contracts: `IMoviesApi`, request/response DTOs, and the `Movie` entity.
-- Server implements `IMoviesApi` with EF Core (`MoviesServerService`) and exposes Minimal API routes.
-- Client implements `IMoviesApi` with `HttpClient` (`MoviesClientService`).
-- Pages only depend on `IMoviesApi`, so the same UI works both during prerender and after hydration.
+## Architecture
 
-SSR persistent state pattern:
-- During SSR, pages fetch via server `IMoviesApi` and persist results using `PersistentComponentState.PersistAsJson(key, data)`.
-- On first interactive render, pages call `TryTakeFromJson(key, out data)` to avoid a second HTTP request.
-- Applied in `Client/Pages/Movies` for list, details, and edit flows.
+Core defines shared feature contracts such as `IMoviesApi`. The server implements those contracts with EF Core and exposes Minimal API endpoints. The WASM client implements the same contracts with `HttpClient`.
 
-Minimal APIs (example behavior):
-- GET list → `200` with `GetMoviesResponse`.
-- GET by id → `200` with `GetMovieResponse` or `404` if not found.
-- POST create → `201 Created` with location header.
-- PUT update → `204 No Content` (or `404`/`400` on errors).
-- DELETE → `204 No Content` (or `404`).
+Pages depend on the Core contracts, so the same UI works during server prerender and after WASM hydration. Pages use `PersistentComponentState` to avoid duplicate fetches when transitioning from SSR to interactive rendering.
 
-Identity and auth behavior:
-- Identity uses the same `AppDbContext` (no separate Identity DbContext).
-- Login and register pages are available at:
-  - `/Identity/Account/Login`
-  - `/Identity/Account/Register`
-- Home page includes an `IdentityShowcase` module:
-  - Public endpoint: `GET /api/identity-showcase/public`
-  - Secure endpoint: `GET /api/identity-showcase/secure` (`RequireAuthorization`)
-  - The authenticated UI card only renders when the secure endpoint succeeds.
+Identity endpoints:
 
-## Logging and Observability
-- Serilog is wired via `Program.cs` with configuration from `appsettings*.json`.
-- Default sinks: Console; Docker environment adds Seq sink at `http://seq:5341`.
-- Enrichment: environment name, machine, log context, and common HTTP properties via `UseSerilogRequestLogging`.
-- Seq UI is exposed at `http://localhost:8081` when using Docker Compose.
+- Login: `/Identity/Account/Login`
+- Register: `/Identity/Account/Register`
+- Public showcase: `/api/identity-showcase/public`
+- Authorized showcase: `/api/identity-showcase/secure`
 
-## Data and Migrations (EF Core + PostgreSQL)
-- Connection string key: `DefaultConnection` (local default: `Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres`).
-- Migrations live in `BlazorAutoApp/Data/Migrations`.
-- Apply on startup: `db.Database.Migrate()` runs at boot.
-- CLI examples:
-  - Add: `dotnet ef migrations add <Name> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations`
-  - Update DB: `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
-- Provider: `Npgsql.EntityFrameworkCore.PostgreSQL`.
+## CI And Deployment
 
-## Running the App
-Local (no Docker):
-1) Ensure PostgreSQL is available (defaults to localhost:5432, db `app`, user `postgres`, pwd `postgres`).
-2) From repo root: `dotnet run --project BlazorAutoApp`.
-3) Open: `https://localhost:7186` or the port shown in logs.
+`.github/workflows/ci.yml` runs the deployment audit, restore, build, tests, EF migration bundle build, Docker image build, and GHCR push for non-PR runs.
 
-Docker Compose (recommended full stack):
-1) Export HTTPS dev cert: `pwsh -File ./docker/create-dev-cert.ps1`.
-2) `docker compose up --build`.
-3) URLs:
-   - App: `https://localhost:7186`
-   - Seq: `http://localhost:8081`
-   - Redis: `localhost:6379`
-   - Postgres: `localhost:5432`
+`.github/workflows/auto-merge-dependabot.yml` only merges Dependabot PRs after `CI` succeeds.
 
-More details in `HowToRun.md`.
+## Testing
 
-Quick identity check after startup:
-1) Open `/` and verify the `IdentityShowcase` section appears.
-2) As a guest, verify `Guest view` appears.
-3) Register/login via `/Identity/Account/Register` or `/Identity/Account/Login`.
-4) Return to `/` and click `Refresh` in IdentityShowcase; authenticated details should appear.
+```powershell
+dotnet test
+```
 
-## GitHub Actions
-- `.github/workflows/BuildAndTest.yml` runs on pushes and PRs to `main`:
-  - Setup .NET 9 (prerelease allowed), restore, build, test.
-- `.github/workflows/auto-merge-dependabot.yml` can auto‑approve and merge Dependabot PRs.
-- `.github/dependabot.yml` tracks GitHub Actions, Docker, and NuGet updates (daily).
-
-## Testing and Conventions
-- `BlazorAutoApp.Test` uses xUnit.
-- Architecture tests enforce:
-  - Every public Core interface ending with `Api` has both a server and a client implementation.
-  - Implementation naming: `*ServerService` and `*ClientService`.
-  - For each Core `*Request` in a feature, a corresponding `FeatureName/<Request>Tests` exists under tests with at least one `[Fact]` or `[Theory]`.
-- Run tests: `dotnet test`.
-
-## Configuration Notes
-- `ASPNETCORE_ENVIRONMENT=Docker` activates `appsettings.Docker.json` (HTTPS exposed on 7186, Seq sink, container DB host).
-- If Seq isn’t reachable in Docker, the server adds a safe default `http://seq:5341` sink at startup.
-- Override connection string with env var: `ConnectionStrings__DefaultConnection`.
-- If `ConnectionStrings:DefaultConnection` is present, `Database__*` variables are optional.
-- If `ConnectionStrings:DefaultConnection` is absent, these are required:
-  - `Database__Host`
-  - `Database__Port`
-  - `Database__Name`
-  - `Database__Username`
-  - `Database__Password`
-- Redis connection: `Redis:Configuration` (defaults to `localhost:6379`, Docker `redis:6379`).
-- Movies cache TTLs: `Cache:Movies:ListTtlMinutes` and `Cache:Movies:ItemTtlMinutes`.
-- Optional Google auth (only enabled if both are set):
-  - `Authentication__Google__ClientId`
-  - `Authentication__Google__ClientSecret`
-  - See `Plans/GoogleLoginGuideThatNeedsFinishing.md` for full setup.
-
-## Extending the Template
-- Add a new feature slice in Core under `Features/<Feature>` with entity and request/response.
-- Implement `I<Feature>Api` in server (EF‑backed) and client (HttpClient‑backed).
-- Add Minimal API endpoints that delegate to your Core API interface.
-- Build pages that inject the Core API interface and use persistent state where SSR data should survive hydration.
-
-For a deeper conceptual walkthrough, see `overview.md`.
-
-### Caching (Redis + HybridCache)
-- Server uses `HybridCache` backed by Redis plus memory to accelerate reads and offload the database.
-- Keys: `movies:list`, `movies:item:{id}` with TTLs from configuration.
-- On writes, list and item keys are invalidated.
-- See the Redis & Caching diagram and details in [overview.md – Redis & Caching](overview.md#redis--caching).
+Architecture tests enforce that public Core interfaces ending in `Api` have both server and client implementations, and that feature requests have matching tests.

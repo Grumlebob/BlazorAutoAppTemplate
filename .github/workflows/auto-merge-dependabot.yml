@@ -1,24 +1,31 @@
-﻿name: Auto Merge Dependabot Updates
+name: Auto Merge Dependabot Updates
 
 on:
-  pull_request:
-    types: [opened]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   pull-requests: write
-  contents: read
+  contents: write
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.pull_requests[0].number != null
     runs-on: ubuntu-24.04
     steps:
       - name: Approve Pull Request
-        run: gh pr review "${{ github.event.pull_request.number }}" --approve
+        run: gh pr review "${{ github.event.workflow_run.pull_requests[0].number }}" --approve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
 
-      - name: Enable Pull Request Automerge
-        run: gh pr merge --merge --auto "${{ github.event.pull_request.number }}"
+      - name: Merge Pull Request
+        run: gh pr merge "${{ github.event.workflow_run.pull_requests[0].number }}" --merge --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
