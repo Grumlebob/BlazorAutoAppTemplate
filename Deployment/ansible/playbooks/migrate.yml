@@ -1,5 +1,5 @@
 ---
-- name: Run Ship database migration bundle
+- name: Run database migration bundle
   hosts: node_db
   become: true
   vars_files:
@@ -10,7 +10,7 @@
         that:
           - migration_bundle_local_path is defined
           - migration_bundle_local_path | length > 0
-        fail_msg: "Pass -e migration_bundle_local_path=<local path to ship-migrate>."
+        fail_msg: "Pass -e migration_bundle_local_path=<local path to migration bundle>."
 
     - name: Ensure migration directory exists
       ansible.builtin.file:
@@ -23,7 +23,7 @@
     - name: Copy migration bundle
       ansible.builtin.copy:
         src: "{{ migration_bundle_local_path }}"
-        dest: "{{ deploy_root }}/migrations/ship-migrate"
+        dest: "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
         owner: deploy
         group: deploy
         mode: "0750"
@@ -54,7 +54,7 @@
         set -a
         . ./.env
         set +a
-        chmod +x ./migrations/ship-migrate
-        ./migrations/ship-migrate --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+        chmod +x ./migrations/{{ migration_bundle_name }}
+        ./migrations/{{ migration_bundle_name }} --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
       args:
         executable: /bin/bash

@@ -46,10 +46,10 @@
     mode: "0644"
   notify: Reload caddy
 
-- name: Render Ship Caddy site
+- name: Render app Caddy site
   ansible.builtin.template:
-    src: ship.caddy.j2
-    dest: /etc/caddy/sites/ship.caddy
+    src: app.caddy.j2
+    dest: "/etc/caddy/sites/{{ app_name }}.caddy"
     owner: root
     group: caddy
     mode: "0644"

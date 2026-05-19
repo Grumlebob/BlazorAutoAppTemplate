@@ -23,8 +23,9 @@ if [[ -f "$LOCAL_ENV" ]]; then
   set +a
 fi
 
-SSH_KEY="${SHIP_DEPLOY_KEY:-$HOME/.ssh/ship_deploy}"
-SSH_PUB="${SHIP_DEPLOY_KEY_PUB:-$SSH_KEY.pub}"
+APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
+SSH_PUB="$SSH_KEY.pub"
 FAILURES=0
 
 ok() {
@@ -140,7 +141,7 @@ if [[ "$MODE" == "deploy" ]]; then
       fi
     fi
   else
-    fail "vault missing; run Deployment/scripts/create-vault.sh"
+    fail "vault missing; run Deployment/scripts/setup-secrets.sh"
   fi
 else
   [[ -f "$VAULT" ]] && ok "encrypted vault exists" || warn "vault missing; create it before deploy phase"

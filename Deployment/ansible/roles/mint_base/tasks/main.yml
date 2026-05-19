@@ -45,7 +45,7 @@
 
 - name: Allow deploy user to run sudo without password
   ansible.builtin.copy:
-    dest: /etc/sudoers.d/90-ship-deploy
+    dest: "/etc/sudoers.d/90-{{ app_name }}-deploy"
     content: "deploy ALL=(ALL) NOPASSWD:ALL\n"
     owner: root
     group: root
@@ -63,11 +63,38 @@
 - name: Install deploy SSH public key
   ansible.builtin.lineinfile:
     path: /home/deploy/.ssh/authorized_keys
-    line: "{{ lookup('file', deploy_public_key_file | default(lookup('env', 'HOME') + '/.ssh/ship_deploy.pub')) }}"
+    line: "{{ lookup('file', deploy_public_key_file | default(lookup('env', 'HOME') + '/.ssh/' + app_name + '_deploy.pub')) }}"
     create: true
     owner: deploy
     group: deploy
     mode: "0600"
+
+- name: Install deploy private key on control node
+  ansible.builtin.copy:
+    src: "{{ deploy_private_key_file | default(lookup('env', 'HOME') + '/.ssh/' + app_name + '_deploy') }}"
+    dest: "/home/deploy/.ssh/{{ app_name }}_deploy"
+    owner: deploy
+    group: deploy
+    mode: "0600"
+  when: inventory_hostname in groups["load_balancer"]
+
+- name: Install deploy public key file on control node
+  ansible.builtin.copy:
+    src: "{{ deploy_public_key_file | default(lookup('env', 'HOME') + '/.ssh/' + app_name + '_deploy.pub') }}"
+    dest: "/home/deploy/.ssh/{{ app_name }}_deploy.pub"
+    owner: deploy
+    group: deploy
+    mode: "0644"
+  when: inventory_hostname in groups["load_balancer"]
+
+- name: Trust deployment node SSH host keys on control node
+  ansible.builtin.known_hosts:
+    path: /home/deploy/.ssh/known_hosts
+    name: "{{ hostvars[item].ansible_host }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan ' + hostvars[item].ansible_host) }}"
+  become_user: deploy
+  loop: "{{ groups['all'] }}"
+  when: inventory_hostname in groups["load_balancer"]
 
 - name: Disable sleep and suspend targets
   ansible.builtin.systemd:

@@ -7,19 +7,21 @@
       - cloudflared_version != "latest"
     fail_msg: "Set cloudflared_version to an explicit release in inventory/prod/group_vars/all.yml."
 
-- name: Map machine architecture to cloudflared deb architecture
-  ansible.builtin.set_fact:
-    cloudflared_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64', 'armv7l': 'armhf', 'armv6l': 'armhf', 'i386': '386', 'i686': '386'}.get(ansible_architecture, ansible_architecture) }}"
+- name: Require amd64 machine architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in ["x86_64", "amd64"]
+    fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
 
 - name: Download cloudflared package
   ansible.builtin.get_url:
-    url: "https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-{{ cloudflared_deb_arch }}.deb"
-    dest: "/tmp/cloudflared-{{ cloudflared_version }}-{{ cloudflared_deb_arch }}.deb"
+    url: "https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-amd64.deb"
+    dest: "/tmp/cloudflared-{{ cloudflared_version }}-amd64.deb"
     mode: "0644"
 
 - name: Install cloudflared package
   ansible.builtin.apt:
-    deb: "/tmp/cloudflared-{{ cloudflared_version }}-{{ cloudflared_deb_arch }}.deb"
+    deb: "/tmp/cloudflared-{{ cloudflared_version }}-amd64.deb"
 
 - name: Verify cloudflared version
   ansible.builtin.command: cloudflared --version
@@ -32,10 +34,50 @@
     path: /etc/systemd/system/cloudflared.service
   register: cloudflared_service
 
+- name: Check installed Cloudflare tunnel token marker
+  ansible.builtin.stat:
+    path: /etc/cloudflared/tunnel-token.sha256
+  register: cloudflared_token_marker
+
+- name: Read installed Cloudflare tunnel token marker
+  ansible.builtin.slurp:
+    path: /etc/cloudflared/tunnel-token.sha256
+  register: cloudflared_token_marker_content
+  when: cloudflared_token_marker.stat.exists
+  no_log: true
+
+- name: Decide whether Cloudflare tunnel service needs reinstall
+  ansible.builtin.set_fact:
+    cloudflared_tunnel_token_hash: "{{ vault_cloudflare_tunnel_token | hash('sha256') }}"
+    cloudflared_tunnel_token_changed: >-
+      {{
+        (not cloudflared_token_marker.stat.exists)
+        or ((cloudflared_token_marker_content.content | b64decode | trim) != (vault_cloudflare_tunnel_token | hash('sha256')))
+      }}
+  no_log: true
+
+- name: Uninstall cloudflared service when tunnel token changed
+  ansible.builtin.command: cloudflared service uninstall
+  register: cloudflared_service_uninstall
+  changed_when: cloudflared_service_uninstall.rc == 0
+  failed_when: false
+  when:
+    - cloudflared_service.stat.exists
+    - cloudflared_tunnel_token_changed
+
 - name: Install cloudflared service with tunnel token
   ansible.builtin.command: "cloudflared service install {{ vault_cloudflare_tunnel_token }}"
   no_log: true
-  when: not cloudflared_service.stat.exists
+  when: (not cloudflared_service.stat.exists) or cloudflared_tunnel_token_changed
+
+- name: Store Cloudflare tunnel token marker
+  ansible.builtin.copy:
+    dest: /etc/cloudflared/tunnel-token.sha256
+    content: "{{ cloudflared_tunnel_token_hash }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
 
 - name: Enable and start cloudflared
   ansible.builtin.systemd:

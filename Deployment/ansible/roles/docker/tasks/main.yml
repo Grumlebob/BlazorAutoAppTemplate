@@ -20,13 +20,15 @@
   register: ubuntu_codename
   changed_when: false
 
-- name: Map machine architecture to Docker apt architecture
-  ansible.builtin.set_fact:
-    docker_apt_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64', 'armv7l': 'armhf', 'armv6l': 'armhf', 'i386': '386', 'i686': '386'}.get(ansible_architecture, ansible_architecture) }}"
+- name: Require amd64 machine architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in ["x86_64", "amd64"]
+    fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
 
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
     filename: docker
     state: present
 

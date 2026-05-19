@@ -10,7 +10,7 @@ fail() {
   exit 1
 }
 
-command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/install-ansible.sh."
+command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/setup-control-machine.sh."
 [[ -f "$VAULT" ]] || fail "missing encrypted vault: Deployment/inventory/prod/vault.yml"
 
 head -n 1 "$VAULT" | grep -q '^\$ANSIBLE_VAULT;' || fail "vault.yml is not encrypted with ansible-vault"

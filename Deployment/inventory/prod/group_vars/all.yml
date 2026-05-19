@@ -6,3 +6,4 @@ deploy_root: /opt/ship
 cloudflare_tunnel_name: ship-prod
 cloudflared_version: 2026.5.0
 caddy_sticky_cookie_name: ship_lb
+migration_bundle_name: ship-migrate

@@ -7,7 +7,7 @@ if ! command -v apt-get >/dev/null 2>&1; then
 fi
 
 sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip pipx
+sudo apt-get install -y python3 python3-venv python3-pip pipx sshpass
 
 PYTHON_MINOR="$(python3 - <<'PY'
 import sys

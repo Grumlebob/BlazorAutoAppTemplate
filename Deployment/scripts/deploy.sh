@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-ship-migrate>]" >&2
+  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-migration-bundle>]" >&2
   exit 1
 }
 

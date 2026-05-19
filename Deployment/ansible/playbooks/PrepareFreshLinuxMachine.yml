@@ -1,5 +1,5 @@
 ---
-- name: Prepare fresh Linux Mint machines for Ship
+- name: Prepare fresh Linux Mint machines
   hosts: all
   become: true
   roles:

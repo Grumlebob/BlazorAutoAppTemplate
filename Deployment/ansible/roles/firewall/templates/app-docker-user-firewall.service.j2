@@ -1,11 +1,11 @@
 [Unit]
-Description=Ship Docker published-port firewall
+Description={{ app_name }} Docker published-port firewall
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/ship-docker-user-firewall
+ExecStart=/usr/local/sbin/{{ app_name }}-docker-user-firewall
 RemainAfterExit=yes
 
 [Install]

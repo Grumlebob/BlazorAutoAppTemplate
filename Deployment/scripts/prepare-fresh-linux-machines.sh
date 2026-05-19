@@ -13,39 +13,48 @@ if [[ -f "$LOCAL_ENV" ]]; then
   set +a
 fi
 
-if [[ $# -gt 2 ]]; then
-  echo "usage: $0 [linux-mint-install-user] [path-to-ship_deploy.pub]" >&2
-  echo "or set LINUX_MINT_INSTALL_USER and SHIP_DEPLOY_KEY_PUB in Deployment/.deploy.local.env" >&2
+if [[ $# -gt 1 ]]; then
+  echo "usage: $0 [linux-mint-install-user]" >&2
+  echo "or set LINUX_MINT_INSTALL_USER in Deployment/.deploy.local.env" >&2
   exit 1
 fi
 
 INSTALL_USER="${1:-${LINUX_MINT_INSTALL_USER:-}}"
-PUBLIC_KEY="${2:-${SHIP_DEPLOY_KEY_PUB:-}}"
+APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+PRIVATE_KEY="$HOME/.ssh/${APP_NAME}_deploy"
+PUBLIC_KEY="$PRIVATE_KEY.pub"
 
 bash "$SCRIPT_DIR/preflight.sh" bootstrap
 cd "$REPO_ROOT/Deployment/ansible"
 
+export ANSIBLE_HOST_KEY_CHECKING=False
+
 ARGS=(--ask-pass --ask-become-pass)
-if [[ -n "$INSTALL_USER" ]]; then
-  ARGS+=(-u "$INSTALL_USER")
-elif [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
+if [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
   ARGS+=(-i ../inventory/prod/bootstrap-hosts.yml)
+elif [[ -n "$INSTALL_USER" ]]; then
+  ARGS+=(-u "$INSTALL_USER")
 elif [[ -t 0 ]]; then
   read -r -p "Linux Mint install username: " INSTALL_USER
   ARGS+=(-u "$INSTALL_USER")
 else
-  echo "usage: $0 [linux-mint-install-user] [path-to-ship_deploy.pub]" >&2
+  echo "usage: $0 [linux-mint-install-user]" >&2
   echo "or run Deployment/scripts/generate-inventory.sh to create bootstrap-hosts.yml" >&2
   echo "or set LINUX_MINT_INSTALL_USER in Deployment/.deploy.local.env" >&2
   exit 1
 fi
-if [[ -n "$PUBLIC_KEY" ]]; then
-  [[ -f "$PUBLIC_KEY" ]] || {
-    echo "public key not found: $PUBLIC_KEY" >&2
-    exit 1
-  }
-  ARGS+=(-e "deploy_public_key_file=$PUBLIC_KEY")
-fi
+[[ -f "$PUBLIC_KEY" ]] || {
+  echo "public key not found: $PUBLIC_KEY" >&2
+  echo "run Deployment/scripts/setup-control-machine.sh first" >&2
+  exit 1
+}
+[[ -f "$PRIVATE_KEY" ]] || {
+  echo "private key not found: $PRIVATE_KEY" >&2
+  echo "run Deployment/scripts/setup-control-machine.sh first" >&2
+  exit 1
+}
+ARGS+=(-e "deploy_public_key_file=$PUBLIC_KEY")
+ARGS+=(-e "deploy_private_key_file=$PRIVATE_KEY")
 
 ansible-playbook playbooks/PrepareFreshLinuxMachine.yml "${ARGS[@]}"
 

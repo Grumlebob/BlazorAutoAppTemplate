@@ -92,11 +92,12 @@ required_files = [
     "Deployment/ansible/roles/app/tasks/main.yml",
     "Deployment/ansible/roles/app/templates/app.env.j2",
     "Deployment/ansible/roles/caddy/tasks/main.yml",
-    "Deployment/ansible/roles/caddy/templates/ship.caddy.j2",
+    "Deployment/ansible/roles/caddy/templates/app.caddy.j2",
     "Deployment/ansible/roles/cloudflared/tasks/main.yml",
     "Deployment/ansible/roles/docker/tasks/main.yml",
     "Deployment/ansible/roles/firewall/tasks/main.yml",
-    "Deployment/ansible/roles/firewall/templates/ship-docker-user-firewall.sh.j2",
+    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2",
+    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.service.j2",
     "Deployment/ansible/roles/mint_base/tasks/main.yml",
     "Deployment/ansible/roles/postgres/tasks/main.yml",
     "Deployment/ansible/roles/postgres/templates/node-db.env.j2",
@@ -105,15 +106,21 @@ required_files = [
     "Deployment/compose/app-server/docker-compose.yml",
     "Deployment/compose/node-db/docker-compose.yml",
     "Deployment/scripts/backup-db.sh",
+    "Deployment/scripts/bootstrap-node.sh",
     "Deployment/scripts/check-vault.sh",
-    "Deployment/scripts/create-vault.sh",
     "Deployment/scripts/deploy.sh",
     "Deployment/scripts/generate-inventory.py",
     "Deployment/scripts/generate-inventory.sh",
     "Deployment/scripts/install-ansible.sh",
+    "Deployment/scripts/install-github-runner.sh",
     "Deployment/scripts/preflight.sh",
     "Deployment/scripts/prepare-fresh-linux-machines.sh",
+    "Deployment/scripts/setup-cloudflare-tunnel.sh",
+    "Deployment/scripts/setup-control-machine.sh",
+    "Deployment/scripts/setup-secrets.sh",
     "Deployment/scripts/restore-db.sh",
+    "Deployment/scripts/health-check.sh",
+    "Deployment/scripts/read-deploy-setting.py",
     "Deployment/scripts/status.sh",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
@@ -157,6 +164,8 @@ for path in deployment_text_files():
             fail(f"{rel}: stale deployment identifier {stale}; use {replacement}")
     if "releases/latest" in text:
         fail(f"{rel}: deployment must not install from latest release URLs")
+    if "DEPLOY_SSH_KEY" in text or "SHIP_DEPLOY_KEY" in text:
+        fail(f"{rel}: deploy SSH key path must be derived from app_name, not local overrides")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
         fail(f"{rel}: use Deployment/scripts/install-ansible.sh instead of distro Ansible")
 
@@ -177,6 +186,31 @@ require_contains(
     "Deployment/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared --version",
     "cloudflared installed-version verification",
+)
+require_contains(
+    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "This deployment supports only x86_64/amd64 Linux machines.",
+    "amd64-only cloudflared guard",
+)
+require_contains(
+    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared-linux-amd64.deb",
+    "amd64 cloudflared package",
+)
+require_contains(
+    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "tunnel-token.sha256",
+    "Cloudflare tunnel token change marker",
+)
+require_contains(
+    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared service uninstall",
+    "Cloudflare tunnel token rotation handling",
+)
+require_not_contains(
+    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared_deb_arch",
+    "cloudflared multi-architecture package mapping",
 )
 
 
@@ -205,6 +239,10 @@ for needle, why in [
 generate_inventory = read("Deployment/scripts/generate-inventory.py")
 for needle, why in [
     ("REQUIRED_NODES = [\"node-main\", \"node-app1\", \"node-app2\", \"node-db\"]", "required node list"),
+    ("import ipaddress", "strict IP address validation"),
+    ("unexpected node", "unexpected node rejection"),
+    ("duplicate IP address", "duplicate IP rejection"),
+    ("duplicate MAC address", "duplicate MAC rejection"),
     ("node_db:", "node_db inventory group rendering"),
     ("render_bootstrap_hosts", "bootstrap inventory rendering"),
     ("install_user", "install user support"),
@@ -253,35 +291,52 @@ require_contains(
     "Redis Data Protection package",
 )
 
+require_contains(
+    "Deployment/scripts/install-ansible.sh",
+    "sshpass",
+    "sshpass for Ansible password bootstrap",
+)
+
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("python Deployment/scripts/audit_deployment.py", "deployment audit step"),
+    ("python Deployment/scripts/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/scripts/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
     ("dotnet build --configuration Release --no-restore", "Release build step"),
     ("dotnet test --configuration Release --no-build", "test step"),
     ("dotnet ef migrations bundle", "migration bundle build"),
     ("docker build", "Docker image build"),
     ("if: github.event_name != 'pull_request'", "no PR artifact/image push guard"),
-    ("docker push ghcr.io/grumlebob/ship:${{ github.sha }}", "immutable image push"),
+    ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+if "${APP_IMAGE}:latest" in ci or "docker push \"${APP_IMAGE}:latest\"" in ci:
+    fail(".github/workflows/ci.yml: CI must publish only immutable Git SHA image tags")
 
 deploy_lan = read(".github/workflows/deploy-lan.yml")
 for needle, why in [
+    ("name: Deploy App To LAN", "generic deployment workflow name"),
+    ("concurrency:", "deployment concurrency guard"),
     ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
+    ("python Deployment/scripts/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/scripts/read-deploy-setting.py public_hostname", "public hostname setting"),
     ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
-    ("docker manifest inspect \"ghcr.io/grumlebob/ship:${APP_VERSION}\"", "image existence check"),
+    ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
     ("bash Deployment/scripts/preflight.sh deploy", "deploy preflight"),
     ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
-    ("${{ github.workspace }}/artifacts/migrations/ship-migrate", "absolute migration bundle path"),
-    ("https://ship.jacobgrum.com/health/ready", "public readiness verification"),
+    ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
+    ("https://${PUBLIC_HOSTNAME}/health/ready", "public readiness verification"),
+    ("rm -f \"/tmp/${APP_NAME}_ansible_vault_password\"", "vault password file cleanup"),
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/deploy-lan.yml: missing {why}")
 if "image_tag" in deploy_lan:
     fail(".github/workflows/deploy-lan.yml: manual image_tag input should not be required")
+if "Deploy Ship To LAN" in deploy_lan:
+    fail(".github/workflows/deploy-lan.yml: workflow name must not be app-bound")
 
 
 prepare = read("Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml")
@@ -306,19 +361,26 @@ for path, checks in {
     "Deployment/ansible/roles/mint_base/tasks/main.yml": [
         ("name: deploy", "deploy user creation"),
         ("NOPASSWD:ALL", "passwordless sudo for automation"),
+        ("authorized_keys", "deploy SSH public key installation"),
+        ("deploy_private_key_file", "control-node private key installation"),
+        ("inventory_hostname in groups[\"load_balancer\"]", "private key limited to control node"),
+        ("known_hosts", "control-node SSH host key setup"),
+        ("ssh-keyscan", "deployment node host key scan"),
         ("path: \"{{ deploy_root }}\"", "deployment root creation"),
     ],
     "Deployment/ansible/roles/docker/tasks/main.yml": [
         ("UBUNTU_CODENAME", "Linux Mint Ubuntu base codename detection"),
+        ("This deployment supports only x86_64/amd64 Linux machines.", "amd64-only Docker guard"),
+        ("arch=amd64", "amd64 Docker apt repository"),
         ("docker-compose-plugin", "Docker Compose plugin"),
         ("groups: docker", "deploy docker group membership"),
     ],
     "Deployment/ansible/roles/firewall/tasks/main.yml": [
         ("ufw allow OpenSSH", "SSH firewall rule"),
-        ("ship-docker-user-firewall.service", "Docker published-port firewall service"),
+        ("{{ app_name }}-docker-user-firewall.service", "Docker published-port firewall service"),
         ("groups[\"node_db\"]", "node_db firewall targeting"),
     ],
-    "Deployment/ansible/roles/firewall/templates/ship-docker-user-firewall.sh.j2": [
+    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
         ("--ctorigdstport {{ app_port }}", "app port restriction"),
         ("--ctorigdstport {{ postgres_port }}", "PostgreSQL port restriction"),
@@ -334,7 +396,7 @@ for path, checks in {
         ("backup-db.sh", "backup helper copy"),
         ("restore-db.sh", "restore helper copy"),
     ],
-    "Deployment/ansible/roles/caddy/templates/ship.caddy.j2": [
+    "Deployment/ansible/roles/caddy/templates/app.caddy.j2": [
         ("health_uri /health/ready", "readiness health check"),
         ("lb_policy cookie", "sticky sessions for Blazor Server"),
     ],
@@ -355,6 +417,9 @@ for needle, why in [
     if needle not in preflight:
         fail(f"Deployment/scripts/preflight.sh: missing {why}")
 
+for path in ["Deployment/scripts/ping-fresh-machines.sh", "Deployment/scripts/prepare-fresh-linux-machines.sh"]:
+    require_contains(path, "ANSIBLE_HOST_KEY_CHECKING=False", "bootstrap host-key bypass for password SSH")
+
 check_vault = read("Deployment/scripts/check-vault.sh")
 for needle, why in [
     ("ansible-vault view", "vault decrypt validation"),
@@ -364,6 +429,60 @@ for needle, why in [
 ]:
     if needle not in check_vault:
         fail(f"Deployment/scripts/check-vault.sh: missing {why}")
+
+setup_secrets = read("Deployment/scripts/setup-secrets.sh")
+for needle, why in [
+    ("gh secret set ANSIBLE_VAULT_PASSWORD", "GitHub vault password secret automation"),
+    ("ansible-vault edit", "vault editing"),
+    ("check-vault.sh", "vault validation"),
+]:
+    if needle not in setup_secrets:
+        fail(f"Deployment/scripts/setup-secrets.sh: missing {why}")
+
+runner_setup = read("Deployment/scripts/install-github-runner.sh")
+for needle, why in [
+    ("actions/runners/registration-token", "runner registration token automation"),
+    ("gh release view --repo actions/runner", "runner release lookup"),
+    ("actions-runner-linux-x64", "x64 runner package"),
+    ("this deployment supports only x86_64/amd64 node-main machines", "x64 runner guard"),
+    ("RUNNER_TOKEN_Q", "runner token kept out of ssh command arguments"),
+    ("unset RUNNER_TOKEN", "runner token unset after configuration"),
+    ("--labels homelab", "runner label configuration"),
+    ("sudo ./svc.sh install deploy", "runner service install as deploy"),
+]:
+    if needle not in runner_setup:
+        fail(f"Deployment/scripts/install-github-runner.sh: missing {why}")
+if "RUNNER_TOKEN='$RUNNER_TOKEN'" in runner_setup or 'RUNNER_TOKEN="$RUNNER_TOKEN"' in runner_setup:
+    fail("Deployment/scripts/install-github-runner.sh: runner token must not be passed in the ssh command arguments")
+for forbidden in ["RUNNER_ARCH=", "aarch64", "arm64", "armv7l", "armv6l"]:
+    if forbidden in runner_setup:
+        fail(f"Deployment/scripts/install-github-runner.sh: contains forbidden multi-architecture runner logic: {forbidden}")
+
+setup_cloudflare = read("Deployment/scripts/setup-cloudflare-tunnel.sh")
+for needle, why in [
+    ("CLOUDFLARE_ACCOUNT_ID", "Cloudflare account id input"),
+    ("CLOUDFLARE_ZONE_ID", "Cloudflare zone id input"),
+    ("CLOUDFLARE_API_TOKEN", "Cloudflare API token input"),
+    ("cloudflare_tunnel_name", "tunnel name read from deployment settings"),
+    ("public_hostname", "public hostname read from deployment settings"),
+    ("POST", "Cloudflare tunnel creation"),
+    ("cfd_tunnel", "Cloudflare tunnel API endpoint"),
+    ("configurations", "Cloudflare tunnel configuration endpoint"),
+    ("dns_records", "Cloudflare DNS record endpoint"),
+    ("vault_cloudflare_tunnel_token", "vault token output"),
+]:
+    if needle not in setup_cloudflare:
+        fail(f"Deployment/scripts/setup-cloudflare-tunnel.sh: missing {why}")
+for normal_path in [
+    "Deployment/scripts/preflight.sh",
+    "Deployment/scripts/status.sh",
+    "Deployment/scripts/setup-secrets.sh",
+    ".github/workflows/deploy-lan.yml",
+]:
+    text = read(normal_path)
+    for forbidden in ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_API_TOKEN"]:
+        if forbidden in text:
+            fail(f"{normal_path}: Cloudflare API variables must stay optional, not part of the normal deploy path")
 
 
 if failures:

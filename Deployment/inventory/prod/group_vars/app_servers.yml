@@ -1,1 +1,1 @@
-app_container_name: ship-web
+app_container_name: "{{ app_name }}-web"

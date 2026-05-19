@@ -18,10 +18,12 @@ INSTALL_USER="${1:-${LINUX_MINT_INSTALL_USER:-}}"
 bash "$SCRIPT_DIR/preflight.sh" bootstrap
 cd "$REPO_ROOT/Deployment/ansible"
 
-if [[ -n "$INSTALL_USER" ]]; then
-  ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping
-elif [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
+export ANSIBLE_HOST_KEY_CHECKING=False
+
+if [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
   ansible all -i ../inventory/prod/bootstrap-hosts.yml --ask-pass --ask-become-pass -m ping
+elif [[ -n "$INSTALL_USER" ]]; then
+  ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping
 elif [[ -t 0 ]]; then
   read -r -p "Linux Mint install username: " INSTALL_USER
   ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping

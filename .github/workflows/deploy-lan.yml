@@ -1,4 +1,4 @@
-name: Deploy Ship To LAN
+name: Deploy App To LAN
 
 on:
   workflow_dispatch:
@@ -16,6 +16,10 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: deploy-lan
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: [self-hosted, linux, x64, homelab]
@@ -24,12 +28,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set deployment version
+      - name: Load deployment settings
         run: |
+          echo "APP_NAME=$(python Deployment/scripts/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
+          echo "APP_IMAGE=$(python Deployment/scripts/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
+          echo "PUBLIC_HOSTNAME=$(python Deployment/scripts/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
+          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/scripts/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
           echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            echo "ghcr.io/grumlebob/ship:${GITHUB_SHA}"
+            echo "$(python Deployment/scripts/read-deploy-setting.py app_image):${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
@@ -40,7 +48,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify image exists
-        run: docker manifest inspect "ghcr.io/grumlebob/ship:${APP_VERSION}" >/dev/null
+        run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -62,7 +70,7 @@ jobs:
             --configuration Release \
             --self-contained \
             --runtime linux-x64 \
-            --output artifacts/migrations/ship-migrate
+            --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Install Ansible
         run: bash Deployment/scripts/install-ansible.sh
@@ -70,11 +78,11 @@ jobs:
       - name: Write Ansible Vault password
         run: |
           umask 077
-          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/ship_ansible_vault_password
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "/tmp/${APP_NAME}_ansible_vault_password"
 
       - name: Deployment preflight
         env:
-          ANSIBLE_VAULT_PASSWORD_FILE: /tmp/ship_ansible_vault_password
+          ANSIBLE_VAULT_PASSWORD_FILE: /tmp/${{ env.APP_NAME }}_ansible_vault_password
         run: bash Deployment/scripts/preflight.sh deploy
 
       - name: Deploy with migrations
@@ -82,18 +90,22 @@ jobs:
         working-directory: Deployment/ansible
         run: |
           ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-            --vault-password-file /tmp/ship_ansible_vault_password \
+            --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
             -e app_version=${APP_VERSION} \
             -e run_migrations=true \
-            -e migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/ship-migrate
+            -e migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}
 
       - name: Deploy without migrations
         if: inputs.run_migrations == 'false'
         working-directory: Deployment/ansible
         run: |
           ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-            --vault-password-file /tmp/ship_ansible_vault_password \
+            --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
             -e app_version=${APP_VERSION}
 
       - name: Verify public health
-        run: curl -fsS https://ship.jacobgrum.com/health/ready
+        run: curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
+
+      - name: Remove Ansible Vault password file
+        if: always()
+        run: rm -f "/tmp/${APP_NAME}_ansible_vault_password"

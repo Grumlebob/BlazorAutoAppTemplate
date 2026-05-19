@@ -31,23 +31,23 @@
 
 - name: Install Docker published-port firewall script
   ansible.builtin.template:
-    src: ship-docker-user-firewall.sh.j2
-    dest: /usr/local/sbin/ship-docker-user-firewall
+    src: app-docker-user-firewall.sh.j2
+    dest: "/usr/local/sbin/{{ app_name }}-docker-user-firewall"
     owner: root
     group: root
     mode: "0755"
 
 - name: Install Docker published-port firewall service
   ansible.builtin.template:
-    src: ship-docker-user-firewall.service.j2
-    dest: /etc/systemd/system/ship-docker-user-firewall.service
+    src: app-docker-user-firewall.service.j2
+    dest: "/etc/systemd/system/{{ app_name }}-docker-user-firewall.service"
     owner: root
     group: root
     mode: "0644"
 
 - name: Enable Docker published-port firewall service
   ansible.builtin.systemd:
-    name: ship-docker-user-firewall
+    name: "{{ app_name }}-docker-user-firewall"
     daemon_reload: true
     enabled: true
     state: started

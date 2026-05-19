@@ -40,7 +40,7 @@
         that:
           - migration_bundle_local_path is defined
           - migration_bundle_local_path | length > 0
-        fail_msg: "Pass -e run_migrations=true -e migration_bundle_local_path=<local path to ship-migrate>."
+        fail_msg: "Pass -e run_migrations=true -e migration_bundle_local_path=<local path to migration bundle>."
       when: run_migrations | default(false) | bool
 
     - name: Ensure migration directory exists
@@ -55,7 +55,7 @@
     - name: Copy migration bundle
       ansible.builtin.copy:
         src: "{{ migration_bundle_local_path }}"
-        dest: "{{ deploy_root }}/migrations/ship-migrate"
+        dest: "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
         owner: deploy
         group: deploy
         mode: "0750"
@@ -89,7 +89,7 @@
         set -a
         . ./.env
         set +a
-        ./migrations/ship-migrate --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+        ./migrations/{{ migration_bundle_name }} --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
       args:
         executable: /bin/bash
       when: run_migrations | default(false) | bool

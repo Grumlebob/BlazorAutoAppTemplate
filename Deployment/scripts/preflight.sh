@@ -15,8 +15,9 @@ if [[ -f "$LOCAL_ENV" ]]; then
   set +a
 fi
 
-SSH_KEY="${SHIP_DEPLOY_KEY:-$HOME/.ssh/ship_deploy}"
-SSH_PUB="${SHIP_DEPLOY_KEY_PUB:-$SSH_KEY.pub}"
+APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
+SSH_PUB="$SSH_KEY.pub"
 
 fail() {
   echo "preflight failed: $*" >&2
@@ -25,9 +26,9 @@ fail() {
 
 [[ "$MODE" == "bootstrap" || "$MODE" == "deploy" ]] || fail "mode must be 'bootstrap' or 'deploy'"
 
-command -v ansible >/dev/null 2>&1 || fail "ansible is missing. Run Deployment/scripts/install-ansible.sh."
-command -v ansible-inventory >/dev/null 2>&1 || fail "ansible-inventory is missing. Run Deployment/scripts/install-ansible.sh."
-command -v ansible-playbook >/dev/null 2>&1 || fail "ansible-playbook is missing. Run Deployment/scripts/install-ansible.sh."
+command -v ansible >/dev/null 2>&1 || fail "ansible is missing. Run Deployment/scripts/setup-control-machine.sh."
+command -v ansible-inventory >/dev/null 2>&1 || fail "ansible-inventory is missing. Run Deployment/scripts/setup-control-machine.sh."
+command -v ansible-playbook >/dev/null 2>&1 || fail "ansible-playbook is missing. Run Deployment/scripts/setup-control-machine.sh."
 command -v ssh >/dev/null 2>&1 || fail "ssh is missing."
 
 [[ -f "$INVENTORY" ]] || fail "missing inventory: $INVENTORY"
@@ -41,7 +42,7 @@ fi
 ansible-inventory -i "$INVENTORY" --list >/dev/null
 
 if [[ "$MODE" == "deploy" ]]; then
-  command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/install-ansible.sh."
+  command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/setup-control-machine.sh."
   [[ -f "$VAULT" ]] || fail "missing encrypted vault: $VAULT"
   bash "$SCRIPT_DIR/check-vault.sh"
 fi
