@@ -50,7 +50,7 @@ def deployment_text_files() -> list[Path]:
         ROOT / "Plans",
         ROOT / ".github",
     ]
-    suffixes = {".md", ".yml", ".yaml", ".j2", ".sh", ".json", ".cs", ".csproj"}
+    suffixes = {".md", ".yml", ".yaml", ".j2", ".sh", ".py", ".json", ".cs", ".csproj"}
     files: list[Path] = []
     for root in roots:
         if not root.exists():
@@ -77,12 +77,18 @@ required_files = [
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-lan.yml",
     ".config/dotnet-tools.json",
+    ".env.example",
     "README.md",
     "HowToRunLocally.md",
     "HowToDeploy.md",
+    ".gitignore",
+    "Deployment/.deploy.local.env.example",
+    "Deployment/machines.example.yml",
     "Deployment/inventory/prod/hosts.yml",
     "Deployment/inventory/prod/group_vars/all.yml",
     "Deployment/inventory/prod/vault.example.yml",
+    "Deployment/inventory/prod/host_vars/node-app1.yml",
+    "Deployment/inventory/prod/host_vars/node-app2.yml",
     "Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml",
     "Deployment/ansible/playbooks/site.yml",
     "Deployment/ansible/ansible.cfg",
@@ -96,13 +102,22 @@ required_files = [
     "Deployment/compose/db-redis/docker-compose.yml",
     "Deployment/scripts/install-ansible.sh",
     "Deployment/scripts/preflight.sh",
+    "Deployment/scripts/discover-machines.sh",
+    "Deployment/scripts/generate-inventory.py",
+    "Deployment/scripts/generate-inventory.sh",
+    "Deployment/scripts/status.sh",
+    "Deployment/scripts/ping-fresh-machines.sh",
+    "Deployment/scripts/create-vault.sh",
+    "Deployment/scripts/check-vault.sh",
     "Deployment/scripts/prepare-fresh-linux-machines.sh",
     "Deployment/scripts/deploy.sh",
     "Deployment/scripts/backup-db.sh",
     "Deployment/scripts/restore-db.sh",
     "Deployment/scripts/discover-node.sh",
     "Deployment/scripts/health-check.sh",
-    "Plans/DEPLOYMENT_PLAN.md",
+    "docker/setup-local.ps1",
+    "docker/local-status.py",
+    "docker/create-dev-cert.ps1",
     "docker-compose.yml",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
@@ -115,7 +130,30 @@ for file in required_files:
 if exists(".github/workflows/BuildAndTest.yml"):
     fail("legacy duplicate CI workflow still exists: .github/workflows/BuildAndTest.yml")
 
+if exists("Plans/DEPLOYMENT_PLAN.md"):
+    fail("duplicate deployment guide still exists: Plans/DEPLOYMENT_PLAN.md")
+
+for stale_file in [
+    "Plans/RecommendedProductionIndustryReady.md",
+    "TypicalWorkflow.txt",
+    "requirements.txt",
+    "secrets.env",
+]:
+    if exists(stale_file):
+        fail(f"stale root planning/local file still exists: {stale_file}")
+
+if exists("Deployment/machines.yml"):
+    fail("local machine inventory should not be committed: Deployment/machines.yml")
+
+if exists("Deployment/.deploy.local.env"):
+    fail("local deployment env should not be committed: Deployment/.deploy.local.env")
+
+if exists("Deployment/inventory/prod/bootstrap-hosts.yml"):
+    fail("bootstrap inventory should not be committed: Deployment/inventory/prod/bootstrap-hosts.yml")
+
 removed_thin_docs = [
+    "Plans/DEPLOYMENT_PLAN.md",
+    "Plans/RecommendedProductionIndustryReady.md",
     "Deployment/README.md",
     "Deployment/topology.md",
     "Deployment/cloudflare/README.md",
@@ -133,6 +171,12 @@ for doc in removed_thin_docs:
         fail(f"removed low-value deployment doc still exists: {doc}")
 
 removed_doc_references = [
+    "Plans/DEPLOYMENT_PLAN.md",
+    "DEPLOYMENT_PLAN.md",
+    "Plans/RecommendedProductionIndustryReady.md",
+    "RecommendedProductionIndustryReady.md",
+    "TypicalWorkflow.txt",
+    "requirements.txt",
     "Deployment/README.md",
     "Deployment/docs/install-machines-checklist.md",
     "Deployment/topology.md",
@@ -168,6 +212,8 @@ for path in (ROOT / "Deployment/scripts").glob("*.ps1"):
 for path in deployment_text_files():
     rel = path.relative_to(ROOT).as_posix()
     text = path.read_text(encoding="utf-8-sig")
+    if rel == "Deployment/scripts/audit_deployment.py":
+        continue
     if "improveddb" in text or "/opt/improveddb" in text:
         fail(f"{rel}: stale improveddb reference")
     if "releases/latest" in text:
@@ -178,8 +224,11 @@ for path in deployment_text_files():
         fail(f"{rel}: relative cd Deployment/... command; use <repo-root>/Deployment/...")
     if "BuildAndTest" in text:
         fail(f"{rel}: stale BuildAndTest workflow reference")
+    for stale_app_node in ["node-app-01", "node-app-02", "NODE_APP_01", "NODE_APP_02"]:
+        if stale_app_node in text:
+            fail(f"{rel}: stale app node name: {stale_app_node}")
     for removed_doc in removed_doc_references:
-        if removed_doc in text and rel != "Deployment/scripts/audit_deployment.py":
+        if removed_doc in text:
             fail(f"{rel}: stale reference to removed low-value deployment doc: {removed_doc}")
 
 
@@ -221,6 +270,10 @@ local_compose = read("docker-compose.yml")
 deploy_app_compose = read("Deployment/compose/app-server/docker-compose.yml")
 if "build:" not in local_compose:
     fail("docker-compose.yml: local compose should build the app locally")
+if "./.env" not in local_compose:
+    fail("docker-compose.yml: local compose must read .env")
+if "./secrets.env" in local_compose:
+    fail("docker-compose.yml: local compose must not use legacy secrets.env")
 if 'Database__RunMigrationsAtStartup: "true"' not in local_compose:
     fail("docker-compose.yml: local compose must enable startup migrations")
 if "${APP_IMAGE}:${APP_VERSION}" not in deploy_app_compose:
@@ -303,6 +356,7 @@ for needle, why in [
     ("ref: ${{ inputs.image_tag }}", "checkout same commit as image"),
     ("dotnet restore", "restore before migration bundle"),
     ("bash Deployment/scripts/install-ansible.sh", "pinned Ansible installer"),
+    ("ANSIBLE_VAULT_PASSWORD_FILE: /tmp/ship_ansible_vault_password", "vault password file for preflight"),
     ("bash Deployment/scripts/preflight.sh deploy", "deploy preflight"),
     ("${{ github.workspace }}/artifacts/migrations/ship-migrate", "absolute migration bundle path"),
     ("https://ship.jacobgrum.com/health/ready", "public readiness verification"),
@@ -391,6 +445,7 @@ for needle, why in [
     ("REPLACE_WITH", "inventory placeholder detection"),
     ("ansible-inventory", "inventory parse check"),
     ("vault.yml", "vault existence check"),
+    ("check-vault.sh", "deploy vault content check"),
     ("preflight ok", "successful preflight output"),
 ]:
     if needle not in preflight:
@@ -398,6 +453,9 @@ for needle, why in [
 
 prepare_script = read("Deployment/scripts/prepare-fresh-linux-machines.sh")
 for needle, why in [
+    ("Deployment/.deploy.local.env", "local env defaults"),
+    ("LINUX_MINT_INSTALL_USER", "install user env default"),
+    ("read -r -p \"Linux Mint install username:", "interactive install user prompt"),
     ("preflight.sh\" bootstrap", "bootstrap preflight"),
     ("PrepareFreshLinuxMachine.yml", "fresh-machine playbook call"),
     ("--ask-pass", "first SSH password prompt"),
@@ -407,26 +465,91 @@ for needle, why in [
     if needle not in prepare_script:
         fail(f"prepare-fresh-linux-machines.sh: missing {why}")
 
-
-plan = read("Plans/DEPLOYMENT_PLAN.md")
+generate_inventory = read("Deployment/scripts/generate-inventory.py")
 for needle, why in [
-    ("## Manual Steps That Remain", "manual handoff section"),
-    ("bash ./Deployment/scripts/preflight.sh bootstrap", "bootstrap preflight command"),
-    ("bash ./Deployment/scripts/preflight.sh deploy", "deploy preflight command"),
-    ("GitHub repository -> Settings -> Actions -> Runners", "self-hosted runner setup"),
-    ("ANSIBLE_VAULT_PASSWORD", "runner vault secret"),
-    ("docker compose up --build", "local Docker launch"),
-    ("Database__RunMigrationsAtStartup=true", "local migrations explanation"),
-    ("Durable file upload storage across both app nodes", "deferred durable uploads"),
+    ("Deployment/machines.yml", "machines source file"),
+    ("Deployment/inventory/prod/hosts.yml", "inventory output"),
+    ("Deployment/inventory/prod/bootstrap-hosts.yml", "bootstrap inventory output"),
+    ("render_bootstrap_hosts", "bootstrap inventory rendering"),
+    ("node-main", "required node validation"),
+    ("node-app1", "node-app1 validation"),
+    ("node-app2", "node-app2 validation"),
+    ("install_user", "install user field"),
 ]:
-    if needle not in plan:
-        fail(f"DEPLOYMENT_PLAN.md: missing {why}")
+    if needle not in generate_inventory:
+        fail(f"generate-inventory.py: missing {why}")
+
+status_script = read("Deployment/scripts/status.sh")
+for needle, why in [
+    ("MODE=\"${1:-bootstrap}\"", "default bootstrap mode"),
+    ("usage: $0 [bootstrap|deploy]", "phase-aware usage"),
+    ("Deployment/.deploy.local.env", "local env status"),
+    ("Deployment/machines.yml", "machines file status"),
+    ("bootstrap inventory", "bootstrap inventory status"),
+    ("REPLACE_WITH", "inventory placeholder status"),
+    ("cloudflared_version", "cloudflared pin status"),
+    ("check-vault.sh", "deploy vault validation status"),
+    ("$MODE status ok", "successful status output"),
+]:
+    if needle not in status_script:
+        fail(f"status.sh: missing {why}")
+
+ping_fresh = read("Deployment/scripts/ping-fresh-machines.sh")
+for needle, why in [
+    ("LINUX_MINT_INSTALL_USER", "install user env default"),
+    ("Linux Mint install username:", "interactive install user prompt"),
+    ("bootstrap-hosts.yml", "bootstrap inventory support"),
+    ("--ask-pass", "first SSH password prompt"),
+    ("--ask-become-pass", "first sudo password prompt"),
+]:
+    if needle not in ping_fresh:
+        fail(f"ping-fresh-machines.sh: missing {why}")
+
+create_vault = read("Deployment/scripts/create-vault.sh")
+for needle, why in [
+    ("vault.example.yml", "vault template input"),
+    ("ansible-vault encrypt", "vault encryption"),
+    ("ansible-vault edit", "immediate vault edit"),
+    ("check-vault.sh", "vault validation"),
+    ("vault already exists", "existing vault guard"),
+]:
+    if needle not in create_vault:
+        fail(f"create-vault.sh: missing {why}")
+
+check_vault = read("Deployment/scripts/check-vault.sh")
+for needle, why in [
+    ("ansible-vault view", "vault decrypt validation"),
+    ("REPLACE_WITH", "placeholder rejection"),
+    ("vault_cloudflare_tunnel_token", "Cloudflare token key validation"),
+    ("vault_ghcr_token", "GHCR token key validation"),
+    ("$ANSIBLE_VAULT", "encrypted-file validation"),
+]:
+    if needle not in check_vault:
+        fail(f"check-vault.sh: missing {why}")
+
+discover_machines = read("Deployment/scripts/discover-machines.sh")
+for needle, why in [
+    ("whoami", "username discovery"),
+    ("hostname", "hostname discovery"),
+    ("ip route get 1.1.1.1", "default route discovery"),
+    ("/sys/class/net/$DEFAULT_IFACE/address", "MAC discovery"),
+]:
+    if needle not in discover_machines:
+        fail(f"discover-machines.sh: missing {why}")
+
+gitignore = read(".gitignore")
+for needle, why in [
+    ("/Deployment/.deploy.local.env", "local env ignore"),
+    ("/Deployment/machines.yml", "local machines ignore"),
+]:
+    if needle not in gitignore:
+        fail(f".gitignore: missing {why}")
+
 
 root_readme = read("README.md")
 for needle, why in [
     ("HowToRunLocally.md", "local run guide link"),
     ("HowToDeploy.md", "deployment guide link"),
-    ("Plans/DEPLOYMENT_PLAN.md", "detailed deployment plan link"),
     (".github/workflows/ci.yml", "single CI workflow reference"),
 ]:
     if needle not in root_readme:
@@ -434,6 +557,10 @@ for needle, why in [
 
 local_guide = read("HowToRunLocally.md")
 for needle, why in [
+    (".env.example", "local env example"),
+    (".env", "local env file"),
+    ("pwsh -File ./docker/setup-local.ps1", "local setup helper"),
+    ("python ./docker/local-status.py", "local status helper"),
     ("docker compose up --build", "local Docker launch command"),
     ("pwsh -File ./docker/create-dev-cert.ps1", "dev certificate command"),
     ("https://localhost:7186", "local app URL"),
@@ -443,12 +570,63 @@ for needle, why in [
     if needle not in local_guide:
         fail(f"HowToRunLocally.md: missing {why}")
 
+env_example = read(".env.example")
+for needle, why in [
+    ("POSTGRES_USER=postgres", "PostgreSQL user"),
+    ("Database__Host=postgres", "app DB host"),
+    ("Redis__Configuration=redis:6379", "Redis configuration"),
+    ("Storage__HullImages__RootPath=/app/Storage/HullImages", "local storage root"),
+    ("Authentication__Google__ClientId=", "optional Google client id"),
+    ("SENDGRID_API_KEY=", "optional SendGrid key"),
+    ("ACCEPT_EULA=Y", "Seq EULA"),
+]:
+    if needle not in env_example:
+        fail(f".env.example: missing {why}")
+
+local_status = read("docker/local-status.py")
+for needle, why in [
+    (".env.example", "env example check"),
+    (".env missing", "missing env guidance"),
+    ("docker compose config", "compose validation"),
+    ("HTTPS dev certificate", "certificate validation"),
+    ("REQUIRED_KEYS", "required env key validation"),
+]:
+    if needle not in local_status:
+        fail(f"docker/local-status.py: missing {why}")
+
+setup_local = read("docker/setup-local.ps1")
+for needle, why in [
+    (".env.example", "env example copy"),
+    ("create-dev-cert.ps1", "dev certificate setup"),
+    ("local-status.py", "status check"),
+]:
+    if needle not in setup_local:
+        fail(f"docker/setup-local.ps1: missing {why}")
+
 deploy_guide = read("HowToDeploy.md")
 for needle, why in [
-    ("You should be able to follow this file without reading another deployment document first", "self-contained deployment promise"),
+    ("Follow it from top to bottom for the first deployment.", "self-contained deployment promise"),
+    ("Cloudflare Tunnel is the only public ingress path", "public ingress decision"),
+    ("node-main` is the ingress/control node, not an app backend by default", "node-main role boundary"),
+    ("deployment/control responsibilities", "node-main control responsibilities"),
+    ("third app backend (`app3`)", "optional app3 guidance"),
+    ("Deployment/machines.yml", "machine source file"),
+    ("Deployment/machines.example.yml", "machine source template"),
+    ("bootstrap-hosts.yml", "bootstrap inventory documentation"),
+    ("Deployment/.deploy.local.env", "local deployment env"),
+    ("## First Deployment Checklist", "first deployment checklist"),
+    ("REPLACE_WITH_NODE_MAIN_LAN_IP", "obvious machine placeholder"),
+    ("node-app1", "node-app1 hostname"),
+    ("node-app2", "node-app2 hostname"),
+    ("bash ./Deployment/scripts/generate-inventory.sh", "inventory generation command"),
+    ("bash ./Deployment/scripts/status.sh bootstrap", "bootstrap status command"),
+    ("bash ./Deployment/scripts/status.sh deploy", "deploy status command"),
     ("Deployment/inventory/prod/hosts.yml", "inventory IP source of truth"),
     ("Deployment/inventory/prod/group_vars/all.yml", "shared deployment settings location"),
     ("Deployment/inventory/prod/vault.yml", "vault location"),
+    ("Deployment/compose/db-redis/docker-compose.yml", "DB/Redis compose location"),
+    ("Deployment/compose/app-server/docker-compose.yml", "app compose location"),
+    ("Deployment/ansible/roles/caddy/templates/ship.caddy.j2", "Caddy template location"),
     ("Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml", "fresh-machine playbook location"),
     ("Deployment/ansible/playbooks/site.yml", "site playbook location"),
     ("sudo hostnamectl set-hostname", "hostname setup"),
@@ -456,14 +634,22 @@ for needle, why in [
     ("ip -brief address", "LAN discovery"),
     ("Create DHCP reservations", "DHCP reservation step"),
     ("bash ./Deployment/scripts/install-ansible.sh", "Ansible installer"),
+    ("bash ./Deployment/scripts/ping-fresh-machines.sh", "fresh-node Ansible ping helper"),
     ("ssh-keygen -t ed25519 -f ~/.ssh/ship_deploy", "deploy SSH key creation"),
     ("bash ./Deployment/scripts/preflight.sh bootstrap", "bootstrap preflight"),
     ("bash ./Deployment/scripts/prepare-fresh-linux-machines.sh", "fresh-machine wrapper"),
-    ("ansible-vault create Deployment/inventory/prod/vault.yml", "vault creation"),
+    ("/opt/ship", "deploy root explanation"),
+    ("bash ./Deployment/scripts/create-vault.sh", "vault creation"),
+    ("bash ./Deployment/scripts/check-vault.sh", "vault validation"),
+    ("git add Deployment/inventory/prod/vault.yml", "encrypted vault commit instruction"),
     ("vault_cloudflare_tunnel_token", "Cloudflare tunnel token secret"),
     ("cloudflared_version: 2026.5.0", "pinned cloudflared version"),
+    ("caddy validate --config /etc/caddy/Caddyfile", "Caddy validation"),
     (".github/workflows/ci.yml", "CI build/push workflow"),
     ("ghcr.io/grumlebob/ship:<git-sha>", "immutable GHCR image tag"),
+    ("Production deploys should use the Git SHA tag, not `latest`.", "immutable image guidance"),
+    ("The production deployment order is:", "migration order"),
+    ("## Advanced: Direct Ansible Commands", "advanced raw Ansible section"),
     ("GitHub Actions self-hosted runner", "runner setup"),
     ("ANSIBLE_VAULT_PASSWORD", "runner vault password secret"),
     (".github/workflows/deploy-lan.yml", "LAN deployment workflow"),
@@ -473,6 +659,8 @@ for needle, why in [
     ("curl -fsS https://ship.jacobgrum.com/health/ready", "public health verification"),
     ("backup-db.sh", "backup helper"),
     ("restore-db.sh", "restore helper"),
+    ("## Security Checklist", "security checklist"),
+    ("## Deferred Work", "deferred work section"),
 ]:
     if needle not in deploy_guide:
         fail(f"HowToDeploy.md: missing {why}")

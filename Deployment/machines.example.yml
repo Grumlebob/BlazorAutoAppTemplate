@@ -1,0 +1,27 @@
+# Copy this file to Deployment/machines.yml and replace the example values.
+# Deployment/machines.yml is ignored by git.
+#
+# This is the single place to write machine discovery values.
+# Generate Deployment/inventory/prod/hosts.yml from it with:
+#   python3 Deployment/scripts/generate-inventory.py
+
+nodes:
+  node-main:
+    ip: REPLACE_WITH_NODE_MAIN_LAN_IP
+    mac: REPLACE_WITH_NODE_MAIN_MAC
+    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
+
+  node-app1:
+    ip: REPLACE_WITH_NODE_APP1_LAN_IP
+    mac: REPLACE_WITH_NODE_APP1_MAC
+    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
+
+  node-app2:
+    ip: REPLACE_WITH_NODE_APP2_LAN_IP
+    mac: REPLACE_WITH_NODE_APP2_MAC
+    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
+
+  node-db-redis:
+    ip: REPLACE_WITH_NODE_DB_REDIS_LAN_IP
+    mac: REPLACE_WITH_NODE_DB_REDIS_MAC
+    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER

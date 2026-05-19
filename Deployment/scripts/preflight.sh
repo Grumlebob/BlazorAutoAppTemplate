@@ -4,8 +4,17 @@ set -euo pipefail
 MODE="${1:-deploy}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
 INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
 VAULT="$REPO_ROOT/Deployment/inventory/prod/vault.yml"
+
+if [[ -f "$LOCAL_ENV" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$LOCAL_ENV"
+  set +a
+fi
+
 SSH_KEY="${SHIP_DEPLOY_KEY:-$HOME/.ssh/ship_deploy}"
 SSH_PUB="${SHIP_DEPLOY_KEY_PUB:-$SSH_KEY.pub}"
 
@@ -34,6 +43,7 @@ ansible-inventory -i "$INVENTORY" --list >/dev/null
 if [[ "$MODE" == "deploy" ]]; then
   command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/install-ansible.sh."
   [[ -f "$VAULT" ]] || fail "missing encrypted vault: $VAULT"
+  bash "$SCRIPT_DIR/check-vault.sh"
 fi
 
 echo "preflight ok ($MODE)"

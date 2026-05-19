@@ -7,7 +7,6 @@ Ship is a Blazor Web App using Interactive Auto render mode, EF Core with Postgr
 - `HowToRunLocally.md` explains local Docker and developer setup.
 - `HowToDeploy.md` explains the practical deployment steps and where to enter machine-specific values.
 - `overview.md` is the deeper architecture walkthrough.
-- `Plans/DEPLOYMENT_PLAN.md` is the detailed production deployment design.
 
 ## Tech Stack
 
@@ -47,6 +46,8 @@ Identity endpoints:
 `.github/workflows/ci.yml` runs the deployment audit, restore, build, tests, EF migration bundle build, Docker image build, and GHCR push for non-PR runs.
 
 `.github/workflows/auto-merge-dependabot.yml` only merges Dependabot PRs after `CI` succeeds.
+
+Production uses four Linux Mint nodes by default: `node-main` for Cloudflare Tunnel, Caddy, the self-hosted runner, and deployment/control responsibilities; `node-app1` and `node-app2` for app containers; and `node-db-redis` for PostgreSQL and Redis. `node-main` can optionally become a third app server later, but that is not the recommended first-deployment layout.
 
 ## Testing
 

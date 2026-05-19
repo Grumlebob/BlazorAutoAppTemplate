@@ -13,42 +13,21 @@ if [[ -f "$LOCAL_ENV" ]]; then
   set +a
 fi
 
-if [[ $# -gt 2 ]]; then
-  echo "usage: $0 [linux-mint-install-user] [path-to-ship_deploy.pub]" >&2
-  echo "or set LINUX_MINT_INSTALL_USER and SHIP_DEPLOY_KEY_PUB in Deployment/.deploy.local.env" >&2
-  exit 1
-fi
-
 INSTALL_USER="${1:-${LINUX_MINT_INSTALL_USER:-}}"
-PUBLIC_KEY="${2:-${SHIP_DEPLOY_KEY_PUB:-}}"
 
 bash "$SCRIPT_DIR/preflight.sh" bootstrap
 cd "$REPO_ROOT/Deployment/ansible"
 
-ARGS=(--ask-pass --ask-become-pass)
 if [[ -n "$INSTALL_USER" ]]; then
-  ARGS+=(-u "$INSTALL_USER")
+  ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping
 elif [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
-  ARGS+=(-i ../inventory/prod/bootstrap-hosts.yml)
+  ansible all -i ../inventory/prod/bootstrap-hosts.yml --ask-pass --ask-become-pass -m ping
 elif [[ -t 0 ]]; then
   read -r -p "Linux Mint install username: " INSTALL_USER
-  ARGS+=(-u "$INSTALL_USER")
+  ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping
 else
-  echo "usage: $0 [linux-mint-install-user] [path-to-ship_deploy.pub]" >&2
+  echo "usage: $0 [linux-mint-install-user]" >&2
   echo "or run Deployment/scripts/generate-inventory.sh to create bootstrap-hosts.yml" >&2
   echo "or set LINUX_MINT_INSTALL_USER in Deployment/.deploy.local.env" >&2
   exit 1
 fi
-if [[ -n "$PUBLIC_KEY" ]]; then
-  [[ -f "$PUBLIC_KEY" ]] || {
-    echo "public key not found: $PUBLIC_KEY" >&2
-    exit 1
-  }
-  ARGS+=(-e "deploy_public_key_file=$PUBLIC_KEY")
-fi
-
-ansible-playbook playbooks/PrepareFreshLinuxMachine.yml "${ARGS[@]}"
-
-ansible all -m ping
-ansible all -a "docker version"
-ansible all -a "docker compose version"

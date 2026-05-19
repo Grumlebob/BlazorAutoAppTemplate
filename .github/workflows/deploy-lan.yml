@@ -60,6 +60,8 @@ jobs:
           printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/ship_ansible_vault_password
 
       - name: Deployment preflight
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: /tmp/ship_ansible_vault_password
         run: bash Deployment/scripts/preflight.sh deploy
 
       - name: Deploy with migrations
