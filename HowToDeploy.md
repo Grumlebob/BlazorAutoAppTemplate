@@ -38,7 +38,7 @@ Use this checklist while following the guide:
 [ ] bash ./Deployment/scripts/check-vault.sh passes
 [ ] Cloudflare Tunnel token added to vault.yml
 [ ] bash ./Deployment/scripts/status.sh deploy passes
-[ ] CI has pushed ghcr.io/grumlebob/ship:<git-sha>
+[ ] CI has pushed the GitHub-selected ref image to GHCR
 [ ] First deployment run
 [ ] Public health check passes
 ```
@@ -151,7 +151,7 @@ Common placeholders:
 - `<node-name>`: one of `node-main`, `node-app1`, `node-app2`, or `node-db`.
 - `<linux-mint-install-user>`: the username you created while installing Linux Mint on the node.
 - `<node-main-lan-ip>`: the reserved LAN IP for `node-main` from `Deployment/inventory/prod/hosts.yml`.
-- `<git-sha>`: the commit SHA that passed CI and was pushed as a GHCR image tag.
+- `<git-sha>`: the commit SHA used only for advanced manual deploy or rollback commands.
 
 To find the Linux Mint install username on a node, open a terminal on that node and run:
 
@@ -174,7 +174,7 @@ pwd
 
 ## 0. Create Local Setup Files
 
-From the repository root on the control machine:
+From the repository root on the control machine (in this case node-main):
 
 ```bash
 cp Deployment/machines.example.yml Deployment/machines.yml
@@ -602,7 +602,7 @@ Ansible renders `/opt/ship/.env` on each app node with:
 
 ```env
 APP_IMAGE=ghcr.io/grumlebob/ship
-APP_VERSION=<git-sha>
+APP_VERSION=<selected commit SHA>
 POSTGRES_HOST=<node-db IP from inventory>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
@@ -640,10 +640,10 @@ CI does the production build work:
 4. dotnet test.
 5. Build EF migration bundle.
 6. Build Docker image.
-7. Push ghcr.io/grumlebob/ship:<git-sha> on non-PR runs.
+7. Push `ghcr.io/grumlebob/ship:${{ github.sha }}` on non-PR runs.
 ```
 
-Wait for CI to succeed. The commit SHA is the deployment image tag.
+Wait for CI to succeed before deploying. The deployment workflow uses the selected GitHub ref's commit SHA automatically; you do not copy it by hand.
 
 Production deploys should use the Git SHA tag, not `latest`.
 
@@ -676,72 +676,7 @@ chmod +x ./migrations/ship-migrate
 ./migrations/ship-migrate --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 ```
 
-## 12. First Manual Deploy
-
-The first deploy can be run manually from the control machine.
-
-Without migrations:
-
-```bash
-bash ./Deployment/scripts/deploy.sh <git-sha>
-```
-
-With a local migration bundle:
-
-```bash
-bash ./Deployment/scripts/deploy.sh <git-sha> --migrate <path-to-ship-migrate>
-```
-
-For the normal first real deployment, use migrations. The deployment stops app containers, backs up the database, runs the migration bundle once on `node-db`, then starts the app servers.
-
-If you do not already have the migration bundle locally, use the GitHub Actions deployment flow in the next step. It builds the bundle on the runner.
-
-## Advanced: Direct Ansible Commands
-
-Use this section only when you intentionally need to bypass the wrapper scripts.
-
-Run the full playbook directly:
-
-```bash
-cd <repo-root>/Deployment/ansible
-bash ../scripts/preflight.sh deploy
-ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-  --ask-vault-pass \
-  -e app_version=<git-sha>
-```
-
-With migrations:
-
-```bash
-cd <repo-root>/Deployment/ansible
-bash ../scripts/preflight.sh deploy
-ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-  --ask-vault-pass \
-  -e app_version=<git-sha> \
-  -e run_migrations=true \
-  -e migration_bundle_local_path=<local-path-to-ship-migrate>
-```
-
-Run only app servers:
-
-```bash
-cd <repo-root>/Deployment/ansible
-ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-  --ask-vault-pass \
-  --limit app_servers \
-  -e app_version=<git-sha>
-```
-
-Run only Caddy/cloudflared:
-
-```bash
-cd <repo-root>/Deployment/ansible
-ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-  --ask-vault-pass \
-  --limit load_balancer
-```
-
-## 13. Install The GitHub Actions Runner
+## 12. Install The GitHub Actions Runner
 
 Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded.
 
@@ -800,7 +735,7 @@ Add this GitHub repository secret:
 ANSIBLE_VAULT_PASSWORD=<password used for Deployment/inventory/prod/vault.yml>
 ```
 
-## 14. Deploy From GitHub Actions
+## 13. First Deploy From GitHub Actions
 
 Use this workflow:
 
@@ -817,19 +752,18 @@ Actions -> Deploy Ship To LAN -> Run workflow
 Inputs:
 
 ```text
-image_tag: <git-sha>
 run_migrations: true
 ```
 
-Use the same commit SHA that already passed CI and pushed `ghcr.io/grumlebob/ship:<git-sha>`.
+GitHub shows a branch/tag selector in the Run workflow dialog. Leave it on `main` for the normal path. The workflow uses that selected ref's commit SHA automatically, checks that `ghcr.io/grumlebob/ship:<selected-commit-sha>` exists, builds the migration bundle from the same checkout, and deploys that image.
 
-The workflow checks out that commit, builds the migration bundle, installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/ansible/playbooks/site.yml`, and verifies:
+The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/ansible/playbooks/site.yml`, and verifies:
 
 ```text
 https://ship.jacobgrum.com/health/ready
 ```
 
-## 15. Verify The Deployment
+## 14. Verify The Deployment
 
 From the control machine:
 
@@ -863,6 +797,34 @@ ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "systemctl statu
 ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "systemctl status cloudflared --no-pager"
 ```
 
+## Advanced: Manual Deploy Commands
+
+Use this section only when you intentionally need to bypass GitHub Actions.
+
+Wrapper script without migrations:
+
+```bash
+bash ./Deployment/scripts/deploy.sh <git-sha>
+```
+
+Wrapper script with a local migration bundle:
+
+```bash
+bash ./Deployment/scripts/deploy.sh <git-sha> --migrate <path-to-ship-migrate>
+```
+
+Raw Ansible with migrations:
+
+```bash
+cd <repo-root>/Deployment/ansible
+bash ../scripts/preflight.sh deploy
+ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
+  --ask-vault-pass \
+  -e app_version=<git-sha> \
+  -e run_migrations=true \
+  -e migration_bundle_local_path=<local-path-to-ship-migrate>
+```
+
 ## Routine Deployments
 
 For normal future deployments:
@@ -870,11 +832,10 @@ For normal future deployments:
 ```text
 1. Push code.
 2. Wait for CI to pass.
-3. Copy the commit SHA.
-4. Run "Deploy Ship To LAN" in GitHub Actions.
-5. Use image_tag=<commit-sha>.
-6. Use run_migrations=true when the commit includes EF migrations.
-7. Confirm /health/ready.
+3. Run "Deploy Ship To LAN" in GitHub Actions.
+4. Leave the workflow ref selector on main unless you intentionally deploy another branch or tag.
+5. Use run_migrations=true when the commit includes EF migrations.
+6. Confirm /health/ready.
 ```
 
 ## Backup And Restore

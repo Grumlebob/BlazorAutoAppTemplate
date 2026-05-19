@@ -361,16 +361,21 @@ if "pull_request:" in auto_merge:
 deploy_lan = read(".github/workflows/deploy-lan.yml")
 for needle, why in [
     ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
-    ("ref: ${{ inputs.image_tag }}", "checkout same commit as image"),
+    ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic deployment version from selected ref"),
+    ("docker/login-action@v3", "GHCR login before image verification"),
+    ("docker manifest inspect \"ghcr.io/grumlebob/ship:${APP_VERSION}\"", "selected-ref image existence check"),
     ("dotnet restore", "restore before migration bundle"),
     ("bash Deployment/scripts/install-ansible.sh", "pinned Ansible installer"),
     ("ANSIBLE_VAULT_PASSWORD_FILE: /tmp/ship_ansible_vault_password", "vault password file for preflight"),
     ("bash Deployment/scripts/preflight.sh deploy", "deploy preflight"),
+    ("-e app_version=${APP_VERSION}", "deployment uses selected-ref image tag"),
     ("${{ github.workspace }}/artifacts/migrations/ship-migrate", "absolute migration bundle path"),
     ("https://ship.jacobgrum.com/health/ready", "public readiness verification"),
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/deploy-lan.yml: missing {why}")
+if "image_tag" in deploy_lan:
+    fail(".github/workflows/deploy-lan.yml: manual image_tag input should not be required")
 
 
 prepare = read("Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml")
@@ -654,16 +659,17 @@ for needle, why in [
     ("cloudflared_version: 2026.5.0", "pinned cloudflared version"),
     ("caddy validate --config /etc/caddy/Caddyfile", "Caddy validation"),
     (".github/workflows/ci.yml", "CI build/push workflow"),
-    ("ghcr.io/grumlebob/ship:<git-sha>", "immutable GHCR image tag"),
+    ('ghcr.io/grumlebob/ship:${{ github.sha }}', "automatic immutable GHCR image tag"),
     ("Production deploys should use the Git SHA tag, not `latest`.", "immutable image guidance"),
     ("The production deployment order is:", "migration order"),
-    ("## Advanced: Direct Ansible Commands", "advanced raw Ansible section"),
+    ("The deployment workflow uses the selected GitHub ref's commit SHA automatically", "automatic deploy SHA guidance"),
+    ("## Advanced: Manual Deploy Commands", "advanced manual deploy section"),
     ("GitHub Actions self-hosted runner", "runner setup"),
     ("ANSIBLE_VAULT_PASSWORD", "runner vault password secret"),
     (".github/workflows/deploy-lan.yml", "LAN deployment workflow"),
     ("run_migrations: true", "deployment migration input"),
     ("ship.jacobgrum.com", "Cloudflare hostname"),
-    ("bash ./Deployment/scripts/deploy.sh <git-sha>", "first deploy command"),
+    ("bash ./Deployment/scripts/deploy.sh <git-sha>", "advanced manual deploy command"),
     ("curl -fsS https://ship.jacobgrum.com/health/ready", "public health verification"),
     ("backup-db.sh", "backup helper"),
     ("restore-db.sh", "restore helper"),
