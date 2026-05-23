@@ -5,7 +5,7 @@ Ship is a Blazor Web App using Interactive Auto render mode, EF Core with Postgr
 ## Start Here
 
 - `HowToRunLocally.md` explains local Docker and developer setup.
-- `HowToDeploy.md` explains the practical deployment steps and where to enter machine-specific values.
+- `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the practical deployment steps and where to enter machine-specific values.
 - `overview.md` is the deeper architecture walkthrough.
 
 ## Tech Stack
@@ -23,7 +23,7 @@ Ship is a Blazor Web App using Interactive Auto render mode, EF Core with Postgr
 - `BlazorAutoApp` is the server host, EF Core owner, Minimal API owner, and SSR/prerender runtime.
 - `BlazorAutoApp.Client` is the WASM client loaded after hydration.
 - `BlazorAutoApp.Test` contains xUnit tests and architecture checks.
-- `Deployment` contains Ansible, compose files, deployment scripts, and production inventory.
+- `Deployment/LocalCluster` contains Ansible, compose files, deployment scripts, and production inventory for the local Linux Mint cluster.
 - `.github/workflows/ci.yml` is the single CI workflow.
 - `.github/workflows/deploy-lan.yml` deploys a selected image tag through the self-hosted LAN runner.
 - `docker-compose.yml` runs the local app stack.

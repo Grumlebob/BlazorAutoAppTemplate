@@ -156,12 +156,12 @@ def render_bootstrap_hosts(nodes: dict[str, dict[str, str]]) -> str:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description="Generate Ansible production inventory from Deployment/machines.yml.")
-    parser.add_argument("--machines", default=str(root / "Deployment/machines.yml"))
-    parser.add_argument("--output", default=str(root / "Deployment/inventory/prod/hosts.yml"))
-    parser.add_argument("--bootstrap-output", default=str(root / "Deployment/inventory/prod/bootstrap-hosts.yml"))
-    parser.add_argument("--settings", default=str(root / "Deployment/inventory/prod/group_vars/all.yml"))
+    root = Path(__file__).resolve().parents[3]
+    parser = argparse.ArgumentParser(description="Generate Ansible production inventory from Deployment/LocalCluster/machines.yml.")
+    parser.add_argument("--machines", default=str(root / "Deployment/LocalCluster/machines.yml"))
+    parser.add_argument("--output", default=str(root / "Deployment/LocalCluster/inventory/prod/hosts.yml"))
+    parser.add_argument("--bootstrap-output", default=str(root / "Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml"))
+    parser.add_argument("--settings", default=str(root / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"))
     args = parser.parse_args()
 
     machines_path = Path(args.machines)
@@ -180,7 +180,7 @@ def main() -> int:
 
     if not machines_path.exists():
         print(f"missing {machines_path}", file=sys.stderr)
-        print("copy Deployment/machines.example.yml to Deployment/machines.yml and fill real values", file=sys.stderr)
+        print("copy Deployment/LocalCluster/machines.example.yml to Deployment/LocalCluster/machines.yml and fill real values", file=sys.stderr)
         return 1
 
     try:

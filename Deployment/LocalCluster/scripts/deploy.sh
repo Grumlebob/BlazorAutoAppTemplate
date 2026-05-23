@@ -24,9 +24,9 @@ if [[ $# -gt 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 bash "$SCRIPT_DIR/preflight.sh" deploy
-cd "$REPO_ROOT/Deployment/ansible"
+cd "$REPO_ROOT/Deployment/LocalCluster/ansible"
 
 ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml --ask-vault-pass "${EXTRA_ARGS[@]}"

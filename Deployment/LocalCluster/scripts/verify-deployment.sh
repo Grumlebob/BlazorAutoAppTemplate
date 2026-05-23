@@ -2,15 +2,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
 
 PUBLIC_HOSTNAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" public_hostname)"
 APP_PORT="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_port)"
 DEPLOY_ROOT="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" deploy_root)"
 
 [[ -f "$INVENTORY" ]] || {
-  echo "deployment verification failed: missing inventory: Deployment/inventory/prod/hosts.yml" >&2
+  echo "deployment verification failed: missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml" >&2
   exit 1
 }
 

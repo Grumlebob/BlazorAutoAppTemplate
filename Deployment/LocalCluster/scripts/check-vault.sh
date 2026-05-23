@@ -2,16 +2,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VAULT="$REPO_ROOT/Deployment/inventory/prod/vault.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+VAULT="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/vault.yml"
 
 fail() {
   echo "FAIL  $*" >&2
   exit 1
 }
 
-command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/scripts/setup-control-machine.sh."
-[[ -f "$VAULT" ]] || fail "missing encrypted vault: Deployment/inventory/prod/vault.yml"
+command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh."
+[[ -f "$VAULT" ]] || fail "missing encrypted vault: Deployment/LocalCluster/inventory/prod/vault.yml"
 
 head -n 1 "$VAULT" | grep -q '^\$ANSIBLE_VAULT;' || fail "vault.yml is not encrypted with ansible-vault"
 

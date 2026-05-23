@@ -2,12 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-EXAMPLE="$REPO_ROOT/Deployment/inventory/prod/vault.example.yml"
-VAULT="$REPO_ROOT/Deployment/inventory/prod/vault.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+EXAMPLE="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/vault.example.yml"
+VAULT="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/vault.yml"
 
 command -v ansible-vault >/dev/null 2>&1 || {
-  echo "ansible-vault is missing. Run Deployment/scripts/setup-control-machine.sh first." >&2
+  echo "ansible-vault is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh first." >&2
   exit 1
 }
 
@@ -44,11 +44,11 @@ printf '%s' "$VAULT_PASSWORD" > "$PASS_FILE"
 export ANSIBLE_VAULT_PASSWORD_FILE="$PASS_FILE"
 
 if [[ -f "$VAULT" ]]; then
-  echo "vault already exists: Deployment/inventory/prod/vault.yml"
+  echo "vault already exists: Deployment/LocalCluster/inventory/prod/vault.yml"
 else
   cp "$EXAMPLE" "$TMP_VAULT_CONTENT"
   ansible-vault encrypt --output "$VAULT" "$TMP_VAULT_CONTENT"
-  echo "created encrypted vault: Deployment/inventory/prod/vault.yml"
+  echo "created encrypted vault: Deployment/LocalCluster/inventory/prod/vault.yml"
 fi
 
 echo "opening vault now; replace every REPLACE_WITH value before saving"
@@ -62,5 +62,5 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   echo "GitHub repository secret set: ANSIBLE_VAULT_PASSWORD"
 else
   echo "WARN  gh is missing or not authenticated; set this GitHub secret manually:"
-  echo "      ANSIBLE_VAULT_PASSWORD=<password used for Deployment/inventory/prod/vault.yml>"
+  echo "      ANSIBLE_VAULT_PASSWORD=<password used for Deployment/LocalCluster/inventory/prod/vault.yml>"
 fi

@@ -22,12 +22,12 @@ def read_simple_yaml_value(path: Path, key: str) -> str:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description="Print one deployment setting from group_vars/all.yml.")
     parser.add_argument("key")
     parser.add_argument(
         "--settings",
-        default=str(root / "Deployment/inventory/prod/group_vars/all.yml"),
+        default=str(root / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"),
         help="Path to the simple Ansible group vars file.",
     )
     args = parser.parse_args()

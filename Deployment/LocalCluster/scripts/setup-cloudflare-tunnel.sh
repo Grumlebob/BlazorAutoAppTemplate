@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 python3 - "$REPO_ROOT" <<'PY'
 from __future__ import annotations
@@ -174,7 +174,7 @@ def main() -> int:
     account_id = required_env("CLOUDFLARE_ACCOUNT_ID")
     zone_id = required_env("CLOUDFLARE_ZONE_ID")
 
-    settings = ROOT / "Deployment/inventory/prod/group_vars/all.yml"
+    settings = ROOT / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
     tunnel_name = os.environ.get("CLOUDFLARE_TUNNEL_NAME", "").strip() or read_simple_yaml_value(
         settings, "cloudflare_tunnel_name"
     )
@@ -194,7 +194,7 @@ def main() -> int:
     print(f"Cloudflare tunnel ready: {tunnel_name}")
     print(f"Public hostname ready: {public_hostname}")
     print()
-    print("Paste this into Deployment/inventory/prod/vault.yml:")
+    print("Paste this into Deployment/LocalCluster/inventory/prod/vault.yml:")
     print(f'vault_cloudflare_tunnel_token: "{tunnel_token}"')
     return 0
 

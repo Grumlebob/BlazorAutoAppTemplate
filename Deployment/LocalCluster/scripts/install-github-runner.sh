@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
 
 fail() {
   echo "runner setup failed: $*" >&2
@@ -14,7 +14,7 @@ command -v gh >/dev/null 2>&1 || fail "gh is missing. Install GitHub CLI and run
 command -v ssh >/dev/null 2>&1 || fail "ssh is missing."
 command -v python3 >/dev/null 2>&1 || fail "python3 is missing."
 gh auth status >/dev/null 2>&1 || fail "gh is not authenticated. Run gh auth login."
-[[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/inventory/prod/hosts.yml"
+[[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
 
 APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"

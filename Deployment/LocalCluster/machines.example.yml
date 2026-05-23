@@ -1,9 +1,9 @@
-# Copy this file to Deployment/machines.yml and replace the example values.
-# Deployment/machines.yml is ignored by git.
+# Copy this file to Deployment/LocalCluster/machines.yml and replace the example values.
+# Deployment/LocalCluster/machines.yml is ignored by git.
 #
 # This is the single place to write machine discovery values.
-# Generate Deployment/inventory/prod/hosts.yml from it with:
-#   python3 Deployment/scripts/generate-inventory.py
+# Generate Deployment/LocalCluster/inventory/prod/hosts.yml from it with:
+#   python3 Deployment/LocalCluster/scripts/generate-inventory.py
 
 nodes:
   node-main:

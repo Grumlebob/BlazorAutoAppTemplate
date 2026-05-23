@@ -3,12 +3,12 @@ set -euo pipefail
 
 MODE="${1:-bootstrap}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MACHINES="$REPO_ROOT/Deployment/machines.yml"
-INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
-BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/inventory/prod/bootstrap-hosts.yml"
-VAULT="$REPO_ROOT/Deployment/inventory/prod/vault.yml"
-ALL_VARS="$REPO_ROOT/Deployment/inventory/prod/group_vars/all.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+MACHINES="$REPO_ROOT/Deployment/LocalCluster/machines.yml"
+INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
+BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml"
+VAULT="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/vault.yml"
+ALL_VARS="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
 
 if [[ "$MODE" != "bootstrap" && "$MODE" != "deploy" ]]; then
   echo "usage: $0 [bootstrap|deploy]" >&2
@@ -62,20 +62,20 @@ else
 fi
 
 if [[ -f "$MACHINES" ]]; then
-  ok "Deployment/machines.yml exists"
+  ok "Deployment/LocalCluster/machines.yml exists"
   if has_placeholder "$MACHINES"; then
-    fail "Deployment/machines.yml still contains REPLACE_WITH placeholders"
+    fail "Deployment/LocalCluster/machines.yml still contains REPLACE_WITH placeholders"
   else
-    ok "Deployment/machines.yml has no REPLACE_WITH placeholders"
+    ok "Deployment/LocalCluster/machines.yml has no REPLACE_WITH placeholders"
   fi
 else
-  warn "Deployment/machines.yml missing; copy Deployment/machines.example.yml if you want one machine source file"
+  warn "Deployment/LocalCluster/machines.yml missing; copy Deployment/LocalCluster/machines.example.yml if you want one machine source file"
 fi
 
 [[ -f "$SSH_KEY" ]] && ok "SSH private key exists: $SSH_KEY" || fail "missing SSH private key: $SSH_KEY"
 [[ -f "$SSH_PUB" ]] && ok "SSH public key exists: $SSH_PUB" || fail "missing SSH public key: $SSH_PUB"
-[[ -f "$INVENTORY" ]] && ok "inventory exists" || fail "missing inventory: Deployment/inventory/prod/hosts.yml"
-[[ -f "$BOOTSTRAP_INVENTORY" ]] && ok "bootstrap inventory exists" || warn "bootstrap inventory missing; run Deployment/scripts/generate-inventory.sh after filling Deployment/machines.yml"
+[[ -f "$INVENTORY" ]] && ok "inventory exists" || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
+[[ -f "$BOOTSTRAP_INVENTORY" ]] && ok "bootstrap inventory exists" || warn "bootstrap inventory missing; run Deployment/LocalCluster/scripts/generate-inventory.sh after filling Deployment/LocalCluster/machines.yml"
 
 if [[ -f "$INVENTORY" ]]; then
   if has_placeholder "$INVENTORY"; then
@@ -116,7 +116,7 @@ if [[ -f "$ALL_VARS" ]]; then
     fail "cloudflared_version missing or not pinned"
   fi
 else
-  fail "missing Deployment/inventory/prod/group_vars/all.yml"
+  fail "missing Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
 fi
 
 if [[ "$MODE" == "deploy" ]]; then
@@ -130,7 +130,7 @@ if [[ "$MODE" == "deploy" ]]; then
       fi
     fi
   else
-    fail "vault missing; run Deployment/scripts/setup-secrets.sh"
+    fail "vault missing; run Deployment/LocalCluster/scripts/setup-secrets.sh"
   fi
 else
   [[ -f "$VAULT" ]] && ok "encrypted vault exists" || warn "vault missing; create it before deploy phase"

@@ -2,13 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/inventory/prod/bootstrap-hosts.yml"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml"
 
 INSTALL_USER="${1:-}"
 
 bash "$SCRIPT_DIR/preflight.sh" bootstrap
-cd "$REPO_ROOT/Deployment/ansible"
+cd "$REPO_ROOT/Deployment/LocalCluster/ansible"
 
 export ANSIBLE_HOST_KEY_CHECKING=False
 
@@ -21,6 +21,6 @@ elif [[ -t 0 ]]; then
   ansible all -i ../inventory/prod/hosts.yml -u "$INSTALL_USER" --ask-pass --ask-become-pass -m ping
 else
   echo "usage: $0 [linux-mint-install-user]" >&2
-  echo "or run Deployment/scripts/generate-inventory.sh to create bootstrap-hosts.yml" >&2
+  echo "or run Deployment/LocalCluster/scripts/generate-inventory.sh to create bootstrap-hosts.yml" >&2
   exit 1
 fi

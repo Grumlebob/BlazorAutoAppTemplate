@@ -14,8 +14,8 @@
 /secrets.env
 /.env
 !/.env.example
-/Deployment/machines.yml
-/Deployment/inventory/prod/bootstrap-hosts.yml
+/Deployment/LocalCluster/machines.yml
+/Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

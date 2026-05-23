@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 failures: list[str] = []
 
 
@@ -70,54 +70,55 @@ def deployment_text_files() -> list[Path]:
 
 
 required_files = [
-    "HowToDeploy.md",
+    "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-lan.yml",
     ".config/dotnet-tools.json",
     ".gitignore",
-    "Deployment/machines.example.yml",
-    "Deployment/inventory/prod/hosts.yml",
-    "Deployment/inventory/prod/group_vars/all.yml",
-    "Deployment/inventory/prod/group_vars/load_balancer.yml",
-    "Deployment/inventory/prod/group_vars/node_db.yml",
-    "Deployment/inventory/prod/vault.example.yml",
-    "Deployment/ansible/ansible.cfg",
-    "Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml",
-    "Deployment/ansible/playbooks/site.yml",
-    "Deployment/ansible/roles/app/tasks/main.yml",
-    "Deployment/ansible/roles/app/templates/app.env.j2",
-    "Deployment/ansible/roles/caddy/tasks/main.yml",
-    "Deployment/ansible/roles/caddy/templates/app.caddy.j2",
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
-    "Deployment/ansible/roles/docker/tasks/main.yml",
-    "Deployment/ansible/roles/firewall/tasks/main.yml",
-    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2",
-    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.service.j2",
-    "Deployment/ansible/roles/mint_base/tasks/main.yml",
-    "Deployment/ansible/roles/postgres/tasks/main.yml",
-    "Deployment/ansible/roles/postgres/templates/node-db.env.j2",
-    "Deployment/ansible/roles/redis/tasks/main.yml",
-    "Deployment/ansible/roles/ssh_hardening/tasks/main.yml",
-    "Deployment/compose/app-server/docker-compose.yml",
-    "Deployment/compose/node-db/docker-compose.yml",
-    "Deployment/scripts/backup-db.sh",
-    "Deployment/scripts/bootstrap-node.sh",
-    "Deployment/scripts/check-vault.sh",
-    "Deployment/scripts/deploy.sh",
-    "Deployment/scripts/generate-inventory.py",
-    "Deployment/scripts/generate-inventory.sh",
-    "Deployment/scripts/install-ansible.sh",
-    "Deployment/scripts/install-github-runner.sh",
-    "Deployment/scripts/preflight.sh",
-    "Deployment/scripts/prepare-fresh-linux-machines.sh",
-    "Deployment/scripts/setup-cloudflare-tunnel.sh",
-    "Deployment/scripts/setup-control-machine.sh",
-    "Deployment/scripts/setup-secrets.sh",
-    "Deployment/scripts/restore-db.sh",
-    "Deployment/scripts/read-deploy-setting.py",
-    "Deployment/scripts/status.sh",
-    "Deployment/scripts/verify-bootstrap.sh",
-    "Deployment/scripts/verify-deployment.sh",
+    "Deployment/LocalCluster/machines.example.yml",
+    "Deployment/LocalCluster/inventory/prod/hosts.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/all.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/load_balancer.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/node_db.yml",
+    "Deployment/LocalCluster/inventory/prod/vault.example.yml",
+    "Deployment/LocalCluster/ansible/ansible.cfg",
+    "Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml",
+    "Deployment/LocalCluster/ansible/playbooks/site.yml",
+    "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2",
+    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/docker/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/firewall/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2",
+    "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.service.j2",
+    "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/postgres/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2",
+    "Deployment/LocalCluster/ansible/roles/redis/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/ssh_hardening/tasks/main.yml",
+    "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
+    "Deployment/LocalCluster/compose/node-db/docker-compose.yml",
+    "Deployment/LocalCluster/scripts/backup-db.sh",
+    "Deployment/LocalCluster/scripts/bootstrap-node.sh",
+    "Deployment/LocalCluster/scripts/check-vault.sh",
+    "Deployment/LocalCluster/scripts/deploy.sh",
+    "Deployment/LocalCluster/scripts/discover-machines.sh",
+    "Deployment/LocalCluster/scripts/generate-inventory.py",
+    "Deployment/LocalCluster/scripts/generate-inventory.sh",
+    "Deployment/LocalCluster/scripts/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/install-github-runner.sh",
+    "Deployment/LocalCluster/scripts/preflight.sh",
+    "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
+    "Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh",
+    "Deployment/LocalCluster/scripts/setup-control-machine.sh",
+    "Deployment/LocalCluster/scripts/setup-secrets.sh",
+    "Deployment/LocalCluster/scripts/restore-db.sh",
+    "Deployment/LocalCluster/scripts/read-deploy-setting.py",
+    "Deployment/LocalCluster/scripts/status.sh",
+    "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
+    "Deployment/LocalCluster/scripts/verify-deployment.sh",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
 ]
@@ -126,55 +127,73 @@ for file in required_files:
 
 
 removed_files = [
-    "Deployment/.deploy.local.env.example",
-    "Deployment/scripts/discover-node.sh",
-    "Deployment/scripts/health-check.sh",
-    "Deployment/caddy/sites/app.caddy",
-    "Deployment/compose/load-balancer/docker-compose.yml",
-    "Deployment/inventory/prod/group_vars/app_servers.yml",
-    "Deployment/inventory/prod/host_vars/node-app1.yml",
-    "Deployment/inventory/prod/host_vars/node-app2.yml",
-    "Deployment/inventory/prod/host_vars/node-db.yml",
-    "Deployment/inventory/prod/host_vars/node-main.yml",
-    "Deployment/ansible/playbooks/app-server.yml",
-    "Deployment/ansible/playbooks/load-balancer.yml",
-    "Deployment/ansible/playbooks/migrate.yml",
-    "Deployment/ansible/playbooks/node-db.yml",
+    "HowToDeploy.md",
+    "DeploymentRefactor.md",
+    "Deployment/LocalCluster/.deploy.local.env.example",
+    "Deployment/LocalCluster/scripts/discover-node.sh",
+    "Deployment/LocalCluster/scripts/health-check.sh",
+    "Deployment/LocalCluster/caddy/sites/app.caddy",
+    "Deployment/LocalCluster/compose/load-balancer/docker-compose.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/app_servers.yml",
+    "Deployment/LocalCluster/inventory/prod/host_vars/node-app1.yml",
+    "Deployment/LocalCluster/inventory/prod/host_vars/node-app2.yml",
+    "Deployment/LocalCluster/inventory/prod/host_vars/node-db.yml",
+    "Deployment/LocalCluster/inventory/prod/host_vars/node-main.yml",
+    "Deployment/LocalCluster/ansible/playbooks/app-server.yml",
+    "Deployment/LocalCluster/ansible/playbooks/load-balancer.yml",
+    "Deployment/LocalCluster/ansible/playbooks/migrate.yml",
+    "Deployment/LocalCluster/ansible/playbooks/node-db.yml",
 ]
 for file in removed_files:
     if exists(file):
         fail(f"stale deployment file should be removed: {file}")
 
+old_layout_paths = [
+    "Deployment/ansible",
+    "Deployment/caddy",
+    "Deployment/compose",
+    "Deployment/inventory",
+    "Deployment/scripts",
+    "Deployment/machines.example.yml",
+    "Deployment/machines.yml",
+]
+for path in old_layout_paths:
+    if exists(path):
+        fail(f"old deployment layout path should not exist: {path}")
 
-guide = read("HowToDeploy.md")
+
+guide = read("Deployment/LocalCluster/HowToDeployLocalCluster.md")
 if guide.count("```") % 2 != 0:
-    fail("HowToDeploy.md: unbalanced markdown code fences")
+    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: unbalanced markdown code fences")
 
 for forbidden in [
     ".deploy.local",
     "discover-node",
     "health-check",
-    "Deployment/compose/load-balancer",
-    "Deployment/caddy/sites/app.caddy",
-    "Deployment/inventory/prod/host_vars",
+    "Deployment/LocalCluster/compose/load-balancer",
+    "Deployment/LocalCluster/caddy/sites/app.caddy",
+    "Deployment/LocalCluster/inventory/prod/host_vars",
 ]:
     if forbidden in guide:
-        fail(f"HowToDeploy.md: contains stale deployment reference: {forbidden}")
+        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: contains stale deployment reference: {forbidden}")
 
 for script_name in sorted(
-    set(re.findall(r"(?:\./)?Deployment/scripts/([A-Za-z0-9_.-]+\.sh)", guide))
+    set(re.findall(r"(?:\./)?Deployment/LocalCluster/scripts/([A-Za-z0-9_.-]+\.sh)", guide))
     | set(re.findall(r"`([A-Za-z0-9_.-]+\.sh)`", guide))
 ):
-    if not exists(f"Deployment/scripts/{script_name}"):
-        fail(f"HowToDeploy.md: references missing script: Deployment/scripts/{script_name}")
+    if not exists(f"Deployment/LocalCluster/scripts/{script_name}"):
+        fail(
+            "Deployment/LocalCluster/HowToDeployLocalCluster.md: "
+            f"references missing script: Deployment/LocalCluster/scripts/{script_name}"
+        )
 
 
 tracked = tracked_files()
 for path in [
     ".env",
     "secrets.env",
-    "Deployment/machines.yml",
-    "Deployment/inventory/prod/bootstrap-hosts.yml",
+    "Deployment/LocalCluster/machines.yml",
+    "Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml",
 ]:
     if path in tracked:
         fail(f"local or secret file must not be tracked: {path}")
@@ -188,7 +207,7 @@ for path in tracked:
 
 for path in deployment_text_files():
     rel = path.relative_to(ROOT).as_posix()
-    if rel == "Deployment/scripts/audit_deployment.py":
+    if rel == "Deployment/LocalCluster/scripts/audit_deployment.py":
         continue
     text = path.read_text(encoding="utf-8-sig")
     for stale, replacement in [
@@ -206,67 +225,77 @@ for path in deployment_text_files():
     if "DEPLOY_SSH_KEY" in text or "SHIP_DEPLOY_KEY" in text:
         fail(f"{rel}: deploy SSH key path must be derived from app_name, not local overrides")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
-        fail(f"{rel}: use Deployment/scripts/install-ansible.sh instead of distro Ansible")
+        fail(f"{rel}: use Deployment/LocalCluster/scripts/install-ansible.sh instead of distro Ansible")
     for forbidden in [".deploy.local", "discover-node", "health-check"]:
         if forbidden in text:
             fail(f"{rel}: contains stale deployment reference: {forbidden}")
+    for old_prefix in [
+        "Deployment/scripts",
+        "Deployment/ansible",
+        "Deployment/inventory",
+        "Deployment/compose",
+        "Deployment/caddy",
+        "Deployment/machines",
+    ]:
+        if old_prefix in text:
+            fail(f"{rel}: contains old deployment layout reference: {old_prefix}")
 
 
-all_vars = read("Deployment/inventory/prod/group_vars/all.yml")
+all_vars = read("Deployment/LocalCluster/inventory/prod/group_vars/all.yml")
 cloudflared_match = re.search(r"^cloudflared_version:\s*(\S+)\s*$", all_vars, re.MULTILINE)
 if not cloudflared_match:
-    fail("Deployment/inventory/prod/group_vars/all.yml: missing cloudflared_version")
+    fail("Deployment/LocalCluster/inventory/prod/group_vars/all.yml: missing cloudflared_version")
 elif cloudflared_match.group(1) == "latest":
     fail("cloudflared_version must be pinned, not latest")
 
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_version != \"latest\"",
     "cloudflared pinned-version guard",
 )
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared --version",
     "cloudflared installed-version verification",
 )
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "This deployment supports only x86_64/amd64 Linux machines.",
     "amd64-only cloudflared guard",
 )
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared-linux-amd64.deb",
     "amd64 cloudflared package",
 )
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "tunnel-token.sha256",
     "Cloudflare tunnel token change marker",
 )
 require_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared service uninstall",
     "Cloudflare tunnel token rotation handling",
 )
 require_not_contains(
-    "Deployment/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_deb_arch",
     "cloudflared multi-architecture package mapping",
 )
 
 
-ansible_cfg = read("Deployment/ansible/ansible.cfg")
+ansible_cfg = read("Deployment/LocalCluster/ansible/ansible.cfg")
 for needle, why in [
     ("inventory = ../inventory/prod/hosts.yml", "default production inventory"),
     ("roles_path = roles", "local roles path"),
     ("interpreter_python = auto_silent", "Python interpreter auto-detection"),
 ]:
     if needle not in ansible_cfg:
-        fail(f"Deployment/ansible/ansible.cfg: missing {why}")
+        fail(f"Deployment/LocalCluster/ansible/ansible.cfg: missing {why}")
 
 
-hosts = read("Deployment/inventory/prod/hosts.yml")
+hosts = read("Deployment/LocalCluster/inventory/prod/hosts.yml")
 for needle, why in [
     ("load_balancer:", "load balancer group"),
     ("app_servers:", "app server group"),
@@ -277,8 +306,8 @@ for needle, why in [
     ("node-db:", "node-db host"),
 ]:
     if needle not in hosts:
-        fail(f"Deployment/inventory/prod/hosts.yml: missing {why}")
-generate_inventory = read("Deployment/scripts/generate-inventory.py")
+        fail(f"Deployment/LocalCluster/inventory/prod/hosts.yml: missing {why}")
+generate_inventory = read("Deployment/LocalCluster/scripts/generate-inventory.py")
 for needle, why in [
     ("REQUIRED_NODES = [\"node-main\", \"node-app1\", \"node-app2\", \"node-db\"]", "required node list"),
     ("import ipaddress", "strict IP address validation"),
@@ -290,10 +319,10 @@ for needle, why in [
     ("install_user", "install user support"),
 ]:
     if needle not in generate_inventory:
-        fail(f"Deployment/scripts/generate-inventory.py: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/generate-inventory.py: missing {why}")
 
 
-deploy_app_compose = read("Deployment/compose/app-server/docker-compose.yml")
+deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
     ("${APP_IMAGE}:${APP_VERSION}", "immutable image variables"),
     ('Database__RunMigrationsAtStartup: "false"', "production startup migrations disabled"),
@@ -301,12 +330,12 @@ for needle, why in [
     ("Redis__Configuration", "Redis configuration injection"),
 ]:
     if needle not in deploy_app_compose:
-        fail(f"Deployment/compose/app-server/docker-compose.yml: missing {why}")
+        fail(f"Deployment/LocalCluster/compose/app-server/docker-compose.yml: missing {why}")
 for local_only in ["redisinsight", "datalust/seq", "build:"]:
     if local_only in deploy_app_compose:
-        fail(f"Deployment/compose/app-server/docker-compose.yml: contains local-only deployment content: {local_only}")
+        fail(f"Deployment/LocalCluster/compose/app-server/docker-compose.yml: contains local-only deployment content: {local_only}")
 
-node_db_compose = read("Deployment/compose/node-db/docker-compose.yml")
+node_db_compose = read("Deployment/LocalCluster/compose/node-db/docker-compose.yml")
 for needle, why in [
     ("postgres:", "PostgreSQL service"),
     ("redis:", "Redis service"),
@@ -314,7 +343,7 @@ for needle, why in [
     ("REDIS_PASSWORD", "Redis secret injection"),
 ]:
     if needle not in node_db_compose:
-        fail(f"Deployment/compose/node-db/docker-compose.yml: missing {why}")
+        fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: missing {why}")
 
 
 program = read("BlazorAutoApp/Program.cs")
@@ -334,7 +363,7 @@ require_contains(
 )
 
 require_contains(
-    "Deployment/scripts/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/install-ansible.sh",
     "sshpass",
     "sshpass for Ansible password bootstrap",
 )
@@ -343,17 +372,17 @@ for needle, why in [
     ("could not detect this node's LAN IP address", "clear LAN IP detection failure"),
     ("could not detect the MAC address", "clear LAN MAC detection failure"),
 ]:
-    if needle not in read("Deployment/scripts/bootstrap-node.sh"):
-        fail(f"Deployment/scripts/bootstrap-node.sh: missing {why}")
-    if needle not in read("Deployment/scripts/discover-machines.sh"):
-        fail(f"Deployment/scripts/discover-machines.sh: missing {why}")
+    if needle not in read("Deployment/LocalCluster/scripts/bootstrap-node.sh"):
+        fail(f"Deployment/LocalCluster/scripts/bootstrap-node.sh: missing {why}")
+    if needle not in read("Deployment/LocalCluster/scripts/discover-machines.sh"):
+        fail(f"Deployment/LocalCluster/scripts/discover-machines.sh: missing {why}")
 
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
-    ("python Deployment/scripts/audit_deployment.py", "deployment audit step"),
-    ("python Deployment/scripts/read-deploy-setting.py app_image", "deployment image setting"),
-    ("python Deployment/scripts/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
+    ("python Deployment/LocalCluster/scripts/audit_deployment.py", "deployment audit step"),
+    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
     ("dotnet build --configuration Release --no-restore", "Release build step"),
     ("dotnet test --configuration Release --no-build", "test step"),
@@ -372,11 +401,11 @@ for needle, why in [
     ("name: Deploy App To LAN", "generic deployment workflow name"),
     ("concurrency:", "deployment concurrency guard"),
     ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
-    ("python Deployment/scripts/read-deploy-setting.py app_image", "deployment image setting"),
-    ("python Deployment/scripts/read-deploy-setting.py public_hostname", "public hostname setting"),
+    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py public_hostname", "public hostname setting"),
     ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
     ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
-    ("bash Deployment/scripts/preflight.sh deploy", "deploy preflight"),
+    ("bash Deployment/LocalCluster/scripts/preflight.sh deploy", "deploy preflight"),
     ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
     ("https://${PUBLIC_HOSTNAME}/health/ready", "public readiness verification"),
@@ -390,13 +419,13 @@ if "Deploy Ship To LAN" in deploy_lan:
     fail(".github/workflows/deploy-lan.yml: workflow name must not be app-bound")
 
 
-prepare = read("Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml")
+prepare = read("Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml")
 role_order = ["mint_base", "ssh_hardening", "docker", "firewall"]
 positions = [prepare.find(f"- {role}") for role in role_order]
 if any(pos < 0 for pos in positions) or positions != sorted(positions):
     fail("PrepareFreshLinuxMachine.yml: roles must run mint_base, ssh_hardening, docker, firewall")
 
-site = read("Deployment/ansible/playbooks/site.yml")
+site = read("Deployment/LocalCluster/ansible/playbooks/site.yml")
 for needle, why in [
     ("hosts: node_db", "node_db deployment phase"),
     ("hosts: load_balancer", "load balancer deployment phase"),
@@ -406,10 +435,10 @@ for needle, why in [
     ("Run migration bundle", "migration execution"),
 ]:
     if needle not in site:
-        fail(f"Deployment/ansible/playbooks/site.yml: missing {why}")
+        fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
 
 for path, checks in {
-    "Deployment/ansible/roles/mint_base/tasks/main.yml": [
+    "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml": [
         ("name: deploy", "deploy user creation"),
         ("NOPASSWD:ALL", "passwordless sudo for automation"),
         ("authorized_keys", "deploy SSH public key installation"),
@@ -419,35 +448,35 @@ for path, checks in {
         ("ssh-keyscan", "deployment node host key scan"),
         ("path: \"{{ deploy_root }}\"", "deployment root creation"),
     ],
-    "Deployment/ansible/roles/docker/tasks/main.yml": [
+    "Deployment/LocalCluster/ansible/roles/docker/tasks/main.yml": [
         ("UBUNTU_CODENAME", "Linux Mint Ubuntu base codename detection"),
         ("This deployment supports only x86_64/amd64 Linux machines.", "amd64-only Docker guard"),
         ("arch=amd64", "amd64 Docker apt repository"),
         ("docker-compose-plugin", "Docker Compose plugin"),
         ("groups: docker", "deploy docker group membership"),
     ],
-    "Deployment/ansible/roles/firewall/tasks/main.yml": [
+    "Deployment/LocalCluster/ansible/roles/firewall/tasks/main.yml": [
         ("ufw allow OpenSSH", "SSH firewall rule"),
         ("{{ app_name }}-docker-user-firewall.service", "Docker published-port firewall service"),
         ("groups[\"node_db\"]", "node_db firewall targeting"),
     ],
-    "Deployment/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
+    "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
         ("--ctorigdstport {{ app_port }}", "app port restriction"),
         ("--ctorigdstport {{ postgres_port }}", "PostgreSQL port restriction"),
         ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
     ],
-    "Deployment/ansible/roles/app/tasks/main.yml": [
+    "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
         ("docker compose up -d --pull always", "pull and start requested image"),
         ("http://127.0.0.1:{{ app_port }}/health/ready", "local readiness wait"),
     ],
-    "Deployment/ansible/roles/postgres/tasks/main.yml": [
+    "Deployment/LocalCluster/ansible/roles/postgres/tasks/main.yml": [
         ("compose/node-db/docker-compose.yml", "node-db compose source"),
         ("node-db.env.j2", "node-db env template"),
         ("backup-db.sh", "backup helper copy"),
         ("restore-db.sh", "restore helper copy"),
     ],
-    "Deployment/ansible/roles/caddy/templates/app.caddy.j2": [
+    "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
         ("health_uri /health/ready", "readiness health check"),
         ("lb_policy cookie", "sticky sessions for Blazor Server"),
     ],
@@ -458,7 +487,7 @@ for path, checks in {
             fail(f"{path}: missing {why}")
 
 
-preflight = read("Deployment/scripts/preflight.sh")
+preflight = read("Deployment/LocalCluster/scripts/preflight.sh")
 for needle, why in [
     ("REPLACE_WITH", "inventory placeholder detection"),
     ("ansible-inventory", "inventory parse check"),
@@ -466,12 +495,12 @@ for needle, why in [
     ("check-vault.sh", "deploy vault content check"),
 ]:
     if needle not in preflight:
-        fail(f"Deployment/scripts/preflight.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/preflight.sh: missing {why}")
 
-for path in ["Deployment/scripts/ping-fresh-machines.sh", "Deployment/scripts/prepare-fresh-linux-machines.sh"]:
+for path in ["Deployment/LocalCluster/scripts/ping-fresh-machines.sh", "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh"]:
     require_contains(path, "ANSIBLE_HOST_KEY_CHECKING=False", "bootstrap host-key bypass for password SSH")
 
-check_vault = read("Deployment/scripts/check-vault.sh")
+check_vault = read("Deployment/LocalCluster/scripts/check-vault.sh")
 for needle, why in [
     ("ansible-vault view", "vault decrypt validation"),
     ("REPLACE_WITH", "placeholder rejection"),
@@ -479,18 +508,18 @@ for needle, why in [
     ("vault_ghcr_token", "GHCR token key validation"),
 ]:
     if needle not in check_vault:
-        fail(f"Deployment/scripts/check-vault.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/check-vault.sh: missing {why}")
 
-setup_secrets = read("Deployment/scripts/setup-secrets.sh")
+setup_secrets = read("Deployment/LocalCluster/scripts/setup-secrets.sh")
 for needle, why in [
     ("gh secret set ANSIBLE_VAULT_PASSWORD", "GitHub vault password secret automation"),
     ("ansible-vault edit", "vault editing"),
     ("check-vault.sh", "vault validation"),
 ]:
     if needle not in setup_secrets:
-        fail(f"Deployment/scripts/setup-secrets.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/setup-secrets.sh: missing {why}")
 
-verify_bootstrap = read("Deployment/scripts/verify-bootstrap.sh")
+verify_bootstrap = read("Deployment/LocalCluster/scripts/verify-bootstrap.sh")
 for needle, why in [
     ("status.sh\" bootstrap", "bootstrap status check"),
     ("preflight.sh\" bootstrap", "bootstrap preflight check"),
@@ -498,9 +527,9 @@ for needle, why in [
     ("bootstrap verification ok", "clear success line"),
 ]:
     if needle not in verify_bootstrap:
-        fail(f"Deployment/scripts/verify-bootstrap.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/verify-bootstrap.sh: missing {why}")
 
-verify_deployment = read("Deployment/scripts/verify-deployment.sh")
+verify_deployment = read("Deployment/LocalCluster/scripts/verify-deployment.sh")
 for needle, why in [
     ("public_hostname", "public hostname setting"),
     ("app_port", "app port setting"),
@@ -512,9 +541,9 @@ for needle, why in [
     ("deployment verification ok", "clear success line"),
 ]:
     if needle not in verify_deployment:
-        fail(f"Deployment/scripts/verify-deployment.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/verify-deployment.sh: missing {why}")
 
-runner_setup = read("Deployment/scripts/install-github-runner.sh")
+runner_setup = read("Deployment/LocalCluster/scripts/install-github-runner.sh")
 for needle, why in [
     ("actions/runners/registration-token", "runner registration token automation"),
     ("gh release view --repo actions/runner", "runner release lookup"),
@@ -526,14 +555,14 @@ for needle, why in [
     ("sudo ./svc.sh install deploy", "runner service install as deploy"),
 ]:
     if needle not in runner_setup:
-        fail(f"Deployment/scripts/install-github-runner.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/install-github-runner.sh: missing {why}")
 if "RUNNER_TOKEN='$RUNNER_TOKEN'" in runner_setup or 'RUNNER_TOKEN="$RUNNER_TOKEN"' in runner_setup:
-    fail("Deployment/scripts/install-github-runner.sh: runner token must not be passed in the ssh command arguments")
+    fail("Deployment/LocalCluster/scripts/install-github-runner.sh: runner token must not be passed in the ssh command arguments")
 for forbidden in ["RUNNER_ARCH=", "aarch64", "arm64", "armv7l", "armv6l"]:
     if forbidden in runner_setup:
-        fail(f"Deployment/scripts/install-github-runner.sh: contains forbidden multi-architecture runner logic: {forbidden}")
+        fail(f"Deployment/LocalCluster/scripts/install-github-runner.sh: contains forbidden multi-architecture runner logic: {forbidden}")
 
-setup_cloudflare = read("Deployment/scripts/setup-cloudflare-tunnel.sh")
+setup_cloudflare = read("Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh")
 for needle, why in [
     ("CLOUDFLARE_ACCOUNT_ID", "Cloudflare account id input"),
     ("CLOUDFLARE_ZONE_ID", "Cloudflare zone id input"),
@@ -547,11 +576,11 @@ for needle, why in [
     ("vault_cloudflare_tunnel_token", "vault token output"),
 ]:
     if needle not in setup_cloudflare:
-        fail(f"Deployment/scripts/setup-cloudflare-tunnel.sh: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh: missing {why}")
 for normal_path in [
-    "Deployment/scripts/preflight.sh",
-    "Deployment/scripts/status.sh",
-    "Deployment/scripts/setup-secrets.sh",
+    "Deployment/LocalCluster/scripts/preflight.sh",
+    "Deployment/LocalCluster/scripts/status.sh",
+    "Deployment/LocalCluster/scripts/setup-secrets.sh",
     ".github/workflows/deploy-lan.yml",
 ]:
     text = read(normal_path)
