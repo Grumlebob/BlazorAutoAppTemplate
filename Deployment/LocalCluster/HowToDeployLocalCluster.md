@@ -205,7 +205,54 @@ Where the values come from:
 
 If this is the only app on these four nodes, keep the default ports and continue.
 
-If another LocalCluster app already runs on these nodes, stop here and choose unique side-by-side values before continuing. The second app must not reuse `app_name`, `app_port`, `postgres_port`, `redis_port`, `deploy_root`, `public_hostname`, or the GitHub runner label derived from `app_name`.
+If another LocalCluster app already runs on these nodes, stop here and choose unique side-by-side values before continuing.
+
+### Optional: Second Fork On The Same Nodes
+
+Skip this subsection if this is the only app on the four nodes.
+
+For a second fork on the same nodes, do not reuse these values from the first app:
+
+- `app_name`
+- `app_image`
+- `app_port`
+- `postgres_port`
+- `redis_port`
+- `deploy_root`
+- `public_hostname`
+- `migration_bundle_name`
+- GitHub runner name derived from `app_name`
+- GitHub runner label derived from `app_name`
+
+The second fork normally reuses the same machine IPs, `Deployment/LocalCluster/machines.yml` values, `cloudflare_tunnel_name`, and Cloudflare tunnel token. It should have its own vault file and can use its own PostgreSQL database name, PostgreSQL password, Redis password, and GHCR token.
+
+Example side-by-side shape:
+
+```yaml
+# app 1
+app_name: notes
+app_image: ghcr.io/example/notes
+app_port: 8080
+postgres_port: 5432
+redis_port: 6379
+deploy_root: /opt/notes
+public_hostname: notes.example.com
+cloudflare_tunnel_name: notes-prod
+migration_bundle_name: notes-migrate
+
+# app 2, in the forked repo
+app_name: secondnotes
+app_image: ghcr.io/example/secondnotes
+app_port: 8081
+postgres_port: 5433
+redis_port: 6380
+deploy_root: /opt/secondnotes
+public_hostname: secondnotes.example.com
+cloudflare_tunnel_name: notes-prod
+migration_bundle_name: secondnotes-migrate
+```
+
+For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment.
 
 Checkpoint:
 
@@ -1004,8 +1051,8 @@ Common checks:
 ```bash
 ansible all -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ping
 ansible all -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "docker compose version"
-ansible app_servers -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "cd <deploy-root> && docker compose logs --tail=100"
-ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "cd <deploy-root> && docker compose logs --tail=100"
+ansible app_servers -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ansible.builtin.shell -a "cd <deploy-root> && docker compose logs --tail=100"
+ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ansible.builtin.shell -a "cd <deploy-root> && docker compose logs --tail=100"
 ansible load_balancer -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "journalctl -u caddy --no-pager -n 100"
 ansible load_balancer -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "journalctl -u cloudflared --no-pager -n 100"
 ```

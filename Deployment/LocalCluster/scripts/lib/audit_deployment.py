@@ -223,9 +223,24 @@ for needle, why in [
     ("pins PostgreSQL and Redis to exact versioned image tags", "pinned database image guidance"),
     ("If this is the only app on these four nodes, keep the default ports and continue.", "single-site default guidance"),
     ("If another LocalCluster app already runs on these nodes", "side-by-side settings warning"),
+    ("### Optional: Second Fork On The Same Nodes", "second-fork side-by-side subsection"),
+    ("For a second fork on the same nodes, do not reuse these values from the first app", "unique side-by-side values list"),
+    ("`app_image`", "side-by-side app image uniqueness"),
+    ("`migration_bundle_name`", "side-by-side migration bundle uniqueness"),
+    ("same machine IPs", "side-by-side reused machine IP guidance"),
+    ("`cloudflare_tunnel_name`, and Cloudflare tunnel token", "side-by-side shared tunnel guidance"),
+    ("secondnotes", "side-by-side example app"),
+    ("LOCALCLUSTER_RUNNER_LABEL", "side-by-side runner label variable guidance"),
 ]:
     if needle not in guide:
         fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
+
+for line_number, line in enumerate(guide.splitlines(), start=1):
+    if 'ansible ' in line and '-a "cd ' in line and "-m ansible.builtin.shell" not in line:
+        fail(
+            "Deployment/LocalCluster/HowToDeployLocalCluster.md:"
+            f"{line_number}: ansible commands using cd/&& must use -m ansible.builtin.shell"
+        )
 
 
 tracked = tracked_files()
