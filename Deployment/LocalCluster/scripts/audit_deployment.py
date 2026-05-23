@@ -73,6 +73,8 @@ required_files = [
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-lan.yml",
+    ".ansible-lint.yml",
+    ".yamllint.yml",
     ".config/dotnet-tools.json",
     ".gitignore",
     "Deployment/LocalCluster/machines.example.yml",
@@ -461,6 +463,9 @@ for needle, why in [
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("python Deployment/LocalCluster/scripts/audit_deployment.py", "deployment audit step"),
+    ("python -m pip install --upgrade ansible-lint yamllint", "deployment lint tool install"),
+    ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
+    ("ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible", "deployment Ansible lint step"),
     ("python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image", "deployment image setting"),
     ("python Deployment/LocalCluster/scripts/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
@@ -473,6 +478,28 @@ for needle, why in [
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+
+for path, checks in {
+    ".yamllint.yml": [
+        ("extends: default", "default yamllint rule base"),
+        ("max-spaces-inside: 1", "ansible-lint compatible braces rule"),
+        ("min-spaces-from-content: 1", "ansible-lint compatible comments rule"),
+        ("comments-indentation: false", "ansible-lint compatible comment indentation rule"),
+        ("line-length: disable", "long deployment command tolerance"),
+        ("new-lines: disable", "Windows checkout line-ending tolerance"),
+        ("forbid-explicit-octal: true", "ansible-lint compatible octal rule"),
+        ("forbid-implicit-octal: true", "ansible-lint compatible octal rule"),
+        ("truthy: disable", "GitHub Actions on-key tolerance"),
+    ],
+    ".ansible-lint.yml": [
+        ("profile: basic", "basic ansible-lint profile"),
+        ("use_default_rules: true", "default ansible-lint rules enabled"),
+    ],
+}.items():
+    text = read(path)
+    for needle, why in checks:
+        if needle not in text:
+            fail(f"{path}: missing {why}")
 if "${APP_IMAGE}:latest" in ci or "docker push \"${APP_IMAGE}:latest\"" in ci:
     fail(".github/workflows/ci.yml: CI must publish only immutable Git SHA image tags")
 

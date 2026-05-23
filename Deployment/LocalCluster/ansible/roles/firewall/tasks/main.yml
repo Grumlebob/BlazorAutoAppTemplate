@@ -1,33 +1,33 @@
 ---
 - name: Allow SSH
   ansible.builtin.command: ufw allow OpenSSH
-  changed_when: "'Rules updated' in ufw_ssh.stdout"
-  register: ufw_ssh
+  changed_when: "'Rules updated' in firewall_ufw_ssh.stdout"
+  register: firewall_ufw_ssh
 
 - name: Allow app traffic from load balancer
   ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].ansible_host }} to any port {{ app_port }} proto tcp"
-  changed_when: "'Rules updated' in ufw_app.stdout"
-  register: ufw_app
+  changed_when: "'Rules updated' in firewall_ufw_app.stdout"
+  register: firewall_ufw_app
   when: inventory_hostname in groups["app_servers"]
 
 - name: Allow PostgreSQL from app servers
   ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port 5432 proto tcp"
-  changed_when: "'Rules updated' in ufw_postgres.stdout"
-  register: ufw_postgres
+  changed_when: "'Rules updated' in firewall_ufw_postgres.stdout"
+  register: firewall_ufw_postgres
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
 - name: Allow Redis from app servers
   ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port 6379 proto tcp"
-  changed_when: "'Rules updated' in ufw_redis.stdout"
-  register: ufw_redis
+  changed_when: "'Rules updated' in firewall_ufw_redis.stdout"
+  register: firewall_ufw_redis
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
 - name: Enable UFW
   ansible.builtin.command: ufw --force enable
-  changed_when: "'Firewall is active' in ufw_enable.stdout"
-  register: ufw_enable
+  changed_when: "'Firewall is active' in firewall_ufw_enable.stdout"
+  register: firewall_ufw_enable
 
 - name: Install Docker published-port firewall script
   ansible.builtin.template:

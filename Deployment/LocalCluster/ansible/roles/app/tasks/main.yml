@@ -36,6 +36,7 @@
     echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
   args:
     executable: /bin/bash
+  become: true
   become_user: deploy
   no_log: true
 
@@ -43,6 +44,7 @@
   ansible.builtin.command: docker compose up -d --pull always
   args:
     chdir: "{{ deploy_root }}"
+  become: true
   become_user: deploy
 
 - name: Wait for app health endpoint

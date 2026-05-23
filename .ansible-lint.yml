@@ -1,0 +1,8 @@
+profile: basic
+
+exclude_paths:
+  - .git/
+  - bin/
+  - obj/
+
+use_default_rules: true

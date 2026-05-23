@@ -17,7 +17,7 @@
     echo "$UBUNTU_CODENAME"
   args:
     executable: /bin/bash
-  register: ubuntu_codename
+  register: docker_ubuntu_codename
   changed_when: false
 
 - name: Require amd64 machine architecture
@@ -28,7 +28,7 @@
 
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ docker_ubuntu_codename.stdout }} stable"
     filename: docker
     state: present
 

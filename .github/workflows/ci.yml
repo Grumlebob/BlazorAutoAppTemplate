@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +21,12 @@ jobs:
 
       - name: Deployment audit
         run: python Deployment/LocalCluster/scripts/audit_deployment.py
+
+      - name: Deployment YAML and Ansible lint
+        run: |
+          python -m pip install --upgrade ansible-lint yamllint
+          yamllint .github Deployment/LocalCluster
+          ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

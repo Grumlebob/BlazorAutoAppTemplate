@@ -38,12 +38,14 @@
   ansible.builtin.command: docker compose up -d
   args:
     chdir: "{{ deploy_root }}"
+  become: true
   become_user: deploy
 
 - name: Wait for PostgreSQL to become ready
   ansible.builtin.command: docker compose exec -T postgres pg_isready -U {{ vault_postgres_user }} -d {{ vault_postgres_db }}
   args:
     chdir: "{{ deploy_root }}"
+  become: true
   become_user: deploy
   register: postgres_ready
   retries: 20
@@ -54,9 +56,10 @@
   ansible.builtin.command: docker compose exec -T redis redis-cli -a {{ vault_redis_password }} ping
   args:
     chdir: "{{ deploy_root }}"
+  become: true
   become_user: deploy
-  register: redis_ready
+  register: postgres_redis_ready
   retries: 20
   delay: 3
-  until: redis_ready.rc == 0
+  until: postgres_redis_ready.rc == 0
   no_log: true

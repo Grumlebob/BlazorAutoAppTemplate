@@ -25,6 +25,7 @@
       ansible.builtin.command: docker compose down
       args:
         chdir: "{{ deploy_root }}"
+      become: true
       become_user: deploy
       failed_when: false
       when: run_migrations | default(false) | bool
