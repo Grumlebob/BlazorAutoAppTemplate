@@ -1,8 +1,0 @@
----
-- name: Deploy app servers
-  hosts: app_servers
-  become: true
-  vars_files:
-    - ../../inventory/prod/vault.yml
-  roles:
-    - app

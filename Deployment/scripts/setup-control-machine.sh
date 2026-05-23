@@ -2,15 +2,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
-
-if [[ -f "$LOCAL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$LOCAL_ENV"
-  set +a
-fi
 
 bash "$SCRIPT_DIR/install-ansible.sh"
 

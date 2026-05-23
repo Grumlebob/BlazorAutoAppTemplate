@@ -14,8 +14,6 @@
 /secrets.env
 /.env
 !/.env.example
-/Deployment/.deploy.local.env
-!/Deployment/.deploy.local.env.example
 /Deployment/machines.yml
 /Deployment/inventory/prod/bootstrap-hosts.yml
 
@@ -778,6 +776,5 @@ BlazorAutoApp/Storage/*
 /Runtime/*.log
 /artifacts/
 BlazorAutoApp/wwwroot/test-assets/*
-!/Deployment/.deploy.local.env.example
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,rider,csharp,dotnetcore,aspnetcore,linux,macos,git,jetbrains+all

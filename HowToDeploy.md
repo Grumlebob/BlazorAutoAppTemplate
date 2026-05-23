@@ -1,56 +1,8 @@
 # How To Deploy
 
-This guide starts with fresh physical machines and ends with the hostname from `public_hostname` serving the app. The default example is `https://ship.jacobgrum.com`. Follow it from top to bottom for the first deployment.
+This is the first-deployment runbook. Follow it from top to bottom.
 
-## Result
-
-```text
-Cloudflare
-  -> Cloudflare Tunnel
-  -> node-main: cloudflared + Caddy ingress/control
-  -> node-app1 / node-app2: app containers
-  -> node-db: PostgreSQL + Redis
-```
-
-Default public hostname:
-
-```text
-ship.jacobgrum.com
-```
-
-## First Deployment Checklist
-
-Use this checklist while following the guide:
-
-```text
-[ ] Linux Mint installed on all four nodes
-[ ] Hostnames set to node-main, node-app1, node-app2, node-db
-[ ] Control machine has the repo checked out
-[ ] Shared deployment settings reviewed in Deployment/inventory/prod/group_vars/all.yml
-[ ] Control machine tools installed and deploy SSH key created
-[ ] SSH enabled on all four nodes
-[ ] Username, LAN IP, and MAC discovered for every node
-[ ] DHCP reservations created in the router
-[ ] Local setup files copied: Deployment/machines.yml and Deployment/.deploy.local.env
-[ ] Deployment/machines.yml filled with real values
-[ ] Deployment/inventory/prod/hosts.yml and bootstrap-hosts.yml generated
-[ ] Deployment/inventory/prod/hosts.yml committed
-[ ] bash ./Deployment/scripts/status.sh bootstrap passes
-[ ] Fresh machines prepared with Ansible
-[ ] Cloudflare Tunnel token created and ready for vault.yml
-[ ] Deployment/inventory/prod/vault.yml created and filled
-[ ] GitHub secret ANSIBLE_VAULT_PASSWORD set
-[ ] bash ./Deployment/scripts/check-vault.sh passes
-[ ] bash ./Deployment/scripts/status.sh deploy passes
-[ ] Self-hosted GitHub Actions runner installed on node-main
-[ ] CI has pushed the GitHub-selected ref image to GHCR
-[ ] First deployment run
-[ ] Public health check passes
-```
-
-## Machine Names
-
-Install Linux Mint on four physical machines and use exactly these hostnames:
+The deployment uses four Linux Mint x86_64/amd64 machines:
 
 ```text
 node-main
@@ -59,140 +11,61 @@ node-app2
 node-db
 ```
 
-The current deployment workflow assumes x86_64/amd64 Linux machines. The self-hosted runner target is `linux, x64`, the EF migration bundle is built for `linux-x64`, and the setup automation fails fast on other CPU architectures.
+Happy path:
 
-Roles:
-
-- `node-main`: Cloudflare Tunnel, Caddy, GitHub Actions self-hosted runner, and deployment/control responsibilities.
-- `node-app1`: app container.
-- `node-app2`: app container.
-- `node-db`: PostgreSQL and Redis.
-
-`node-db` is the physical machine hostname. `node_db` is the Ansible inventory group and role-variable name for the PostgreSQL/Redis services on that host; Ansible group names use underscores so they remain valid inventory identifiers.
-
-`node-main` is intentionally not an app server in the recommended first deployment. Keeping it focused on ingress and deployment control makes failures easier to reason about: app CPU/memory spikes do not compete with Caddy/cloudflared, and a bad app deployment is less likely to interfere with the node that controls access and deployment.
-
-## Deployment Decisions
-
-- Linux Mint is installed directly on every physical node.
-- Cloudflare Tunnel is the only public ingress path.
-- Do not configure router port forwarding to the app, PostgreSQL, Redis, Seq, or Redis Insight.
-- Cloudflare terminates public HTTPS.
-- Caddy listens on `node-main` and load balances to both app nodes over LAN HTTP port `8080`.
-- `node-main` is the ingress/control node, not an app backend by default.
-- PostgreSQL and Redis run on `node-db`.
-- EF Core migrations run once during deployment, before app containers restart.
-- App containers do not run startup migrations in production.
-- Data Protection keys are shared through Redis so auth and antiforgery state work across app nodes.
-- Docker-published ports are restricted with UFW and `DOCKER-USER` firewall rules.
-- Durable multi-node upload storage is deferred. Do not rely on local app-node disk for important shared uploads yet.
-
-Optional later change: `node-main` can become a third app backend (`app3`) if `node-app1` and `node-app2` are overloaded and `node-main` has spare capacity. Do not start with that layout; add it only after monitoring shows you need the extra app capacity.
-
-## Files You Will Edit
-
-You will edit these files:
-
-- `Deployment/machines.yml`: put real LAN IPs, MAC addresses, and Linux Mint install usernames here once. This file is ignored by git.
-- `Deployment/inventory/prod/group_vars/all.yml`: shared non-secret settings such as domain, ports, deploy root, image name, and pinned `cloudflared_version`.
-- `Deployment/inventory/prod/vault.yml`: encrypted Ansible Vault file you create for secrets.
-- `Deployment/.deploy.local.env`: optional local defaults for your control machine. This file is ignored by git.
-
-## Useful Files
-
-These useful files mean the following:
-
-- `Deployment/machines.example.yml`: template for `Deployment/machines.yml`.
-- `Deployment/.deploy.local.env.example`: template for local operator defaults.
-- `Deployment/inventory/prod/hosts.yml`: generated Ansible inventory used by Ansible. This file is committed so the self-hosted GitHub runner can deploy from a fresh checkout.
-- `Deployment/inventory/prod/bootstrap-hosts.yml`: generated local bootstrap inventory using the Linux Mint install users from `machines.yml`; this file is ignored by git.
-- `Deployment/inventory/prod/vault.example.yml`: template showing the required secret names for `vault.yml`.
-- `Deployment/inventory/prod/group_vars/app_servers.yml`: app-server role settings.
-- `Deployment/inventory/prod/group_vars/node_db.yml`: PostgreSQL/Redis role settings.
-- `Deployment/inventory/prod/group_vars/load_balancer.yml`: Caddy/cloudflared role settings.
-- `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`: prepares fresh Linux Mint nodes.
-- `Deployment/ansible/playbooks/site.yml`: deploys DB/Redis, Caddy/cloudflared, migrations, and app servers.
-- `Deployment/compose/node-db/docker-compose.yml`: runtime compose file copied to `node-db`.
-- `Deployment/compose/app-server/docker-compose.yml`: runtime compose file copied to app nodes.
-- `Deployment/compose/load-balancer/docker-compose.yml`: runtime compose file for load-balancer support services.
-- `Deployment/ansible/roles/caddy/templates/app.caddy.j2`: generated Caddy config template using app-node IPs from inventory.
-- `Deployment/scripts/bootstrap-node.sh`: optional helper to run on each fresh Linux Mint node for hostname, SSH, sleep, and discovery output.
-- `Deployment/scripts/install-ansible.sh`: installs the repo-approved Ansible toolchain.
-- `Deployment/scripts/setup-control-machine.sh`: installs Ansible and creates the default deploy SSH key on the control machine.
-- `Deployment/scripts/setup-cloudflare-tunnel.sh`: optional Cloudflare API helper that creates or reuses the tunnel, configures the public hostname, updates DNS, and prints the vault token line.
-- `Deployment/scripts/setup-secrets.sh`: creates/edits the encrypted Ansible Vault and sets the GitHub repository vault-password secret with `gh`.
-- `Deployment/scripts/install-github-runner.sh`: installs and registers the GitHub Actions self-hosted runner on `node-main` using `gh`.
-- `Deployment/scripts/discover-machines.sh`: prints the username, hostname, likely LAN IP, and likely MAC address on a fresh node.
-- `Deployment/scripts/generate-inventory.sh`: generates `Deployment/inventory/prod/hosts.yml` from `Deployment/machines.yml`.
-- `Deployment/scripts/status.sh`: shows what is ready and what is still missing.
-- `Deployment/scripts/ping-fresh-machines.sh`: tests Ansible access with the Linux Mint install user before hardening SSH.
-- `Deployment/scripts/check-vault.sh`: decrypts `vault.yml` and verifies required secret keys are present and no template placeholders remain.
-- `Deployment/scripts/preflight.sh`: checks prerequisites before bootstrap or deploy.
-- `Deployment/scripts/prepare-fresh-linux-machines.sh`: runs the fresh-machine playbook correctly.
-- `Deployment/scripts/deploy.sh`: runs the normal deployment playbook.
-- `Deployment/scripts/backup-db.sh`: database backup helper copied to `node-db`.
-- `Deployment/scripts/restore-db.sh`: database restore helper copied to `node-db`.
-- `.github/workflows/ci.yml`: builds/tests, creates migration bundle, builds image, and pushes image to GHCR.
-- `.github/workflows/deploy-lan.yml`: deploys from the self-hosted runner.
-
-Reference-only docs:
-
-- `README.md`: project overview.
-- `HowToRunLocally.md`: local development.
-
-## What You Must Provide
-
-These values cannot be invented by the repo:
-
-- Real LAN IP address for each node.
-- Router DHCP reservation for each node.
-- SSH access to the fresh Linux Mint install user on each node.
-- A GitHub token that can read the private GHCR image package.
-- A Cloudflare Tunnel token for the tunnel named by `cloudflare_tunnel_name`.
-- A password for `Deployment/inventory/prod/vault.yml`.
-- GitHub CLI authentication that can set repository secrets and create a self-hosted runner registration token.
-
-## Placeholder Values
-
-Commands in this guide use values wrapped in angle brackets, such as `<linux-mint-install-user>`. Replace the whole placeholder, including `<` and `>`, with your real value.
-
-Example blocks use fake values. They are there to show formatting, quoting, and likely value shape; do not reuse the example passwords, tokens, IPs, or MAC addresses.
-
-Common placeholders:
-
-- `<repo-root>`: the folder where this repository is checked out. Example: `/home/jacob/BlazorAutoApp`.
-- `<app-name>`: the value of `app_name` in `Deployment/inventory/prod/group_vars/all.yml`. Example: `ship`.
-- `<deploy-root>`: the value of `deploy_root` in `Deployment/inventory/prod/group_vars/all.yml`. Example: `/opt/ship`.
-- `<public_hostname>`: the value of `public_hostname` in `Deployment/inventory/prod/group_vars/all.yml`. Example: `ship.jacobgrum.com`.
-- `<node-name>`: one of `node-main`, `node-app1`, `node-app2`, or `node-db`.
-- `<linux-mint-install-user>`: the username you created while installing Linux Mint on the node.
-- `<node-main-lan-ip>`: the reserved LAN IP for `node-main` from `Deployment/inventory/prod/hosts.yml`.
-- `<git-sha>`: the commit SHA used only for advanced manual deploy or rollback commands.
-
-To find the Linux Mint install username on a node, open a terminal on that node and run:
-
-```bash
-whoami
+```text
+1. Install Linux Mint on all four nodes.
+2. Confirm shared settings in all.yml.
+3. Run setup-control-machine.sh on the control machine.
+4. Run bootstrap-node.sh on every node and copy its values into machines.yml.
+5. Reserve LAN IPs, then generate hosts.yml and bootstrap-hosts.yml.
+6. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
+7. Create the Cloudflare tunnel and copy its token into vault.yml.
+8. Build/push the image, install the GitHub runner, deploy, and run verify-deployment.sh.
 ```
 
-Example: if `whoami` prints `jacob`, then use `jacob` in commands:
+Location labels in this guide:
 
-```bash
-ssh jacob@192.168.1.20 hostname
-bash ./Deployment/scripts/prepare-fresh-linux-machines.sh jacob
+```text
+[control]     run on the control machine from the repository root
+[each node]   run separately on node-main, node-app1, node-app2, and node-db
+[node-main]   run on node-main only
+[router]      do this in your router admin UI
+[cloudflare]  do this in the Cloudflare dashboard
+[github]      do this in GitHub
 ```
 
-To find the current repository root on a Linux shell:
+Use the concrete values printed by scripts or configured in `Deployment/inventory/prod/group_vars/all.yml` whenever a command shows a placeholder like `<node-name>` or `<public_hostname>`.
 
-```bash
-pwd
+Edit only these source files during the normal path:
+
+```text
+Deployment/inventory/prod/group_vars/all.yml  shared deployment settings
+Deployment/machines.yml                       machine IPs, MACs, install users
+Deployment/inventory/prod/vault.yml           secrets
 ```
+
+Everything else is generated by scripts, committed defaults, or reference material.
+
+Required values:
+
+| Value | Stored in | How to obtain it |
+| --- | --- | --- |
+| Node install username | `Deployment/machines.yml` | The Linux Mint user created during installation. `bootstrap-node.sh` prints it as `username`. |
+| Node LAN IP | `Deployment/machines.yml` | `bootstrap-node.sh` prints it as `lan_ip`; reserve it in the router before inventory generation. |
+| Node MAC address | `Deployment/machines.yml` | `bootstrap-node.sh` prints it as `lan_mac`; use it for router DHCP reservation. |
+| `app_image` | `Deployment/inventory/prod/group_vars/all.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
+| `public_hostname` | `Deployment/inventory/prod/group_vars/all.yml` | A hostname inside a Cloudflare-managed zone you control. |
+| `cloudflare_tunnel_name` | `Deployment/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
+| GHCR read token | `Deployment/inventory/prod/vault.yml` | A GitHub token for an account that can read the package; classic PATs need `read:packages`. |
+| Cloudflare tunnel token | `Deployment/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
+| Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
 
 ## 0. Install Linux Mint
 
-Install Linux Mint directly on every physical machine.
+[each node]
 
-Use the same edition everywhere if possible. Cinnamon is fine for decent laptops; XFCE is better for weaker machines.
+Install Linux Mint directly on every physical machine.
 
 During Linux Mint installation you create a normal user account. Write that username down. This guide calls it:
 
@@ -202,103 +75,81 @@ During Linux Mint installation you create a normal user account. Write that user
 
 Example: if you create a user named `jacob`, then `<linux-mint-install-user>` means `jacob`.
 
-The next automated node-bootstrap step sets hostnames, installs SSH, and masks Linux sleep targets. Also disable sleep/suspend in Linux Mint power settings:
+Disable sleep/suspend in Linux Mint power settings:
 
 ```text
 Suspend when inactive: Never
 When laptop lid is closed: Do nothing, if the machine will run closed
 ```
 
-## 1. Set Up The Control Machine
+Ensure Linux Mint is installed and sleep is disabled on all four nodes before proceeding.
 
-Use `node-main` as the control machine unless you intentionally want to run deployment commands from another Linux shell. WSL is also fine for this role.
+### Optional: Make Linux Mint Comfortable
 
-### Optional: Clone With GitHub CLI Browser Login
+[any Linux Mint machine where you want a local editor]
 
-If the fresh Linux control machine does not have this repository yet, GitHub CLI gives a browser-login flow similar to Git Credential Manager on Windows.
-
-Install Git and GitHub CLI:
-
-```bash
-sudo apt update
-sudo apt install -y git gh
-```
-
-Log in:
-
-```bash
-gh auth login
-```
-
-Choose:
-
-```text
-GitHub.com
-HTTPS
-Yes, authenticate Git with your GitHub credentials
-Login with a web browser
-```
-
-After the browser flow finishes, check the login:
-
-```bash
-gh auth status
-```
-
-Then clone:
-
-```bash
-git clone https://github.com/Grumlebob/BlazorAutoApp.git
-cd BlazorAutoApp
-```
-
-If `gh` says credentials were saved in plaintext, that means the GitHub token is stored under your Linux user profile, commonly in `~/.config/gh/hosts.yml`. That is acceptable for a private, disk-encrypted machine used only by you. On a shared machine or long-lived server, prefer an SSH key or a repository deploy key with limited access.
-
-### Optional: Install VS Code
-
-Install Visual Studio Code on the control machine if you want a comfortable editor on Linux.
+Install VS Code:
 
 ```bash
 sudo apt update
 sudo apt install -y wget gpg apt-transport-https
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-rm packages.microsoft.gpg
+sudo install -d -m 0755 /etc/apt/keyrings
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/keyrings/packages.microsoft.gpg >/dev/null
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
 sudo apt update
 sudo apt install -y code
 ```
 
-Open this repository from the repo root:
-
-```bash
-code .
-```
-
-Make VS Code the default editor for Git:
+Make VS Code the default editor for terminal tools:
 
 ```bash
 git config --global core.editor "code --wait"
-git config --global -l | grep core.editor
-```
-
-Make VS Code the default editor for terminal programs started by your user:
-
-```bash
-printf '\nexport EDITOR="code --wait"\nexport VISUAL="code --wait"\n' >> ~/.bashrc
+grep -qxF 'export EDITOR="code --wait"' ~/.bashrc || printf '\nexport EDITOR="code --wait"\n' >> ~/.bashrc
+grep -qxF 'export VISUAL="code --wait"' ~/.bashrc || printf 'export VISUAL="code --wait"\n' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-Make VS Code the default app for plain text files in the Linux Mint file manager:
+Make VS Code the default app for plain text files:
 
 ```bash
 xdg-mime default code.desktop text/plain
-xdg-mime query default text/plain
 ```
 
-You can also do this from the file manager: right-click a text file, choose `Properties`, open `Open With`, select `Visual Studio Code`, and set it as the default.
+## 1. Set Up The Control Machine
+
+[control]
+
+Use `node-main` as the control machine unless you intentionally want to run deployment commands from another Linux shell. WSL is also fine for this role.
+
+Install GitHub CLI and authenticate:
+
+```bash
+sudo apt update
+sudo apt install -y git gh
+gh auth status || gh auth login
+```
+
+For a fresh control machine, clone the repository and enter it:
+
+```bash
+gh repo clone Grumlebob/BlazorAutoApp
+cd BlazorAutoApp
+```
+
+For an existing checkout, open a terminal at the repository root.
+
+Checkpoint:
+
+```bash
+pwd
+git status --short
+```
+
+`pwd` should end in `BlazorAutoApp`. `git status --short` may show your local guide changes, but it should not fail.
 
 ## 2. Confirm Shared Deployment Settings
+
+[control]
 
 Review:
 
@@ -306,65 +157,33 @@ Review:
 Deployment/inventory/prod/group_vars/all.yml
 ```
 
-These are the high-level deployment settings. Change these before generating inventory, creating the deploy key, or preparing machines. `app_name` affects the default SSH key name, and `deploy_root` affects the directories Ansible creates on the nodes.
-
-Shape:
+Set or confirm these values before running the setup scripts:
 
 ```yaml
 app_name: <app-name>
 app_image: ghcr.io/<github-owner-or-org>/<image-name>
-app_port: 8080
 public_hostname: <public-hostname>
 deploy_root: /opt/<app-name>
 cloudflare_tunnel_name: <cloudflare-tunnel-name>
 cloudflared_version: <pinned-cloudflared-version>
-caddy_sticky_cookie_name: <cookie-name>
 migration_bundle_name: <app-name>-migrate
 ```
 
-Current default example:
+Where the values come from:
 
-```yaml
-app_name: ship
-app_image: ghcr.io/grumlebob/ship
-app_port: 8080
-public_hostname: ship.jacobgrum.com
-deploy_root: /opt/ship
-cloudflare_tunnel_name: ship-prod
-cloudflared_version: 2026.5.0
-caddy_sticky_cookie_name: ship_lb
-migration_bundle_name: ship-migrate
-```
+| Setting | How to choose or obtain it |
+| --- | --- |
+| `app_name` | Choose a short lowercase deployment name, for example `ship`. This affects generated names like the deploy SSH key. |
+| `app_image` | Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
+| `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `ship.example.com`. |
+| `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
+| `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
+| `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
+| `migration_bundle_name` | Use `<app_name>-migrate` unless you have a naming conflict. |
 
-Example for a different app:
+You normally do not need to edit the other group-var files for the first deployment.
 
-```yaml
-app_name: potatoes
-app_image: ghcr.io/grumlebob/potatoes
-app_port: 8080
-public_hostname: potatoes.example.com
-deploy_root: /opt/potatoes
-cloudflare_tunnel_name: potatoes-prod
-cloudflared_version: 2026.5.0
-caddy_sticky_cookie_name: potatoes_lb
-migration_bundle_name: potatoes-migrate
-```
-
-Do not set `cloudflared_version` to `latest`.
-
-Role-specific variables live here:
-
-```text
-Deployment/inventory/prod/group_vars/app_servers.yml
-Deployment/inventory/prod/group_vars/node_db.yml
-Deployment/inventory/prod/group_vars/load_balancer.yml
-```
-
-Those files hold role-specific ports, container names, and service paths. You normally should not need to edit them for the first deployment.
-
-### Set Up The Control Machine Tools
-
-Run this after reviewing `all.yml` so generated defaults use the right `app_name`. This script will install the Ansible toolchain on the control machine and create the default deploy SSH key if it does not already exist:
+Run this after reviewing `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
 
 ```bash
 bash ./Deployment/scripts/setup-control-machine.sh
@@ -372,13 +191,50 @@ ansible --version
 ansible-playbook --version
 ```
 
-The script does not overwrite an existing key. The default key path is `~/.ssh/<app_name>_deploy`. The generated key has no passphrase so the later self-hosted runner can use it non-interactively; protect the control machine accordingly.
+Script notes:
 
-The installer uses `apt` and `pipx`, installs `sshpass` for the first password-based Ansible bootstrap, pins an Ansible version that matches the Python version on Linux Mint, and makes the Ansible commands available in `/usr/local/bin`.
+```text
+Changes: installs the approved Ansible toolchain and creates the deploy SSH key.
+Writes: ~/.ssh/<app_name>_deploy and ~/.ssh/<app_name>_deploy.pub.
+Safe to rerun: yes; it does not overwrite an existing key.
+Success: control machine setup complete.
+```
 
-## 3. Bootstrap First SSH On Each Node
+Checkpoint:
 
-On every node, run the node bootstrap once. This script will set the hostname, install and start SSH, disable sleep targets, and print the discovery values you need for inventory. It is idempotent, so it is safe to rerun while setting up or testing changes:
+```text
+control machine setup complete
+```
+
+The script does not overwrite an existing key.
+
+## 3. Create Local Files And Bootstrap First SSH
+
+[control]
+
+Create the local machine source file:
+
+```bash
+test -f Deployment/machines.yml || cp Deployment/machines.example.yml Deployment/machines.yml
+```
+
+This command does not overwrite an existing local file.
+
+`Deployment/machines.yml` is the single place to store node IPs, MAC addresses, and install usernames. Fill the matching node entry as you bootstrap each machine. Do not copy node IPs or MAC addresses into generated inventory, compose, Caddy, firewall, or `.env` files by hand.
+
+[each node]
+
+Open a terminal in a repository checkout on that node. On a fresh node, create the checkout with:
+
+```bash
+sudo apt update
+sudo apt install -y git gh
+gh auth status || gh auth login
+gh repo clone Grumlebob/BlazorAutoApp
+cd BlazorAutoApp
+```
+
+Run the node bootstrap from the repository root on that node:
 
 ```bash
 bash ./Deployment/scripts/bootstrap-node.sh <node-name>
@@ -390,16 +246,20 @@ Example on `node-main`:
 bash ./Deployment/scripts/bootstrap-node.sh node-main
 ```
 
-From the script output, save these values:
+This script sets the hostname, installs and starts SSH, disables sleep targets, and prints the values you need for `Deployment/machines.yml`. It is idempotent, so it is safe to rerun while setting up or testing changes.
+
+Script notes:
 
 ```text
-username -> Deployment/machines.yml install_user
-hostname -> sanity check only; it should match the node name
-lan_ip   -> Deployment/machines.yml ip
-lan_mac  -> Deployment/machines.yml mac
+Changes: hostname, SSH server state, and sleep/suspend systemd targets on that node.
+Writes: no repository files.
+Safe to rerun: yes.
+Success: prints username, hostname, lan_ip, and lan_mac.
 ```
 
-The output is intentionally only four lines. Example:
+If the script cannot detect a LAN IP or MAC address, it stops with a clear error instead of printing unusable `unknown` values.
+
+The output is intentionally only four lines:
 
 ```text
 username: jacob
@@ -408,106 +268,17 @@ lan_ip: 192.168.1.20
 lan_mac: aa:bb:cc:dd:ee:01
 ```
 
-Use the matching value from:
+[control]
+
+Save the values from each node in `Deployment/machines.yml`:
 
 ```text
-node-main
-node-app1
-node-app2
-node-db
+username -> install_user
+lan_ip   -> ip
+lan_mac  -> mac
 ```
 
-Ensure you have run `bootstrap-node.sh` on all four nodes before proceeding:
-
-```text
-node-main
-node-app1
-node-app2
-node-db
-```
-
-At this point, Ansible still uses the normal Linux Mint user you created during OS installation. The `deploy` user is created later by automation.
-
-If you are unsure what the Linux Mint install username is, open a terminal on that node and run:
-
-```bash
-whoami
-```
-
-Example output:
-
-```text
-jacob
-```
-
-If the output is `jacob`, then every command that says `<linux-mint-install-user>` should use `jacob`.
-
-## 4. Discover LAN IPs, Reserve Them, And Create Inventory
-
-If you already saved the values printed by `bootstrap-node.sh`, use those values. If you need to print them again, run this discovery script on each node. It only prints the username, hostname, likely LAN IP, and likely MAC address; it does not change the node:
-
-```bash
-bash ./Deployment/scripts/discover-machines.sh
-```
-
-Record these values for each node:
-
-- Username: put this in `install_user`.
-- Hostname: check that it is the node name you passed to `bootstrap-node.sh`.
-- LAN IP address: put this in `ip`.
-- MAC address for the LAN interface: put this in `mac`.
-
-Ensure you have recorded username, LAN IP, and MAC address for all four nodes before proceeding.
-
-Open your router admin UI. Create DHCP reservations so each node keeps the same LAN IP.
-
-Reboot each node after adding the DHCP reservations, then rerun:
-
-```bash
-ip -brief address
-```
-
-Do not continue until all four nodes have their reserved IP.
-
-Now create the local deployment setup files from the repository root on the control machine:
-
-```bash
-test -f Deployment/machines.yml || cp Deployment/machines.example.yml Deployment/machines.yml
-test -f Deployment/.deploy.local.env || cp Deployment/.deploy.local.env.example Deployment/.deploy.local.env
-```
-
-These commands do not overwrite existing local files. That matters if you are rerunning the guide later.
-
-Enter the discovered values once in:
-
-```text
-Deployment/machines.yml
-```
-
-Shape:
-
-```yaml
-nodes:
-  node-main:
-    ip: REPLACE_WITH_NODE_MAIN_LAN_IP
-    mac: REPLACE_WITH_NODE_MAIN_MAC
-    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
-
-  node-app1:
-    ip: REPLACE_WITH_NODE_APP1_LAN_IP
-    mac: REPLACE_WITH_NODE_APP1_MAC
-    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
-
-  node-app2:
-    ip: REPLACE_WITH_NODE_APP2_LAN_IP
-    mac: REPLACE_WITH_NODE_APP2_MAC
-    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
-
-  node-db:
-    ip: REPLACE_WITH_NODE_DB_LAN_IP
-    mac: REPLACE_WITH_NODE_DB_MAC
-    install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER
-```
+The `hostname` line is a sanity check only. It should match the node name passed to `bootstrap-node.sh`.
 
 Example:
 
@@ -517,52 +288,83 @@ nodes:
     ip: 192.168.1.20
     mac: aa:bb:cc:dd:ee:01
     install_user: jacob
-
-  node-app1:
-    ip: 192.168.1.21
-    mac: aa:bb:cc:dd:ee:02
-    install_user: jacob
-
-  node-app2:
-    ip: 192.168.1.22
-    mac: aa:bb:cc:dd:ee:03
-    install_user: jacob
-
-  node-db:
-    ip: 192.168.1.23
-    mac: aa:bb:cc:dd:ee:04
-    install_user: jacob
 ```
 
-Edit `Deployment/.deploy.local.env` and set your Linux Mint install username.
+Use the matching node entry:
 
-Shape:
-
-```env
-LINUX_MINT_INSTALL_USER=<linux-mint-install-user>
+```text
+node-main
+node-app1
+node-app2
+node-db
 ```
 
-Example:
+Ensure you have run `bootstrap-node.sh` on all four nodes before proceeding.
 
-```env
-LINUX_MINT_INSTALL_USER=jacob
+Ensure every node entry in `Deployment/machines.yml` has real `ip`, `mac`, and `install_user` values before proceeding. Do not leave any `REPLACE_WITH` placeholders.
+
+[each node]
+
+If you missed the output for a node, rerun this read-only discovery script on that node:
+
+```bash
+bash ./Deployment/scripts/discover-machines.sh
 ```
 
-If every node uses the same Linux Mint install username, this saves you from typing it repeatedly. If you fill `install_user` in `Deployment/machines.yml`, the generated bootstrap inventory also saves the username for the fresh-machine phase.
+Script notes:
 
-The deploy SSH key path is intentionally not configurable in local env. It is derived from `app_name` as `~/.ssh/<app_name>_deploy`, and the generated Ansible inventory uses the same path.
+```text
+Changes: none.
+Writes: nothing.
+Safe to rerun: yes.
+Success: prints username, hostname, lan_ip, and lan_mac.
+```
 
-Then generate the Ansible inventory. This script will validate `Deployment/machines.yml`, read `app_name` from `all.yml`, and write the normal and bootstrap Ansible inventory files:
+## 4. Reserve LAN IPs And Generate Inventory
+
+[router]
+
+Create DHCP reservations from the `ip` and `mac` values in `Deployment/machines.yml` so each node keeps the same LAN IP.
+
+[each node]
+
+Reboot each node after adding the DHCP reservations, then confirm the active LAN IP:
+
+```bash
+ip -brief address
+```
+
+[control]
+
+Do not continue until all four nodes have the reserved IPs recorded in `Deployment/machines.yml`. If a node receives a different reserved IP, update that node's `ip` value in `Deployment/machines.yml` before generating inventory.
+
+Generate the Ansible inventory:
 
 ```bash
 bash ./Deployment/scripts/generate-inventory.sh
 ```
 
-This writes:
+Script notes:
+
+```text
+Changes: none on the nodes.
+Writes: hosts.yml and bootstrap-hosts.yml.
+Safe to rerun: yes; it regenerates inventory from machines.yml.
+Success: generated Deployment/inventory/prod/hosts.yml from Deployment/machines.yml.
+```
+
+This script validates `Deployment/machines.yml`, reads `app_name` from `all.yml`, and writes:
 
 ```text
 Deployment/inventory/prod/hosts.yml
 Deployment/inventory/prod/bootstrap-hosts.yml
+```
+
+Checkpoint:
+
+```text
+generated Deployment/inventory/prod/hosts.yml from Deployment/machines.yml
+generated Deployment/inventory/prod/bootstrap-hosts.yml from Deployment/machines.yml
 ```
 
 `hosts.yml` is the normal deployment inventory. `bootstrap-hosts.yml` is only for preparing fresh machines before the `deploy` user exists.
@@ -580,250 +382,145 @@ git commit -m "Configure production deployment inventory"
 
 ## 5. Verify Bootstrap Access
 
-Run these commands from the repository root on the control machine. `status.sh bootstrap` prints what is ready or missing, and `preflight.sh bootstrap` fails fast on blocking setup problems before Ansible changes the nodes:
+[control]
+
+Run:
 
 ```bash
-ansible --version
-bash ./Deployment/scripts/status.sh bootstrap
-bash ./Deployment/scripts/preflight.sh bootstrap
+bash ./Deployment/scripts/verify-bootstrap.sh
 ```
 
-The bootstrap preflight verifies:
+Script notes:
 
-- Ansible is installed.
-- `Deployment/inventory/prod/hosts.yml` parses.
-- No inventory placeholder IPs remain.
-- The deploy SSH private and public keys exist. By default they are `~/.ssh/<app_name>_deploy` and `~/.ssh/<app_name>_deploy.pub`.
-
-Test SSH to each node with the normal Linux Mint install user.
-
-Replace `<linux-mint-install-user>` with the username from `whoami`. Replace each `<node-...-lan-ip>` with the reserved IP you put in `Deployment/inventory/prod/hosts.yml`.
-
-```bash
-ssh <linux-mint-install-user>@<node-main-lan-ip> hostname
-ssh <linux-mint-install-user>@<node-app1-lan-ip> hostname
-ssh <linux-mint-install-user>@<node-app2-lan-ip> hostname
-ssh <linux-mint-install-user>@<node-db-lan-ip> hostname
+```text
+Changes: none.
+Writes: nothing.
+Safe to rerun: yes.
+Success: bootstrap verification ok.
 ```
 
-Example if your Linux Mint username is `jacob` and `node-main` is `192.168.1.20`:
-
-```bash
-ssh jacob@192.168.1.20 hostname
-```
-
-Verify Ansible can reach every fresh machine with the Linux Mint install user.
-
-If you generated `bootstrap-hosts.yml`, this command can read the per-node install usernames from there. This script will run an Ansible ping using the fresh Linux Mint users and password prompts, before SSH hardening switches deployment over to the `deploy` user:
-
-```bash
-bash ./Deployment/scripts/ping-fresh-machines.sh
-```
-
-You can still pass the username explicitly. Example if your Linux Mint username is `jacob`:
-
-```bash
-bash ./Deployment/scripts/ping-fresh-machines.sh jacob
-```
+This wrapper runs bootstrap status, bootstrap preflight, and Ansible ping through `bootstrap-hosts.yml`. The bootstrap checks verify Ansible, the generated inventory, placeholder-free IPs, and the deploy SSH key created by `setup-control-machine.sh`.
 
 Do not continue until all four nodes return `pong`.
 
+If Ansible ping fails, test raw SSH to the failing node:
+
+```bash
+ssh <linux-mint-install-user>@<node-lan-ip> hostname
+```
+
 ## 6. Prepare Fresh Linux Machines
 
-Use the Linux Mint username you created during OS installation. This is the same value described above as `<linux-mint-install-user>`.
+[control]
 
-To find it on a node:
-
-```bash
-whoami
-```
-
-If `whoami` prints `jacob`, run this from the control machine. This script will run the bootstrap preflight, execute `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`, then verify Ansible, Docker, and Docker Compose on the nodes:
-
-```bash
-bash ./Deployment/scripts/prepare-fresh-linux-machines.sh jacob
-```
-
-If `LINUX_MINT_INSTALL_USER=jacob` is set in `Deployment/.deploy.local.env`, or if `bootstrap-hosts.yml` was generated from `machines.yml`, you can run:
+Run this after bootstrap access passes:
 
 ```bash
 bash ./Deployment/scripts/prepare-fresh-linux-machines.sh
 ```
 
-Command shape:
-
-```bash
-bash ./Deployment/scripts/prepare-fresh-linux-machines.sh [linux-mint-install-user]
-```
-
-It creates the `deploy` user, installs your deploy SSH public key on every node, installs the deploy private/public key files for the `deploy` user on `node-main`, trusts the deployment nodes in `/home/deploy/.ssh/known_hosts` on `node-main`, configures SSH hardening, installs Docker, configures host firewalling, installs Docker published-port firewalling, creates the configured `deploy_root`, and verifies Docker Compose on each node.
-
-After this step, deployment uses:
+Script notes:
 
 ```text
-User: deploy
-SSH key: ~/.ssh/<app_name>_deploy
-Deploy root on nodes: value of `deploy_root` from `Deployment/inventory/prod/group_vars/all.yml`
+Changes: creates the deploy user, installs SSH keys, hardens SSH, installs Docker, configures firewalls, and creates runtime directories.
+Writes: system configuration and runtime directories on the nodes.
+Safe to rerun: yes.
+Success: all nodes respond to Ansible, Docker, and Docker Compose checks.
 ```
 
-The private key is copied only to `node-main` because that machine later runs the GitHub Actions runner and needs to SSH to the other deployment nodes.
+This script runs the bootstrap preflight, executes `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`, then verifies Ansible, Docker, and Docker Compose on the nodes. It reads each Linux Mint install username from `bootstrap-hosts.yml`.
 
-The deploy root is not the git repository. It is the runtime directory on each Linux node where Ansible places generated deployment files for that node. With the default settings it is `/opt/ship`:
+It creates the `deploy` user automatically, installs key-based SSH for that user, hardens SSH, installs Docker, configures host firewalling, installs Docker published-port firewalling, and creates runtime directories.
+
+Checkpoint:
 
 ```text
-/opt/ship/
-  docker-compose.yml
-  .env
-  backups/
-  migrations/
+all nodes respond to Ansible ping
+all nodes print docker version
+all nodes print docker compose version
 ```
 
-Each node gets only the runtime files for its role. App nodes get the app compose file. `node-db` gets the PostgreSQL/Redis compose file. `node-main` gets Caddy/cloudflared configuration.
-
-Verify the prepared nodes:
-
-```bash
-cd <repo-root>/Deployment/ansible
-ansible all -i ../inventory/prod/hosts.yml -m ping
-ansible all -i ../inventory/prod/hosts.yml -a "docker version"
-ansible all -i ../inventory/prod/hosts.yml -a "docker compose version"
-```
+After this step, deployment uses the `deploy` user and the key at `~/.ssh/<app_name>_deploy`. Password SSH login is disabled by the SSH hardening role.
 
 ## 7. Create The Cloudflare Tunnel
 
-The normal path is the Cloudflare dashboard. Open:
+[cloudflare]
+
+Open:
 
 ```text
 https://one.dash.cloudflare.com/
 ```
 
-Then create the tunnel in Cloudflare Zero Trust:
+Create a remotely-managed Cloudflare Tunnel:
 
 ```text
-Networks -> Tunnels -> Create tunnel
+Zero Trust -> Networks -> Connectors -> Cloudflare Tunnels -> Create tunnel
 Tunnel type: Cloudflared
-Tunnel name: <cloudflare-tunnel-name>
+Tunnel name: <cloudflare_tunnel_name>
 Connector environment: Debian
 ```
 
-Example:
+Use the exact `cloudflare_tunnel_name` value from `all.yml`.
+
+When Cloudflare shows the connector install command, do not run it. Ansible installs and runs `cloudflared` later. Copy only the tunnel token from the generated command. The token is the long `eyJ...` value in a command shaped like:
 
 ```text
-Networks -> Tunnels -> Create tunnel
-Tunnel type: Cloudflared
-Tunnel name: ship-prod
-Connector environment: Debian
+sudo cloudflared service install <cloudflare-tunnel-token>
 ```
 
-Copy the generated tunnel token and keep it ready for the next step. You will paste it into `Deployment/inventory/prod/vault.yml` when `setup-secrets.sh` opens the encrypted vault.
+If you need to get the token again later, open the tunnel in Cloudflare, choose to add another connector/replica, and copy the token from the generated `cloudflared` command.
 
-Shape:
+Keep the token ready for the next step. You will paste it into `Deployment/inventory/prod/vault.yml` when `setup-secrets.sh` opens the encrypted vault:
 
 ```yaml
-vault_cloudflare_tunnel_token: <cloudflare-tunnel-token>
+vault_cloudflare_tunnel_token: "<cloudflare-tunnel-token>"
 ```
 
-Example:
-
-```yaml
-vault_cloudflare_tunnel_token: "eyJhIjoiexample-only-cloudflare-tunnel-token"
-```
-
-Add the public hostname in Cloudflare.
-
-Shape:
+Add the public hostname in Cloudflare. Use the exact `public_hostname` value from `all.yml`:
 
 ```text
-Public hostname: <public-hostname>
-Service type: HTTP
-Service URL: 127.0.0.1:80
-```
-
-Example:
-
-```text
-Public hostname: ship.jacobgrum.com
+Public hostname: <public_hostname>
 Service type: HTTP
 Service URL: 127.0.0.1:80
 ```
 
 The service URL is local to `node-main` because cloudflared connects to Caddy on the same machine. Do not put an app-node LAN IP here.
 
-Cloudflare's dashboard tunnel guide is here:
+Checkpoint:
 
 ```text
-https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/
+Cloudflare has a tunnel named <cloudflare_tunnel_name>
+Cloudflare has a public hostname named <public_hostname>
+You have copied the tunnel token for vault.yml
 ```
 
-### Optional: Create The Tunnel With The Cloudflare API
-
-Skip this subsection if you created the tunnel in the Cloudflare dashboard.
-
-The optional API helper does the same Cloudflare-side setup: it creates or reuses the tunnel named by `cloudflare_tunnel_name`, configures the public hostname from `public_hostname` to route to `http://127.0.0.1:80`, creates or updates the proxied CNAME record, and prints the `vault_cloudflare_tunnel_token` line for the next step.
-
-Required Cloudflare API token permissions:
-
-```text
-Cloudflare Tunnel Write
-Zone DNS Edit
-```
-
-Set these values in your shell, or put them in `Deployment/.deploy.local.env`:
-
-Shape:
-
-```env
-CLOUDFLARE_ACCOUNT_ID=<cloudflare-account-id>
-CLOUDFLARE_ZONE_ID=<cloudflare-zone-id>
-CLOUDFLARE_API_TOKEN=<cloudflare-api-token>
-```
-
-Example:
-
-```env
-CLOUDFLARE_ACCOUNT_ID=0123456789abcdef0123456789abcdef
-CLOUDFLARE_ZONE_ID=abcdef0123456789abcdef0123456789
-CLOUDFLARE_API_TOKEN=cfapi_example_only_000000000000000000000000
-```
-
-Run this only after the Cloudflare account, zone, and API token values are available in your shell or `Deployment/.deploy.local.env`. This script will create or reuse the configured tunnel, point the configured public hostname at `http://127.0.0.1:80`, create or update the proxied DNS record, and print the vault token line:
-
-```bash
-bash ./Deployment/scripts/setup-cloudflare-tunnel.sh
-```
-
-Copy only the printed `vault_cloudflare_tunnel_token` line into the encrypted vault in the next step. Do not commit Cloudflare API tokens.
-
-Cloudflare's API references for this helper are:
-
-```text
-https://developers.cloudflare.com/api/resources/zero_trust/subresources/tunnels/subresources/cloudflared/
-https://developers.cloudflare.com/tunnel/advanced/tunnel-tokens/
-https://developers.cloudflare.com/api/go/resources/zero_trust/subresources/tunnels/subresources/cloudflared/subresources/configurations/methods/update/
-```
-
-The Ansible role installs the pinned `cloudflared_version` from `Deployment/inventory/prod/group_vars/all.yml` and runs the tunnel on `node-main`. If you later change the tunnel token in the vault, the role detects the change and reinstalls the cloudflared service.
-
-After deployment, verify on `node-main`:
-
-```bash
-systemctl status cloudflared --no-pager
-journalctl -u cloudflared --no-pager -n 100
-```
+The optional API helper is in `Reference: Optional Cloudflare API Helper`.
 
 ## 8. Create Secrets And The GitHub Vault Secret
 
-Create or edit the encrypted Ansible Vault after the Cloudflare tunnel token is ready. This script will create `vault.yml` from the example if needed, open it with `ansible-vault edit`, validate the encrypted values, and set the GitHub repository secret used by the deployment workflow:
+[control]
+
+Create or edit the encrypted Ansible Vault after the Cloudflare tunnel token is ready:
 
 ```bash
 bash ./Deployment/scripts/setup-secrets.sh
 ```
 
-The script asks for the Ansible Vault password once, opens `Deployment/inventory/prod/vault.yml` for editing, validates the encrypted contents, and runs `gh secret set ANSIBLE_VAULT_PASSWORD` when GitHub CLI is authenticated.
+This script creates `vault.yml` from the example if needed, opens it with `ansible-vault edit`, validates the encrypted values, and sets the GitHub repository secret `ANSIBLE_VAULT_PASSWORD` when GitHub CLI is authenticated.
+
+Script notes:
+
+```text
+Changes: creates or edits the encrypted vault and sets the GitHub ANSIBLE_VAULT_PASSWORD secret.
+Writes: Deployment/inventory/prod/vault.yml and a GitHub repository secret.
+Safe to rerun: yes; it reopens the existing vault.
+Success: encrypted vault decrypts and has all required non-placeholder keys.
+```
 
 Save the Ansible Vault password somewhere durable and private, like 1Password, Bitwarden, KeePass, or iCloud Keychain. You need the same password when running `ansible-vault view` or `ansible-vault edit`, and the GitHub repository secret must contain the same password.
 
-Vault shape:
+Fill every value in the vault:
 
 ```yaml
 vault_postgres_user: <postgres-user>
@@ -835,60 +532,198 @@ vault_ghcr_token: <github-token-with-read-packages>
 vault_cloudflare_tunnel_token: <cloudflare-tunnel-token>
 ```
 
-Vault example:
+Where the values come from:
 
-```yaml
-vault_postgres_user: ship
-vault_postgres_password: "correct-horse-db-2026-not-real"
-vault_postgres_db: ship
-vault_redis_password: "correct-horse-redis-2026-not-real"
-vault_ghcr_username: grumlebob
-vault_ghcr_token: "ghp_ExampleOnlyReadPackagesToken0000000000"
-vault_cloudflare_tunnel_token: "eyJhIjoiexample-only-cloudflare-tunnel-token"
-```
+| Vault key | How to choose or obtain it |
+| --- | --- |
+| `vault_postgres_user` | Choose a database username, usually the same as `app_name`. |
+| `vault_postgres_password` | Generate a strong password in your password manager. |
+| `vault_postgres_db` | Choose a database name, usually the same as `app_name`. |
+| `vault_redis_password` | Generate a strong password in your password manager. |
+| `vault_ghcr_username` | Use the GitHub account that owns or can read the GHCR package. |
+| `vault_ghcr_token` | Create a GitHub fine-grained or classic token for that account with package read access. For a classic PAT, `read:packages` is the important permission. |
+| `vault_cloudflare_tunnel_token` | Copy the `eyJ...` tunnel token from the Cloudflare connector command in the previous step. |
 
-Quoted and unquoted YAML string values both work. Quotes are useful for passwords or tokens because they avoid surprises with special characters such as `:`, `#`, `{`, or spaces.
+Quotes are safest for passwords and tokens.
 
-GitHub secret shape:
-
-```text
-ANSIBLE_VAULT_PASSWORD=<password used for Deployment/inventory/prod/vault.yml>
-```
-
-GitHub secret example:
-
-```text
-ANSIBLE_VAULT_PASSWORD=correct-horse-vault-2026-not-real
-```
-
-In the GitHub UI, the secret name is `ANSIBLE_VAULT_PASSWORD` and the secret value is the password text only. Do not add surrounding quotes unless quotes are literally part of your vault password.
-
-Useful vault commands:
+Checkpoint:
 
 ```bash
 bash ./Deployment/scripts/check-vault.sh
-ansible-vault view Deployment/inventory/prod/vault.yml
-ansible-vault edit Deployment/inventory/prod/vault.yml
+```
+
+Expected result:
+
+```text
+OK    encrypted vault decrypts and has all required non-placeholder keys
 ```
 
 Commit only the encrypted vault file if this repository is the source used by the self-hosted deployment runner:
 
 ```bash
-bash ./Deployment/scripts/check-vault.sh
 git add Deployment/inventory/prod/vault.yml
 git commit -m "Add encrypted production Ansible vault"
 ```
 
 Never commit plaintext secrets.
 
-Run deploy preflight. `status.sh deploy` reports readiness for the deploy phase, and `preflight.sh deploy` verifies the inventory, deploy SSH key, encrypted vault, and required vault keys before deployment:
+Run deploy preflight:
 
 ```bash
 bash ./Deployment/scripts/status.sh deploy
 bash ./Deployment/scripts/preflight.sh deploy
 ```
 
-## 9. Understand Runtime Services
+Expected result:
+
+```text
+deploy status ok
+preflight ok (deploy)
+```
+
+## 9. Build And Push The First Image
+
+[github]
+
+The deploy workflow can only deploy an image that exists in GHCR. CI pushes images only for non-PR runs.
+
+Use one of these normal paths:
+
+```text
+Merge/push the deployment commit to main and wait for CI to pass.
+```
+
+or:
+
+```text
+Run the CI workflow manually for the ref you intend to deploy.
+```
+
+The CI workflow builds/tests the app, builds the migration bundle, and pushes:
+
+```text
+<app_image>:<selected-commit-sha>
+```
+
+Before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
+
+```bash
+APP_IMAGE="$(python3 Deployment/scripts/read-deploy-setting.py app_image)"
+APP_VERSION="$(git rev-parse HEAD)"
+docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
+echo "image exists: ${APP_IMAGE}:${APP_VERSION}"
+```
+
+If this returns `unauthorized`, log Docker in to GHCR with a GitHub account or token that can read the package.
+
+Do not run `Deploy App To LAN` yet; the self-hosted runner is installed in the next step.
+
+## 10. Install The GitHub Actions Runner
+
+[control]
+
+Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded:
+
+```bash
+bash ./Deployment/scripts/install-github-runner.sh
+```
+
+Script notes:
+
+```text
+Changes: installs and registers the self-hosted GitHub Actions runner on node-main.
+Writes: /opt/actions-runner and a systemd service on node-main.
+Safe to rerun: yes; an existing runner is reused/replaced by the registration flow.
+Success: GitHub Actions runner ready on node-main (<node-main-ip>).
+```
+
+This script uses GitHub CLI to create a runner registration token, SSHes to `node-main`, installs the runner under `/opt/actions-runner`, and starts its systemd service.
+
+The workflow targets:
+
+```yaml
+runs-on: [self-hosted, linux, x64, homelab]
+```
+
+GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds `homelab`.
+
+Checkpoint:
+
+```text
+GitHub Actions runner ready on node-main (<node-main-ip>)
+```
+
+[github]
+
+Confirm the runner is online:
+
+```text
+Repository -> Settings -> Actions -> Runners
+```
+
+## 11. First Deploy From GitHub Actions
+
+[github]
+
+Use this workflow:
+
+```text
+.github/workflows/deploy-lan.yml
+```
+
+In GitHub:
+
+```text
+Actions -> Deploy App To LAN -> Run workflow
+```
+
+Inputs:
+
+```text
+run_migrations: true
+```
+
+Use `run_migrations: true` for the first deployment and for commits that include EF migrations. Use `false` only when the database schema is already current for the selected image.
+
+Leave the branch/tag selector on `main` for the normal path. The workflow uses that selected ref's commit SHA automatically, checks that `<app_image>:<selected-commit-sha>` exists, builds the migration bundle from the same checkout, and deploys that image.
+
+The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/ansible/playbooks/site.yml`, and verifies:
+
+```text
+https://<public_hostname>/health/ready
+```
+
+## 12. Verify The Deployment
+
+[control]
+
+Run:
+
+```bash
+bash ./Deployment/scripts/verify-deployment.sh
+```
+
+Script notes:
+
+```text
+Changes: none.
+Writes: nothing.
+Safe to rerun: yes.
+Success: deployment verification ok.
+```
+
+This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, local Caddy health, and the `caddy` and `cloudflared` services.
+
+Checkpoint:
+
+```text
+public /health/ready returns success
+both app nodes return success
+node-db compose services are running
+caddy and cloudflared are active on node-main
+```
+
+## Reference: Runtime Services
 
 PostgreSQL and Redis run from:
 
@@ -914,13 +749,13 @@ Deployment/compose/app-server/docker-compose.yml
 Ansible renders `<deploy-root>/.env` on each app node with:
 
 ```env
-APP_IMAGE=ghcr.io/grumlebob/ship
-APP_VERSION=<selected commit SHA>
-POSTGRES_HOST=<node-db IP from inventory>
+APP_IMAGE=<app_image>
+APP_VERSION=<selected-commit-sha>
+POSTGRES_HOST=<node-db-ip-from-inventory>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
 POSTGRES_DB=<vault_postgres_db>
-REDIS_HOST=<node-db IP from inventory>
+REDIS_HOST=<node-db-ip-from-inventory>
 REDIS_PASSWORD=<vault_redis_password>
 ```
 
@@ -930,41 +765,9 @@ Caddy is installed on `node-main`. The deployed Caddy site is generated from:
 Deployment/ansible/roles/caddy/templates/app.caddy.j2
 ```
 
-It uses the real app-node LAN IPs from `Deployment/inventory/prod/hosts.yml`, keeps sticky sessions for Blazor Server, and checks `/health/ready`.
+It uses the app-node LAN IPs from `Deployment/inventory/prod/hosts.yml`, keeps sticky sessions for Blazor Server, and checks `/health/ready`.
 
-Validate Caddy after deployment:
-
-```bash
-caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-systemctl status caddy --no-pager
-```
-
-## 10. Build And Push The First Image
-
-Push your branch/commit through GitHub so `.github/workflows/ci.yml` runs.
-
-The normal `CI` workflow should not require you to have completed this deployment guide. It uses committed defaults from `Deployment/inventory/prod/group_vars/all.yml`, builds/tests the app, builds the migration bundle, and builds/pushes the Docker image.
-
-Do not expect `Deploy App To LAN` to pass until you have completed the runner, inventory, vault, and GitHub secret setup below. That workflow reaches into your LAN and deliberately depends on the real deployment environment.
-
-CI does the production build work:
-
-```text
-1. Deployment audit.
-2. dotnet restore.
-3. dotnet build.
-4. dotnet test.
-5. Build EF migration bundle.
-6. Build Docker image.
-7. Push `<app_image>:${{ github.sha }}` on non-PR runs.
-```
-
-Wait for CI to succeed before deploying. The deployment workflow uses the selected GitHub ref's commit SHA automatically; you do not copy it by hand.
-
-Production deploys use the Git SHA tag. CI intentionally does not push or deploy a mutable `latest` tag.
-
-## 11. Migration Strategy
+## Reference: Migration Strategy
 
 Do not run EF Core migrations automatically from both app servers.
 
@@ -972,145 +775,91 @@ The production deployment order is:
 
 ```text
 1. Build and push the app image.
-2. Create a database backup.
-3. Stop both app containers.
-4. Run the EF Core migration bundle once.
-5. Start app containers on both app nodes.
-6. Verify app-node /health/ready.
-7. Verify `https://<public_hostname>/health/ready`.
+2. Deploy PostgreSQL and Redis.
+3. Deploy Caddy and cloudflared.
+4. Stop both app containers when migrations are enabled.
+5. Create a database backup when migrations are enabled.
+6. Run the EF Core migration bundle once when migrations are enabled.
+7. Start app containers on both app nodes.
+8. Verify app-node /health/ready.
+9. Verify https://<public_hostname>/health/ready.
 ```
 
-The `site.yml` playbook handles that order when `run_migrations=true`.
+`Deployment/ansible/playbooks/site.yml` handles that order.
 
-Manual migration bundle run from `node-db`, if you need to inspect the exact command:
+Manual migration command from `node-db`, if you need to inspect what the playbook runs:
 
 ```bash
 cd <deploy-root>
 set -a
 . ./.env
 set +a
-chmod +x ./migrations/<migration_bundle_name>
 ./migrations/<migration_bundle_name> --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 ```
 
-## 12. Install The GitHub Actions Runner
+## Reference: Optional Cloudflare API Helper
 
-Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded. Run this from the repository root on the control machine. This script will use GitHub CLI to create a runner registration token, SSH to `node-main`, install the runner under `/opt/actions-runner`, and start its systemd service:
+Use this only if you want the script to create or update the Cloudflare tunnel instead of using the dashboard.
+
+[control]
+
+Set these values in your shell:
 
 ```bash
-bash ./Deployment/scripts/install-github-runner.sh
+export CLOUDFLARE_ACCOUNT_ID=<cloudflare-account-id>
+export CLOUDFLARE_ZONE_ID=<cloudflare-zone-id>
+export CLOUDFLARE_API_TOKEN=<cloudflare-api-token>
 ```
 
-The workflow targets:
+Where the values come from:
 
-```yaml
-runs-on: [self-hosted, linux, x64, homelab]
-```
+| Value | How to obtain it |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard account overview. |
+| `CLOUDFLARE_ZONE_ID` | Cloudflare dashboard domain/zone overview for the zone used by `public_hostname`. |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Tokens. The token needs tunnel write permission and DNS edit permission for the zone. |
 
-GitHub automatically supplies `self-hosted`, `linux`, and `x64`; you add `homelab`.
-
-## 13. First Deploy From GitHub Actions
-
-Use this workflow:
+Required API token permissions:
 
 ```text
-.github/workflows/deploy-lan.yml
+Cloudflare Tunnel Write
+Zone DNS Edit
 ```
 
-In GitHub:
-
-```text
-Actions -> Deploy App To LAN -> Run workflow
-```
-
-Inputs shape:
-
-```text
-run_migrations: true
-```
-
-Inputs example:
-
-```text
-run_migrations: true
-```
-
-GitHub shows a branch/tag selector in the Run workflow dialog. Leave it on `main` for the normal path. The workflow uses that selected ref's commit SHA automatically, checks that `<app_image>:<selected-commit-sha>` exists, builds the migration bundle from the same checkout, and deploys that image.
-
-The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/ansible/playbooks/site.yml`, and verifies:
-
-```text
-https://<public_hostname>/health/ready
-```
-
-## 14. Verify The Deployment
-
-From the control machine:
+Run:
 
 ```bash
-curl -fsS https://<public_hostname>/health/ready
+bash ./Deployment/scripts/setup-cloudflare-tunnel.sh
 ```
 
-From `node-main`:
-
-```bash
-curl -fsS http://localhost/health/ready
-```
-
-Check app nodes:
-
-```bash
-ansible app_servers -i Deployment/inventory/prod/hosts.yml -a "curl -fsS http://localhost:8080/health/ready"
-ansible app_servers -i Deployment/inventory/prod/hosts.yml -a "cd <deploy-root> && docker compose ps"
-```
-
-Check DB/Redis:
-
-```bash
-ansible node_db -i Deployment/inventory/prod/hosts.yml -a "cd <deploy-root> && docker compose ps"
-```
-
-Check Caddy and cloudflared:
-
-```bash
-ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "systemctl status caddy --no-pager"
-ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "systemctl status cloudflared --no-pager"
-```
+Copy only the printed `vault_cloudflare_tunnel_token` line into the encrypted vault. Do not commit Cloudflare API tokens.
 
 ## Advanced: Manual Deploy Commands
 
 Use this section only when you intentionally need to bypass GitHub Actions.
 
-Wrapper script without migrations. This script will run deploy preflight and then call the normal Ansible `site.yml` deployment playbook for the Git SHA image tag:
+[control]
+
+Wrapper script without migrations:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <git-sha>
 ```
 
-Wrapper script with a local migration bundle. This uses the same deployment wrapper, but also passes the migration bundle path and enables the migration step:
+Wrapper script with a local migration bundle:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <git-sha> --migrate <path-to-migration-bundle>
 ```
 
-Raw Ansible with migrations:
-
-```bash
-cd <repo-root>/Deployment/ansible
-bash ../scripts/preflight.sh deploy
-ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-  --ask-vault-pass \
-  -e app_version=<git-sha> \
-  -e run_migrations=true \
-  -e migration_bundle_local_path=<local-path-to-migration-bundle>
-```
-
 ## Routine Deployments
+
+[github]
 
 For normal future deployments:
 
 ```text
-1. Push code.
+1. Push or merge code to main.
 2. Wait for CI to pass.
 3. Run "Deploy App To LAN" in GitHub Actions.
 4. Leave the workflow ref selector on main unless you intentionally deploy another branch or tag.
@@ -1119,6 +868,8 @@ For normal future deployments:
 ```
 
 ## Backup And Restore
+
+[control]
 
 Backups are created before deployment migrations.
 
@@ -1136,7 +887,9 @@ ansible node_db -i Deployment/inventory/prod/hosts.yml -a "<deploy-root>/restore
 
 ## Rollback
 
-Before a migration, deploy the previous app image. This uses the same deploy wrapper described above, so it still runs deploy preflight before calling Ansible:
+[control]
+
+Before a migration, deploy the previous app image:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <previous-git-sha>
@@ -1146,7 +899,9 @@ After a migration, prefer a forward-fix migration. Restore the database backup o
 
 ## Troubleshooting
 
-Run preflight first. This script will re-check the deploy prerequisites and vault contents so you can separate setup problems from service/runtime problems:
+[control]
+
+Run preflight first:
 
 ```bash
 bash ./Deployment/scripts/preflight.sh deploy
@@ -1163,9 +918,19 @@ ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "journalctl -u c
 ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "journalctl -u cloudflared --no-pager -n 100"
 ```
 
+If the public hostname fails:
+
+```text
+1. Run verify-deployment.sh to separate public routing from local service health.
+2. If local Caddy health fails, check app-node health and Caddy logs.
+3. If local Caddy health passes but public health fails, check the Cloudflare public hostname service URL is 127.0.0.1:80.
+4. Check cloudflared is active and read its logs with the journalctl command above.
+5. Confirm the tunnel token in vault.yml belongs to the same Cloudflare tunnel named in all.yml.
+```
+
 Important rule: change machine IPs in `Deployment/machines.yml`, regenerate `Deployment/inventory/prod/hosts.yml`, change secrets in `Deployment/inventory/prod/vault.yml`, and change shared non-secret deployment settings in `Deployment/inventory/prod/group_vars/all.yml`.
 
-## Security Checklist
+## Security Notes
 
 - Cloudflare Tunnel is the only public ingress path.
 - Do not configure router port forwarding to app, database, Redis, Seq, or Redis Insight.
@@ -1177,11 +942,3 @@ Important rule: change machine IPs in `Deployment/machines.yml`, regenerate `Dep
 - GHCR deploy token is read-only.
 - Secrets live in Ansible Vault or GitHub Secrets, never plaintext repo files.
 - Do not run untrusted pull request code on the self-hosted runner.
-
-## Deferred Work
-
-- Durable file upload storage across both app nodes.
-- MinIO or another S3-compatible object store.
-- Monitoring and alerting.
-- Blue/green or canary deployments.
-- Tailscale or WireGuard for private remote administration.

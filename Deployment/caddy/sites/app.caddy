@@ -1,8 +1,0 @@
-# Reference only.
-#
-# The deployed Caddy site is generated from:
-# Deployment/ansible/roles/caddy/templates/app.caddy.j2
-#
-# Caddy binds to 127.0.0.1:80 in the generated deployment config.
-# App-node IPs come from:
-# Deployment/inventory/prod/hosts.yml

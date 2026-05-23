@@ -70,6 +70,7 @@ def deployment_text_files() -> list[Path]:
 
 
 required_files = [
+    "HowToDeploy.md",
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-lan.yml",
     ".config/dotnet-tools.json",
@@ -77,17 +78,11 @@ required_files = [
     "Deployment/machines.example.yml",
     "Deployment/inventory/prod/hosts.yml",
     "Deployment/inventory/prod/group_vars/all.yml",
-    "Deployment/inventory/prod/group_vars/app_servers.yml",
     "Deployment/inventory/prod/group_vars/load_balancer.yml",
     "Deployment/inventory/prod/group_vars/node_db.yml",
     "Deployment/inventory/prod/vault.example.yml",
-    "Deployment/inventory/prod/host_vars/node-app1.yml",
-    "Deployment/inventory/prod/host_vars/node-app2.yml",
-    "Deployment/inventory/prod/host_vars/node-db.yml",
-    "Deployment/inventory/prod/host_vars/node-main.yml",
     "Deployment/ansible/ansible.cfg",
     "Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml",
-    "Deployment/ansible/playbooks/node-db.yml",
     "Deployment/ansible/playbooks/site.yml",
     "Deployment/ansible/roles/app/tasks/main.yml",
     "Deployment/ansible/roles/app/templates/app.env.j2",
@@ -119,9 +114,10 @@ required_files = [
     "Deployment/scripts/setup-control-machine.sh",
     "Deployment/scripts/setup-secrets.sh",
     "Deployment/scripts/restore-db.sh",
-    "Deployment/scripts/health-check.sh",
     "Deployment/scripts/read-deploy-setting.py",
     "Deployment/scripts/status.sh",
+    "Deployment/scripts/verify-bootstrap.sh",
+    "Deployment/scripts/verify-deployment.sh",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
 ]
@@ -129,11 +125,54 @@ for file in required_files:
     require_file(file)
 
 
+removed_files = [
+    "Deployment/.deploy.local.env.example",
+    "Deployment/scripts/discover-node.sh",
+    "Deployment/scripts/health-check.sh",
+    "Deployment/caddy/sites/app.caddy",
+    "Deployment/compose/load-balancer/docker-compose.yml",
+    "Deployment/inventory/prod/group_vars/app_servers.yml",
+    "Deployment/inventory/prod/host_vars/node-app1.yml",
+    "Deployment/inventory/prod/host_vars/node-app2.yml",
+    "Deployment/inventory/prod/host_vars/node-db.yml",
+    "Deployment/inventory/prod/host_vars/node-main.yml",
+    "Deployment/ansible/playbooks/app-server.yml",
+    "Deployment/ansible/playbooks/load-balancer.yml",
+    "Deployment/ansible/playbooks/migrate.yml",
+    "Deployment/ansible/playbooks/node-db.yml",
+]
+for file in removed_files:
+    if exists(file):
+        fail(f"stale deployment file should be removed: {file}")
+
+
+guide = read("HowToDeploy.md")
+if guide.count("```") % 2 != 0:
+    fail("HowToDeploy.md: unbalanced markdown code fences")
+
+for forbidden in [
+    ".deploy.local",
+    "discover-node",
+    "health-check",
+    "Deployment/compose/load-balancer",
+    "Deployment/caddy/sites/app.caddy",
+    "Deployment/inventory/prod/host_vars",
+]:
+    if forbidden in guide:
+        fail(f"HowToDeploy.md: contains stale deployment reference: {forbidden}")
+
+for script_name in sorted(
+    set(re.findall(r"(?:\./)?Deployment/scripts/([A-Za-z0-9_.-]+\.sh)", guide))
+    | set(re.findall(r"`([A-Za-z0-9_.-]+\.sh)`", guide))
+):
+    if not exists(f"Deployment/scripts/{script_name}"):
+        fail(f"HowToDeploy.md: references missing script: Deployment/scripts/{script_name}")
+
+
 tracked = tracked_files()
 for path in [
     ".env",
     "secrets.env",
-    "Deployment/.deploy.local.env",
     "Deployment/machines.yml",
     "Deployment/inventory/prod/bootstrap-hosts.yml",
 ]:
@@ -168,6 +207,9 @@ for path in deployment_text_files():
         fail(f"{rel}: deploy SSH key path must be derived from app_name, not local overrides")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
         fail(f"{rel}: use Deployment/scripts/install-ansible.sh instead of distro Ansible")
+    for forbidden in [".deploy.local", "discover-node", "health-check"]:
+        if forbidden in text:
+            fail(f"{rel}: contains stale deployment reference: {forbidden}")
 
 
 all_vars = read("Deployment/inventory/prod/group_vars/all.yml")
@@ -296,6 +338,15 @@ require_contains(
     "sshpass",
     "sshpass for Ansible password bootstrap",
 )
+
+for needle, why in [
+    ("could not detect this node's LAN IP address", "clear LAN IP detection failure"),
+    ("could not detect the MAC address", "clear LAN MAC detection failure"),
+]:
+    if needle not in read("Deployment/scripts/bootstrap-node.sh"):
+        fail(f"Deployment/scripts/bootstrap-node.sh: missing {why}")
+    if needle not in read("Deployment/scripts/discover-machines.sh"):
+        fail(f"Deployment/scripts/discover-machines.sh: missing {why}")
 
 
 ci = read(".github/workflows/ci.yml")
@@ -438,6 +489,30 @@ for needle, why in [
 ]:
     if needle not in setup_secrets:
         fail(f"Deployment/scripts/setup-secrets.sh: missing {why}")
+
+verify_bootstrap = read("Deployment/scripts/verify-bootstrap.sh")
+for needle, why in [
+    ("status.sh\" bootstrap", "bootstrap status check"),
+    ("preflight.sh\" bootstrap", "bootstrap preflight check"),
+    ("ping-fresh-machines.sh", "fresh-machine ping check"),
+    ("bootstrap verification ok", "clear success line"),
+]:
+    if needle not in verify_bootstrap:
+        fail(f"Deployment/scripts/verify-bootstrap.sh: missing {why}")
+
+verify_deployment = read("Deployment/scripts/verify-deployment.sh")
+for needle, why in [
+    ("public_hostname", "public hostname setting"),
+    ("app_port", "app port setting"),
+    ("deploy_root", "deploy root setting"),
+    ("curl -fsS \"https://${PUBLIC_HOSTNAME}/health/ready\"", "public health check"),
+    ("ansible app_servers", "app-server checks"),
+    ("ansible node_db", "database-node checks"),
+    ("ansible load_balancer", "load-balancer checks"),
+    ("deployment verification ok", "clear success line"),
+]:
+    if needle not in verify_deployment:
+        fail(f"Deployment/scripts/verify-deployment.sh: missing {why}")
 
 runner_setup = read("Deployment/scripts/install-github-runner.sh")
 for needle, why in [

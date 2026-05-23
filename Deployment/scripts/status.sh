@@ -4,7 +4,6 @@ set -euo pipefail
 MODE="${1:-bootstrap}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
 MACHINES="$REPO_ROOT/Deployment/machines.yml"
 INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
 BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/inventory/prod/bootstrap-hosts.yml"
@@ -14,13 +13,6 @@ ALL_VARS="$REPO_ROOT/Deployment/inventory/prod/group_vars/all.yml"
 if [[ "$MODE" != "bootstrap" && "$MODE" != "deploy" ]]; then
   echo "usage: $0 [bootstrap|deploy]" >&2
   exit 1
-fi
-
-if [[ -f "$LOCAL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$LOCAL_ENV"
-  set +a
 fi
 
 APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
@@ -68,9 +60,6 @@ if [[ "$MODE" == "deploy" ]]; then
 else
   command -v ansible-vault >/dev/null 2>&1 && ok "ansible-vault installed" || warn "ansible-vault missing; required before vault/deploy phase"
 fi
-
-[[ -f "$LOCAL_ENV" ]] && ok "Deployment/.deploy.local.env exists" || warn "Deployment/.deploy.local.env missing; copy Deployment/.deploy.local.env.example if you want saved local defaults"
-[[ -n "${LINUX_MINT_INSTALL_USER:-}" ]] && ok "LINUX_MINT_INSTALL_USER set to $LINUX_MINT_INSTALL_USER" || warn "LINUX_MINT_INSTALL_USER not set"
 
 if [[ -f "$MACHINES" ]]; then
   ok "Deployment/machines.yml exists"

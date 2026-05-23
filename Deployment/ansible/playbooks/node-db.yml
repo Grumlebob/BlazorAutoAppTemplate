@@ -1,9 +1,0 @@
----
-- name: Deploy PostgreSQL and Redis
-  hosts: node_db
-  become: true
-  vars_files:
-    - ../../inventory/prod/vault.yml
-  roles:
-    - postgres
-    - redis

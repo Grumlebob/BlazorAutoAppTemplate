@@ -3,14 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
-
-if [[ -f "$LOCAL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$LOCAL_ENV"
-  set +a
-fi
 
 python3 - "$REPO_ROOT" <<'PY'
 from __future__ import annotations

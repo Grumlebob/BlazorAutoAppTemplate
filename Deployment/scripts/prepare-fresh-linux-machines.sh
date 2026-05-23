@@ -3,23 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
 BOOTSTRAP_INVENTORY="$REPO_ROOT/Deployment/inventory/prod/bootstrap-hosts.yml"
-
-if [[ -f "$LOCAL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$LOCAL_ENV"
-  set +a
-fi
 
 if [[ $# -gt 1 ]]; then
   echo "usage: $0 [linux-mint-install-user]" >&2
-  echo "or set LINUX_MINT_INSTALL_USER in Deployment/.deploy.local.env" >&2
   exit 1
 fi
 
-INSTALL_USER="${1:-${LINUX_MINT_INSTALL_USER:-}}"
+INSTALL_USER="${1:-}"
 APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
 PRIVATE_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 PUBLIC_KEY="$PRIVATE_KEY.pub"
@@ -40,7 +31,6 @@ elif [[ -t 0 ]]; then
 else
   echo "usage: $0 [linux-mint-install-user]" >&2
   echo "or run Deployment/scripts/generate-inventory.sh to create bootstrap-hosts.yml" >&2
-  echo "or set LINUX_MINT_INSTALL_USER in Deployment/.deploy.local.env" >&2
   exit 1
 fi
 [[ -f "$PUBLIC_KEY" ]] || {

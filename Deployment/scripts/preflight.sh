@@ -4,16 +4,8 @@ set -euo pipefail
 MODE="${1:-deploy}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_ENV="$REPO_ROOT/Deployment/.deploy.local.env"
 INVENTORY="$REPO_ROOT/Deployment/inventory/prod/hosts.yml"
 VAULT="$REPO_ROOT/Deployment/inventory/prod/vault.yml"
-
-if [[ -f "$LOCAL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$LOCAL_ENV"
-  set +a
-fi
 
 APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
