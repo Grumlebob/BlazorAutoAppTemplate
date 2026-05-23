@@ -1,4 +1,5 @@
-127.0.0.1:80 {
+http://{{ public_hostname }} {
+  bind 127.0.0.1
   reverse_proxy{% for host in groups['app_servers'] %} {{ hostvars[host].ansible_host }}:{{ app_port }}{% endfor %} {
     lb_policy cookie {{ app_name }}_lb
     health_uri /health/ready

@@ -102,23 +102,44 @@ def ensure_tunnel(account_id: str, tunnel_name: str) -> dict[str, object]:
     return tunnel
 
 
+def get_tunnel_config(account_id: str, tunnel_id: str) -> dict[str, object]:
+    result = api("GET", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations")
+    if not isinstance(result, dict):
+        return {"ingress": [{"service": "http_status:404"}]}
+    config = result.get("config")
+    if not isinstance(config, dict):
+        return {"ingress": [{"service": "http_status:404"}]}
+    return config
+
+
 def ensure_tunnel_config(account_id: str, tunnel_id: str, public_hostname: str) -> None:
+    config = get_tunnel_config(account_id, tunnel_id)
+    current_ingress = config.get("ingress")
+    if not isinstance(current_ingress, list):
+        current_ingress = []
+
+    app_ingress = {
+        "hostname": public_hostname,
+        "service": "http://127.0.0.1:80",
+    }
+    kept_ingress: list[dict[str, object]] = []
+    catch_all: dict[str, object] = {"service": "http_status:404"}
+
+    for entry in current_ingress:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("hostname") == public_hostname:
+            continue
+        if "hostname" not in entry:
+            catch_all = entry
+            continue
+        kept_ingress.append(entry)
+
+    config["ingress"] = kept_ingress + [app_ingress, catch_all]
     api(
         "PUT",
         f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations",
-        {
-            "config": {
-                "ingress": [
-                    {
-                        "hostname": public_hostname,
-                        "service": "http://127.0.0.1:80",
-                    },
-                    {
-                        "service": "http_status:404",
-                    },
-                ],
-            },
-        },
+        {"config": config},
     )
 
 

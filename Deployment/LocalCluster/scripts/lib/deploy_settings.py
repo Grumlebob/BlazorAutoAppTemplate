@@ -8,11 +8,18 @@ REQUIRED_KEYS = [
     "app_name",
     "app_image",
     "app_port",
+    "postgres_port",
+    "redis_port",
     "public_hostname",
     "deploy_root",
     "cloudflare_tunnel_name",
     "cloudflared_version",
     "migration_bundle_name",
+]
+
+OPTIONAL_KEYS = [
+    "runner_name",
+    "runner_label",
 ]
 
 
@@ -64,7 +71,7 @@ def valid_dns_name(value: str) -> bool:
 
 def validate(values: dict[str, str]) -> list[str]:
     errors: list[str] = []
-    allowed = set(REQUIRED_KEYS)
+    allowed = set(REQUIRED_KEYS + OPTIONAL_KEYS)
 
     for key in REQUIRED_KEYS:
         if key not in values:
@@ -84,14 +91,25 @@ def validate(values: dict[str, str]) -> list[str]:
     if app_image and not re.match(r"^ghcr\.io/[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)+$", app_image):
         errors.append("app_image must be a lowercase GHCR image path like ghcr.io/<owner>/<image>")
 
-    app_port = values.get("app_port", "")
-    if app_port:
-        if not app_port.isdigit():
-            errors.append("app_port must be a number")
-        else:
-            port = int(app_port)
+    ports: dict[str, int] = {}
+    for key in ["app_port", "postgres_port", "redis_port"]:
+        port_value = values.get(key, "")
+        if port_value:
+            if not port_value.isdigit():
+                errors.append(f"{key} must be a number")
+                continue
+            port = int(port_value)
+            ports[key] = port
             if port < 1024 or port > 65535:
-                errors.append("app_port must be between 1024 and 65535")
+                errors.append(f"{key} must be between 1024 and 65535")
+
+    seen_ports: dict[int, str] = {}
+    for key, port in ports.items():
+        previous_key = seen_ports.get(port)
+        if previous_key:
+            errors.append(f"{key} must not reuse {previous_key} ({port})")
+        else:
+            seen_ports[port] = key
 
     public_hostname = values.get("public_hostname", "")
     if public_hostname and not valid_dns_name(public_hostname):
@@ -121,11 +139,29 @@ def validate(values: dict[str, str]) -> list[str]:
     if migration_bundle_name and not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", migration_bundle_name):
         errors.append("migration_bundle_name must be a filename with no spaces or slashes")
 
+    runner_name = values.get("runner_name", "")
+    if runner_name and not re.match(r"^[A-Za-z0-9._-]{1,64}$", runner_name):
+        errors.append("runner_name must contain only letters, numbers, dots, underscores, or hyphens")
+
+    runner_label = values.get("runner_label", "")
+    if runner_label and not re.match(r"^[A-Za-z0-9._-]{1,64}$", runner_label):
+        errors.append("runner_label must contain only letters, numbers, dots, underscores, or hyphens")
+
     return errors
+
+
+def apply_defaults(values: dict[str, str]) -> dict[str, str]:
+    resolved = dict(values)
+    app_name = resolved.get("app_name", "").strip()
+    if app_name:
+        resolved.setdefault("runner_name", f"node-main-{app_name}")
+        resolved.setdefault("runner_label", f"localcluster-{app_name}")
+    return resolved
 
 
 def load_settings(path: Path, validate_file: bool = True) -> dict[str, str]:
     values, parse_errors = read_simple_yaml(path)
+    values = apply_defaults(values)
     errors = parse_errors + (validate(values) if validate_file else [])
     if errors:
         joined = "\n".join(f" - {error}" for error in errors)

@@ -6,8 +6,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: "http://+:${APP_PORT}"
       Database__RunMigrationsAtStartup: "false"
-      ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      Redis__Configuration: ${REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false
+      ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Redis__Configuration: ${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD},abortConnect=false
     ports:
       - "${APP_PORT}:${APP_PORT}"
     volumes:

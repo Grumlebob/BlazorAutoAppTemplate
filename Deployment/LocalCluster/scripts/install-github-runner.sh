@@ -17,6 +17,8 @@ gh auth status >/dev/null 2>&1 || fail "gh is not authenticated. Run gh auth log
 [[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
 
 APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
+RUNNER_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" runner_name)"
+RUNNER_LABEL="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" runner_label)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 [[ -f "$SSH_KEY" ]] || fail "missing SSH key: $SSH_KEY"
 
@@ -48,13 +50,15 @@ PY
 REPO_NAME="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 REPO_URL="$(gh repo view --json url --jq .url)"
 REMOTE_ARCH="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" 'uname -m')"
+RUNNER_DIR="/opt/actions-runner-${APP_NAME}"
+RUNNER_LABELS="localcluster,${RUNNER_LABEL}"
 
 case "$REMOTE_ARCH" in
   x86_64|amd64) ;;
   *) fail "this deployment supports only x86_64/amd64 node-main machines; got $REMOTE_ARCH" ;;
 esac
 
-RUNNER_CONFIGURED="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" '[[ -f /opt/actions-runner/.runner ]] && echo yes || echo no')"
+RUNNER_CONFIGURED="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" "[[ -f '$RUNNER_DIR/.runner' ]] && echo yes || echo no")"
 RUNNER_TOKEN=""
 RUNNER_DOWNLOAD_URL=""
 if [[ "$RUNNER_CONFIGURED" != "yes" ]]; then
@@ -65,23 +69,30 @@ if [[ "$RUNNER_CONFIGURED" != "yes" ]]; then
 fi
 
 REPO_URL_Q="$(printf '%q' "$REPO_URL")"
+RUNNER_DIR_Q="$(printf '%q' "$RUNNER_DIR")"
+RUNNER_NAME_Q="$(printf '%q' "$RUNNER_NAME")"
+RUNNER_LABELS_Q="$(printf '%q' "$RUNNER_LABELS")"
 RUNNER_DOWNLOAD_URL_Q="$(printf '%q' "$RUNNER_DOWNLOAD_URL")"
 RUNNER_TOKEN_Q="$(printf '%q' "$RUNNER_TOKEN")"
 RUNNER_CONFIGURED_Q="$(printf '%q' "$RUNNER_CONFIGURED")"
 
 ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" \
-  "REPO_URL=$REPO_URL_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
+  "REPO_URL=$REPO_URL_Q RUNNER_DIR=$RUNNER_DIR_Q RUNNER_NAME=$RUNNER_NAME_Q RUNNER_LABELS=$RUNNER_LABELS_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
 set -euo pipefail
 RUNNER_TOKEN=$RUNNER_TOKEN_Q
 
 sudo apt update
 sudo apt install -y curl git tar
-sudo mkdir -p /opt/actions-runner
-sudo chown deploy:deploy /opt/actions-runner
-cd /opt/actions-runner
+sudo mkdir -p "$RUNNER_DIR"
+sudo chown deploy:deploy "$RUNNER_DIR"
+cd "$RUNNER_DIR"
 
 if [[ "$RUNNER_CONFIGURED" == "yes" && -f .runner ]]; then
-  echo "GitHub Actions runner is already configured in /opt/actions-runner; reusing existing registration"
+  if ! grep -Fq "$REPO_URL" .runner; then
+    echo "runner in $RUNNER_DIR is configured for another repository; remove or reconfigure it manually" >&2
+    exit 1
+  fi
+  echo "GitHub Actions runner is already configured in $RUNNER_DIR; reusing existing registration"
 else
   [[ -n "$RUNNER_TOKEN" ]] || {
     echo "missing runner registration token for first-time configuration" >&2
@@ -93,21 +104,21 @@ else
   ./config.sh \
     --url "$REPO_URL" \
     --token "$RUNNER_TOKEN" \
-    --name node-main \
-    --labels homelab \
+    --name "$RUNNER_NAME" \
+    --labels "$RUNNER_LABELS" \
     --replace \
     --unattended
 fi
 unset RUNNER_TOKEN
 
-if ! compgen -G "/etc/systemd/system/actions.runner.*.service" >/dev/null; then
+if ! compgen -G "/etc/systemd/system/actions.runner.*.${RUNNER_NAME}.service" >/dev/null; then
   echo "Installing GitHub Actions runner systemd service"
   sudo ./svc.sh install deploy
 else
-  echo "GitHub Actions runner systemd service already installed"
+  echo "GitHub Actions runner systemd service already installed for $RUNNER_NAME"
 fi
 sudo ./svc.sh start
 sudo ./svc.sh status
 REMOTE
 
-echo "GitHub Actions runner ready on node-main ($NODE_MAIN_IP)"
+echo "GitHub Actions runner ready on node-main ($NODE_MAIN_IP): $RUNNER_NAME [$RUNNER_LABELS]"

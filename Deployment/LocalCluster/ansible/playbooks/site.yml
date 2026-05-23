@@ -95,7 +95,7 @@
         set -a
         . ./.env
         set +a
-        ./migrations/{{ migration_bundle_name }} --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+        ./migrations/{{ migration_bundle_name }} --connection "Host=localhost;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
       args:
         executable: /bin/bash
       when: run_migrations | default(false) | bool

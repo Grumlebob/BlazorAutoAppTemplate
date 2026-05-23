@@ -23,9 +23,9 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, x64, homelab]
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster' }}"]
     environment:
-      name: localcluster
+      name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 
     steps:
       - name: Require main branch
@@ -44,10 +44,14 @@ jobs:
           echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
           echo "PUBLIC_HOSTNAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
           echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
+          echo "RUNNER_LABEL=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py runner_label)" >> "$GITHUB_ENV"
           echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
             echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image):${GITHUB_SHA}"
+            echo
+            echo "Expected app runner label:"
+            echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py runner_label)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Require successful CI for this commit
@@ -100,7 +104,8 @@ jobs:
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
+          bash ../scripts/support/with-deploy-lock.sh \
+            ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
             -e app_version=${APP_VERSION} \
             -e run_migrations=true \
@@ -110,7 +115,8 @@ jobs:
         if: inputs.run_migrations == 'false'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
+          bash ../scripts/support/with-deploy-lock.sh \
+            ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
             -e app_version=${APP_VERSION}
 

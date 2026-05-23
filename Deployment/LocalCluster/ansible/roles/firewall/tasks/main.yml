@@ -11,14 +11,14 @@
   when: inventory_hostname in groups["app_servers"]
 
 - name: Allow PostgreSQL from app servers
-  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port 5432 proto tcp"
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port {{ postgres_port }} proto tcp"
   changed_when: "'Rules updated' in firewall_ufw_postgres.stdout"
   register: firewall_ufw_postgres
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
 - name: Allow Redis from app servers
-  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port 6379 proto tcp"
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].ansible_host }} to any port {{ redis_port }} proto tcp"
   changed_when: "'Rules updated' in firewall_ufw_redis.stdout"
   register: firewall_ufw_redis
   loop: "{{ groups['app_servers'] }}"

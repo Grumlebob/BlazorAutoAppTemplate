@@ -56,6 +56,18 @@
       }}
   no_log: true
 
+- name: Refuse accidental Cloudflare tunnel token replacement
+  ansible.builtin.fail:
+    msg: >-
+      cloudflared is already installed with a different tunnel token. This LocalCluster
+      supports side-by-side apps through one shared Cloudflare tunnel by default. Reuse
+      the existing shared tunnel token, or pass -e cloudflared_allow_token_rotation=true
+      only when intentionally rotating the cluster tunnel.
+  when:
+    - cloudflared_service.stat.exists
+    - cloudflared_tunnel_token_changed
+    - not (cloudflared_allow_token_rotation | default(false) | bool)
+
 - name: Uninstall cloudflared service when tunnel token changed
   ansible.builtin.command: cloudflared service uninstall
   register: cloudflared_service_uninstall

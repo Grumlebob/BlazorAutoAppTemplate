@@ -102,6 +102,7 @@ required_files = [
     "Deployment/LocalCluster/compose/node-db/docker-compose.yml",
     "Deployment/LocalCluster/scripts/README.md",
     "Deployment/LocalCluster/scripts/bootstrap-node.sh",
+    "Deployment/LocalCluster/scripts/check-port-collisions.sh",
     "Deployment/LocalCluster/scripts/check-vault.sh",
     "Deployment/LocalCluster/scripts/deploy.sh",
     "Deployment/LocalCluster/scripts/discover-machines.sh",
@@ -123,6 +124,8 @@ required_files = [
     "Deployment/LocalCluster/scripts/setup-secrets.sh",
     "Deployment/LocalCluster/scripts/support/install-ansible.sh",
     "Deployment/LocalCluster/scripts/support/ping-fresh-machines.sh",
+    "Deployment/LocalCluster/scripts/support/with-deploy-lock.sh",
+    "Deployment/LocalCluster/scripts/support/with-node-main-deploy-lock.sh",
     "Deployment/LocalCluster/scripts/status.sh",
     "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
     "Deployment/LocalCluster/scripts/verify-deployment.sh",
@@ -214,6 +217,12 @@ for needle, why in [
     ("Allowed branch: main", "main-only environment branch rule"),
     ("Environment localcluster exists and allows deployments from main.", "environment setup checkpoint"),
     ("## 12. First Deploy From GitHub Actions", "first CD deploy step after environment setup"),
+    ("publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`", "main-only CI publishing explanation"),
+    ("Optional sanity check: before deploying, confirm the image tag exists.", "optional image check wording"),
+    ("migration bundle artifact is missing or expired", "expired CI artifact recovery guidance"),
+    ("pins PostgreSQL and Redis to exact versioned image tags", "pinned database image guidance"),
+    ("If this is the only app on these four nodes, keep the default ports and continue.", "single-site default guidance"),
+    ("If another LocalCluster app already runs on these nodes", "side-by-side settings warning"),
 ]:
     if needle not in guide:
         fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
@@ -270,8 +279,6 @@ for path in deployment_text_files():
         "caddy_sticky_cookie_name",
         "caddy_bind_address",
         "caddy_http_port",
-        "postgres_port",
-        "redis_port",
     ]:
         if stale_setting in text:
             fail(f"{rel}: contains stale deployment setting: {stale_setting}")
@@ -346,6 +353,11 @@ require_contains(
     "cloudflared service uninstall",
     "Cloudflare tunnel token rotation handling",
 )
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared_allow_token_rotation",
+    "side-by-side-safe Cloudflare tunnel token replacement guard",
+)
 require_not_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_deb_arch",
@@ -402,6 +414,11 @@ for path, checks in {
     ],
     "Deployment/LocalCluster/scripts/lib/deploy_settings.py": [
         ("REQUIRED_KEYS", "required all.yml keys"),
+        ("OPTIONAL_KEYS", "derived optional settings"),
+        ("postgres_port", "configurable PostgreSQL host port"),
+        ("redis_port", "configurable Redis host port"),
+        ("runner_label", "derived app-specific runner label"),
+        ("def apply_defaults", "derived settings defaults"),
         ("def load_settings", "shared settings loader"),
         ("def validate", "shared settings validator"),
     ],
@@ -419,7 +436,9 @@ for needle, why in [
     ('"${APP_PORT}:${APP_PORT}"', "configured published app port"),
     ('Database__RunMigrationsAtStartup: "false"', "production startup migrations disabled"),
     ("ConnectionStrings__DefaultConnection", "database connection injection"),
+    ("Port=${POSTGRES_PORT}", "configurable PostgreSQL port injection"),
     ("Redis__Configuration", "Redis configuration injection"),
+    ("${REDIS_HOST}:${REDIS_PORT}", "configurable Redis port injection"),
 ]:
     if needle not in deploy_app_compose:
         fail(f"Deployment/LocalCluster/compose/app-server/docker-compose.yml: missing {why}")
@@ -432,10 +451,23 @@ for needle, why in [
     ("postgres:", "PostgreSQL service"),
     ("redis:", "Redis service"),
     ("POSTGRES_PASSWORD", "PostgreSQL secret injection"),
+    ('"${POSTGRES_PORT}:5432"', "configurable PostgreSQL host port"),
     ("REDIS_PASSWORD", "Redis secret injection"),
+    ('"${REDIS_PORT}:6379"', "configurable Redis host port"),
 ]:
     if needle not in node_db_compose:
         fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: missing {why}")
+for service, image in [("PostgreSQL", "postgres"), ("Redis", "redis")]:
+    image_match = re.search(rf"^\s*image:\s*{image}:([^\s]+)\s*$", node_db_compose, re.MULTILINE)
+    if not image_match:
+        fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: missing {service} image tag")
+        continue
+    tag = image_match.group(1)
+    if not re.match(r"^\d+(?:\.\d+){1,2}-alpine\d+\.\d+$", tag):
+        fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: {service} image tag must pin an exact version and Alpine release")
+for moving_image in ["postgres:16-alpine", "redis:7-alpine", "postgres:latest", "redis:latest"]:
+    if moving_image in node_db_compose:
+        fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: use exact image tags, not {moving_image}")
 
 
 program = read("BlazorAutoApp/Program.cs")
@@ -498,7 +530,7 @@ for needle, why in [
     ("dotnet test --configuration Release --no-build", "test step"),
     ("dotnet ef migrations bundle", "migration bundle build"),
     ("docker build", "Docker image build"),
-    ("if: github.event_name != 'pull_request'", "no PR artifact/image push guard"),
+    ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -533,10 +565,11 @@ for needle, why in [
     ("name: CD - Deploy LocalCluster", "CD workflow name"),
     ("actions: read", "permission to inspect CI workflow runs"),
     ("environment:", "GitHub deployment environment"),
-    ("name: localcluster", "LocalCluster deployment environment"),
+    ("LOCALCLUSTER_ENVIRONMENT", "optional side-by-side GitHub environment variable"),
     ("concurrency:", "deployment concurrency guard"),
     ("group: cd-localcluster", "CD concurrency group"),
-    ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
+    ("LOCALCLUSTER_RUNNER_LABEL", "optional side-by-side runner label variable"),
+    ("localcluster", "shared LocalCluster runner label"),
     ("Require main branch", "main branch deployment guard"),
     ("refs/heads/main", "main branch deployment guard"),
     ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image", "deployment image setting"),
@@ -549,6 +582,7 @@ for needle, why in [
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/scripts/preflight.sh deploy", "deploy preflight"),
+    ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
     ("https://${PUBLIC_HOSTNAME}/health/ready", "public readiness verification"),
@@ -616,17 +650,27 @@ for path, checks in {
         ("ufw allow OpenSSH", "SSH firewall rule"),
         ("{{ app_name }}-docker-user-firewall.service", "Docker published-port firewall service"),
         ("groups[\"node_db\"]", "node_db firewall targeting"),
-        ("to any port 5432", "PostgreSQL firewall port"),
-        ("to any port 6379", "Redis firewall port"),
+        ("to any port {{ postgres_port }}", "PostgreSQL firewall port"),
+        ("to any port {{ redis_port }}", "Redis firewall port"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2": [
+        ("APP_NAME={{ app_name }}", "app identity env marker"),
         ("APP_PORT={{ app_port }}", "app port env rendering"),
+        ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
+        ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
+    ],
+    "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2": [
+        ("APP_NAME={{ app_name }}", "node-db app identity env marker"),
+        ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
+        ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
     ],
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
+        ("APP_CHAIN=", "app-specific Docker firewall chain"),
+        ("sha1sum", "short deterministic firewall chain id"),
         ("--ctorigdstport {{ app_port }}", "app port restriction"),
-        ("--ctorigdstport 5432", "PostgreSQL port restriction"),
-        ("--ctorigdstport 6379", "Redis port restriction"),
+        ("--ctorigdstport {{ postgres_port }}", "PostgreSQL port restriction"),
+        ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
         ("docker compose up -d --pull always", "pull and start requested image"),
@@ -639,7 +683,8 @@ for path, checks in {
         ("restore-db.sh", "restore helper copy"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
-        ("127.0.0.1:80", "local-only Caddy listener for Cloudflare Tunnel"),
+        ("http://{{ public_hostname }}", "hostname-based Caddy listener for side-by-side apps"),
+        ("bind 127.0.0.1", "loopback-only Caddy listener"),
         ("health_uri /health/ready", "readiness health check"),
         ("lb_policy cookie {{ app_name }}_lb", "sticky sessions for Blazor Server"),
     ],
@@ -648,6 +693,8 @@ for path, checks in {
     for needle, why in checks:
         if needle not in text:
             fail(f"{path}: missing {why}")
+if "iptables -F DOCKER-USER" in read("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"):
+    fail("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2: must not flush shared DOCKER-USER chain")
 
 
 preflight = read("Deployment/LocalCluster/scripts/preflight.sh")
@@ -660,9 +707,52 @@ for needle, why in [
     ("validate-deploy-settings.py", "deployment settings validation"),
     ("vault.yml", "vault existence check"),
     ("check-vault.sh", "deploy vault content check"),
+    ("check-port-collisions.sh", "side-by-side port collision check"),
 ]:
     if needle not in preflight:
         fail(f"Deployment/LocalCluster/scripts/preflight.sh: missing {why}")
+
+check_port_collisions = read("Deployment/LocalCluster/scripts/check-port-collisions.sh")
+for needle, why in [
+    ("app_port", "app port setting"),
+    ("postgres_port", "PostgreSQL port setting"),
+    ("redis_port", "Redis port setting"),
+    ("APP_NAME", "deploy root identity marker"),
+    ("belongs to app", "wrong deploy root owner failure"),
+    ("ss -H -ltn", "listening port detection"),
+    ("docker compose ps -q", "existing same-app deployment allowance"),
+    ("port collision check ok", "clear success line"),
+]:
+    if needle not in check_port_collisions:
+        fail(f"Deployment/LocalCluster/scripts/check-port-collisions.sh: missing {why}")
+
+deploy_lock = read("Deployment/LocalCluster/scripts/support/with-deploy-lock.sh")
+for needle, why in [
+    ("mkdir \"$LOCK_DIR\"", "directory-based cross-repo deployment lock"),
+    ("LOCALCLUSTER_DEPLOY_LOCK_DIR", "configurable lock directory"),
+    ("LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS", "configurable lock timeout"),
+    ("LOCALCLUSTER_DEPLOY_LOCK_STALE_SECONDS", "stale lock cleanup"),
+    ("created_epoch", "stale lock age marker"),
+]:
+    if needle not in deploy_lock:
+        fail(f"Deployment/LocalCluster/scripts/support/with-deploy-lock.sh: missing {why}")
+
+node_main_deploy_lock = read("Deployment/LocalCluster/scripts/support/with-node-main-deploy-lock.sh")
+for needle, why in [
+    ("ansible-inventory", "node-main lookup from inventory"),
+    ("node-main", "node-main remote lock target"),
+    ("ssh", "remote lock transport"),
+    ("try_acquire_lock", "remote lock acquisition"),
+    ("LOCALCLUSTER_DEPLOY_LOCK_DIR", "shared lock directory"),
+    ("LOCK_STALE_SECONDS", "stale lock cleanup"),
+]:
+    if needle not in node_main_deploy_lock:
+        fail(f"Deployment/LocalCluster/scripts/support/with-node-main-deploy-lock.sh: missing {why}")
+require_contains(
+    "Deployment/LocalCluster/scripts/deploy.sh",
+    "support/with-node-main-deploy-lock.sh",
+    "manual deploy node-main lock wrapper",
+)
 
 for path in [
     "Deployment/LocalCluster/scripts/support/ping-fresh-machines.sh",
@@ -713,10 +803,14 @@ verify_deployment = read("Deployment/LocalCluster/scripts/verify-deployment.sh")
 for needle, why in [
     ("public_hostname", "public hostname setting"),
     ("app_port", "app port setting"),
+    ("postgres_port", "PostgreSQL port setting"),
+    ("redis_port", "Redis port setting"),
     ("deploy_root", "deploy root setting"),
     ("curl -fsS \"https://${PUBLIC_HOSTNAME}/health/ready\"", "public health check"),
     ("http://127.0.0.1:${APP_PORT}/health/ready", "IPv4 app-node health check"),
-    ("http://127.0.0.1/health/ready", "IPv4 Caddy health check"),
+    ("-H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready", "hostname-aware Caddy health check"),
+    ("sport = :${POSTGRES_PORT}", "PostgreSQL host port check"),
+    ("sport = :${REDIS_PORT}", "Redis host port check"),
     ("ansible app_servers", "app-server checks"),
     ("ansible node_db", "database-node checks"),
     ("ansible load_balancer", "load-balancer checks"),
@@ -736,7 +830,9 @@ for needle, why in [
     ("this deployment supports only x86_64/amd64 node-main machines", "x64 runner guard"),
     ("RUNNER_TOKEN_Q", "runner token kept out of ssh command arguments"),
     ("unset RUNNER_TOKEN", "runner token unset after configuration"),
-    ("--labels homelab", "runner label configuration"),
+    ("RUNNER_LABEL", "app-specific runner label setting"),
+    ("localcluster,${RUNNER_LABEL}", "shared and app-specific runner label configuration"),
+    ("/opt/actions-runner-${APP_NAME}", "app-specific runner directory"),
     ("sudo ./svc.sh install deploy", "runner service install as deploy"),
 ]:
     if needle not in runner_setup:
@@ -762,6 +858,8 @@ for needle, why in [
     ("POST", "Cloudflare tunnel creation"),
     ("cfd_tunnel", "Cloudflare tunnel API endpoint"),
     ("configurations", "Cloudflare tunnel configuration endpoint"),
+    ("get_tunnel_config", "existing Cloudflare tunnel config preservation"),
+    ("kept_ingress", "side-by-side Cloudflare hostname preservation"),
     ("dns_records", "Cloudflare DNS record endpoint"),
     ("vault_cloudflare_tunnel_token", "vault token output"),
 ]:

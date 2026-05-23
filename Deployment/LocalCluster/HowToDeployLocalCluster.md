@@ -66,6 +66,8 @@ Required values:
 | `app_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a short lowercase deployment name, for example `ship`. |
 | `app_image` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
 | `app_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `8080` unless the container image listens on a different HTTP port. |
+| `postgres_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `5432` for a single app. Use a different host port only when another LocalCluster app already uses `5432` on `node-db`. |
+| `redis_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `6379` for a single app. Use a different host port only when another LocalCluster app already uses `6379` on `node-db`. |
 | `public_hostname` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | A hostname inside a Cloudflare-managed zone you control. |
 | `deploy_root` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `/opt/<app_name>` unless you deliberately want another runtime directory. |
 | `cloudflare_tunnel_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
@@ -177,6 +179,8 @@ This is the only shared non-secret group-vars file you normally edit for the fir
 app_name: <app-name>
 app_image: ghcr.io/<github-owner-or-org>/<image-name>
 app_port: 8080
+postgres_port: 5432
+redis_port: 6379
 public_hostname: <public-hostname>
 deploy_root: /opt/<app-name>
 cloudflare_tunnel_name: <cloudflare-tunnel-name>
@@ -191,11 +195,17 @@ Where the values come from:
 | `app_name` | Choose a short lowercase deployment name, for example `ship`. This affects generated names like the deploy SSH key. |
 | `app_image` | Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
 | `app_port` | Keep `8080` unless the app image listens on a different HTTP port. This value is rendered into the app-node `.env`, Docker Compose published port, firewall rules, Caddy upstreams, and deployment checks. |
+| `postgres_port` | Keep `5432` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `5433`. |
+| `redis_port` | Keep `6379` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `6380`. |
 | `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `ship.example.com`. |
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
 | `migration_bundle_name` | Use `<app_name>-migrate` unless you have a naming conflict. |
+
+If this is the only app on these four nodes, keep the default ports and continue.
+
+If another LocalCluster app already runs on these nodes, stop here and choose unique side-by-side values before continuing. The second app must not reuse `app_name`, `app_port`, `postgres_port`, `redis_port`, `deploy_root`, `public_hostname`, or the GitHub runner label derived from `app_name`.
 
 Checkpoint:
 
@@ -489,6 +499,8 @@ Connector environment: Debian
 
 Use the exact `cloudflare_tunnel_name` value from `all.yml`.
 
+For side-by-side apps on the same four nodes, use one shared tunnel and add each app's public hostname to that tunnel. The second app should reuse the same `cloudflare_tunnel_name` and `vault_cloudflare_tunnel_token` as the first app unless you intentionally design separate named cloudflared services.
+
 When Cloudflare shows the connector install command, do not run it. Ansible installs and runs `cloudflared` later. Copy only the tunnel token from the generated command. The token is the long `eyJ...` value in a command shaped like:
 
 ```text
@@ -512,6 +524,8 @@ Service URL: 127.0.0.1:80
 ```
 
 The service URL is local to `node-main` because cloudflared connects to Caddy on the same machine. Do not put an app-node LAN IP here.
+
+For side-by-side apps, every public hostname still points to `127.0.0.1:80`. Caddy routes the request by hostname to the correct app port.
 
 Checkpoint:
 
@@ -607,11 +621,13 @@ deploy status ok
 preflight ok (deploy)
 ```
 
+Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` are not already used by another service on the target nodes. Existing containers under this app's own `deploy_root` are allowed so the check stays safe to rerun.
+
 ## 9. Build And Push The First Image
 
 [github]
 
-The CD workflow can only deploy artifacts produced by a successful CI run on `main`. CI pushes images and uploads the migration bundle only for non-PR runs.
+The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
 Use this normal path:
 
@@ -619,13 +635,13 @@ Use this normal path:
 Merge/push the deployment commit to main and wait for CI to pass.
 ```
 
-The CI workflow builds/tests the app, builds the migration bundle artifact, and pushes:
+For `main`, the CI workflow builds/tests the app, builds the migration bundle artifact, and pushes:
 
 ```text
 <app_image>:<selected-commit-sha>
 ```
 
-Before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
+Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
 ```bash
 APP_IMAGE="$(python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)"
@@ -652,25 +668,25 @@ Script notes:
 
 ```text
 Changes: installs and registers the self-hosted GitHub Actions runner on node-main.
-Writes: /opt/actions-runner and a systemd service on node-main.
+Writes: /opt/actions-runner-<app_name> and a systemd service on node-main.
 Safe to rerun: yes; an existing configured runner is reused and its service is installed or started if needed.
-Success: GitHub Actions runner ready on node-main (<node-main-ip>).
+Success: GitHub Actions runner ready on node-main (<node-main-ip>): <runner-name> [localcluster,<runner-label>].
 ```
 
-This script uses GitHub CLI to create a runner registration token, SSHes to `node-main`, installs the runner under `/opt/actions-runner`, and starts its systemd service.
+This script uses GitHub CLI to create a runner registration token, SSHes to `node-main`, installs the runner under `/opt/actions-runner-<app_name>`, and starts its systemd service.
 
 The workflow targets:
 
 ```yaml
-runs-on: [self-hosted, linux, x64, homelab]
+runs-on: [self-hosted, linux, x64, localcluster]
 ```
 
-GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds `homelab`.
+GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds the shared `localcluster` label and an app-specific label derived from `app_name`, for example `localcluster-ship`.
 
 Checkpoint:
 
 ```text
-GitHub Actions runner ready on node-main (<node-main-ip>)
+GitHub Actions runner ready on node-main (<node-main-ip>): <runner-name> [localcluster,<runner-label>]
 ```
 
 Confirm the runner is online in GitHub:
@@ -689,7 +705,7 @@ Create the deployment environment used by the CD workflow before the first deplo
 Repository -> Settings -> Environments -> New environment -> localcluster
 ```
 
-The name must be exactly:
+For a single app, the name must be exactly:
 
 ```text
 localcluster
@@ -699,8 +715,10 @@ The CD workflow contains:
 
 ```yaml
 environment:
-  name: localcluster
+  name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 ```
+
+For a single app, do not create any extra GitHub variables; the workflow uses `localcluster`. For side-by-side apps, you may set repository variable `LOCALCLUSTER_RUNNER_LABEL` to the app-specific runner label, for example `localcluster-secondnotes`, and `LOCALCLUSTER_ENVIRONMENT` to a repo-specific environment name if you want that distinction. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
 
 Configure the environment rules:
 
@@ -749,6 +767,8 @@ The workflow installs Ansible, reads the vault password from GitHub Secrets, run
 https://<public_hostname>/health/ready
 ```
 
+If CD fails because the migration bundle artifact is missing or expired, rerun `CI` on `main` for the same commit, then rerun `CD - Deploy LocalCluster`.
+
 ## 13. Verify The Deployment
 
 [control]
@@ -768,7 +788,7 @@ Safe to rerun: yes.
 Success: deployment verification ok.
 ```
 
-This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, local Caddy health, and the `caddy` and `cloudflared` services.
+This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, app-specific DB/Redis host ports, local Caddy health for `public_hostname`, and the `caddy` and `cloudflared` services.
 
 Checkpoint:
 
@@ -776,6 +796,7 @@ Checkpoint:
 public /health/ready returns success
 both app nodes return success
 node-db compose services are running
+node-db is listening on postgres_port and redis_port
 caddy and cloudflared are active on node-main
 ```
 
@@ -787,13 +808,17 @@ PostgreSQL and Redis run from:
 Deployment/LocalCluster/compose/node-db/docker-compose.yml
 ```
 
+The database compose file pins PostgreSQL and Redis to exact versioned image tags instead of moving major-version tags. Upgrade those images deliberately by editing `Deployment/LocalCluster/compose/node-db/docker-compose.yml`, reviewing the upstream release notes, committing the change, and deploying through CI/CD.
+
 Ansible renders `<deploy-root>/.env` on `node-db` with:
 
 ```env
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
 POSTGRES_DB=<vault_postgres_db>
+POSTGRES_PORT=<postgres_port>
 REDIS_PASSWORD=<vault_redis_password>
+REDIS_PORT=<redis_port>
 ```
 
 App servers run from:
@@ -809,14 +834,16 @@ APP_IMAGE=<app_image>
 APP_VERSION=<selected-commit-sha>
 APP_PORT=<app_port>
 POSTGRES_HOST=<node-db-ip-from-inventory>
+POSTGRES_PORT=<postgres_port>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
 POSTGRES_DB=<vault_postgres_db>
 REDIS_HOST=<node-db-ip-from-inventory>
+REDIS_PORT=<redis_port>
 REDIS_PASSWORD=<vault_redis_password>
 ```
 
-PostgreSQL and Redis use their standard container ports, `5432` and `6379`. The deployment publishes them only on `node-db` and restricts access to the app nodes.
+PostgreSQL and Redis use their standard container ports inside their containers. The deployment publishes them on `node-db` using `postgres_port` and `redis_port`, then restricts access to the app nodes. For a single app these host ports stay at `5432` and `6379`.
 
 PostgreSQL data is stored in the `postgres_data` Docker volume. Redis is also persistent: it stores data in the `redis_data` Docker volume and uses append-only persistence. This matters because the app stores shared runtime state such as Data Protection keys in Redis.
 
@@ -826,7 +853,7 @@ Caddy is installed on `node-main`. The deployed Caddy site is generated from:
 Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2
 ```
 
-It uses the app-node LAN IPs from `Deployment/LocalCluster/inventory/prod/hosts.yml`, keeps sticky sessions for Blazor Server, and checks `/health/ready`.
+It binds to `127.0.0.1`, routes by `public_hostname`, uses the app-node LAN IPs from `Deployment/LocalCluster/inventory/prod/hosts.yml`, keeps sticky sessions for Blazor Server, and checks `/health/ready`. Cloudflare Tunnel should point public hostnames at `http://127.0.0.1:80` on `node-main`; Caddy then chooses the correct app by hostname.
 
 ## Reference: Migration Strategy
 
@@ -855,7 +882,7 @@ cd <deploy-root>
 set -a
 . ./.env
 set +a
-./migrations/<migration_bundle_name> --connection "Host=localhost;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+./migrations/<migration_bundle_name> --connection "Host=localhost;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 ```
 
 ## Reference: Optional Cloudflare API Helper
@@ -893,6 +920,8 @@ Run:
 bash ./Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh
 ```
 
+The helper adds or updates the current `public_hostname` on the selected tunnel and preserves other tunnel hostnames. This is important when multiple LocalCluster apps share the same Cloudflare tunnel.
+
 Copy only the printed `vault_cloudflare_tunnel_token` line into the encrypted vault. Do not commit Cloudflare API tokens.
 
 ## Advanced: Manual Deploy Commands
@@ -906,6 +935,8 @@ Wrapper script without migrations:
 ```bash
 bash ./Deployment/LocalCluster/scripts/deploy.sh <git-sha>
 ```
+
+This acquires the same deployment lock on `node-main` that GitHub Actions uses, so a manual deploy and a CD deploy cannot mutate the four nodes at the same time.
 
 Wrapper script with a local migration bundle:
 
@@ -983,7 +1014,7 @@ If the public hostname fails:
 
 ```text
 1. Run verify-deployment.sh to separate public routing from local service health.
-2. If local Caddy health fails, check app-node health and Caddy logs.
+2. If local Caddy health fails, check app-node health and Caddy logs. Local Caddy checks must send the public hostname as the Host header.
 3. If local Caddy health passes but public health fails, check the Cloudflare public hostname service URL is 127.0.0.1:80.
 4. Check cloudflared is active and read its logs with the journalctl command above.
 5. Confirm the tunnel token in vault.yml belongs to the same Cloudflare tunnel named in all.yml.
@@ -995,7 +1026,7 @@ Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, re
 
 - Cloudflare Tunnel is the only public ingress path.
 - Do not configure router port forwarding to app, database, Redis, Seq, or Redis Insight.
-- Docker-published ports are restricted with generated `DOCKER-USER` rules.
+- Docker-published ports are restricted with generated app-specific `DOCKER-USER` chains.
 - SSH uses keys after the fresh-machine playbook succeeds.
 - Password SSH login is disabled after SSH hardening.
 - Protect `~/.ssh/<app_name>_deploy`; it can administer the deployment.

@@ -49,6 +49,7 @@ if [[ "$MODE" == "deploy" ]]; then
   command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh."
   [[ -f "$VAULT" ]] || fail "missing encrypted vault: $VAULT"
   bash "$SCRIPT_DIR/check-vault.sh"
+  bash "$SCRIPT_DIR/check-port-collisions.sh"
 fi
 
 echo "preflight ok ($MODE)"
