@@ -1,6 +1,6 @@
-{{ caddy_bind_address }}:{{ caddy_http_port }} {
+127.0.0.1:80 {
   reverse_proxy{% for host in groups['app_servers'] %} {{ hostvars[host].ansible_host }}:{{ app_port }}{% endfor %} {
-    lb_policy cookie {{ caddy_sticky_cookie_name }}
+    lb_policy cookie {{ app_name }}_lb
     health_uri /health/ready
     header_up X-Forwarded-Proto https
     header_up X-Forwarded-Host {host}

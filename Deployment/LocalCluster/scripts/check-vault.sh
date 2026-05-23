@@ -11,6 +11,7 @@ fail() {
 }
 
 command -v ansible-vault >/dev/null 2>&1 || fail "ansible-vault is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh."
+command -v python3 >/dev/null 2>&1 || fail "python3 is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh."
 [[ -f "$VAULT" ]] || fail "missing encrypted vault: Deployment/LocalCluster/inventory/prod/vault.yml"
 
 head -n 1 "$VAULT" | grep -q '^\$ANSIBLE_VAULT;' || fail "vault.yml is not encrypted with ansible-vault"
@@ -21,20 +22,6 @@ if grep -q "REPLACE_WITH" <<< "$CONTENT"; then
   fail "vault.yml still contains REPLACE_WITH placeholders"
 fi
 
-REQUIRED_KEYS=(
-  vault_postgres_user
-  vault_postgres_password
-  vault_postgres_db
-  vault_redis_password
-  vault_ghcr_username
-  vault_ghcr_token
-  vault_cloudflare_tunnel_token
-)
-
-for key in "${REQUIRED_KEYS[@]}"; do
-  line="$(grep -E "^[[:space:]]*$key:" <<< "$CONTENT" || true)"
-  [[ -n "$line" ]] || fail "vault.yml is missing required key: $key"
-  grep -Eq "^[[:space:]]*$key:[[:space:]]*$" <<< "$line" && fail "vault.yml has empty value for: $key"
-done
+python3 "$SCRIPT_DIR/validate-vault.py" <<< "$CONTENT"
 
 echo "OK    encrypted vault decrypts and has all required non-placeholder keys"

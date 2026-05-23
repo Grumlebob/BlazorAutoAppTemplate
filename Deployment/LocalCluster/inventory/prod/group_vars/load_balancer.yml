@@ -1,2 +1,0 @@
-caddy_bind_address: 127.0.0.1
-caddy_http_port: 80

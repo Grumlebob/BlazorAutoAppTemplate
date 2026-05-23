@@ -19,14 +19,14 @@ curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
 echo
 
 echo "checking app nodes"
-ansible app_servers -i "$INVENTORY" -a "curl -fsS http://localhost:${APP_PORT}/health/ready"
+ansible app_servers -i "$INVENTORY" -a "curl -fsS http://127.0.0.1:${APP_PORT}/health/ready"
 ansible app_servers -i "$INVENTORY" -a "cd ${DEPLOY_ROOT} && docker compose ps"
 
 echo "checking database node"
 ansible node_db -i "$INVENTORY" -a "cd ${DEPLOY_ROOT} && docker compose ps"
 
 echo "checking load balancer"
-ansible load_balancer -i "$INVENTORY" -a "curl -fsS http://localhost/health/ready"
+ansible load_balancer -i "$INVENTORY" -a "curl -fsS http://127.0.0.1/health/ready"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active caddy"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active cloudflared"
 

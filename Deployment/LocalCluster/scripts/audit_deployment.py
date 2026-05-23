@@ -78,8 +78,6 @@ required_files = [
     "Deployment/LocalCluster/machines.example.yml",
     "Deployment/LocalCluster/inventory/prod/hosts.yml",
     "Deployment/LocalCluster/inventory/prod/group_vars/all.yml",
-    "Deployment/LocalCluster/inventory/prod/group_vars/load_balancer.yml",
-    "Deployment/LocalCluster/inventory/prod/group_vars/node_db.yml",
     "Deployment/LocalCluster/inventory/prod/vault.example.yml",
     "Deployment/LocalCluster/ansible/ansible.cfg",
     "Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml",
@@ -104,11 +102,13 @@ required_files = [
     "Deployment/LocalCluster/scripts/bootstrap-node.sh",
     "Deployment/LocalCluster/scripts/check-vault.sh",
     "Deployment/LocalCluster/scripts/deploy.sh",
+    "Deployment/LocalCluster/scripts/deploy_settings.py",
     "Deployment/LocalCluster/scripts/discover-machines.sh",
     "Deployment/LocalCluster/scripts/generate-inventory.py",
     "Deployment/LocalCluster/scripts/generate-inventory.sh",
     "Deployment/LocalCluster/scripts/install-ansible.sh",
     "Deployment/LocalCluster/scripts/install-github-runner.sh",
+    "Deployment/LocalCluster/scripts/ping-fresh-machines.sh",
     "Deployment/LocalCluster/scripts/preflight.sh",
     "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
     "Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh",
@@ -117,6 +117,8 @@ required_files = [
     "Deployment/LocalCluster/scripts/restore-db.sh",
     "Deployment/LocalCluster/scripts/read-deploy-setting.py",
     "Deployment/LocalCluster/scripts/status.sh",
+    "Deployment/LocalCluster/scripts/validate-deploy-settings.py",
+    "Deployment/LocalCluster/scripts/validate-vault.py",
     "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
     "Deployment/LocalCluster/scripts/verify-deployment.sh",
     "BlazorAutoApp/Program.cs",
@@ -135,6 +137,8 @@ removed_files = [
     "Deployment/LocalCluster/caddy/sites/app.caddy",
     "Deployment/LocalCluster/compose/load-balancer/docker-compose.yml",
     "Deployment/LocalCluster/inventory/prod/group_vars/app_servers.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/load_balancer.yml",
+    "Deployment/LocalCluster/inventory/prod/group_vars/node_db.yml",
     "Deployment/LocalCluster/inventory/prod/host_vars/node-app1.yml",
     "Deployment/LocalCluster/inventory/prod/host_vars/node-app2.yml",
     "Deployment/LocalCluster/inventory/prod/host_vars/node-db.yml",
@@ -198,6 +202,12 @@ for path in [
     if path in tracked:
         fail(f"local or secret file must not be tracked: {path}")
 
+vault_path = ROOT / "Deployment/LocalCluster/inventory/prod/vault.yml"
+if vault_path.exists():
+    first_line = vault_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()[0:1]
+    if not first_line or not first_line[0].startswith("$ANSIBLE_VAULT;"):
+        fail("Deployment/LocalCluster/inventory/prod/vault.yml exists but is not Ansible Vault encrypted")
+
 for path in tracked:
     if re.search(r"(^|/)(__pycache__|\.pytest_cache)(/|$)", path) or re.search(
         r"\.(pyc|pyo|pyd|pfx|tmp|log)$", path
@@ -229,6 +239,15 @@ for path in deployment_text_files():
     for forbidden in [".deploy.local", "discover-node", "health-check"]:
         if forbidden in text:
             fail(f"{rel}: contains stale deployment reference: {forbidden}")
+    for stale_setting in [
+        "caddy_sticky_cookie_name",
+        "caddy_bind_address",
+        "caddy_http_port",
+        "postgres_port",
+        "redis_port",
+    ]:
+        if stale_setting in text:
+            fail(f"{rel}: contains stale deployment setting: {stale_setting}")
     for old_prefix in [
         "Deployment/scripts",
         "Deployment/ansible",
@@ -242,6 +261,28 @@ for path in deployment_text_files():
 
 
 all_vars = read("Deployment/LocalCluster/inventory/prod/group_vars/all.yml")
+all_var_keys = re.findall(r"^([A-Za-z_][A-Za-z0-9_]*):", all_vars, re.MULTILINE)
+for key in all_var_keys:
+    if f"`{key}`" not in guide:
+        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing all.yml setting documentation: {key}")
+
+try:
+    settings_validation = subprocess.run(
+        [sys.executable, str(ROOT / "Deployment/LocalCluster/scripts/validate-deploy-settings.py")],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+except OSError as exc:
+    fail(f"unable to run deployment settings validation: {exc}")
+else:
+    if settings_validation.returncode != 0:
+        fail(
+            "Deployment/LocalCluster/inventory/prod/group_vars/all.yml failed validation: "
+            + (settings_validation.stderr or settings_validation.stdout).strip()
+        )
 cloudflared_match = re.search(r"^cloudflared_version:\s*(\S+)\s*$", all_vars, re.MULTILINE)
 if not cloudflared_match:
     fail("Deployment/LocalCluster/inventory/prod/group_vars/all.yml: missing cloudflared_version")
@@ -311,6 +352,7 @@ generate_inventory = read("Deployment/LocalCluster/scripts/generate-inventory.py
 for needle, why in [
     ("REQUIRED_NODES = [\"node-main\", \"node-app1\", \"node-app2\", \"node-db\"]", "required node list"),
     ("import ipaddress", "strict IP address validation"),
+    ("from deploy_settings import load_settings", "shared deployment settings reader"),
     ("unexpected node", "unexpected node rejection"),
     ("duplicate IP address", "duplicate IP rejection"),
     ("duplicate MAC address", "duplicate MAC rejection"),
@@ -320,11 +362,34 @@ for needle, why in [
 ]:
     if needle not in generate_inventory:
         fail(f"Deployment/LocalCluster/scripts/generate-inventory.py: missing {why}")
+if "def read_simple_group_var" in generate_inventory:
+    fail("Deployment/LocalCluster/scripts/generate-inventory.py: use deploy_settings.py instead of a local all.yml parser")
+
+for path, checks in {
+    "Deployment/LocalCluster/scripts/read-deploy-setting.py": [
+        ("from deploy_settings import load_settings", "shared deployment settings reader"),
+        ("load_settings(settings_path, validate_file=True)", "settings validation before read"),
+    ],
+    "Deployment/LocalCluster/scripts/validate-deploy-settings.py": [
+        ("from deploy_settings import load_settings", "shared deployment settings validator"),
+    ],
+    "Deployment/LocalCluster/scripts/deploy_settings.py": [
+        ("REQUIRED_KEYS", "required all.yml keys"),
+        ("def load_settings", "shared settings loader"),
+        ("def validate", "shared settings validator"),
+    ],
+}.items():
+    text = read(path)
+    for needle, why in checks:
+        if needle not in text:
+            fail(f"{path}: missing {why}")
 
 
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
     ("${APP_IMAGE}:${APP_VERSION}", "immutable image variables"),
+    ('ASPNETCORE_URLS: "http://+:${APP_PORT}"', "configured app listen port"),
+    ('"${APP_PORT}:${APP_PORT}"', "configured published app port"),
     ('Database__RunMigrationsAtStartup: "false"', "production startup migrations disabled"),
     ("ConnectionStrings__DefaultConnection", "database connection injection"),
     ("Redis__Configuration", "Redis configuration injection"),
@@ -366,6 +431,21 @@ require_contains(
     "Deployment/LocalCluster/scripts/install-ansible.sh",
     "sshpass",
     "sshpass for Ansible password bootstrap",
+)
+require_contains(
+    "Deployment/LocalCluster/scripts/install-ansible.sh",
+    "already installed",
+    "idempotent Ansible install skip",
+)
+require_contains(
+    "Deployment/LocalCluster/scripts/setup-control-machine.sh",
+    "validate-deploy-settings.py",
+    "deployment settings validation before control setup",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
+    "idempotent Caddy key installation",
 )
 
 for needle, why in [
@@ -459,12 +539,17 @@ for path, checks in {
         ("ufw allow OpenSSH", "SSH firewall rule"),
         ("{{ app_name }}-docker-user-firewall.service", "Docker published-port firewall service"),
         ("groups[\"node_db\"]", "node_db firewall targeting"),
+        ("to any port 5432", "PostgreSQL firewall port"),
+        ("to any port 6379", "Redis firewall port"),
+    ],
+    "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2": [
+        ("APP_PORT={{ app_port }}", "app port env rendering"),
     ],
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
         ("--ctorigdstport {{ app_port }}", "app port restriction"),
-        ("--ctorigdstport {{ postgres_port }}", "PostgreSQL port restriction"),
-        ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
+        ("--ctorigdstport 5432", "PostgreSQL port restriction"),
+        ("--ctorigdstport 6379", "Redis port restriction"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
         ("docker compose up -d --pull always", "pull and start requested image"),
@@ -477,8 +562,9 @@ for path, checks in {
         ("restore-db.sh", "restore helper copy"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
+        ("127.0.0.1:80", "local-only Caddy listener for Cloudflare Tunnel"),
         ("health_uri /health/ready", "readiness health check"),
-        ("lb_policy cookie", "sticky sessions for Blazor Server"),
+        ("lb_policy cookie {{ app_name }}_lb", "sticky sessions for Blazor Server"),
     ],
 }.items():
     text = read(path)
@@ -491,6 +577,10 @@ preflight = read("Deployment/LocalCluster/scripts/preflight.sh")
 for needle, why in [
     ("REPLACE_WITH", "inventory placeholder detection"),
     ("ansible-inventory", "inventory parse check"),
+    ("BOOTSTRAP_INVENTORY", "bootstrap inventory path"),
+    ("missing bootstrap inventory", "bootstrap inventory existence check"),
+    ("bootstrap-hosts.yml", "bootstrap inventory validation"),
+    ("validate-deploy-settings.py", "deployment settings validation"),
     ("vault.yml", "vault existence check"),
     ("check-vault.sh", "deploy vault content check"),
 ]:
@@ -504,11 +594,21 @@ check_vault = read("Deployment/LocalCluster/scripts/check-vault.sh")
 for needle, why in [
     ("ansible-vault view", "vault decrypt validation"),
     ("REPLACE_WITH", "placeholder rejection"),
-    ("vault_cloudflare_tunnel_token", "Cloudflare token key validation"),
-    ("vault_ghcr_token", "GHCR token key validation"),
+    ("validate-vault.py", "strict vault value validation"),
 ]:
     if needle not in check_vault:
         fail(f"Deployment/LocalCluster/scripts/check-vault.sh: missing {why}")
+
+validate_vault = read("Deployment/LocalCluster/scripts/validate-vault.py")
+for needle, why in [
+    ("duplicate key", "duplicate vault key rejection"),
+    ("DOTENV_SAFE_PASSWORD", "dotenv-safe DB/Redis password validation"),
+    ("vault_cloudflare_tunnel_token", "Cloudflare token key validation"),
+    ("vault_ghcr_token", "GHCR token key validation"),
+    ("unknown key", "unknown vault key rejection"),
+]:
+    if needle not in validate_vault:
+        fail(f"Deployment/LocalCluster/scripts/validate-vault.py: missing {why}")
 
 setup_secrets = read("Deployment/LocalCluster/scripts/setup-secrets.sh")
 for needle, why in [
@@ -535,6 +635,8 @@ for needle, why in [
     ("app_port", "app port setting"),
     ("deploy_root", "deploy root setting"),
     ("curl -fsS \"https://${PUBLIC_HOSTNAME}/health/ready\"", "public health check"),
+    ("http://127.0.0.1:${APP_PORT}/health/ready", "IPv4 app-node health check"),
+    ("http://127.0.0.1/health/ready", "IPv4 Caddy health check"),
     ("ansible app_servers", "app-server checks"),
     ("ansible node_db", "database-node checks"),
     ("ansible load_balancer", "load-balancer checks"),
@@ -542,10 +644,13 @@ for needle, why in [
 ]:
     if needle not in verify_deployment:
         fail(f"Deployment/LocalCluster/scripts/verify-deployment.sh: missing {why}")
+if "http://localhost" in verify_deployment:
+    fail("Deployment/LocalCluster/scripts/verify-deployment.sh: use 127.0.0.1 instead of localhost for local health checks")
 
 runner_setup = read("Deployment/LocalCluster/scripts/install-github-runner.sh")
 for needle, why in [
     ("actions/runners/registration-token", "runner registration token automation"),
+    ("RUNNER_CONFIGURED", "remote runner reuse check before token creation"),
     ("gh release view --repo actions/runner", "runner release lookup"),
     ("actions-runner-linux-x64", "x64 runner package"),
     ("this deployment supports only x86_64/amd64 node-main machines", "x64 runner guard"),
@@ -556,6 +661,10 @@ for needle, why in [
 ]:
     if needle not in runner_setup:
         fail(f"Deployment/LocalCluster/scripts/install-github-runner.sh: missing {why}")
+runner_configured_pos = runner_setup.find("RUNNER_CONFIGURED=")
+runner_token_pos = runner_setup.find('RUNNER_TOKEN="$(gh api')
+if runner_configured_pos < 0 or runner_token_pos < 0 or runner_token_pos < runner_configured_pos:
+    fail("Deployment/LocalCluster/scripts/install-github-runner.sh: check remote runner state before requesting a runner token")
 if "RUNNER_TOKEN='$RUNNER_TOKEN'" in runner_setup or 'RUNNER_TOKEN="$RUNNER_TOKEN"' in runner_setup:
     fail("Deployment/LocalCluster/scripts/install-github-runner.sh: runner token must not be passed in the ssh command arguments")
 for forbidden in ["RUNNER_ARCH=", "aarch64", "arm64", "armv7l", "armv6l"]:
@@ -567,6 +676,7 @@ for needle, why in [
     ("CLOUDFLARE_ACCOUNT_ID", "Cloudflare account id input"),
     ("CLOUDFLARE_ZONE_ID", "Cloudflare zone id input"),
     ("CLOUDFLARE_API_TOKEN", "Cloudflare API token input"),
+    ("from deploy_settings import load_settings", "shared deployment settings reader"),
     ("cloudflare_tunnel_name", "tunnel name read from deployment settings"),
     ("public_hostname", "public hostname read from deployment settings"),
     ("POST", "Cloudflare tunnel creation"),
@@ -577,6 +687,8 @@ for needle, why in [
 ]:
     if needle not in setup_cloudflare:
         fail(f"Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh: missing {why}")
+if "def read_simple_yaml_value" in setup_cloudflare:
+    fail("Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh: use deploy_settings.py instead of a local all.yml parser")
 for normal_path in [
     "Deployment/LocalCluster/scripts/preflight.sh",
     "Deployment/LocalCluster/scripts/status.sh",

@@ -10,12 +10,11 @@ from deploy_settings import load_settings
 
 def main() -> int:
     root = Path(__file__).resolve().parents[3]
-    parser = argparse.ArgumentParser(description="Print one deployment setting from group_vars/all.yml.")
-    parser.add_argument("key")
+    parser = argparse.ArgumentParser(description="Validate Deployment/LocalCluster inventory group_vars/all.yml.")
     parser.add_argument(
         "--settings",
         default=str(root / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"),
-        help="Path to the simple Ansible group vars file.",
+        help="Path to the deployment settings file.",
     )
     args = parser.parse_args()
 
@@ -23,12 +22,17 @@ def main() -> int:
     if not settings_path.is_absolute():
         settings_path = root / settings_path
 
+    if not settings_path.exists():
+        print(f"deployment settings validation failed: missing {settings_path}", file=sys.stderr)
+        return 1
+
     try:
-        settings = load_settings(settings_path, validate_file=True)
-        print(settings[args.key])
-    except (KeyError, ValueError) as exc:
+        load_settings(settings_path, validate_file=True)
+    except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
+
+    print("OK    deployment settings are valid")
     return 0
 
 

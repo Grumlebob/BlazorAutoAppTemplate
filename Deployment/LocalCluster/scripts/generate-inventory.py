@@ -7,21 +7,9 @@ import re
 import sys
 from pathlib import Path
 
+from deploy_settings import load_settings
 
 REQUIRED_NODES = ["node-main", "node-app1", "node-app2", "node-db"]
-
-
-def read_simple_group_var(path: Path, key: str) -> str:
-    prefix = f"{key}:"
-    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
-        line = raw_line.split("#", 1)[0].rstrip()
-        if not line.startswith(prefix):
-            continue
-        value = line[len(prefix):].strip().strip('"').strip("'")
-        if not value:
-            raise ValueError(f"{path}: {key} is empty")
-        return value
-    raise ValueError(f"{path}: missing {key}")
 
 
 def parse_simple_machines_yaml(path: Path) -> dict[str, dict[str, str]]:
@@ -196,7 +184,7 @@ def main() -> int:
         return 1
 
     try:
-        app_name = read_simple_group_var(settings_path, "app_name")
+        app_name = load_settings(settings_path, validate_file=True)["app_name"]
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1

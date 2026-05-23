@@ -47,9 +47,6 @@ PY
 
 REPO_NAME="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 REPO_URL="$(gh repo view --json url --jq .url)"
-RUNNER_TOKEN="$(gh api -X POST "repos/$REPO_NAME/actions/runners/registration-token" --jq .token)"
-RUNNER_TAG="$(gh release view --repo actions/runner --json tagName --jq .tagName)"
-RUNNER_VERSION="${RUNNER_TAG#v}"
 REMOTE_ARCH="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" 'uname -m')"
 
 case "$REMOTE_ARCH" in
@@ -57,13 +54,23 @@ case "$REMOTE_ARCH" in
   *) fail "this deployment supports only x86_64/amd64 node-main machines; got $REMOTE_ARCH" ;;
 esac
 
-RUNNER_DOWNLOAD_URL="https://github.com/actions/runner/releases/download/${RUNNER_TAG}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
+RUNNER_CONFIGURED="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" '[[ -f /opt/actions-runner/.runner ]] && echo yes || echo no')"
+RUNNER_TOKEN=""
+RUNNER_DOWNLOAD_URL=""
+if [[ "$RUNNER_CONFIGURED" != "yes" ]]; then
+  RUNNER_TOKEN="$(gh api -X POST "repos/$REPO_NAME/actions/runners/registration-token" --jq .token)"
+  RUNNER_TAG="$(gh release view --repo actions/runner --json tagName --jq .tagName)"
+  RUNNER_VERSION="${RUNNER_TAG#v}"
+  RUNNER_DOWNLOAD_URL="https://github.com/actions/runner/releases/download/${RUNNER_TAG}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
+fi
+
 REPO_URL_Q="$(printf '%q' "$REPO_URL")"
 RUNNER_DOWNLOAD_URL_Q="$(printf '%q' "$RUNNER_DOWNLOAD_URL")"
 RUNNER_TOKEN_Q="$(printf '%q' "$RUNNER_TOKEN")"
+RUNNER_CONFIGURED_Q="$(printf '%q' "$RUNNER_CONFIGURED")"
 
 ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" \
-  "REPO_URL=$REPO_URL_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q bash -s" <<REMOTE
+  "REPO_URL=$REPO_URL_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
 set -euo pipefail
 RUNNER_TOKEN=$RUNNER_TOKEN_Q
 
@@ -73,9 +80,13 @@ sudo mkdir -p /opt/actions-runner
 sudo chown deploy:deploy /opt/actions-runner
 cd /opt/actions-runner
 
-if [[ -f .runner ]]; then
-  echo "GitHub Actions runner is already configured in /opt/actions-runner"
+if [[ "$RUNNER_CONFIGURED" == "yes" && -f .runner ]]; then
+  echo "GitHub Actions runner is already configured in /opt/actions-runner; reusing existing registration"
 else
+  [[ -n "$RUNNER_TOKEN" ]] || {
+    echo "missing runner registration token for first-time configuration" >&2
+    exit 1
+  }
   curl -fsSL -o actions-runner-linux.tar.gz "$RUNNER_DOWNLOAD_URL"
   tar xzf actions-runner-linux.tar.gz
   rm -f actions-runner-linux.tar.gz
@@ -90,7 +101,10 @@ fi
 unset RUNNER_TOKEN
 
 if ! compgen -G "/etc/systemd/system/actions.runner.*.service" >/dev/null; then
+  echo "Installing GitHub Actions runner systemd service"
   sudo ./svc.sh install deploy
+else
+  echo "GitHub Actions runner systemd service already installed"
 fi
 sudo ./svc.sh start
 sudo ./svc.sh status

@@ -32,7 +32,11 @@ fi
 python3 -m pipx ensurepath
 export PATH="$HOME/.local/bin:$PATH"
 
-pipx install --include-deps --force "ansible-core==$VERSION"
+if [[ -x "$HOME/.local/bin/ansible-playbook" ]] && "$HOME/.local/bin/ansible-playbook" --version 2>/dev/null | grep -q "\\[core $VERSION\\]"; then
+  echo "ansible-core $VERSION already installed"
+else
+  pipx install --include-deps --force "ansible-core==$VERSION"
+fi
 
 for exe in ansible ansible-config ansible-galaxy ansible-inventory ansible-playbook ansible-vault; do
   if [[ -x "$HOME/.local/bin/$exe" ]]; then

@@ -15,9 +15,9 @@ if [[ "$MODE" != "bootstrap" && "$MODE" != "deploy" ]]; then
   exit 1
 fi
 
-APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
-SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
-SSH_PUB="$SSH_KEY.pub"
+APP_NAME=""
+SSH_KEY=""
+SSH_PUB=""
 FAILURES=0
 
 ok() {
@@ -72,8 +72,26 @@ else
   warn "Deployment/LocalCluster/machines.yml missing; copy Deployment/LocalCluster/machines.example.yml if you want one machine source file"
 fi
 
-[[ -f "$SSH_KEY" ]] && ok "SSH private key exists: $SSH_KEY" || fail "missing SSH private key: $SSH_KEY"
-[[ -f "$SSH_PUB" ]] && ok "SSH public key exists: $SSH_PUB" || fail "missing SSH public key: $SSH_PUB"
+if [[ -f "$ALL_VARS" ]]; then
+  if python3 "$SCRIPT_DIR/validate-deploy-settings.py" >/dev/null; then
+    ok "deployment settings are valid"
+    APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+    SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
+    SSH_PUB="$SSH_KEY.pub"
+  else
+    fail "Deployment/LocalCluster/inventory/prod/group_vars/all.yml is invalid"
+  fi
+else
+  fail "missing Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
+fi
+
+if [[ -n "$APP_NAME" ]]; then
+  [[ -f "$SSH_KEY" ]] && ok "SSH private key exists: $SSH_KEY" || fail "missing SSH private key: $SSH_KEY"
+  [[ -f "$SSH_PUB" ]] && ok "SSH public key exists: $SSH_PUB" || fail "missing SSH public key: $SSH_PUB"
+else
+  fail "cannot determine deploy SSH key path until app_name is valid"
+fi
+
 [[ -f "$INVENTORY" ]] && ok "inventory exists" || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
 [[ -f "$BOOTSTRAP_INVENTORY" ]] && ok "bootstrap inventory exists" || warn "bootstrap inventory missing; run Deployment/LocalCluster/scripts/generate-inventory.sh after filling Deployment/LocalCluster/machines.yml"
 
@@ -105,18 +123,6 @@ if [[ -f "$BOOTSTRAP_INVENTORY" ]]; then
       fail "bootstrap inventory does not parse"
     fi
   fi
-fi
-
-if [[ -f "$ALL_VARS" ]]; then
-  if grep -Eq '^cloudflared_version:\s*latest\s*$' "$ALL_VARS"; then
-    fail "cloudflared_version must not be latest"
-  elif grep -Eq '^cloudflared_version:\s*[0-9]' "$ALL_VARS"; then
-    ok "cloudflared_version is pinned"
-  else
-    fail "cloudflared_version missing or not pinned"
-  fi
-else
-  fail "missing Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
 fi
 
 if [[ "$MODE" == "deploy" ]]; then

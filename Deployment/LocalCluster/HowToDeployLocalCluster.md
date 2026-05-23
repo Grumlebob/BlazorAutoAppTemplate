@@ -54,9 +54,14 @@ Required values:
 | Node install username | `Deployment/LocalCluster/machines.yml` | The Linux Mint user created during installation. `bootstrap-node.sh` prints it as `username`. |
 | Node LAN IP | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_ip`; reserve it in the router before inventory generation. |
 | Node MAC address | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_mac`; use it for router DHCP reservation. |
+| `app_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a short lowercase deployment name, for example `ship`. |
 | `app_image` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
+| `app_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `8080` unless the container image listens on a different HTTP port. |
 | `public_hostname` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | A hostname inside a Cloudflare-managed zone you control. |
+| `deploy_root` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `/opt/<app_name>` unless you deliberately want another runtime directory. |
 | `cloudflare_tunnel_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
+| `cloudflared_version` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep the checked-in pinned release unless you are deliberately upgrading `cloudflared`. |
+| `migration_bundle_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
 | GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub token for an account that can read the package; classic PATs need `read:packages`. |
 | Cloudflare tunnel token | `Deployment/LocalCluster/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
 | Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
@@ -157,11 +162,12 @@ Review:
 Deployment/LocalCluster/inventory/prod/group_vars/all.yml
 ```
 
-Set or confirm these values before running the setup scripts:
+This is the only shared non-secret group-vars file you normally edit for the first deployment. Set or confirm every value in it before running the setup scripts:
 
 ```yaml
 app_name: <app-name>
 app_image: ghcr.io/<github-owner-or-org>/<image-name>
+app_port: 8080
 public_hostname: <public-hostname>
 deploy_root: /opt/<app-name>
 cloudflare_tunnel_name: <cloudflare-tunnel-name>
@@ -175,15 +181,26 @@ Where the values come from:
 | --- | --- |
 | `app_name` | Choose a short lowercase deployment name, for example `ship`. This affects generated names like the deploy SSH key. |
 | `app_image` | Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
+| `app_port` | Keep `8080` unless the app image listens on a different HTTP port. This value is rendered into the app-node `.env`, Docker Compose published port, firewall rules, Caddy upstreams, and deployment checks. |
 | `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `ship.example.com`. |
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
 | `migration_bundle_name` | Use `<app_name>-migrate` unless you have a naming conflict. |
 
-You normally do not need to edit the other group-var files for the first deployment.
+Checkpoint:
 
-Run this after reviewing `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
+```bash
+python3 Deployment/LocalCluster/scripts/validate-deploy-settings.py
+```
+
+Expected result:
+
+```text
+OK    deployment settings are valid
+```
+
+Run this after reviewing and validating `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
 
 ```bash
 bash ./Deployment/LocalCluster/scripts/setup-control-machine.sh
@@ -194,7 +211,7 @@ ansible-playbook --version
 Script notes:
 
 ```text
-Changes: installs the approved Ansible toolchain and creates the deploy SSH key.
+Changes: validates all.yml, installs the approved Ansible toolchain, and creates the deploy SSH key.
 Writes: ~/.ssh/<app_name>_deploy and ~/.ssh/<app_name>_deploy.pub.
 Safe to rerun: yes; it does not overwrite an existing key.
 Success: control machine setup complete.
@@ -536,15 +553,15 @@ Where the values come from:
 
 | Vault key | How to choose or obtain it |
 | --- | --- |
-| `vault_postgres_user` | Choose a database username, usually the same as `app_name`. |
-| `vault_postgres_password` | Generate a strong password in your password manager. |
-| `vault_postgres_db` | Choose a database name, usually the same as `app_name`. |
-| `vault_redis_password` | Generate a strong password in your password manager. |
+| `vault_postgres_user` | Choose a database username, usually the same as `app_name`. Use only letters, numbers, and underscores; do not start with a number. |
+| `vault_postgres_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
+| `vault_postgres_db` | Choose a database name, usually the same as `app_name`. Use only letters, numbers, and underscores; do not start with a number. |
+| `vault_redis_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
 | `vault_ghcr_username` | Use the GitHub account that owns or can read the GHCR package. |
 | `vault_ghcr_token` | Create a GitHub fine-grained or classic token for that account with package read access. For a classic PAT, `read:packages` is the important permission. |
 | `vault_cloudflare_tunnel_token` | Copy the `eyJ...` tunnel token from the Cloudflare connector command in the previous step. |
 
-Quotes are safest for passwords and tokens.
+The DB and Redis password character limits are intentional. Those values are rendered into runtime `.env` files and connection strings, so `check-vault.sh` rejects spaces, quotes, `$`, `#`, comma, semicolon, and other characters that are easy to misparse.
 
 Checkpoint:
 
@@ -633,7 +650,7 @@ Script notes:
 ```text
 Changes: installs and registers the self-hosted GitHub Actions runner on node-main.
 Writes: /opt/actions-runner and a systemd service on node-main.
-Safe to rerun: yes; an existing runner is reused/replaced by the registration flow.
+Safe to rerun: yes; an existing configured runner is reused and its service is installed or started if needed.
 Success: GitHub Actions runner ready on node-main (<node-main-ip>).
 ```
 
@@ -751,6 +768,7 @@ Ansible renders `<deploy-root>/.env` on each app node with:
 ```env
 APP_IMAGE=<app_image>
 APP_VERSION=<selected-commit-sha>
+APP_PORT=<app_port>
 POSTGRES_HOST=<node-db-ip-from-inventory>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
@@ -758,6 +776,8 @@ POSTGRES_DB=<vault_postgres_db>
 REDIS_HOST=<node-db-ip-from-inventory>
 REDIS_PASSWORD=<vault_redis_password>
 ```
+
+PostgreSQL and Redis use their standard container ports, `5432` and `6379`. The deployment publishes them only on `node-db` and restricts access to the app nodes.
 
 Caddy is installed on `node-main`. The deployed Caddy site is generated from:
 

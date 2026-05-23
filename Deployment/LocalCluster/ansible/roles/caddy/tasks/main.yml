@@ -16,6 +16,7 @@
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   args:
     executable: /bin/bash
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 
 - name: Add Caddy apt repository
   ansible.builtin.get_url:

@@ -18,6 +18,9 @@ from pathlib import Path
 
 
 ROOT = Path(sys.argv[1])
+sys.path.insert(0, str(ROOT / "Deployment/LocalCluster/scripts"))
+from deploy_settings import load_settings  # noqa: E402
+
 API_ROOT = "https://api.cloudflare.com/client/v4"
 
 
@@ -30,21 +33,6 @@ def required_env(name: str) -> str:
     if not value:
         fail(f"set {name} first")
     return value
-
-
-def read_simple_yaml_value(path: Path, key: str) -> str:
-    prefix = f"{key}:"
-    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
-        line = raw_line.split("#", 1)[0].rstrip()
-        if not line or not line.startswith(prefix):
-            continue
-        value = line[len(prefix):].strip()
-        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-            value = value[1:-1]
-        if not value:
-            fail(f"{path}: {key} is empty")
-        return value
-    fail(f"{path}: missing {key}")
 
 
 def api(method: str, path: str, body: dict[str, object] | None = None) -> object:
@@ -175,12 +163,13 @@ def main() -> int:
     zone_id = required_env("CLOUDFLARE_ZONE_ID")
 
     settings = ROOT / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
-    tunnel_name = os.environ.get("CLOUDFLARE_TUNNEL_NAME", "").strip() or read_simple_yaml_value(
-        settings, "cloudflare_tunnel_name"
-    )
-    public_hostname = os.environ.get("PUBLIC_HOSTNAME", "").strip() or read_simple_yaml_value(
-        settings, "public_hostname"
-    )
+    try:
+        deploy_settings = load_settings(settings, validate_file=True)
+    except ValueError as exc:
+        fail(str(exc))
+
+    tunnel_name = os.environ.get("CLOUDFLARE_TUNNEL_NAME", "").strip() or deploy_settings["cloudflare_tunnel_name"]
+    public_hostname = os.environ.get("PUBLIC_HOSTNAME", "").strip() or deploy_settings["public_hostname"]
 
     tunnel = ensure_tunnel(account_id, tunnel_name)
     tunnel_id = tunnel.get("id")
