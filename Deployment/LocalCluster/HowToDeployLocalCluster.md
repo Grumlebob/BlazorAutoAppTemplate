@@ -18,7 +18,7 @@ Happy path:
 2. Confirm shared settings in all.yml.
 3. Run setup-control-machine.sh on the control machine.
 4. Run bootstrap-node.sh on every node and copy its values into machines.yml.
-5. Reserve LAN IPs, then generate hosts.yml and bootstrap-hosts.yml.
+5. Reserve LAN IPs, generate hosts.yml and bootstrap-hosts.yml, then commit all.yml and hosts.yml.
 6. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
 7. Create the Cloudflare tunnel and copy its token into vault.yml.
 8. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run acceptance-check.sh.
@@ -257,7 +257,11 @@ cloudflare_tunnel_name: notes-prod
 migration_bundle_name: secondnotes-migrate
 ```
 
-For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment.
+For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment. Repository variables are here:
+
+```text
+Repository -> Settings -> Secrets and variables -> Actions -> Variables
+```
 
 Second-fork flow on already-prepared nodes:
 
@@ -265,11 +269,15 @@ Second-fork flow on already-prepared nodes:
 1. Clone the fork, not the original repository.
 2. Set unique values in all.yml for app_name, app_image, ports, deploy_root, public_hostname, and migration_bundle_name.
 3. Copy the same machines.yml values used by the first app, or rerun discover-machines.sh on each node.
-4. Run generate-inventory.sh and commit the fork's generated hosts.yml.
+4. Run generate-inventory.sh and commit the fork's all.yml and generated hosts.yml.
 5. Run setup-control-machine.sh to create this app's deploy key.
 6. Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes.
 7. Run prepare-existing-localcluster-app.sh with an existing app's deploy key.
-8. Create this fork's vault, install this fork's GitHub runner, configure its GitHub environment, and deploy.
+8. Add this fork's public_hostname to the existing Cloudflare tunnel.
+9. Create this fork's vault.
+10. Install this fork's GitHub runner.
+11. Set this fork's GitHub repository variables and deployment environment.
+12. Deploy.
 ```
 
 Install this fork's deploy key on the existing nodes by using a deploy key from an app that already works on the cluster:
@@ -313,6 +321,17 @@ bash ./Deployment/LocalCluster/scripts/summary.sh
 ```
 
 This prints the app image, public hostname, deploy root, ports, runner labels, Cloudflare tunnel name, and target node IPs. Any `REPLACE_WITH` value shown as `BLOCKER` must be fixed before deploy.
+
+Deployment identity checkpoint:
+
+```bash
+gh repo view --json nameWithOwner,url --jq '"repo=\(.nameWithOwner) url=\(.url)"'
+python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_name
+python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image
+python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname
+```
+
+For a fork or a second site on the same four nodes, do not continue if these values still describe the original site. The `app_image` owner/name must match the repository that will build the image, and `app_name`, `public_hostname`, `deploy_root`, ports, migration bundle name, runner name, and runner label must be unique for this app.
 
 Run this after reviewing and validating `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
 
@@ -505,14 +524,15 @@ generated Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml from Deploy
 
 All generated runtime files use `hosts.yml` through Ansible inventory. Do not copy node IPs into markdown files, compose files, Caddy files, firewall files, or `.env` files.
 
-Commit the generated production inventory after it contains real reserved IPs:
+Commit the deployment settings and generated production inventory after `hosts.yml` contains real reserved IPs:
 
 ```bash
+git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml
 git add Deployment/LocalCluster/inventory/prod/hosts.yml
-git commit -m "Configure production deployment inventory"
+git commit -m "Configure production deployment settings"
 ```
 
-`Deployment/LocalCluster/machines.yml` and `Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml` stay local and ignored by git. The deployment workflow checks out the repository on `node-main`, so it needs the committed `hosts.yml`.
+`Deployment/LocalCluster/machines.yml` and `Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml` stay local and ignored by git. The deployment workflow checks out the repository on `node-main`, so it needs committed `all.yml` settings and committed `hosts.yml` inventory.
 
 ## 5. Verify Bootstrap Access
 
@@ -597,7 +617,7 @@ Connector environment: Debian
 
 Use the exact `cloudflare_tunnel_name` value from `all.yml`.
 
-For side-by-side apps on the same four nodes, use one shared tunnel and add each app's public hostname to that tunnel. The second app should reuse the same `cloudflare_tunnel_name` and `vault_cloudflare_tunnel_token` as the first app unless you intentionally design separate named cloudflared services.
+For side-by-side apps on the same four nodes, use one shared tunnel and add each app's public hostname to that tunnel. The second app should reuse the same `cloudflare_tunnel_name` and `vault_cloudflare_tunnel_token` as the first app unless you intentionally design separate named cloudflared services. For a forked second site, do not create a new tunnel in the normal path; open the existing tunnel and add the fork's `public_hostname`.
 
 When Cloudflare shows the connector install command, do not run it. Ansible installs and runs `cloudflared` later. Copy only the tunnel token from the generated command. The token is the long `eyJ...` value in a command shaped like:
 
@@ -634,6 +654,14 @@ You have copied the tunnel token for vault.yml
 ```
 
 The optional API helper is in `Reference: Optional Cloudflare API Helper`.
+
+Optional read-only verification if you have Cloudflare API credentials set:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh
+```
+
+This checks that the tunnel named in `all.yml` contains this app's `public_hostname` and that DNS points to the selected tunnel.
 
 ## 8. Create Secrets And The GitHub Vault Secret
 
@@ -704,6 +732,14 @@ git commit -m "Add encrypted production Ansible vault"
 ```
 
 Never commit plaintext secrets.
+
+Before pushing or deploying, verify the deployment files that GitHub Actions will read are committed:
+
+```bash
+git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml
+```
+
+Expected result: no output. If this prints `all.yml`, `hosts.yml`, or `vault.yml`, commit the printed file before continuing.
 
 Run deploy preflight:
 
@@ -835,6 +871,12 @@ environment:
 ```
 
 For a single app, do not create any extra GitHub variables; the workflow uses `localcluster`. For side-by-side apps, you may set repository variable `LOCALCLUSTER_RUNNER_LABEL` to the app-specific runner label, for example `localcluster-secondnotes`, and `LOCALCLUSTER_ENVIRONMENT` to a repo-specific environment name if you want that distinction. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
+
+Repository variables are configured here:
+
+```text
+Repository -> Settings -> Secrets and variables -> Actions -> Variables
+```
 
 Configure the environment rules:
 
