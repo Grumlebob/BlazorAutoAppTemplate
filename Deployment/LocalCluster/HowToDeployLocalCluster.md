@@ -145,11 +145,12 @@ sudo apt install -y git gh
 gh auth status || gh auth login
 ```
 
-For a fresh control machine, clone the repository and enter it:
+For a fresh control machine, clone the repository you are deploying and enter it. For the original repository use `Grumlebob/BlazorAutoApp`; for a fork, use the fork's owner and repository name:
 
 ```bash
-gh repo clone Grumlebob/BlazorAutoApp
-cd BlazorAutoApp
+export LOCALCLUSTER_REPO=<github-owner>/<repo-name>
+gh repo clone "$LOCALCLUSTER_REPO"
+cd "$(basename "$LOCALCLUSTER_REPO")"
 ```
 
 For an existing checkout, open a terminal at the repository root.
@@ -159,9 +160,11 @@ Checkpoint:
 ```bash
 pwd
 git status --short
+test -f Deployment/LocalCluster/HowToDeployLocalCluster.md
+gh repo view --json nameWithOwner,url,defaultBranchRef --jq '"repo=\(.nameWithOwner) url=\(.url) default_branch=\(.defaultBranchRef.name)"'
 ```
 
-`pwd` should end in `BlazorAutoApp`. `git status --short` may show your local guide changes, but it should not fail.
+`pwd` should be the repository root. `git status --short` may show your local guide changes, but it should not fail. The `gh repo view` output must show the repository you intend to deploy, especially when working from a fork.
 
 ## 2. Confirm Shared Deployment Settings
 
@@ -226,6 +229,8 @@ For a second fork on the same nodes, do not reuse these values from the first ap
 
 The second fork normally reuses the same machine IPs, `Deployment/LocalCluster/machines.yml` values, `cloudflare_tunnel_name`, and Cloudflare tunnel token. It should have its own vault file and can use its own PostgreSQL database name, PostgreSQL password, Redis password, and GHCR token.
 
+All side-by-side apps that reuse the default `cloudflared` service must use a tunnel in the same Cloudflare account. A separate Cloudflare account or a separate tunnel token on the same `node-main` requires a custom multi-service `cloudflared` design that this guide does not cover.
+
 Example side-by-side shape:
 
 ```yaml
@@ -254,17 +259,40 @@ migration_bundle_name: secondnotes-migrate
 
 For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment.
 
-After one app is deployed, this command lists the app ownership markers that have been written to the nodes:
+Second-fork flow on already-prepared nodes:
+
+```text
+1. Clone the fork, not the original repository.
+2. Set unique values in all.yml for app_name, app_image, ports, deploy_root, public_hostname, and migration_bundle_name.
+3. Copy the same machines.yml values used by the first app, or rerun discover-machines.sh on each node.
+4. Run generate-inventory.sh and commit the fork's generated hosts.yml.
+5. Run setup-control-machine.sh to create this app's deploy key.
+6. Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes.
+7. Run prepare-existing-localcluster-app.sh with an existing app's deploy key.
+8. Create this fork's vault, install this fork's GitHub runner, configure its GitHub environment, and deploy.
+```
+
+Install this fork's deploy key on the existing nodes by using a deploy key from an app that already works on the cluster:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/prepare-existing-localcluster-app.sh --existing-key ~/.ssh/<first-app-name>_deploy
+```
+
+This script does not upgrade packages, reboot nodes, reinstall Docker, or rotate secrets. It only verifies access with the existing key, adds this app's deploy public key to the `deploy` user, copies this app's private key to `node-main`, and verifies that the new key works.
+
+After step 7 above, this command lists the app ownership markers that have been written to the nodes:
 
 ```bash
 bash ./Deployment/LocalCluster/scripts/list-deployed-apps.sh
 ```
 
-Before deploying the second fork, this command checks the current settings against known deployed app markers:
+Before creating secrets or deploying the second fork, this command checks the current settings against known deployed app markers:
 
 ```bash
 bash ./Deployment/LocalCluster/scripts/validate-side-by-side.sh
 ```
+
+These commands require generated `hosts.yml` and this fork's deploy key installed on the nodes, so do not run them before `prepare-existing-localcluster-app.sh` has succeeded.
 
 Checkpoint:
 
@@ -333,9 +361,12 @@ Open a terminal in a repository checkout on that node. On a fresh node, create t
 sudo apt update
 sudo apt install -y git gh
 gh auth status || gh auth login
-gh repo clone Grumlebob/BlazorAutoApp
-cd BlazorAutoApp
+export LOCALCLUSTER_REPO=<github-owner>/<repo-name>
+gh repo clone "$LOCALCLUSTER_REPO"
+cd "$(basename "$LOCALCLUSTER_REPO")"
 ```
+
+Use the same repository or fork you are deploying. If the fork is private and you do not want to authenticate GitHub CLI on every node, copy only `Deployment/LocalCluster/scripts/bootstrap-node.sh` and `Deployment/LocalCluster/scripts/discover-machines.sh` to the node and run them from a temporary directory.
 
 Run the node bootstrap from the repository root on that node:
 
@@ -696,6 +727,16 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
+For a fork or a newly created repository, confirm GitHub Actions is enabled before pushing the deployment commit:
+
+```text
+Repository -> Settings -> Actions -> General
+Actions permissions: Allow actions and reusable workflows
+Workflow permissions: Read and write permissions
+```
+
+`Workflow permissions: Read and write permissions` is required because CI publishes the image to GHCR with `GITHUB_TOKEN`.
+
 Use this normal path:
 
 ```text
@@ -741,6 +782,8 @@ Success: GitHub Actions runner ready on node-main (<node-main-ip>): <runner-name
 ```
 
 This script uses GitHub CLI to create a runner registration token, SSHes to `node-main`, installs the runner under `/opt/actions-runner-<app_name>`, and starts its systemd service.
+
+On rerun, the script verifies the configured runner name and repository, starts the service if needed, and resets custom runner labels to exactly `localcluster` plus the app-specific label.
 
 The workflow targets:
 
@@ -834,11 +877,7 @@ Use `run_migrations: true` for the first deployment and for commits that include
 
 Leave the branch selector on `main`. The workflow rejects non-main refs, checks that CI passed for the selected commit, verifies that `<app_image>:<selected-commit-sha>` exists, downloads the migration bundle from that CI run when migrations are enabled, and deploys that image.
 
-The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/LocalCluster/ansible/playbooks/site.yml`, and verifies:
-
-```text
-https://<public_hostname>/health/ready
-```
+The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/LocalCluster/ansible/playbooks/site.yml`, and then runs `acceptance-check.sh`. That verifies app-node health, compose state, DB/Redis health, app-specific data ports, local Caddy routing, `caddy` and `cloudflared`, backup directory state, and finally public HTTPS health.
 
 If CD fails because the migration bundle artifact is missing or expired, rerun `CI` on `main` for the same commit, then rerun `CD - Deploy LocalCluster`.
 
@@ -886,6 +925,8 @@ The database compose file pins PostgreSQL and Redis to exact versioned image tag
 Ansible renders `<deploy-root>/.env` on `node-db` with:
 
 ```env
+COMPOSE_PROJECT_NAME=<app_name>
+APP_NAME=<app_name>
 POSTGRES_USER=<vault_postgres_user>
 POSTGRES_PASSWORD=<vault_postgres_password>
 POSTGRES_DB=<vault_postgres_db>
@@ -903,6 +944,8 @@ Deployment/LocalCluster/compose/app-server/docker-compose.yml
 Ansible renders `<deploy-root>/.env` on each app node with:
 
 ```env
+COMPOSE_PROJECT_NAME=<app_name>
+APP_NAME=<app_name>
 APP_IMAGE=<app_image>
 APP_VERSION=<selected-commit-sha>
 APP_PORT=<app_port>
@@ -918,7 +961,9 @@ REDIS_PASSWORD=<vault_redis_password>
 
 PostgreSQL and Redis use their standard container ports inside their containers. The deployment publishes them on `node-db` using `postgres_port` and `redis_port`, then restricts access to the app nodes. For a single app these host ports stay at `5432` and `6379`.
 
-PostgreSQL data is stored in the `postgres_data` Docker volume. Redis is also persistent: it stores data in the `redis_data` Docker volume and uses append-only persistence. This matters because the app stores shared runtime state such as Data Protection keys in Redis.
+`COMPOSE_PROJECT_NAME` is set to `app_name`, so Docker Compose container and volume names are app-specific even when multiple forks run on the same nodes.
+
+PostgreSQL data is stored in the `postgres_data` Docker volume under that Compose project. Redis is also persistent: it stores data in the `redis_data` Docker volume and uses append-only persistence. This matters because the app stores shared runtime state such as Data Protection keys in Redis.
 
 Caddy is installed on `node-main`. The deployed Caddy site is generated from:
 
@@ -936,14 +981,15 @@ The production deployment order is:
 
 ```text
 1. Build and push the app image.
-2. Deploy PostgreSQL and Redis.
-3. Deploy Caddy and cloudflared.
-4. Stop both app containers when migrations are enabled.
-5. Create a database backup when migrations are enabled.
-6. Run the EF Core migration bundle once when migrations are enabled.
-7. Start app containers on both app nodes.
-8. Verify app-node /health/ready.
-9. Verify https://<public_hostname>/health/ready.
+2. Apply this app's firewall rules.
+3. Deploy PostgreSQL and Redis.
+4. Deploy Caddy and cloudflared.
+5. Stop both app containers when migrations are enabled.
+6. Create and verify a database backup when migrations are enabled.
+7. Run the EF Core migration bundle once when migrations are enabled.
+8. Start app containers on both app nodes.
+9. Verify app-node /health/ready.
+10. Verify https://<public_hostname>/health/ready.
 ```
 
 `Deployment/LocalCluster/ansible/playbooks/site.yml` handles that order.
@@ -986,6 +1032,8 @@ Required API token permissions:
 Cloudflare Tunnel Write
 Zone DNS Edit
 ```
+
+By default, `setup-cloudflare-tunnel.sh` refuses to replace an existing DNS record for `public_hostname` if it already points somewhere else. To intentionally move that hostname to this LocalCluster tunnel, set `CLOUDFLARE_ALLOW_DNS_REPLACE=true` for that run only.
 
 Run:
 

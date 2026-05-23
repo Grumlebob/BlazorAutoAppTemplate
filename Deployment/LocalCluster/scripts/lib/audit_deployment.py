@@ -82,6 +82,7 @@ required_files = [
     "Deployment/LocalCluster/inventory/prod/group_vars/all.yml",
     "Deployment/LocalCluster/inventory/prod/vault.example.yml",
     "Deployment/LocalCluster/ansible/ansible.cfg",
+    "Deployment/LocalCluster/ansible/playbooks/PrepareExistingLocalClusterApp.yml",
     "Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml",
     "Deployment/LocalCluster/ansible/playbooks/site.yml",
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml",
@@ -124,6 +125,7 @@ required_files = [
     "Deployment/LocalCluster/scripts/node-db/backup-db.sh",
     "Deployment/LocalCluster/scripts/node-db/restore-db.sh",
     "Deployment/LocalCluster/scripts/preflight.sh",
+    "Deployment/LocalCluster/scripts/prepare-existing-localcluster-app.sh",
     "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
     "Deployment/LocalCluster/scripts/list-deployed-apps.sh",
     "Deployment/LocalCluster/scripts/report-nodes.sh",
@@ -238,6 +240,14 @@ for needle, why in [
     ("If another LocalCluster app already runs on these nodes", "side-by-side settings warning"),
     ("### Optional: Second Fork On The Same Nodes", "second-fork side-by-side subsection"),
     ("For a second fork on the same nodes, do not reuse these values from the first app", "unique side-by-side values list"),
+    ("Second-fork flow on already-prepared nodes", "second-fork execution flow"),
+    ("prepare-existing-localcluster-app.sh", "existing cluster app preparation guidance"),
+    ("Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes", "side-by-side rerun warning"),
+    ("this fork's deploy key installed on the nodes", "side-by-side validation ordering warning"),
+    ("same Cloudflare account", "shared tunnel Cloudflare account limitation"),
+    ("gh repo clone \"$LOCALCLUSTER_REPO\"", "fork-safe clone command"),
+    ("gh repo view --json nameWithOwner,url,defaultBranchRef", "repository identity checkpoint"),
+    ("Workflow permissions: Read and write permissions", "fork GitHub Actions package write prerequisite"),
     ("`app_image`", "side-by-side app image uniqueness"),
     ("`migration_bundle_name`", "side-by-side migration bundle uniqueness"),
     ("same machine IPs", "side-by-side reused machine IP guidance"),
@@ -256,6 +266,8 @@ for needle, why in [
 ]:
     if needle not in guide:
         fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
+if "gh repo clone Grumlebob/BlazorAutoApp" in guide:
+    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: clone commands must be fork-safe, not hardcoded to the original repository")
 
 for line_number, line in enumerate(guide.splitlines(), start=1):
     if 'ansible ' in line and '-a "cd ' in line and "-m ansible.builtin.shell" not in line:
@@ -621,10 +633,12 @@ for needle, why in [
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/scripts/preflight.sh deploy", "deploy preflight"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
-    ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
+    ("app_version=${APP_VERSION}", "selected-ref image deployment"),
+    ("source_repo_url=${SOURCE_REPO_URL}", "source repository marker metadata"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
     ("bash Deployment/LocalCluster/scripts/acceptance-check.sh", "full acceptance verification"),
-    ("rm -f \"/tmp/${APP_NAME}_ansible_vault_password\"", "vault password file cleanup"),
+    ("mktemp \"${RUNNER_TEMP:-/tmp}/${APP_NAME}_ansible_vault_password.XXXXXX\"", "private vault password temp file"),
+    ("rm -f \"${ANSIBLE_VAULT_PASSWORD_FILE}\"", "vault password file cleanup"),
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/cd-localcluster.yml: missing {why}")
@@ -656,22 +670,31 @@ if any(pos < 0 for pos in positions) or positions != sorted(positions):
 
 site = read("Deployment/LocalCluster/ansible/playbooks/site.yml")
 for needle, why in [
+    ("Apply app firewall rules", "deployment firewall phase"),
+    ("firewall", "deployment firewall role"),
     ("hosts: node_db", "node_db deployment phase"),
     ("hosts: load_balancer", "load balancer deployment phase"),
     ("hosts: app_servers", "app server deployment phase"),
     ("Stop app containers before migration", "migration downtime step"),
+    ("Check for existing app compose file", "first-deploy-safe migration stop guard"),
+    ("site_app_compose_file.stat.exists", "skip app stop only when compose file is absent"),
     ("Create pre-migration database backup", "pre-migration backup"),
+    ("./backup-db.sh", "verified backup helper use"),
     ("Run migration bundle", "migration execution"),
+    ("set -euo pipefail", "strict migration shell"),
     ("Write LocalCluster app ownership markers", "app ownership marker phase"),
     ("app_marker", "app ownership marker role"),
 ]:
     if needle not in site:
         fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
+if re.search(r"name: Stop existing app stack[\s\S]+?failed_when: false", site):
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: Stop existing app stack must not suppress all failures")
 
 for path, checks in {
     "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml": [
         ("name: deploy", "deploy user creation"),
         ("NOPASSWD:ALL", "passwordless sudo for automation"),
+        ("90-localcluster-deploy", "neutral LocalCluster sudoers file"),
         ("authorized_keys", "deploy SSH public key installation"),
         ("deploy_private_key_file", "control-node private key installation"),
         ("inventory_hostname in groups[\"load_balancer\"]", "private key limited to control node"),
@@ -681,6 +704,7 @@ for path, checks in {
     ],
     "Deployment/LocalCluster/ansible/roles/docker/tasks/main.yml": [
         ("UBUNTU_CODENAME", "Linux Mint Ubuntu base codename detection"),
+        ("docker_ubuntu_codename.stdout | length > 0", "Ubuntu codename non-empty assertion"),
         ("This deployment supports only x86_64/amd64 Linux machines.", "amd64-only Docker guard"),
         ("arch=amd64", "amd64 Docker apt repository"),
         ("docker-compose-plugin", "Docker Compose plugin"),
@@ -694,12 +718,14 @@ for path, checks in {
         ("to any port {{ redis_port }}", "Redis firewall port"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2": [
+        ("COMPOSE_PROJECT_NAME={{ app_name }}", "explicit Compose project name"),
         ("APP_NAME={{ app_name }}", "app identity env marker"),
         ("APP_PORT={{ app_port }}", "app port env rendering"),
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
     ],
     "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2": [
+        ("COMPOSE_PROJECT_NAME={{ app_name }}", "explicit Compose project name"),
         ("APP_NAME={{ app_name }}", "node-db app identity env marker"),
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
@@ -714,6 +740,7 @@ for path, checks in {
         ("DEPLOY_ROOT={{ deploy_root }}", "marker deploy root"),
         ("PUBLIC_HOSTNAME={{ public_hostname }}", "marker public hostname"),
         ("RUNNER_LABEL=", "marker runner label"),
+        ("SOURCE_REPO_URL=", "marker source repository"),
     ],
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
@@ -732,6 +759,7 @@ for path, checks in {
         ("node-db.env.j2", "node-db env template"),
         ("backup-db.sh", "backup helper copy"),
         ("restore-db.sh", "restore helper copy"),
+        ("docker compose up -d --pull always", "pull and start pinned database images"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
         ("http://{{ public_hostname }}", "hostname-based Caddy listener for side-by-side apps"),
@@ -744,6 +772,8 @@ for path, checks in {
     for needle, why in checks:
         if needle not in text:
             fail(f"{path}: missing {why}")
+if "90-{{ app_name }}-deploy" in read("Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml"):
+    fail("Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml: sudoers file must be cluster-neutral, not app-named")
 if "iptables -F DOCKER-USER" in read("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"):
     fail("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2: must not flush shared DOCKER-USER chain")
 
@@ -792,9 +822,19 @@ for path, checks in {
         ("validate-side-by-side.sh", "side-by-side validation"),
         ("Next likely action", "next action output"),
     ],
+    "Deployment/LocalCluster/scripts/prepare-existing-localcluster-app.sh": [
+        ("--existing-key", "existing deploy key argument"),
+        ("LOCALCLUSTER_EXISTING_DEPLOY_KEY", "existing deploy key environment fallback"),
+        ("PrepareExistingLocalClusterApp.yml", "existing cluster preparation playbook"),
+        ("ansible_ssh_private_key_file=$EXISTING_KEY", "old key override during preparation"),
+        ("new deploy key installed", "clear success line"),
+    ],
     "Deployment/LocalCluster/scripts/acceptance-check.sh": [
         ("https://${PUBLIC_HOSTNAME}/health/ready", "public health check"),
         ("-H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready", "hostname-aware local Caddy check"),
+        ("--services --filter status=running", "running compose service checks"),
+        ("pg_isready", "PostgreSQL health check"),
+        ("redis-cli", "Redis health check"),
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
         ("sport = :${REDIS_PORT}", "Redis port check"),
         ("backup directory", "backup directory check"),
@@ -823,12 +863,14 @@ for path, checks in {
     "Deployment/LocalCluster/scripts/verify-backup.sh": [
         ("gzip -t", "gzip integrity check"),
         ("PostgreSQL database dump|SET", "plain SQL plausibility check"),
+        ("printf -v BACKUP_ARG_Q", "remote backup argument shell quoting"),
         ("backup verification ok", "clear success line"),
     ],
     "Deployment/LocalCluster/scripts/check-github-runner.sh": [
         ("gh api", "GitHub API runner lookup"),
         ("RUNNER_LABEL", "runner label check"),
         ("no matching runner is online", "runner online check"),
+        ("unexpected custom labels", "stale custom label rejection"),
     ],
     "Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh": [
         ("CLOUDFLARE_ACCOUNT_ID", "Cloudflare account input"),
@@ -839,11 +881,14 @@ for path, checks in {
     "Deployment/LocalCluster/scripts/validate-rendered-templates.sh": [
         ("render_caddy", "Caddy render fixture"),
         ("secondnotes.example.com", "two-app render fixture"),
+        ("COMPOSE_PROJECT_NAME=notes", "explicit Compose project render check"),
         ('["docker", "compose"', "optional Compose validation"),
         ("rendered template validation ok", "clear success line"),
     ],
     "Deployment/LocalCluster/scripts/node-db/backup-db.sh": [
         ("gzip -t", "gzip integrity check"),
+        ("TEMP_BACKUP", "temporary backup file before verified move"),
+        ("mv \"$TEMP_BACKUP\" \"$BACKUP\"", "publish only verified backup"),
         ("backup path:", "backup path output"),
         ("backup verification ok", "backup verification success line"),
     ],
@@ -953,6 +998,10 @@ for needle, why in [
     ("unset RUNNER_TOKEN", "runner token unset after configuration"),
     ("RUNNER_LABEL", "app-specific runner label setting"),
     ("localcluster,${RUNNER_LABEL}", "shared and app-specific runner label configuration"),
+    ("gh api -X PUT", "exact runner custom label repair"),
+    ("actions/runners/$RUNNER_ID/labels", "runner label repair API call"),
+    ("check-github-runner.sh", "post-install runner verification"),
+    ("agentName", "configured runner name verification"),
     ("/opt/actions-runner-${APP_NAME}", "app-specific runner directory"),
     ("sudo ./svc.sh install deploy", "runner service install as deploy"),
 ]:
@@ -982,6 +1031,7 @@ for needle, why in [
     ("get_tunnel_config", "existing Cloudflare tunnel config preservation"),
     ("kept_ingress", "side-by-side Cloudflare hostname preservation"),
     ("dns_records", "Cloudflare DNS record endpoint"),
+    ("CLOUDFLARE_ALLOW_DNS_REPLACE", "explicit DNS replacement guard"),
     ("vault_cloudflare_tunnel_token", "vault token output"),
 ]:
     if needle not in setup_cloudflare:

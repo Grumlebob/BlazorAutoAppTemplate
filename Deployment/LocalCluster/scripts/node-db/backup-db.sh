@@ -9,19 +9,27 @@ set -a
 set +a
 
 BACKUP="backups/predeploy-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$BACKUP"
+TEMP_BACKUP="${BACKUP}.tmp"
+cleanup() {
+  rm -f "$TEMP_BACKUP"
+}
+trap cleanup EXIT
 
-[[ -s "$BACKUP" ]] || {
-  echo "backup file is empty: $BACKUP" >&2
+docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$TEMP_BACKUP"
+
+[[ -s "$TEMP_BACKUP" ]] || {
+  echo "backup file is empty: $TEMP_BACKUP" >&2
   exit 1
 }
-gzip -t "$BACKUP"
-PREVIEW="$(gzip -dc "$BACKUP" 2>/dev/null | sed -n '1,80p' || true)"
+gzip -t "$TEMP_BACKUP"
+PREVIEW="$(gzip -dc "$TEMP_BACKUP" 2>/dev/null | sed -n '1,80p' || true)"
 if ! grep -Eq "PostgreSQL database dump|SET " <<< "$PREVIEW"; then
-  echo "backup does not look like a plain SQL pg_dump: $BACKUP" >&2
+  echo "backup does not look like a plain SQL pg_dump: $TEMP_BACKUP" >&2
   exit 1
 fi
 
+mv "$TEMP_BACKUP" "$BACKUP"
+trap - EXIT
 BACKUP_ABSOLUTE="$SCRIPT_DIR/$BACKUP"
 ls -lh "$BACKUP"
 echo "backup path: $BACKUP_ABSOLUTE"

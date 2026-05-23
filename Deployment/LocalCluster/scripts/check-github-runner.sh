@@ -41,9 +41,19 @@ if not matches:
 online_match: dict[str, object] | None = None
 for runner in matches:
     labels = {str(label.get("name", "")).lower() for label in runner.get("labels", [])}
+    custom_labels = {
+        str(label.get("name", "")).lower()
+        for label in runner.get("labels", [])
+        if str(label.get("type", "")).lower() == "custom"
+    }
     missing = sorted(required - labels)
     if missing:
         raise SystemExit(f"runner {runner.get('name')} is missing labels: {', '.join(missing)}")
+    unexpected_custom = sorted(custom_labels - {"localcluster", runner_label.lower()})
+    if unexpected_custom:
+        raise SystemExit(
+            f"runner {runner.get('name')} has unexpected custom labels: {', '.join(unexpected_custom)}; rerun install-github-runner.sh"
+        )
     if runner.get("status") == "online":
         online_match = runner
         break

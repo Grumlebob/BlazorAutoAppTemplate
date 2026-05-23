@@ -16,16 +16,14 @@ DEPLOY_ROOT="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" deploy_root)"
   exit 1
 }
 
-echo "checking public HTTPS health"
-curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
-echo
-
 echo "checking app nodes"
 ansible app_servers -i "$INVENTORY" -a "curl -fsS http://127.0.0.1:${APP_PORT}/health/ready"
 ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
+ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps --services --filter status=running | grep -qx web"
 
 echo "checking database node"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
+ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && set -a && . ./.env && set +a && docker compose ps --services --filter status=running | grep -qx postgres && docker compose ps --services --filter status=running | grep -qx redis && docker compose exec -T postgres pg_isready -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" && docker compose exec -T redis redis-cli -a \"\$REDIS_PASSWORD\" ping | grep -qx PONG"
 
 echo "checking load balancer"
 ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS -H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready"
@@ -39,6 +37,10 @@ ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "ss -H -ltn 'sport =
 echo "checking backup directory"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a \
   "if [ -d '${DEPLOY_ROOT}/backups' ]; then ls -1 '${DEPLOY_ROOT}/backups' | tail -n 5; else echo 'backup directory not present yet; it is created by migrations or manual backups'; fi"
+
+echo "checking public HTTPS health"
+curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
+echo
 
 echo
 echo "acceptance check ok"

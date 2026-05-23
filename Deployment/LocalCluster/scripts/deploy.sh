@@ -25,6 +25,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+SOURCE_REPO_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url || true)"
+[[ -n "$SOURCE_REPO_URL" ]] || SOURCE_REPO_URL="unknown"
+
+EXTRA_ARGS+=(-e "source_repo_url=$SOURCE_REPO_URL")
 
 bash "$SCRIPT_DIR/preflight.sh" deploy
 cd "$REPO_ROOT/Deployment/LocalCluster/ansible"

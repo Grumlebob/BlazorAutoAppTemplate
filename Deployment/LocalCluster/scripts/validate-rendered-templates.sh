@@ -100,6 +100,8 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     db_env = render_env(ROOT / "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2", app_values)
     if "APP_NAME=notes" not in app_env or "APP_NAME=notes" not in db_env:
         fail("rendered env files are missing app identity marker")
+    if "COMPOSE_PROJECT_NAME=notes" not in app_env or "COMPOSE_PROJECT_NAME=notes" not in db_env:
+        fail("rendered env files are missing explicit Compose project names")
 
     compose_env = {
         "APP_IMAGE": "ghcr.io/example/notes",

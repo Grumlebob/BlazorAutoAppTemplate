@@ -20,6 +20,12 @@
   register: docker_ubuntu_codename
   changed_when: false
 
+- name: Require Ubuntu base codename from Linux Mint
+  ansible.builtin.assert:
+    that:
+      - docker_ubuntu_codename.stdout | length > 0
+    fail_msg: "Could not determine UBUNTU_CODENAME from /etc/os-release; Docker apt repository cannot be configured safely."
+
 - name: Require amd64 machine architecture
   ansible.builtin.assert:
     that:

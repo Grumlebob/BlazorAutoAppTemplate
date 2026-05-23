@@ -1,0 +1,57 @@
+---
+- name: Prepare existing LocalCluster nodes for another app
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure deploy user exists
+      ansible.builtin.user:
+        name: deploy
+        groups: sudo
+        append: true
+        shell: /bin/bash
+        create_home: true
+
+    - name: Ensure deploy SSH directory exists
+      ansible.builtin.file:
+        path: /home/deploy/.ssh
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0700"
+
+    - name: Install this app's deploy SSH public key
+      ansible.builtin.lineinfile:
+        path: /home/deploy/.ssh/authorized_keys
+        line: "{{ lookup('file', deploy_public_key_file) }}"
+        create: true
+        owner: deploy
+        group: deploy
+        mode: "0600"
+
+    - name: Install this app's deploy private key on node-main
+      ansible.builtin.copy:
+        src: "{{ deploy_private_key_file }}"
+        dest: "/home/deploy/.ssh/{{ app_name }}_deploy"
+        owner: deploy
+        group: deploy
+        mode: "0600"
+      when: inventory_hostname in groups["load_balancer"]
+
+    - name: Install this app's deploy public key file on node-main
+      ansible.builtin.copy:
+        src: "{{ deploy_public_key_file }}"
+        dest: "/home/deploy/.ssh/{{ app_name }}_deploy.pub"
+        owner: deploy
+        group: deploy
+        mode: "0644"
+      when: inventory_hostname in groups["load_balancer"]
+
+    - name: Trust deployment node SSH host keys on node-main
+      ansible.builtin.known_hosts:
+        path: /home/deploy/.ssh/known_hosts
+        name: "{{ hostvars[item].ansible_host }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan ' + hostvars[item].ansible_host) }}"
+      become: true
+      become_user: deploy
+      loop: "{{ groups['all'] }}"
+      when: inventory_hostname in groups["load_balancer"]

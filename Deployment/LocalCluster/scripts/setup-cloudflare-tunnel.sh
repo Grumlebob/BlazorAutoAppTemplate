@@ -155,6 +155,7 @@ def find_dns_record(zone_id: str, public_hostname: str) -> dict[str, object] | N
 
 
 def ensure_dns_record(zone_id: str, public_hostname: str, tunnel_id: str) -> None:
+    allow_replace = os.environ.get("CLOUDFLARE_ALLOW_DNS_REPLACE", "").strip().lower() in {"1", "true", "yes"}
     body = {
         "type": "CNAME",
         "name": public_hostname,
@@ -169,6 +170,13 @@ def ensure_dns_record(zone_id: str, public_hostname: str, tunnel_id: str) -> Non
         record_id = record.get("id")
         if not isinstance(record_id, str) or not record_id:
             fail("existing DNS record is missing id")
+        existing_content = record.get("content")
+        existing_proxied = record.get("proxied")
+        if (existing_content != body["content"] or existing_proxied is not True) and not allow_replace:
+            fail(
+                f"DNS record {public_hostname} already exists with content={existing_content!r}, "
+                f"proxied={existing_proxied!r}. Set CLOUDFLARE_ALLOW_DNS_REPLACE=true only if you intend to replace it."
+            )
         api("PATCH", f"/zones/{zone_id}/dns_records/{record_id}", body)
 
 

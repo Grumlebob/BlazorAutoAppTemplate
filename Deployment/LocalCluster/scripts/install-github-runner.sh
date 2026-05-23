@@ -88,6 +88,24 @@ sudo chown deploy:deploy "$RUNNER_DIR"
 cd "$RUNNER_DIR"
 
 if [[ "$RUNNER_CONFIGURED" == "yes" && -f .runner ]]; then
+  CONFIGURED_RUNNER_NAME="\$(python3 - <<'PY'
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+try:
+    payload = json.loads(Path(".runner").read_text(encoding="utf-8"))
+except Exception:
+    print("")
+else:
+    print(payload.get("agentName", ""))
+PY
+)"
+  if [[ "\$CONFIGURED_RUNNER_NAME" != "$RUNNER_NAME" ]]; then
+    echo "runner in $RUNNER_DIR is named '\$CONFIGURED_RUNNER_NAME', expected '$RUNNER_NAME'; remove or reconfigure it manually" >&2
+    exit 1
+  fi
   if ! grep -Fq "$REPO_URL" .runner; then
     echo "runner in $RUNNER_DIR is configured for another repository; remove or reconfigure it manually" >&2
     exit 1
@@ -120,5 +138,35 @@ fi
 sudo ./svc.sh start
 sudo ./svc.sh status
 REMOTE
+
+RUNNERS_JSON="$(gh api "repos/$REPO_NAME/actions/runners?per_page=100")"
+RUNNER_ID="$(RUNNERS_JSON="$RUNNERS_JSON" python3 - "$RUNNER_NAME" <<'PY'
+from __future__ import annotations
+
+import json
+import os
+import sys
+
+runner_name = sys.argv[1]
+payload = json.loads(os.environ["RUNNERS_JSON"])
+for runner in payload.get("runners", []):
+    if isinstance(runner, dict) and runner.get("name") == runner_name:
+        print(runner.get("id", ""))
+        raise SystemExit(0)
+raise SystemExit(f"runner not found in GitHub after setup: {runner_name}")
+PY
+)"
+
+python3 - "$RUNNER_LABEL" <<'PY' | gh api -X PUT "repos/$REPO_NAME/actions/runners/$RUNNER_ID/labels" --input - >/dev/null
+from __future__ import annotations
+
+import json
+import sys
+
+runner_label = sys.argv[1]
+print(json.dumps({"labels": ["localcluster", runner_label]}))
+PY
+
+bash "$SCRIPT_DIR/check-github-runner.sh"
 
 echo "GitHub Actions runner ready on node-main ($NODE_MAIN_IP): $RUNNER_NAME [$RUNNER_LABELS]"

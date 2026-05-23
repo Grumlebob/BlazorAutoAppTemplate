@@ -18,6 +18,8 @@ Top-level `*.sh` files are the commands used by the deployment guide.
 
 `check-port-collisions.sh` is called by deploy preflight to protect side-by-side apps from reusing another app's published ports.
 
+`prepare-existing-localcluster-app.sh` installs this app's deploy key on nodes that were already prepared by another LocalCluster app.
+
 `list-deployed-apps.sh` reads LocalCluster app ownership markers from the nodes.
 
 `validate-side-by-side.sh` checks current settings against known deployed app markers.

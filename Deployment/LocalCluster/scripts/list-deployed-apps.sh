@@ -10,8 +10,8 @@ INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
   exit 1
 }
 
-echo "Known LocalCluster app markers"
-ansible all -i "$INVENTORY" -m ansible.builtin.shell -a '
+echo "Known LocalCluster app markers on node-main"
+ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a '
 set -eu
 found=0
 for marker in /etc/localcluster/apps/*.env; do

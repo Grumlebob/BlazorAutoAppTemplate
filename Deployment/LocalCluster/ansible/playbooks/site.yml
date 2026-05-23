@@ -1,4 +1,10 @@
 ---
+- name: Apply app firewall rules
+  hosts: all
+  become: true
+  roles:
+    - firewall
+
 - name: Deploy PostgreSQL and Redis
   hosts: node_db
   become: true
@@ -21,6 +27,12 @@
   hosts: app_servers
   become: true
   tasks:
+    - name: Check for existing app compose file
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}/docker-compose.yml"
+      register: site_app_compose_file
+      when: run_migrations | default(false) | bool
+
     - name: Stop existing app stack
       ansible.builtin.command: docker compose down
       args:
@@ -32,8 +44,9 @@
         site_app_stack_down.rc == 0
         and ((site_app_stack_down.stdout ~ site_app_stack_down.stderr)
         is search("(?i)(removed|stopped)"))
-      failed_when: false
-      when: run_migrations | default(false) | bool
+      when:
+        - run_migrations | default(false) | bool
+        - site_app_compose_file.stat.exists
 
 - name: Run database migrations once
   hosts: node_db
@@ -77,20 +90,16 @@
       when: run_migrations | default(false) | bool
 
     - name: Create pre-migration database backup
-      ansible.builtin.shell: |
-        set -eu
-        cd {{ deploy_root }}
-        set -a
-        . ./.env
-        set +a
-        docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "backups/predeploy-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+      ansible.builtin.command: ./backup-db.sh
       args:
-        executable: /bin/bash
+        chdir: "{{ deploy_root }}"
+      become: true
+      become_user: deploy
       when: run_migrations | default(false) | bool
 
     - name: Run migration bundle
       ansible.builtin.shell: |
-        set -eu
+        set -euo pipefail
         cd {{ deploy_root }}
         set -a
         . ./.env
@@ -98,6 +107,8 @@
         ./migrations/{{ migration_bundle_name }} --connection "Host=localhost;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
       args:
         executable: /bin/bash
+      become: true
+      become_user: deploy
       when: run_migrations | default(false) | bool
 
 - name: Deploy app servers

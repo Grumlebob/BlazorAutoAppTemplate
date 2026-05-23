@@ -45,6 +45,7 @@ jobs:
           echo "PUBLIC_HOSTNAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
           echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
           echo "RUNNER_LABEL=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py runner_label)" >> "$GITHUB_ENV"
+          echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
           echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
@@ -93,11 +94,11 @@ jobs:
       - name: Write Ansible Vault password
         run: |
           umask 077
-          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "/tmp/${APP_NAME}_ansible_vault_password"
+          VAULT_PASSWORD_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}_ansible_vault_password.XXXXXX")"
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "${VAULT_PASSWORD_FILE}"
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=${VAULT_PASSWORD_FILE}" >> "$GITHUB_ENV"
 
       - name: Deployment preflight
-        env:
-          ANSIBLE_VAULT_PASSWORD_FILE: /tmp/${{ env.APP_NAME }}_ansible_vault_password
         run: bash Deployment/LocalCluster/scripts/preflight.sh deploy
 
       - name: Deploy with migrations
@@ -106,10 +107,11 @@ jobs:
         run: |
           bash ../scripts/support/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-            --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
-            -e app_version=${APP_VERSION} \
+            --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
+            -e "app_version=${APP_VERSION}" \
+            -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
-            -e migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}
+            -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Deploy without migrations
         if: inputs.run_migrations == 'false'
@@ -117,12 +119,16 @@ jobs:
         run: |
           bash ../scripts/support/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
-            --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
-            -e app_version=${APP_VERSION}
+            --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
+            -e "app_version=${APP_VERSION}" \
+            -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check
         run: bash Deployment/LocalCluster/scripts/acceptance-check.sh
 
       - name: Remove Ansible Vault password file
         if: always()
-        run: rm -f "/tmp/${APP_NAME}_ansible_vault_password"
+        run: |
+          if [ -n "${ANSIBLE_VAULT_PASSWORD_FILE:-}" ]; then
+            rm -f "${ANSIBLE_VAULT_PASSWORD_FILE}"
+          fi

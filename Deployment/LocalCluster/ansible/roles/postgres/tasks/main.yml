@@ -35,7 +35,7 @@
     - restore-db.sh
 
 - name: Start PostgreSQL and Redis
-  ansible.builtin.command: docker compose up -d
+  ansible.builtin.command: docker compose up -d --pull always
   args:
     chdir: "{{ deploy_root }}"
   become: true

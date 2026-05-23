@@ -45,7 +45,7 @@
 
 - name: Allow deploy user to run sudo without password
   ansible.builtin.copy:
-    dest: "/etc/sudoers.d/90-{{ app_name }}-deploy"
+    dest: /etc/sudoers.d/90-localcluster-deploy
     content: "deploy ALL=(ALL) NOPASSWD:ALL\n"
     owner: root
     group: root
