@@ -107,3 +107,9 @@
     - ../../inventory/prod/vault.yml
   roles:
     - app
+
+- name: Write LocalCluster app ownership markers
+  hosts: all
+  become: true
+  roles:
+    - app_marker

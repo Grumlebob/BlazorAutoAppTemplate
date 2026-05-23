@@ -21,7 +21,7 @@ Happy path:
 5. Reserve LAN IPs, then generate hosts.yml and bootstrap-hosts.yml.
 6. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
 7. Create the Cloudflare tunnel and copy its token into vault.yml.
-8. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run verify-deployment.sh.
+8. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run acceptance-check.sh.
 ```
 
 Location labels in this guide:
@@ -254,6 +254,18 @@ migration_bundle_name: secondnotes-migrate
 
 For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment.
 
+After one app is deployed, this command lists the app ownership markers that have been written to the nodes:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/list-deployed-apps.sh
+```
+
+Before deploying the second fork, this command checks the current settings against known deployed app markers:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/validate-side-by-side.sh
+```
+
 Checkpoint:
 
 ```bash
@@ -265,6 +277,14 @@ Expected result:
 ```text
 OK    deployment settings are valid
 ```
+
+Print the concrete deployment target before proceeding:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/summary.sh
+```
+
+This prints the app image, public hostname, deploy root, ports, runner labels, Cloudflare tunnel name, and target node IPs. Any `REPLACE_WITH` value shown as `BLOCKER` must be fixed before deploy.
 
 Run this after reviewing and validating `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
 
@@ -623,9 +643,9 @@ Where the values come from:
 
 | Vault key | How to choose or obtain it |
 | --- | --- |
-| `vault_postgres_user` | Choose a database username, usually the same as `app_name`. Use only letters, numbers, and underscores; do not start with a number. |
+| `vault_postgres_user` | Choose a database username, usually `app_name` with hyphens changed to underscores. Use only letters, numbers, and underscores; do not start with a number. Example: `my-app` becomes `my_app`. |
 | `vault_postgres_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
-| `vault_postgres_db` | Choose a database name, usually the same as `app_name`. Use only letters, numbers, and underscores; do not start with a number. |
+| `vault_postgres_db` | Choose a database name, usually `app_name` with hyphens changed to underscores. Use only letters, numbers, and underscores; do not start with a number. Example: `my-app` becomes `my_app`. |
 | `vault_redis_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
 | `vault_ghcr_username` | Use the GitHub account that owns or can read the GHCR package. |
 | `vault_ghcr_token` | Create a GitHub fine-grained or classic token for that account with package read access. For a classic PAT, `read:packages` is the important permission. |
@@ -668,7 +688,7 @@ deploy status ok
 preflight ok (deploy)
 ```
 
-Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` are not already used by another service on the target nodes. Existing containers under this app's own `deploy_root` are allowed so the check stays safe to rerun.
+Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` are not already used by another service on the target nodes. Existing containers under this app's own `deploy_root` are allowed so the check stays safe to rerun. If app ownership markers exist on the nodes, preflight also rejects side-by-side collisions for app name, deploy root, public hostname, runner name, and runner label.
 
 ## 9. Build And Push The First Image
 
@@ -740,6 +760,12 @@ Confirm the runner is online in GitHub:
 
 ```text
 Repository -> Settings -> Actions -> Runners
+```
+
+Optional CLI check:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/check-github-runner.sh
 ```
 
 ## 11. Configure The GitHub CD Environment
@@ -823,7 +849,7 @@ If CD fails because the migration bundle artifact is missing or expired, rerun `
 Run:
 
 ```bash
-bash ./Deployment/LocalCluster/scripts/verify-deployment.sh
+bash ./Deployment/LocalCluster/scripts/acceptance-check.sh
 ```
 
 Script notes:
@@ -832,10 +858,10 @@ Script notes:
 Changes: none.
 Writes: nothing.
 Safe to rerun: yes.
-Success: deployment verification ok.
+Success: acceptance check ok.
 ```
 
-This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, app-specific DB/Redis host ports, local Caddy health for `public_hostname`, and the `caddy` and `cloudflared` services.
+This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, app-specific DB/Redis host ports, local Caddy health for `public_hostname`, the `caddy` and `cloudflared` services, and the backup directory state. `verify-deployment.sh` remains as a compatibility wrapper around this command.
 
 Checkpoint:
 
@@ -971,6 +997,12 @@ The helper adds or updates the current `public_hostname` on the selected tunnel 
 
 Copy only the printed `vault_cloudflare_tunnel_token` line into the encrypted vault. Do not commit Cloudflare API tokens.
 
+After the tunnel exists, this read-only check verifies the tunnel, DNS CNAME, and ingress service URL:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh
+```
+
 ## Advanced: Manual Deploy Commands
 
 Use this section only when you intentionally need to bypass GitHub Actions.
@@ -1003,7 +1035,16 @@ For normal future deployments:
 3. Run "CD - Deploy LocalCluster" in GitHub Actions.
 4. Leave the workflow ref selector on main.
 5. Use run_migrations=true when the commit includes EF migrations.
-6. Confirm /health/ready.
+6. Run acceptance-check.sh.
+```
+
+Useful routine commands after the first deployment:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/doctor.sh deploy
+bash ./Deployment/LocalCluster/scripts/summary.sh
+bash ./Deployment/LocalCluster/scripts/report-nodes.sh
+bash ./Deployment/LocalCluster/scripts/acceptance-check.sh
 ```
 
 ## Backup And Restore
@@ -1018,10 +1059,22 @@ Manual backup:
 ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "<deploy-root>/backup-db.sh"
 ```
 
-Restore is intentionally manual and should be done carefully:
+Verify the latest backup before trusting it:
 
 ```bash
-ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "<deploy-root>/restore-db.sh <deploy-root>/backups/<backup-file>.sql.gz"
+bash ./Deployment/LocalCluster/scripts/verify-backup.sh
+```
+
+Or verify a specific backup:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/verify-backup.sh <deploy-root>/backups/<backup-file>.sql.gz
+```
+
+Restore is intentionally manual and should be done carefully. The restore script requires a confirmation token shaped as `<app_name>/<postgres_database_name>`:
+
+```bash
+ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "<deploy-root>/restore-db.sh <deploy-root>/backups/<backup-file>.sql.gz --confirm <app-name>/<database-name>"
 ```
 
 ## Rollback
@@ -1034,19 +1087,31 @@ Before a migration, deploy the previous app image:
 bash ./Deployment/LocalCluster/scripts/deploy.sh <previous-git-sha>
 ```
 
-After a migration, prefer a forward-fix migration. Restore the database backup only when you have decided data loss risk is acceptable and know which backup file to restore.
+After a migration, prefer a forward-fix migration. Restoring a database backup can lose data created after the backup. Run `verify-backup.sh` first, then restore only when you have decided that data loss risk is acceptable and know exactly which backup file to use.
 
 ## Troubleshooting
 
 [control]
 
-Run preflight first:
+Run doctor first:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/doctor.sh deploy
+```
+
+Then run preflight:
 
 ```bash
 bash ./Deployment/LocalCluster/scripts/preflight.sh deploy
 ```
 
-Common checks:
+Node report:
+
+```bash
+bash ./Deployment/LocalCluster/scripts/report-nodes.sh
+```
+
+Raw checks:
 
 ```bash
 ansible all -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ping
@@ -1060,7 +1125,7 @@ ansible load_balancer -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "jo
 If the public hostname fails:
 
 ```text
-1. Run verify-deployment.sh to separate public routing from local service health.
+1. Run acceptance-check.sh to separate public routing from local service health.
 2. If local Caddy health fails, check app-node health and Caddy logs. Local Caddy checks must send the public hostname as the Host header.
 3. If local Caddy health passes but public health fails, check the Cloudflare public hostname service URL is 127.0.0.1:80.
 4. Check cloudflared is active and read its logs with the journalctl command above.

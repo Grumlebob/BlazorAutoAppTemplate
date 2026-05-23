@@ -86,6 +86,8 @@ required_files = [
     "Deployment/LocalCluster/ansible/playbooks/site.yml",
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2",
+    "Deployment/LocalCluster/ansible/roles/app_marker/tasks/main.yml",
+    "Deployment/LocalCluster/ansible/roles/app_marker/templates/app-marker.env.j2",
     "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2",
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
@@ -101,10 +103,14 @@ required_files = [
     "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
     "Deployment/LocalCluster/compose/node-db/docker-compose.yml",
     "Deployment/LocalCluster/scripts/README.md",
+    "Deployment/LocalCluster/scripts/acceptance-check.sh",
     "Deployment/LocalCluster/scripts/bootstrap-node.sh",
+    "Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh",
+    "Deployment/LocalCluster/scripts/check-github-runner.sh",
     "Deployment/LocalCluster/scripts/check-port-collisions.sh",
     "Deployment/LocalCluster/scripts/check-vault.sh",
     "Deployment/LocalCluster/scripts/deploy.sh",
+    "Deployment/LocalCluster/scripts/doctor.sh",
     "Deployment/LocalCluster/scripts/discover-machines.sh",
     "Deployment/LocalCluster/scripts/generate-inventory.sh",
     "Deployment/LocalCluster/scripts/install-github-runner.sh",
@@ -119,6 +125,8 @@ required_files = [
     "Deployment/LocalCluster/scripts/node-db/restore-db.sh",
     "Deployment/LocalCluster/scripts/preflight.sh",
     "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
+    "Deployment/LocalCluster/scripts/list-deployed-apps.sh",
+    "Deployment/LocalCluster/scripts/report-nodes.sh",
     "Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh",
     "Deployment/LocalCluster/scripts/setup-control-machine.sh",
     "Deployment/LocalCluster/scripts/setup-secrets.sh",
@@ -127,7 +135,11 @@ required_files = [
     "Deployment/LocalCluster/scripts/support/with-deploy-lock.sh",
     "Deployment/LocalCluster/scripts/support/with-node-main-deploy-lock.sh",
     "Deployment/LocalCluster/scripts/status.sh",
+    "Deployment/LocalCluster/scripts/summary.sh",
+    "Deployment/LocalCluster/scripts/validate-rendered-templates.sh",
+    "Deployment/LocalCluster/scripts/validate-side-by-side.sh",
     "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
+    "Deployment/LocalCluster/scripts/verify-backup.sh",
     "Deployment/LocalCluster/scripts/verify-deployment.sh",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
@@ -139,6 +151,7 @@ for file in required_files:
 removed_files = [
     "HowToDeploy.md",
     "DeploymentRefactor.md",
+    "SideBySide.md",
     ".github/workflows/deploy-lan.yml",
     "Deployment/LocalCluster/.deploy.local.env.example",
     "Deployment/LocalCluster/scripts/audit_deployment.py",
@@ -231,6 +244,15 @@ for needle, why in [
     ("`cloudflare_tunnel_name`, and Cloudflare tunnel token", "side-by-side shared tunnel guidance"),
     ("secondnotes", "side-by-side example app"),
     ("LOCALCLUSTER_RUNNER_LABEL", "side-by-side runner label variable guidance"),
+    ("summary.sh", "deployment summary command guidance"),
+    ("doctor.sh", "doctor readiness command guidance"),
+    ("acceptance-check.sh", "acceptance check guidance"),
+    ("report-nodes.sh", "node report guidance"),
+    ("list-deployed-apps.sh", "deployed app marker listing guidance"),
+    ("validate-side-by-side.sh", "side-by-side marker validation guidance"),
+    ("verify-backup.sh", "backup verification guidance"),
+    ("check-github-runner.sh", "GitHub runner API check guidance"),
+    ("check-cloudflare-tunnel.sh", "Cloudflare read-only check guidance"),
 ]:
     if needle not in guide:
         fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
@@ -535,6 +557,7 @@ for needle, why in [
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("python Deployment/LocalCluster/scripts/lib/audit_deployment.py", "deployment audit step"),
+    ("bash Deployment/LocalCluster/scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
     ("python -m pip install --upgrade ansible-lint yamllint", "deployment lint tool install"),
     ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
     ("ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible", "deployment Ansible lint step"),
@@ -600,7 +623,7 @@ for needle, why in [
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
-    ("https://${PUBLIC_HOSTNAME}/health/ready", "public readiness verification"),
+    ("bash Deployment/LocalCluster/scripts/acceptance-check.sh", "full acceptance verification"),
     ("rm -f \"/tmp/${APP_NAME}_ansible_vault_password\"", "vault password file cleanup"),
 ]:
     if needle not in deploy_lan:
@@ -639,6 +662,8 @@ for needle, why in [
     ("Stop app containers before migration", "migration downtime step"),
     ("Create pre-migration database backup", "pre-migration backup"),
     ("Run migration bundle", "migration execution"),
+    ("Write LocalCluster app ownership markers", "app ownership marker phase"),
+    ("app_marker", "app ownership marker role"),
 ]:
     if needle not in site:
         fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
@@ -678,6 +703,17 @@ for path, checks in {
         ("APP_NAME={{ app_name }}", "node-db app identity env marker"),
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
+    ],
+    "Deployment/LocalCluster/ansible/roles/app_marker/tasks/main.yml": [
+        ("/etc/localcluster/apps", "app marker directory"),
+        ("app-marker.env.j2", "app marker template"),
+        ("{{ app_name }}.env", "per-app marker file"),
+    ],
+    "Deployment/LocalCluster/ansible/roles/app_marker/templates/app-marker.env.j2": [
+        ("APP_NAME={{ app_name }}", "marker app name"),
+        ("DEPLOY_ROOT={{ deploy_root }}", "marker deploy root"),
+        ("PUBLIC_HOSTNAME={{ public_hostname }}", "marker public hostname"),
+        ("RUNNER_LABEL=", "marker runner label"),
     ],
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2": [
         ("DOCKER-USER", "Docker firewall chain"),
@@ -723,6 +759,7 @@ for needle, why in [
     ("vault.yml", "vault existence check"),
     ("check-vault.sh", "deploy vault content check"),
     ("check-port-collisions.sh", "side-by-side port collision check"),
+    ("validate-side-by-side.sh", "marker-based side-by-side collision check"),
 ]:
     if needle not in preflight:
         fail(f"Deployment/LocalCluster/scripts/preflight.sh: missing {why}")
@@ -740,6 +777,87 @@ for needle, why in [
 ]:
     if needle not in check_port_collisions:
         fail(f"Deployment/LocalCluster/scripts/check-port-collisions.sh: missing {why}")
+
+for path, checks in {
+    "Deployment/LocalCluster/scripts/summary.sh": [
+        ("from deploy_settings import load_settings", "shared settings reader"),
+        ("Target nodes", "target node summary"),
+        ("BLOCKER", "placeholder blocker labeling"),
+        ("runner_label", "runner label summary"),
+    ],
+    "Deployment/LocalCluster/scripts/doctor.sh": [
+        ("summary.sh", "summary reuse"),
+        ("validate-deploy-settings.py", "settings validation"),
+        ("check-vault.sh", "vault validation"),
+        ("validate-side-by-side.sh", "side-by-side validation"),
+        ("Next likely action", "next action output"),
+    ],
+    "Deployment/LocalCluster/scripts/acceptance-check.sh": [
+        ("https://${PUBLIC_HOSTNAME}/health/ready", "public health check"),
+        ("-H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready", "hostname-aware local Caddy check"),
+        ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
+        ("sport = :${REDIS_PORT}", "Redis port check"),
+        ("backup directory", "backup directory check"),
+        ("acceptance check ok", "clear success line"),
+    ],
+    "Deployment/LocalCluster/scripts/report-nodes.sh": [
+        ("os=", "OS report"),
+        ("docker=", "Docker report"),
+        ("ufw=", "UFW report"),
+        ("listening_ports=", "listening port report"),
+    ],
+    "Deployment/LocalCluster/scripts/list-deployed-apps.sh": [
+        ("/etc/localcluster/apps/*.env", "app marker discovery"),
+        ("RUNNER_LABEL", "runner label output"),
+        ("CLOUDFLARE_TUNNEL_NAME", "tunnel output"),
+    ],
+    "Deployment/LocalCluster/scripts/validate-side-by-side.sh": [
+        ("/etc/localcluster/apps/*.env", "app marker discovery"),
+        ("check_conflict app_port", "app port collision check"),
+        ("check_conflict postgres_port", "PostgreSQL port collision check"),
+        ("check_conflict redis_port", "Redis port collision check"),
+        ("check_conflict public_hostname", "public hostname collision check"),
+        ("check_conflict runner_label", "runner label collision check"),
+        ("side-by-side validation ok", "clear success line"),
+    ],
+    "Deployment/LocalCluster/scripts/verify-backup.sh": [
+        ("gzip -t", "gzip integrity check"),
+        ("PostgreSQL database dump|SET", "plain SQL plausibility check"),
+        ("backup verification ok", "clear success line"),
+    ],
+    "Deployment/LocalCluster/scripts/check-github-runner.sh": [
+        ("gh api", "GitHub API runner lookup"),
+        ("RUNNER_LABEL", "runner label check"),
+        ("no matching runner is online", "runner online check"),
+    ],
+    "Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh": [
+        ("CLOUDFLARE_ACCOUNT_ID", "Cloudflare account input"),
+        ("method=\"GET\"", "read-only Cloudflare API use"),
+        ("http://127.0.0.1:80", "expected tunnel service URL"),
+        ("DNS CNAME", "DNS record check"),
+    ],
+    "Deployment/LocalCluster/scripts/validate-rendered-templates.sh": [
+        ("render_caddy", "Caddy render fixture"),
+        ("secondnotes.example.com", "two-app render fixture"),
+        ('["docker", "compose"', "optional Compose validation"),
+        ("rendered template validation ok", "clear success line"),
+    ],
+    "Deployment/LocalCluster/scripts/node-db/backup-db.sh": [
+        ("gzip -t", "gzip integrity check"),
+        ("backup path:", "backup path output"),
+        ("backup verification ok", "backup verification success line"),
+    ],
+    "Deployment/LocalCluster/scripts/node-db/restore-db.sh": [
+        ("--confirm", "explicit restore confirmation argument"),
+        ("${APP_NAME}/${POSTGRES_DB}", "app/database confirmation token"),
+        ("gzip -t", "backup integrity check before restore"),
+        ("database restore complete", "restore completion line"),
+    ],
+}.items():
+    text = read(path)
+    for needle, why in checks:
+        if needle not in text:
+            fail(f"{path}: missing {why}")
 
 deploy_lock = read("Deployment/LocalCluster/scripts/support/with-deploy-lock.sh")
 for needle, why in [
@@ -816,19 +934,7 @@ for needle, why in [
 
 verify_deployment = read("Deployment/LocalCluster/scripts/verify-deployment.sh")
 for needle, why in [
-    ("public_hostname", "public hostname setting"),
-    ("app_port", "app port setting"),
-    ("postgres_port", "PostgreSQL port setting"),
-    ("redis_port", "Redis port setting"),
-    ("deploy_root", "deploy root setting"),
-    ("curl -fsS \"https://${PUBLIC_HOSTNAME}/health/ready\"", "public health check"),
-    ("http://127.0.0.1:${APP_PORT}/health/ready", "IPv4 app-node health check"),
-    ("-H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready", "hostname-aware Caddy health check"),
-    ("sport = :${POSTGRES_PORT}", "PostgreSQL host port check"),
-    ("sport = :${REDIS_PORT}", "Redis host port check"),
-    ("ansible app_servers", "app-server checks"),
-    ("ansible node_db", "database-node checks"),
-    ("ansible load_balancer", "load-balancer checks"),
+    ("acceptance-check.sh", "acceptance check wrapper"),
     ("deployment verification ok", "clear success line"),
 ]:
     if needle not in verify_deployment:

@@ -50,6 +50,7 @@ if [[ "$MODE" == "deploy" ]]; then
   [[ -f "$VAULT" ]] || fail "missing encrypted vault: $VAULT"
   bash "$SCRIPT_DIR/check-vault.sh"
   bash "$SCRIPT_DIR/check-port-collisions.sh"
+  bash "$SCRIPT_DIR/validate-side-by-side.sh"
 fi
 
 echo "preflight ok ($MODE)"

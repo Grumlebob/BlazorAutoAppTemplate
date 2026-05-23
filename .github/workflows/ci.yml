@@ -22,6 +22,9 @@ jobs:
       - name: Deployment audit
         run: python Deployment/LocalCluster/scripts/lib/audit_deployment.py
 
+      - name: Deployment template render validation
+        run: bash Deployment/LocalCluster/scripts/validate-rendered-templates.sh
+
       - name: Deployment YAML and Ansible lint
         run: |
           python -m pip install --upgrade ansible-lint yamllint

@@ -120,8 +120,8 @@ jobs:
             --vault-password-file /tmp/${APP_NAME}_ansible_vault_password \
             -e app_version=${APP_VERSION}
 
-      - name: Verify public health
-        run: curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
+      - name: Run acceptance check
+        run: bash Deployment/LocalCluster/scripts/acceptance-check.sh
 
       - name: Remove Ansible Vault password file
         if: always()

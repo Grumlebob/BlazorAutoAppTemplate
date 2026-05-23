@@ -1,0 +1,16 @@
+---
+- name: Ensure LocalCluster app marker directory exists
+  ansible.builtin.file:
+    path: /etc/localcluster/apps
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write LocalCluster app ownership marker
+  ansible.builtin.template:
+    src: app-marker.env.j2
+    dest: "/etc/localcluster/apps/{{ app_name }}.env"
+    owner: root
+    group: root
+    mode: "0644"
