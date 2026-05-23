@@ -364,7 +364,7 @@ Those files hold role-specific ports, container names, and service paths. You no
 
 ### Set Up The Control Machine Tools
 
-Run this after reviewing `all.yml` so generated defaults use the right `app_name`:
+Run this after reviewing `all.yml` so generated defaults use the right `app_name`. This script will install the Ansible toolchain on the control machine and create the default deploy SSH key if it does not already exist:
 
 ```bash
 bash ./Deployment/scripts/setup-control-machine.sh
@@ -372,15 +372,13 @@ ansible --version
 ansible-playbook --version
 ```
 
-This installs the Ansible toolchain automatically, creates the default deploy SSH key if it does not already exist, and does not overwrite an existing key. The default key path is `~/.ssh/<app_name>_deploy`. The generated key has no passphrase so the later self-hosted runner can use it non-interactively; protect the control machine accordingly.
+The script does not overwrite an existing key. The default key path is `~/.ssh/<app_name>_deploy`. The generated key has no passphrase so the later self-hosted runner can use it non-interactively; protect the control machine accordingly.
 
 The installer uses `apt` and `pipx`, installs `sshpass` for the first password-based Ansible bootstrap, pins an Ansible version that matches the Python version on Linux Mint, and makes the Ansible commands available in `/usr/local/bin`.
 
 ## 3. Bootstrap First SSH On Each Node
 
-On every node, set the hostname, install SSH, disable sleep targets, and print the discovery values.
-
-If the repository is available on the node, run:
+On every node, run the node bootstrap once. This script will set the hostname, install and start SSH, disable sleep targets, and print the discovery values you need for inventory. It is idempotent, so it is safe to rerun while setting up or testing changes:
 
 ```bash
 bash ./Deployment/scripts/bootstrap-node.sh <node-name>
@@ -392,24 +390,34 @@ Example on `node-main`:
 bash ./Deployment/scripts/bootstrap-node.sh node-main
 ```
 
-If the repository is not available on the node yet, paste this command block on that node instead:
+From the script output, save these values:
 
-```bash
-NODE_NAME=<node-name>
-sudo hostnamectl set-hostname "$NODE_NAME"
-sudo apt update
-sudo apt install -y openssh-server
-sudo systemctl enable ssh
-sudo systemctl start ssh
-sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-whoami
-hostname
-ip -brief address
-ip route get 1.1.1.1
-ip -brief link
+```text
+username -> Deployment/machines.yml install_user
+hostname -> sanity check only; it should match the node name
+lan_ip   -> Deployment/machines.yml ip
+lan_mac  -> Deployment/machines.yml mac
+```
+
+The output is intentionally only four lines. Example:
+
+```text
+username: jacob
+hostname: node-main
+lan_ip: 192.168.1.20
+lan_mac: aa:bb:cc:dd:ee:01
 ```
 
 Use the matching value from:
+
+```text
+node-main
+node-app1
+node-app2
+node-db
+```
+
+Ensure you have run `bootstrap-node.sh` on all four nodes before proceeding:
 
 ```text
 node-main
@@ -436,28 +444,20 @@ If the output is `jacob`, then every command that says `<linux-mint-install-user
 
 ## 4. Discover LAN IPs, Reserve Them, And Create Inventory
 
-If you used `bootstrap-node.sh` or the manual bootstrap command block above, use the values it printed. Otherwise, on each node run:
+If you already saved the values printed by `bootstrap-node.sh`, use those values. If you need to print them again, run this discovery script on each node. It only prints the username, hostname, likely LAN IP, and likely MAC address; it does not change the node:
 
 ```bash
 bash ./Deployment/scripts/discover-machines.sh
 ```
 
-If the repository is not on the node yet, run the underlying commands manually:
+Record these values for each node:
 
-```bash
-whoami
-hostname
-ip -brief address
-ip route get 1.1.1.1
-ip link show
-```
+- Username: put this in `install_user`.
+- Hostname: check that it is the node name you passed to `bootstrap-node.sh`.
+- LAN IP address: put this in `ip`.
+- MAC address for the LAN interface: put this in `mac`.
 
-Record:
-
-- Username.
-- Hostname.
-- LAN IP address.
-- MAC address.
+Ensure you have recorded username, LAN IP, and MAC address for all four nodes before proceeding.
 
 Open your router admin UI. Create DHCP reservations so each node keeps the same LAN IP.
 
@@ -467,7 +467,7 @@ Reboot each node after adding the DHCP reservations, then rerun:
 ip -brief address
 ```
 
-Do not continue until each node has the reserved IP.
+Do not continue until all four nodes have their reserved IP.
 
 Now create the local deployment setup files from the repository root on the control machine:
 
@@ -552,7 +552,7 @@ If every node uses the same Linux Mint install username, this saves you from typ
 
 The deploy SSH key path is intentionally not configurable in local env. It is derived from `app_name` as `~/.ssh/<app_name>_deploy`, and the generated Ansible inventory uses the same path.
 
-Then generate the Ansible inventory:
+Then generate the Ansible inventory. This script will validate `Deployment/machines.yml`, read `app_name` from `all.yml`, and write the normal and bootstrap Ansible inventory files:
 
 ```bash
 bash ./Deployment/scripts/generate-inventory.sh
@@ -580,7 +580,7 @@ git commit -m "Configure production deployment inventory"
 
 ## 5. Verify Bootstrap Access
 
-Run these commands from the repository root on the control machine:
+Run these commands from the repository root on the control machine. `status.sh bootstrap` prints what is ready or missing, and `preflight.sh bootstrap` fails fast on blocking setup problems before Ansible changes the nodes:
 
 ```bash
 ansible --version
@@ -614,7 +614,7 @@ ssh jacob@192.168.1.20 hostname
 
 Verify Ansible can reach every fresh machine with the Linux Mint install user.
 
-If you generated `bootstrap-hosts.yml`, this command can read the per-node install usernames from there:
+If you generated `bootstrap-hosts.yml`, this command can read the per-node install usernames from there. This script will run an Ansible ping using the fresh Linux Mint users and password prompts, before SSH hardening switches deployment over to the `deploy` user:
 
 ```bash
 bash ./Deployment/scripts/ping-fresh-machines.sh
@@ -638,7 +638,7 @@ To find it on a node:
 whoami
 ```
 
-If `whoami` prints `jacob`, run:
+If `whoami` prints `jacob`, run this from the control machine. This script will run the bootstrap preflight, execute `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`, then verify Ansible, Docker, and Docker Compose on the nodes:
 
 ```bash
 bash ./Deployment/scripts/prepare-fresh-linux-machines.sh jacob
@@ -655,8 +655,6 @@ Command shape:
 ```bash
 bash ./Deployment/scripts/prepare-fresh-linux-machines.sh [linux-mint-install-user]
 ```
-
-This runs `Deployment/ansible/playbooks/PrepareFreshLinuxMachine.yml`.
 
 It creates the `deploy` user, installs your deploy SSH public key on every node, installs the deploy private/public key files for the `deploy` user on `node-main`, trusts the deployment nodes in `/home/deploy/.ssh/known_hosts` on `node-main`, configures SSH hardening, installs Docker, configures host firewalling, installs Docker published-port firewalling, creates the configured `deploy_root`, and verifies Docker Compose on each node.
 
@@ -788,7 +786,7 @@ CLOUDFLARE_ZONE_ID=abcdef0123456789abcdef0123456789
 CLOUDFLARE_API_TOKEN=cfapi_example_only_000000000000000000000000
 ```
 
-Run:
+Run this only after the Cloudflare account, zone, and API token values are available in your shell or `Deployment/.deploy.local.env`. This script will create or reuse the configured tunnel, point the configured public hostname at `http://127.0.0.1:80`, create or update the proxied DNS record, and print the vault token line:
 
 ```bash
 bash ./Deployment/scripts/setup-cloudflare-tunnel.sh
@@ -815,7 +813,7 @@ journalctl -u cloudflared --no-pager -n 100
 
 ## 8. Create Secrets And The GitHub Vault Secret
 
-Create or edit the encrypted Ansible Vault, validate it, and set the GitHub repository secret used by the deployment workflow:
+Create or edit the encrypted Ansible Vault after the Cloudflare tunnel token is ready. This script will create `vault.yml` from the example if needed, open it with `ansible-vault edit`, validate the encrypted values, and set the GitHub repository secret used by the deployment workflow:
 
 ```bash
 bash ./Deployment/scripts/setup-secrets.sh
@@ -883,7 +881,7 @@ git commit -m "Add encrypted production Ansible vault"
 
 Never commit plaintext secrets.
 
-Run deploy preflight:
+Run deploy preflight. `status.sh deploy` reports readiness for the deploy phase, and `preflight.sh deploy` verifies the inventory, deploy SSH key, encrypted vault, and required vault keys before deployment:
 
 ```bash
 bash ./Deployment/scripts/status.sh deploy
@@ -997,13 +995,11 @@ chmod +x ./migrations/<migration_bundle_name>
 
 ## 12. Install The GitHub Actions Runner
 
-Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded. Run this from the repository root on the control machine:
+Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded. Run this from the repository root on the control machine. This script will use GitHub CLI to create a runner registration token, SSH to `node-main`, install the runner under `/opt/actions-runner`, and start its systemd service:
 
 ```bash
 bash ./Deployment/scripts/install-github-runner.sh
 ```
-
-The script uses GitHub CLI to create a short-lived runner registration token, SSHes to `node-main` as `deploy`, downloads the current GitHub Actions runner, configures it under `/opt/actions-runner`, installs the systemd service, and starts it.
 
 The workflow targets:
 
@@ -1085,13 +1081,13 @@ ansible load_balancer -i Deployment/inventory/prod/hosts.yml -a "systemctl statu
 
 Use this section only when you intentionally need to bypass GitHub Actions.
 
-Wrapper script without migrations:
+Wrapper script without migrations. This script will run deploy preflight and then call the normal Ansible `site.yml` deployment playbook for the Git SHA image tag:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <git-sha>
 ```
 
-Wrapper script with a local migration bundle:
+Wrapper script with a local migration bundle. This uses the same deployment wrapper, but also passes the migration bundle path and enables the migration step:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <git-sha> --migrate <path-to-migration-bundle>
@@ -1140,7 +1136,7 @@ ansible node_db -i Deployment/inventory/prod/hosts.yml -a "<deploy-root>/restore
 
 ## Rollback
 
-Before a migration, deploy the previous app image:
+Before a migration, deploy the previous app image. This uses the same deploy wrapper described above, so it still runs deploy preflight before calling Ansible:
 
 ```bash
 bash ./Deployment/scripts/deploy.sh <previous-git-sha>
@@ -1150,7 +1146,7 @@ After a migration, prefer a forward-fix migration. Restore the database backup o
 
 ## Troubleshooting
 
-Run preflight first:
+Run preflight first. This script will re-check the deploy prerequisites and vault contents so you can separate setup problems from service/runtime problems:
 
 ```bash
 bash ./Deployment/scripts/preflight.sh deploy
