@@ -73,9 +73,9 @@ else
 fi
 
 if [[ -f "$ALL_VARS" ]]; then
-  if python3 "$SCRIPT_DIR/validate-deploy-settings.py" >/dev/null; then
+  if python3 "$SCRIPT_DIR/lib/validate-deploy-settings.py" >/dev/null; then
     ok "deployment settings are valid"
-    APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+    APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
     SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
     SSH_PUB="$SSH_KEY.pub"
   else

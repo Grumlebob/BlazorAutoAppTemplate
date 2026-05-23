@@ -24,10 +24,16 @@
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
+- name: Check UFW status
+  ansible.builtin.command: ufw status
+  changed_when: false
+  register: firewall_ufw_status
+
 - name: Enable UFW
   ansible.builtin.command: ufw --force enable
-  changed_when: "'Firewall is active' in firewall_ufw_enable.stdout"
+  changed_when: true
   register: firewall_ufw_enable
+  when: "'Status: active' not in firewall_ufw_status.stdout"
 
 - name: Install Docker published-port firewall script
   ansible.builtin.template:

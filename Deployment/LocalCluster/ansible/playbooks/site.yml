@@ -27,6 +27,11 @@
         chdir: "{{ deploy_root }}"
       become: true
       become_user: deploy
+      register: site_app_stack_down
+      changed_when: >-
+        site_app_stack_down.rc == 0
+        and ((site_app_stack_down.stdout ~ site_app_stack_down.stderr)
+        is search("(?i)(removed|stopped)"))
       failed_when: false
       when: run_migrations | default(false) | bool
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 ROOT = Path(sys.argv[1])
-sys.path.insert(0, str(ROOT / "Deployment/LocalCluster/scripts"))
+sys.path.insert(0, str(ROOT / "Deployment/LocalCluster/scripts/lib"))
 from deploy_settings import load_settings  # noqa: E402
 
 API_ROOT = "https://api.cloudflare.com/client/v4"

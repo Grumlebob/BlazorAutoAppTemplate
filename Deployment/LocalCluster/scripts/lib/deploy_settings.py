@@ -17,7 +17,7 @@ REQUIRED_KEYS = [
 
 
 def default_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def default_settings_path(root: Path | None = None) -> Path:

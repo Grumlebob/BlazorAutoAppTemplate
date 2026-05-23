@@ -30,14 +30,14 @@ jobs:
 
       - name: Load deployment settings
         run: |
-          echo "APP_NAME=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
-          echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
-          echo "PUBLIC_HOSTNAME=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
-          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
+          echo "APP_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
+          echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
+          echo "PUBLIC_HOSTNAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
+          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
           echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            echo "$(python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image):${GITHUB_SHA}"
+            echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image):${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
@@ -73,7 +73,7 @@ jobs:
             --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Install Ansible
-        run: bash Deployment/LocalCluster/scripts/install-ansible.sh
+        run: bash Deployment/LocalCluster/scripts/support/install-ansible.sh
 
       - name: Write Ansible Vault password
         run: |

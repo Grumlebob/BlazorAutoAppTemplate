@@ -3,10 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-bash "$SCRIPT_DIR/install-ansible.sh"
-python3 "$SCRIPT_DIR/validate-deploy-settings.py"
+bash "$SCRIPT_DIR/support/install-ansible.sh"
+python3 "$SCRIPT_DIR/lib/validate-deploy-settings.py"
 
-APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 SSH_PUB="$SSH_KEY.pub"
 

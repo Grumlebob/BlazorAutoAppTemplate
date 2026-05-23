@@ -5,11 +5,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from deploy_settings import load_settings
+from deploy_settings import default_root, load_settings
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[3]
+    root = default_root()
     parser = argparse.ArgumentParser(description="Validate Deployment/LocalCluster inventory group_vars/all.yml.")
     parser.add_argument(
         "--settings",

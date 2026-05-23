@@ -38,6 +38,8 @@
     executable: /bin/bash
   become: true
   become_user: deploy
+  register: app_ghcr_login
+  changed_when: false
   no_log: true
 
 - name: Pull and start app container
@@ -46,6 +48,10 @@
     chdir: "{{ deploy_root }}"
   become: true
   become_user: deploy
+  register: app_compose_up
+  changed_when: >-
+    (app_compose_up.stdout ~ app_compose_up.stderr)
+    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
 
 - name: Wait for app health endpoint
   ansible.builtin.uri:
@@ -55,3 +61,4 @@
   retries: 30
   delay: 3
   until: app_health.status == 200
+  changed_when: false

@@ -22,6 +22,6 @@ if grep -q "REPLACE_WITH" <<< "$CONTENT"; then
   fail "vault.yml still contains REPLACE_WITH placeholders"
 fi
 
-python3 "$SCRIPT_DIR/validate-vault.py" <<< "$CONTENT"
+python3 "$SCRIPT_DIR/lib/validate-vault.py" <<< "$CONTENT"
 
 echo "OK    encrypted vault decrypts and has all required non-placeholder keys"

@@ -16,7 +16,7 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is missing."
 gh auth status >/dev/null 2>&1 || fail "gh is not authenticated. Run gh auth login."
 [[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
 
-APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 [[ -f "$SSH_KEY" ]] || fail "missing SSH key: $SSH_KEY"
 

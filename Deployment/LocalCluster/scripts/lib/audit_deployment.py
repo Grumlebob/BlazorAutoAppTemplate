@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 failures: list[str] = []
 
 
@@ -100,27 +100,29 @@ required_files = [
     "Deployment/LocalCluster/ansible/roles/ssh_hardening/tasks/main.yml",
     "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
     "Deployment/LocalCluster/compose/node-db/docker-compose.yml",
-    "Deployment/LocalCluster/scripts/backup-db.sh",
+    "Deployment/LocalCluster/scripts/README.md",
     "Deployment/LocalCluster/scripts/bootstrap-node.sh",
     "Deployment/LocalCluster/scripts/check-vault.sh",
     "Deployment/LocalCluster/scripts/deploy.sh",
-    "Deployment/LocalCluster/scripts/deploy_settings.py",
     "Deployment/LocalCluster/scripts/discover-machines.sh",
-    "Deployment/LocalCluster/scripts/generate-inventory.py",
     "Deployment/LocalCluster/scripts/generate-inventory.sh",
-    "Deployment/LocalCluster/scripts/install-ansible.sh",
     "Deployment/LocalCluster/scripts/install-github-runner.sh",
-    "Deployment/LocalCluster/scripts/ping-fresh-machines.sh",
+    "Deployment/LocalCluster/scripts/lib/audit_deployment.py",
+    "Deployment/LocalCluster/scripts/lib/deploy_settings.py",
+    "Deployment/LocalCluster/scripts/lib/generate-inventory.py",
+    "Deployment/LocalCluster/scripts/lib/read-deploy-setting.py",
+    "Deployment/LocalCluster/scripts/lib/validate-deploy-settings.py",
+    "Deployment/LocalCluster/scripts/lib/validate-vault.py",
+    "Deployment/LocalCluster/scripts/node-db/backup-db.sh",
+    "Deployment/LocalCluster/scripts/node-db/restore-db.sh",
     "Deployment/LocalCluster/scripts/preflight.sh",
     "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
     "Deployment/LocalCluster/scripts/setup-cloudflare-tunnel.sh",
     "Deployment/LocalCluster/scripts/setup-control-machine.sh",
     "Deployment/LocalCluster/scripts/setup-secrets.sh",
-    "Deployment/LocalCluster/scripts/restore-db.sh",
-    "Deployment/LocalCluster/scripts/read-deploy-setting.py",
+    "Deployment/LocalCluster/scripts/support/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/support/ping-fresh-machines.sh",
     "Deployment/LocalCluster/scripts/status.sh",
-    "Deployment/LocalCluster/scripts/validate-deploy-settings.py",
-    "Deployment/LocalCluster/scripts/validate-vault.py",
     "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
     "Deployment/LocalCluster/scripts/verify-deployment.sh",
     "BlazorAutoApp/Program.cs",
@@ -134,8 +136,18 @@ removed_files = [
     "HowToDeploy.md",
     "DeploymentRefactor.md",
     "Deployment/LocalCluster/.deploy.local.env.example",
+    "Deployment/LocalCluster/scripts/audit_deployment.py",
+    "Deployment/LocalCluster/scripts/backup-db.sh",
+    "Deployment/LocalCluster/scripts/deploy_settings.py",
     "Deployment/LocalCluster/scripts/discover-node.sh",
+    "Deployment/LocalCluster/scripts/generate-inventory.py",
     "Deployment/LocalCluster/scripts/health-check.sh",
+    "Deployment/LocalCluster/scripts/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/ping-fresh-machines.sh",
+    "Deployment/LocalCluster/scripts/read-deploy-setting.py",
+    "Deployment/LocalCluster/scripts/restore-db.sh",
+    "Deployment/LocalCluster/scripts/validate-deploy-settings.py",
+    "Deployment/LocalCluster/scripts/validate-vault.py",
     "Deployment/LocalCluster/caddy/sites/app.caddy",
     "Deployment/LocalCluster/compose/load-balancer/docker-compose.yml",
     "Deployment/LocalCluster/inventory/prod/group_vars/app_servers.yml",
@@ -219,7 +231,7 @@ for path in tracked:
 
 for path in deployment_text_files():
     rel = path.relative_to(ROOT).as_posix()
-    if rel == "Deployment/LocalCluster/scripts/audit_deployment.py":
+    if rel == "Deployment/LocalCluster/scripts/lib/audit_deployment.py":
         continue
     text = path.read_text(encoding="utf-8-sig")
     for stale, replacement in [
@@ -237,7 +249,7 @@ for path in deployment_text_files():
     if "DEPLOY_SSH_KEY" in text or "SHIP_DEPLOY_KEY" in text:
         fail(f"{rel}: deploy SSH key path must be derived from app_name, not local overrides")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
-        fail(f"{rel}: use Deployment/LocalCluster/scripts/install-ansible.sh instead of distro Ansible")
+        fail(f"{rel}: use Deployment/LocalCluster/scripts/support/install-ansible.sh instead of distro Ansible")
     for forbidden in [".deploy.local", "discover-node", "health-check"]:
         if forbidden in text:
             fail(f"{rel}: contains stale deployment reference: {forbidden}")
@@ -270,7 +282,7 @@ for key in all_var_keys:
 
 try:
     settings_validation = subprocess.run(
-        [sys.executable, str(ROOT / "Deployment/LocalCluster/scripts/validate-deploy-settings.py")],
+        [sys.executable, str(ROOT / "Deployment/LocalCluster/scripts/lib/validate-deploy-settings.py")],
         cwd=ROOT,
         check=False,
         text=True,
@@ -350,11 +362,11 @@ for needle, why in [
 ]:
     if needle not in hosts:
         fail(f"Deployment/LocalCluster/inventory/prod/hosts.yml: missing {why}")
-generate_inventory = read("Deployment/LocalCluster/scripts/generate-inventory.py")
+generate_inventory = read("Deployment/LocalCluster/scripts/lib/generate-inventory.py")
 for needle, why in [
     ("REQUIRED_NODES = [\"node-main\", \"node-app1\", \"node-app2\", \"node-db\"]", "required node list"),
     ("import ipaddress", "strict IP address validation"),
-    ("from deploy_settings import load_settings", "shared deployment settings reader"),
+    ("load_settings", "shared deployment settings reader"),
     ("unexpected node", "unexpected node rejection"),
     ("duplicate IP address", "duplicate IP rejection"),
     ("duplicate MAC address", "duplicate MAC rejection"),
@@ -363,19 +375,19 @@ for needle, why in [
     ("install_user", "install user support"),
 ]:
     if needle not in generate_inventory:
-        fail(f"Deployment/LocalCluster/scripts/generate-inventory.py: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/lib/generate-inventory.py: missing {why}")
 if "def read_simple_group_var" in generate_inventory:
-    fail("Deployment/LocalCluster/scripts/generate-inventory.py: use deploy_settings.py instead of a local all.yml parser")
+    fail("Deployment/LocalCluster/scripts/lib/generate-inventory.py: use deploy_settings.py instead of a local all.yml parser")
 
 for path, checks in {
-    "Deployment/LocalCluster/scripts/read-deploy-setting.py": [
-        ("from deploy_settings import load_settings", "shared deployment settings reader"),
+    "Deployment/LocalCluster/scripts/lib/read-deploy-setting.py": [
+        ("load_settings", "shared deployment settings reader"),
         ("load_settings(settings_path, validate_file=True)", "settings validation before read"),
     ],
-    "Deployment/LocalCluster/scripts/validate-deploy-settings.py": [
-        ("from deploy_settings import load_settings", "shared deployment settings validator"),
+    "Deployment/LocalCluster/scripts/lib/validate-deploy-settings.py": [
+        ("load_settings", "shared deployment settings validator"),
     ],
-    "Deployment/LocalCluster/scripts/deploy_settings.py": [
+    "Deployment/LocalCluster/scripts/lib/deploy_settings.py": [
         ("REQUIRED_KEYS", "required all.yml keys"),
         ("def load_settings", "shared settings loader"),
         ("def validate", "shared settings validator"),
@@ -430,12 +442,12 @@ require_contains(
 )
 
 require_contains(
-    "Deployment/LocalCluster/scripts/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/support/install-ansible.sh",
     "sshpass",
     "sshpass for Ansible password bootstrap",
 )
 require_contains(
-    "Deployment/LocalCluster/scripts/install-ansible.sh",
+    "Deployment/LocalCluster/scripts/support/install-ansible.sh",
     "already installed",
     "idempotent Ansible install skip",
 )
@@ -462,12 +474,12 @@ for needle, why in [
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
-    ("python Deployment/LocalCluster/scripts/audit_deployment.py", "deployment audit step"),
+    ("python Deployment/LocalCluster/scripts/lib/audit_deployment.py", "deployment audit step"),
     ("python -m pip install --upgrade ansible-lint yamllint", "deployment lint tool install"),
     ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
     ("ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible", "deployment Ansible lint step"),
-    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image", "deployment image setting"),
-    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
+    ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
     ("dotnet build --configuration Release --no-restore", "Release build step"),
     ("dotnet test --configuration Release --no-build", "test step"),
@@ -508,8 +520,8 @@ for needle, why in [
     ("name: Deploy App To LAN", "generic deployment workflow name"),
     ("concurrency:", "deployment concurrency guard"),
     ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
-    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image", "deployment image setting"),
-    ("python Deployment/LocalCluster/scripts/read-deploy-setting.py public_hostname", "public hostname setting"),
+    ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image", "deployment image setting"),
+    ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname", "public hostname setting"),
     ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
     ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
     ("bash Deployment/LocalCluster/scripts/preflight.sh deploy", "deploy preflight"),
@@ -614,7 +626,10 @@ for needle, why in [
     if needle not in preflight:
         fail(f"Deployment/LocalCluster/scripts/preflight.sh: missing {why}")
 
-for path in ["Deployment/LocalCluster/scripts/ping-fresh-machines.sh", "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh"]:
+for path in [
+    "Deployment/LocalCluster/scripts/support/ping-fresh-machines.sh",
+    "Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh",
+]:
     require_contains(path, "ANSIBLE_HOST_KEY_CHECKING=False", "bootstrap host-key bypass for password SSH")
 
 check_vault = read("Deployment/LocalCluster/scripts/check-vault.sh")
@@ -626,7 +641,7 @@ for needle, why in [
     if needle not in check_vault:
         fail(f"Deployment/LocalCluster/scripts/check-vault.sh: missing {why}")
 
-validate_vault = read("Deployment/LocalCluster/scripts/validate-vault.py")
+validate_vault = read("Deployment/LocalCluster/scripts/lib/validate-vault.py")
 for needle, why in [
     ("duplicate key", "duplicate vault key rejection"),
     ("DOTENV_SAFE_PASSWORD", "dotenv-safe DB/Redis password validation"),
@@ -635,7 +650,7 @@ for needle, why in [
     ("unknown key", "unknown vault key rejection"),
 ]:
     if needle not in validate_vault:
-        fail(f"Deployment/LocalCluster/scripts/validate-vault.py: missing {why}")
+        fail(f"Deployment/LocalCluster/scripts/lib/validate-vault.py: missing {why}")
 
 setup_secrets = read("Deployment/LocalCluster/scripts/setup-secrets.sh")
 for needle, why in [
@@ -650,7 +665,7 @@ verify_bootstrap = read("Deployment/LocalCluster/scripts/verify-bootstrap.sh")
 for needle, why in [
     ("status.sh\" bootstrap", "bootstrap status check"),
     ("preflight.sh\" bootstrap", "bootstrap preflight check"),
-    ("ping-fresh-machines.sh", "fresh-machine ping check"),
+    ("support/ping-fresh-machines.sh", "fresh-machine ping check"),
     ("bootstrap verification ok", "clear success line"),
 ]:
     if needle not in verify_bootstrap:

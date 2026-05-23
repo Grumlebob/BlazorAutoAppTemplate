@@ -21,9 +21,9 @@ command -v ansible-inventory >/dev/null 2>&1 || fail "ansible-inventory is missi
 command -v ansible-playbook >/dev/null 2>&1 || fail "ansible-playbook is missing. Run Deployment/LocalCluster/scripts/setup-control-machine.sh."
 command -v ssh >/dev/null 2>&1 || fail "ssh is missing."
 
-python3 "$SCRIPT_DIR/validate-deploy-settings.py" >/dev/null || fail "Deployment/LocalCluster/inventory/prod/group_vars/all.yml is invalid"
+python3 "$SCRIPT_DIR/lib/validate-deploy-settings.py" >/dev/null || fail "Deployment/LocalCluster/inventory/prod/group_vars/all.yml is invalid"
 
-APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 SSH_PUB="$SSH_KEY.pub"
 

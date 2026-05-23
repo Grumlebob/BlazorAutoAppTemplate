@@ -25,7 +25,7 @@
 
 - name: Copy database maintenance scripts
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../../scripts/{{ item }}"
+    src: "{{ playbook_dir }}/../../scripts/node-db/{{ item }}"
     dest: "{{ deploy_root }}/{{ item }}"
     owner: deploy
     group: deploy
@@ -40,6 +40,10 @@
     chdir: "{{ deploy_root }}"
   become: true
   become_user: deploy
+  register: postgres_compose_up
+  changed_when: >-
+    (postgres_compose_up.stdout ~ postgres_compose_up.stderr)
+    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
 
 - name: Wait for PostgreSQL to become ready
   ansible.builtin.command: docker compose exec -T postgres pg_isready -U {{ vault_postgres_user }} -d {{ vault_postgres_db }}
@@ -51,6 +55,7 @@
   retries: 20
   delay: 3
   until: postgres_ready.rc == 0
+  changed_when: false
 
 - name: Wait for Redis to become ready
   ansible.builtin.command: docker compose exec -T redis redis-cli -a {{ vault_redis_password }} ping
@@ -62,4 +67,5 @@
   retries: 20
   delay: 3
   until: postgres_redis_ready.rc == 0
+  changed_when: false
   no_log: true

@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from deploy_settings import load_settings
+from deploy_settings import default_root, load_settings
 
 REQUIRED_NODES = ["node-main", "node-app1", "node-app2", "node-db"]
 
@@ -144,7 +144,7 @@ def render_bootstrap_hosts(nodes: dict[str, dict[str, str]]) -> str:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[3]
+    root = default_root()
     parser = argparse.ArgumentParser(description="Generate Ansible production inventory from Deployment/LocalCluster/machines.yml.")
     parser.add_argument("--machines", default=str(root / "Deployment/LocalCluster/machines.yml"))
     parser.add_argument("--output", default=str(root / "Deployment/LocalCluster/inventory/prod/hosts.yml"))

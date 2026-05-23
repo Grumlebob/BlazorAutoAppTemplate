@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deployment audit
-        run: python Deployment/LocalCluster/scripts/audit_deployment.py
+        run: python Deployment/LocalCluster/scripts/lib/audit_deployment.py
 
       - name: Deployment YAML and Ansible lint
         run: |
@@ -47,9 +47,9 @@ jobs:
 
       - name: Load deployment settings
         run: |
-          echo "APP_NAME=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
-          echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
-          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
+          echo "APP_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
+          echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
+          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
 
       - name: Build EF migration bundle
         run: |

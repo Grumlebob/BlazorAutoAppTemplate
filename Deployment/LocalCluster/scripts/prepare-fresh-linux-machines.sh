@@ -10,7 +10,7 @@ if [[ $# -ne 0 ]]; then
   exit 1
 fi
 
-APP_NAME="$(python3 "$SCRIPT_DIR/read-deploy-setting.py" app_name)"
+APP_NAME="$(python3 "$SCRIPT_DIR/lib/read-deploy-setting.py" app_name)"
 PRIVATE_KEY="$HOME/.ssh/${APP_NAME}_deploy"
 PUBLIC_KEY="$PRIVATE_KEY.pub"
 
