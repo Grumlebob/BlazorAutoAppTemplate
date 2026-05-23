@@ -63,7 +63,7 @@ jobs:
           echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
