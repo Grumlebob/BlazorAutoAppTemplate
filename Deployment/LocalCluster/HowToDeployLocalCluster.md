@@ -21,7 +21,7 @@ Happy path:
 5. Reserve LAN IPs, then generate hosts.yml and bootstrap-hosts.yml.
 6. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
 7. Create the Cloudflare tunnel and copy its token into vault.yml.
-8. Build/push the image, install the GitHub runner, deploy, and run verify-deployment.sh.
+8. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run verify-deployment.sh.
 ```
 
 Location labels in this guide:
@@ -611,21 +611,15 @@ preflight ok (deploy)
 
 [github]
 
-The deploy workflow can only deploy an image that exists in GHCR. CI pushes images only for non-PR runs.
+The CD workflow can only deploy artifacts produced by a successful CI run on `main`. CI pushes images and uploads the migration bundle only for non-PR runs.
 
-Use one of these normal paths:
+Use this normal path:
 
 ```text
 Merge/push the deployment commit to main and wait for CI to pass.
 ```
 
-or:
-
-```text
-Run the CI workflow manually for the ref you intend to deploy.
-```
-
-The CI workflow builds/tests the app, builds the migration bundle, and pushes:
+The CI workflow builds/tests the app, builds the migration bundle artifact, and pushes:
 
 ```text
 <app_image>:<selected-commit-sha>
@@ -642,7 +636,7 @@ echo "image exists: ${APP_IMAGE}:${APP_VERSION}"
 
 If this returns `unauthorized`, log Docker in to GHCR with a GitHub account or token that can read the package.
 
-Do not run `Deploy App To LAN` yet; the self-hosted runner is installed in the next step.
+Do not run `CD - Deploy LocalCluster` yet; the self-hosted runner is installed in the next step.
 
 ## 10. Install The GitHub Actions Runner
 
@@ -679,28 +673,64 @@ Checkpoint:
 GitHub Actions runner ready on node-main (<node-main-ip>)
 ```
 
-[github]
-
-Confirm the runner is online:
+Confirm the runner is online in GitHub:
 
 ```text
 Repository -> Settings -> Actions -> Runners
 ```
 
-## 11. First Deploy From GitHub Actions
+## 11. Configure The GitHub CD Environment
+
+[github]
+
+Create the deployment environment used by the CD workflow before the first deploy:
+
+```text
+Repository -> Settings -> Environments -> New environment -> localcluster
+```
+
+The name must be exactly:
+
+```text
+localcluster
+```
+
+The CD workflow contains:
+
+```yaml
+environment:
+  name: localcluster
+```
+
+Configure the environment rules:
+
+```text
+Deployment branches and tags: Selected branches and tags
+Allowed branch: main
+```
+
+If this repository has multiple collaborators, also enable required reviewers for this environment. If you are the only maintainer, reviewer approval is optional, but the `main` branch restriction is still useful.
+
+Checkpoint:
+
+```text
+Environment localcluster exists and allows deployments from main.
+```
+
+## 12. First Deploy From GitHub Actions
 
 [github]
 
 Use this workflow:
 
 ```text
-.github/workflows/deploy-lan.yml
+.github/workflows/cd-localcluster.yml
 ```
 
 In GitHub:
 
 ```text
-Actions -> Deploy App To LAN -> Run workflow
+Actions -> CD - Deploy LocalCluster -> Run workflow
 ```
 
 Inputs:
@@ -711,7 +741,7 @@ run_migrations: true
 
 Use `run_migrations: true` for the first deployment and for commits that include EF migrations. Use `false` only when the database schema is already current for the selected image.
 
-Leave the branch/tag selector on `main` for the normal path. The workflow uses that selected ref's commit SHA automatically, checks that `<app_image>:<selected-commit-sha>` exists, builds the migration bundle from the same checkout, and deploys that image.
+Leave the branch selector on `main`. The workflow rejects non-main refs, checks that CI passed for the selected commit, verifies that `<app_image>:<selected-commit-sha>` exists, downloads the migration bundle from that CI run when migrations are enabled, and deploys that image.
 
 The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/LocalCluster/ansible/playbooks/site.yml`, and verifies:
 
@@ -719,7 +749,7 @@ The workflow installs Ansible, reads the vault password from GitHub Secrets, run
 https://<public_hostname>/health/ready
 ```
 
-## 12. Verify The Deployment
+## 13. Verify The Deployment
 
 [control]
 
@@ -892,8 +922,8 @@ For normal future deployments:
 ```text
 1. Push or merge code to main.
 2. Wait for CI to pass.
-3. Run "Deploy App To LAN" in GitHub Actions.
-4. Leave the workflow ref selector on main unless you intentionally deploy another branch or tag.
+3. Run "CD - Deploy LocalCluster" in GitHub Actions.
+4. Leave the workflow ref selector on main.
 5. Use run_migrations=true when the commit includes EF migrations.
 6. Confirm /health/ready.
 ```

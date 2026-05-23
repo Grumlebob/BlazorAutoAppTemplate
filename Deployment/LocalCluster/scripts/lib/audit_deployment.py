@@ -72,7 +72,7 @@ def deployment_text_files() -> list[Path]:
 required_files = [
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
-    ".github/workflows/deploy-lan.yml",
+    ".github/workflows/cd-localcluster.yml",
     ".ansible-lint.yml",
     ".yamllint.yml",
     ".config/dotnet-tools.json",
@@ -109,6 +109,7 @@ required_files = [
     "Deployment/LocalCluster/scripts/install-github-runner.sh",
     "Deployment/LocalCluster/scripts/lib/audit_deployment.py",
     "Deployment/LocalCluster/scripts/lib/deploy_settings.py",
+    "Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py",
     "Deployment/LocalCluster/scripts/lib/generate-inventory.py",
     "Deployment/LocalCluster/scripts/lib/read-deploy-setting.py",
     "Deployment/LocalCluster/scripts/lib/validate-deploy-settings.py",
@@ -135,6 +136,7 @@ for file in required_files:
 removed_files = [
     "HowToDeploy.md",
     "DeploymentRefactor.md",
+    ".github/workflows/deploy-lan.yml",
     "Deployment/LocalCluster/.deploy.local.env.example",
     "Deployment/LocalCluster/scripts/audit_deployment.py",
     "Deployment/LocalCluster/scripts/backup-db.sh",
@@ -204,6 +206,17 @@ for script_name in sorted(
             "Deployment/LocalCluster/HowToDeployLocalCluster.md: "
             f"references missing script: Deployment/LocalCluster/scripts/{script_name}"
         )
+
+for needle, why in [
+    ("## 11. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
+    ("New environment -> localcluster", "localcluster environment creation"),
+    ("Deployment branches and tags: Selected branches and tags", "deployment branch restriction instructions"),
+    ("Allowed branch: main", "main-only environment branch rule"),
+    ("Environment localcluster exists and allows deployments from main.", "environment setup checkpoint"),
+    ("## 12. First Deploy From GitHub Actions", "first CD deploy step after environment setup"),
+]:
+    if needle not in guide:
+        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
 
 
 tracked = tracked_files()
@@ -515,15 +528,26 @@ for path, checks in {
 if "${APP_IMAGE}:latest" in ci or "docker push \"${APP_IMAGE}:latest\"" in ci:
     fail(".github/workflows/ci.yml: CI must publish only immutable Git SHA image tags")
 
-deploy_lan = read(".github/workflows/deploy-lan.yml")
+deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [
-    ("name: Deploy App To LAN", "generic deployment workflow name"),
+    ("name: CD - Deploy LocalCluster", "CD workflow name"),
+    ("actions: read", "permission to inspect CI workflow runs"),
+    ("environment:", "GitHub deployment environment"),
+    ("name: localcluster", "LocalCluster deployment environment"),
     ("concurrency:", "deployment concurrency guard"),
+    ("group: cd-localcluster", "CD concurrency group"),
     ("runs-on: [self-hosted, linux, x64, homelab]", "self-hosted LAN runner targeting"),
+    ("Require main branch", "main branch deployment guard"),
+    ("refs/heads/main", "main branch deployment guard"),
     ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image", "deployment image setting"),
     ("python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname", "public hostname setting"),
     ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
+    ("python Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py", "successful CI gate"),
+    ("CI_RUN_ID=", "CI run id export"),
     ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
+    ("uses: actions/download-artifact@v4", "CI migration artifact download"),
+    ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
+    ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/scripts/preflight.sh deploy", "deploy preflight"),
     ("-e app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
@@ -531,11 +555,25 @@ for needle, why in [
     ("rm -f \"/tmp/${APP_NAME}_ansible_vault_password\"", "vault password file cleanup"),
 ]:
     if needle not in deploy_lan:
-        fail(f".github/workflows/deploy-lan.yml: missing {why}")
+        fail(f".github/workflows/cd-localcluster.yml: missing {why}")
 if "image_tag" in deploy_lan:
-    fail(".github/workflows/deploy-lan.yml: manual image_tag input should not be required")
-if "Deploy Ship To LAN" in deploy_lan:
-    fail(".github/workflows/deploy-lan.yml: workflow name must not be app-bound")
+    fail(".github/workflows/cd-localcluster.yml: manual image_tag input should not be required")
+if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
+    fail(".github/workflows/cd-localcluster.yml: workflow name must be explicitly CD-oriented")
+if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan or "dotnet tool restore" in deploy_lan:
+    fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
+
+find_ci = read("Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py")
+for needle, why in [
+    ("GITHUB_REPOSITORY", "repository input"),
+    ("GITHUB_SHA", "commit input"),
+    ("GITHUB_TOKEN", "GitHub token input"),
+    ("actions/workflows", "workflow runs API"),
+    ("conclusion\") == \"success\"", "successful CI conclusion requirement"),
+    ("event\") != \"pull_request\"", "pull request run exclusion"),
+]:
+    if needle not in find_ci:
+        fail(f"Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py: missing {why}")
 
 
 prepare = read("Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml")
@@ -735,7 +773,7 @@ for normal_path in [
     "Deployment/LocalCluster/scripts/preflight.sh",
     "Deployment/LocalCluster/scripts/status.sh",
     "Deployment/LocalCluster/scripts/setup-secrets.sh",
-    ".github/workflows/deploy-lan.yml",
+    ".github/workflows/cd-localcluster.yml",
 ]:
     text = read(normal_path)
     for forbidden in ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_API_TOKEN"]:

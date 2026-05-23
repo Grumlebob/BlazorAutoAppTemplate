@@ -1,4 +1,4 @@
-name: Deploy App To LAN
+name: CD - Deploy LocalCluster
 
 on:
   workflow_dispatch:
@@ -13,18 +13,28 @@ on:
           - "false"
 
 permissions:
+  actions: read
   contents: read
   packages: read
 
 concurrency:
-  group: deploy-lan
+  group: cd-localcluster
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: [self-hosted, linux, x64, homelab]
+    environment:
+      name: localcluster
 
     steps:
+      - name: Require main branch
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "LocalCluster CD must be dispatched from main, got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -40,6 +50,14 @@ jobs:
             echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image):${GITHUB_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Require successful CI for this commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CI_RUN_ID="$(python Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py)"
+          echo "CI_RUN_ID=${CI_RUN_ID}" >> "$GITHUB_ENV"
+          echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -50,27 +68,20 @@ jobs:
       - name: Verify image exists
         run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Download migration bundle from CI
+        if: inputs.run_migrations == 'true'
+        uses: actions/download-artifact@v4
         with:
-          dotnet-version: 9.0.x
+          name: ${{ env.APP_NAME }}-migrate-linux-x64
+          path: artifacts/migrations
+          run-id: ${{ env.CI_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Restore
-        run: dotnet restore
-
-      - name: Restore .NET tools
-        run: dotnet tool restore
-
-      - name: Build migration bundle
+      - name: Prepare migration bundle
+        if: inputs.run_migrations == 'true'
         run: |
-          mkdir -p artifacts/migrations
-          dotnet ef migrations bundle \
-            --project BlazorAutoApp/BlazorAutoApp.csproj \
-            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
-            --configuration Release \
-            --self-contained \
-            --runtime linux-x64 \
-            --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          test -f "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Install Ansible
         run: bash Deployment/LocalCluster/scripts/support/install-ansible.sh
