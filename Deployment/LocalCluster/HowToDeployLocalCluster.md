@@ -35,6 +35,12 @@ Location labels in this guide:
 [github]      do this in GitHub
 ```
 
+If your editor shows a `Run` button on markdown code blocks, it may start commands from the markdown file's folder instead of the repository root. If a command says a `Deployment/LocalCluster/...` file is missing, run this once in that terminal and retry the command:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+```
+
 Use the concrete values printed by scripts or configured in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` whenever a command shows a placeholder like `<node-name>` or `<public_hostname>`.
 
 Edit only these source files during the normal path:
@@ -158,6 +164,7 @@ For an existing checkout, open a terminal at the repository root.
 Checkpoint:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 pwd
 git status --short
 test -f Deployment/LocalCluster/HowToDeployLocalCluster.md
@@ -305,6 +312,7 @@ These commands require generated `hosts.yml` and this fork's deploy key installe
 Checkpoint:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 python3 Deployment/LocalCluster/scripts/lib/validate-deploy-settings.py
 ```
 
@@ -317,6 +325,7 @@ OK    deployment settings are valid
 Print the concrete deployment target before proceeding:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/summary.sh
 ```
 
@@ -325,6 +334,7 @@ This prints the app image, public hostname, deploy root, ports, runner labels, C
 Deployment identity checkpoint:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 gh repo view --json nameWithOwner,url --jq '"repo=\(.nameWithOwner) url=\(.url)"'
 python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_name
 python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image
@@ -336,6 +346,7 @@ For a fork or a second site on the same four nodes, do not continue if these val
 Run this after reviewing and validating `all.yml`. It installs Ansible and creates `~/.ssh/<app_name>_deploy` if the key does not already exist:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/setup-control-machine.sh
 ansible --version
 ansible-playbook --version
@@ -365,6 +376,7 @@ The script does not overwrite an existing key.
 Create the local machine source file:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 test -f Deployment/LocalCluster/machines.yml || cp Deployment/LocalCluster/machines.example.yml Deployment/LocalCluster/machines.yml
 ```
 
@@ -390,12 +402,14 @@ Use the same repository or fork you are deploying. If the fork is private and yo
 Run the node bootstrap from the repository root on that node:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/bootstrap-node.sh <node-name>
 ```
 
 Example on `node-main`:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/bootstrap-node.sh node-main
 ```
 
@@ -461,6 +475,7 @@ Ensure every node entry in `Deployment/LocalCluster/machines.yml` has real `ip`,
 If you missed the output for a node, rerun this read-only discovery script on that node:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/discover-machines.sh
 ```
 
@@ -494,6 +509,7 @@ Do not continue until all four nodes have the reserved IPs recorded in `Deployme
 Generate the Ansible inventory:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/generate-inventory.sh
 ```
 
@@ -541,6 +557,7 @@ git commit -m "Configure production deployment settings"
 Run:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/verify-bootstrap.sh
 ```
 
@@ -570,6 +587,7 @@ ssh <linux-mint-install-user>@<node-lan-ip> hostname
 Run this after bootstrap access passes:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/prepare-fresh-linux-machines.sh
 ```
 
@@ -658,6 +676,7 @@ The optional API helper is in `Reference: Optional Cloudflare API Helper`.
 Optional read-only verification if you have Cloudflare API credentials set:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh
 ```
 
@@ -670,6 +689,7 @@ This checks that the tunnel named in `all.yml` contains this app's `public_hostn
 Create or edit the encrypted Ansible Vault after the Cloudflare tunnel token is ready:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/setup-secrets.sh
 ```
 
@@ -715,6 +735,7 @@ The DB and Redis password character limits are intentional. Those values are ren
 Checkpoint:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/check-vault.sh
 ```
 
@@ -736,6 +757,7 @@ Never commit plaintext secrets.
 Before pushing or deploying, verify the deployment files that GitHub Actions will read are committed:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml
 ```
 
@@ -744,6 +766,7 @@ Expected result: no output. If this prints `all.yml`, `hosts.yml`, or `vault.yml
 Run deploy preflight:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/status.sh deploy
 bash ./Deployment/LocalCluster/scripts/preflight.sh deploy
 ```
@@ -788,6 +811,7 @@ For `main`, the CI workflow builds/tests the app, builds the migration bundle ar
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 APP_IMAGE="$(python3 Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)"
 APP_VERSION="$(git rev-parse HEAD)"
 docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
@@ -805,6 +829,7 @@ Do not run `CD - Deploy LocalCluster` yet; the self-hosted runner is installed i
 Install the self-hosted runner on `node-main` as the `deploy` user after the fresh-machine preparation has succeeded:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/install-github-runner.sh
 ```
 
@@ -844,6 +869,7 @@ Repository -> Settings -> Actions -> Runners
 Optional CLI check:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/check-github-runner.sh
 ```
 
@@ -930,6 +956,7 @@ If CD fails because the migration bundle artifact is missing or expired, rerun `
 Run:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/acceptance-check.sh
 ```
 
