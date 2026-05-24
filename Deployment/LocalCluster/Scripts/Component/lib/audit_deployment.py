@@ -73,7 +73,6 @@ required_files = [
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
     ".github/workflows/cd-localcluster.yml",
-    ".ansible-lint.yml",
     ".yamllint.yml",
     ".config/dotnet-tools.json",
     ".gitignore",
@@ -161,6 +160,7 @@ removed_files = [
     "HowToDeploy.md",
     "DeploymentRefactor.md",
     "SideBySide.md",
+    ".ansible-lint.yml",
     ".github/workflows/deploy-lan.yml",
     "Deployment/LocalCluster/.deploy.local.env.example",
     "Deployment/LocalCluster/Scripts/audit_deployment.py",
@@ -629,9 +629,8 @@ ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/audit-deployment.sh", "deployment audit step"),
     ("bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
-    ("python -m pip install --upgrade ansible-lint yamllint", "deployment lint tool install"),
+    ("python -m pip install --upgrade yamllint", "deployment lint tool install"),
     ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
-    ("ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible", "deployment Ansible lint step"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image", "deployment image setting"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
@@ -648,18 +647,14 @@ for needle, why in [
 for path, checks in {
     ".yamllint.yml": [
         ("extends: default", "default yamllint rule base"),
-        ("max-spaces-inside: 1", "ansible-lint compatible braces rule"),
-        ("min-spaces-from-content: 1", "ansible-lint compatible comments rule"),
-        ("comments-indentation: false", "ansible-lint compatible comment indentation rule"),
+        ("max-spaces-inside: 1", "YAML braces spacing rule"),
+        ("min-spaces-from-content: 1", "YAML comments spacing rule"),
+        ("comments-indentation: false", "YAML comment indentation tolerance"),
         ("line-length: disable", "long deployment command tolerance"),
         ("new-lines: disable", "Windows checkout line-ending tolerance"),
-        ("forbid-explicit-octal: true", "ansible-lint compatible octal rule"),
-        ("forbid-implicit-octal: true", "ansible-lint compatible octal rule"),
+        ("forbid-explicit-octal: true", "explicit octal rule"),
+        ("forbid-implicit-octal: true", "implicit octal rule"),
         ("truthy: disable", "GitHub Actions on-key tolerance"),
-    ],
-    ".ansible-lint.yml": [
-        ("profile: basic", "basic ansible-lint profile"),
-        ("use_default_rules: true", "default ansible-lint rules enabled"),
     ],
 }.items():
     text = read(path)
@@ -668,6 +663,10 @@ for path, checks in {
             fail(f"{path}: missing {why}")
 if "${APP_IMAGE}:latest" in ci or "docker push \"${APP_IMAGE}:latest\"" in ci:
     fail(".github/workflows/ci.yml: CI must publish only immutable Git SHA image tags")
+if "secrets.ANSIBLE_VAULT_PASSWORD" in ci:
+    fail(".github/workflows/ci.yml: CI must not require the production Ansible Vault password")
+if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
+    fail(".github/workflows/ci.yml: CI must not run dummy-vault Ansible linting")
 
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [

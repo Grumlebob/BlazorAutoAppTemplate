@@ -25,11 +25,10 @@ jobs:
       - name: Deployment template render validation
         run: bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 
-      - name: Deployment YAML and Ansible lint
+      - name: Deployment YAML lint
         run: |
-          python -m pip install --upgrade ansible-lint yamllint
+          python -m pip install --upgrade yamllint
           yamllint .github Deployment/LocalCluster
-          ANSIBLE_CONFIG=Deployment/LocalCluster/ansible/ansible.cfg ansible-lint -c .ansible-lint.yml Deployment/LocalCluster/ansible
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
