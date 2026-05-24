@@ -377,10 +377,16 @@ Create the local machine source file:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-test -f Deployment/LocalCluster/machines.yml || cp Deployment/LocalCluster/machines.example.yml Deployment/LocalCluster/machines.yml
+if [ ! -f Deployment/LocalCluster/machines.yml ]; then
+  cp Deployment/LocalCluster/machines.example.yml Deployment/LocalCluster/machines.yml
+  echo "created Deployment/LocalCluster/machines.yml"
+else
+  echo "already exists: Deployment/LocalCluster/machines.yml"
+fi
+realpath Deployment/LocalCluster/machines.yml
 ```
 
-This command does not overwrite an existing local file.
+This command does not overwrite an existing local file. It prints the full path to the file you should edit.
 
 `Deployment/LocalCluster/machines.yml` is the single place to store node IPs, MAC addresses, and install usernames. Fill the matching node entry as you bootstrap each machine. Do not copy node IPs or MAC addresses into generated inventory, compose, Caddy, firewall, or `.env` files by hand.
 
