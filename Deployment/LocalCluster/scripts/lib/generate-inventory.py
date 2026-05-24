@@ -150,6 +150,7 @@ def main() -> int:
     parser.add_argument("--output", default=str(root / "Deployment/LocalCluster/inventory/prod/hosts.yml"))
     parser.add_argument("--bootstrap-output", default=str(root / "Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml"))
     parser.add_argument("--settings", default=str(root / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"))
+    parser.add_argument("--check", action="store_true", help="Validate machines.yml and deployment settings without writing inventory files.")
     args = parser.parse_args()
 
     machines_path = Path(args.machines)
@@ -188,6 +189,16 @@ def main() -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
+
+    if args.check:
+        print("OK    machines.yml is valid")
+        print(f"OK    deployment settings are valid for app_name={app_name}")
+        for node in REQUIRED_NODES:
+            print(
+                f"OK    {node}: ip={nodes[node]['ip']} "
+                f"mac={nodes[node]['mac']} install_user={nodes[node]['install_user']}"
+            )
+        return 0
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(render_hosts(nodes, app_name), encoding="utf-8")

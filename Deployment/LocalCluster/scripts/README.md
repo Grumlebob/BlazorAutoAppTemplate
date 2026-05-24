@@ -10,6 +10,8 @@ Top-level `*.sh` files are the commands used by the deployment guide.
 
 `summary.sh` prints the concrete deployment target without contacting remote nodes.
 
+`validate-machines.sh` checks `machines.yml` and deployment settings without writing generated inventory files.
+
 `doctor.sh` is the main read-only readiness check for the current phase.
 
 `acceptance-check.sh` verifies a completed deployment end to end.

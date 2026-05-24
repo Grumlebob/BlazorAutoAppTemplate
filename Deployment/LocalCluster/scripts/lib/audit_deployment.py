@@ -138,6 +138,7 @@ required_files = [
     "Deployment/LocalCluster/scripts/support/with-node-main-deploy-lock.sh",
     "Deployment/LocalCluster/scripts/status.sh",
     "Deployment/LocalCluster/scripts/summary.sh",
+    "Deployment/LocalCluster/scripts/validate-machines.sh",
     "Deployment/LocalCluster/scripts/validate-rendered-templates.sh",
     "Deployment/LocalCluster/scripts/validate-side-by-side.sh",
     "Deployment/LocalCluster/scripts/verify-bootstrap.sh",
@@ -229,6 +230,8 @@ for needle, why in [
     ("## 4. Reserve LAN IPs", "dedicated router IP reservation step"),
     ("## 5. Generate Inventory", "dedicated control-machine inventory generation step"),
     ("Ensure all four nodes are using their reserved IPs before proceeding.", "router reservation checkpoint"),
+    ("validate-machines.sh", "machines.yml validation checkpoint before inventory generation"),
+    ("Success: prints OK lines for machines.yml, deployment settings, and all four nodes.", "machines validation success checkpoint"),
     ("## 12. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
     ("New environment -> localcluster", "localcluster environment creation"),
     ("Deployment branches and tags: Selected branches and tags", "deployment branch restriction instructions"),
@@ -457,6 +460,8 @@ for needle, why in [
     ("node_db:", "node_db inventory group rendering"),
     ("render_bootstrap_hosts", "bootstrap inventory rendering"),
     ("install_user", "install user support"),
+    ("--check", "read-only machines.yml validation mode"),
+    ("machines.yml is valid", "clear machines validation success line"),
 ]:
     if needle not in generate_inventory:
         fail(f"Deployment/LocalCluster/scripts/lib/generate-inventory.py: missing {why}")
@@ -824,6 +829,10 @@ for path, checks in {
         ("Target nodes", "target node summary"),
         ("BLOCKER", "placeholder blocker labeling"),
         ("runner_label", "runner label summary"),
+    ],
+    "Deployment/LocalCluster/scripts/validate-machines.sh": [
+        ("generate-inventory.py", "shared inventory parser reuse"),
+        ("--check", "read-only machines validation mode"),
     ],
     "Deployment/LocalCluster/scripts/doctor.sh": [
         ("summary.sh", "summary reuse"),

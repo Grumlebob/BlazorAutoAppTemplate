@@ -19,7 +19,7 @@ Happy path:
 3. Run setup-control-machine.sh on the control machine.
 4. Run bootstrap-node.sh on every node and copy its values into machines.yml.
 5. Reserve LAN IPs in the router and confirm every node uses its reserved IP.
-6. Generate hosts.yml and bootstrap-hosts.yml on the control machine, then commit all.yml and hosts.yml.
+6. Validate machines.yml, generate hosts.yml and bootstrap-hosts.yml on the control machine, then commit all.yml and hosts.yml.
 7. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
 8. Create the Cloudflare tunnel and copy its token into vault.yml.
 9. Create the encrypted vault and run deploy preflight.
@@ -519,6 +519,35 @@ Ensure all four nodes are using their reserved IPs before proceeding.
 [control]
 
 Do not continue until all four nodes have the reserved IPs recorded in `Deployment/LocalCluster/machines.yml`. If a node receives a different reserved IP, update that node's `ip` value in `Deployment/LocalCluster/machines.yml` before generating inventory.
+
+Validate the local machine source file:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash ./Deployment/LocalCluster/scripts/validate-machines.sh
+```
+
+Script notes:
+
+```text
+Changes: none.
+Writes: nothing.
+Safe to rerun: yes.
+Success: prints OK lines for machines.yml, deployment settings, and all four nodes.
+```
+
+This catches missing node entries, `REPLACE_WITH` placeholders, invalid IP addresses, duplicate IPs, invalid MAC addresses, duplicate MACs, invalid Linux usernames, and invalid `all.yml` settings before inventory files are written.
+
+Checkpoint:
+
+```text
+OK    machines.yml is valid
+OK    deployment settings are valid for app_name=<app_name>
+OK    node-main: ip=<reserved-ip> mac=<mac-address> install_user=<linux-mint-install-user>
+OK    node-app1: ip=<reserved-ip> mac=<mac-address> install_user=<linux-mint-install-user>
+OK    node-app2: ip=<reserved-ip> mac=<mac-address> install_user=<linux-mint-install-user>
+OK    node-db: ip=<reserved-ip> mac=<mac-address> install_user=<linux-mint-install-user>
+```
 
 Generate the Ansible inventory:
 
