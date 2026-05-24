@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace BlazorAutoApp.Data;
@@ -10,11 +12,13 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
 
-        // Prefer environment variable first, then default.
         var conn = ConfigurePostgresConnectionString(
-            Environment.GetEnvironmentVariable("DefaultConnection")
+            Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres");
 
+        optionsBuilder.UseApplicationServiceProvider(new ServiceCollection()
+            .Configure<IdentityOptions>(options => options.Stores.SchemaVersion = IdentitySchemaVersions.Version3)
+            .BuildServiceProvider());
         optionsBuilder.UseNpgsql(conn);
         return new AppDbContext(optionsBuilder.Options);
     }

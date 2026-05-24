@@ -1,16 +1,16 @@
 @inherits LayoutComponentBase
 @layout BlazorAutoApp.Client.Layout.MainLayout
 
-<h1>Manage your account</h1>
+<h1 class="account-page-title">Manage your account</h1>
 
 <div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
+    <h2 class="account-section-title">Change your account settings</h2>
+    <hr class="account-divider" />
+    <div class="account-manage-layout">
+        <div class="account-grid-aside">
             <ManageNavMenu />
         </div>
-        <div class="col-lg-9">
+        <div class="account-grid-main">
             @Body
         </div>
     </div>

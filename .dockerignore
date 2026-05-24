@@ -25,8 +25,7 @@
 **/*.jfm
 **/Dockerfile*
 **/docker-compose*
-!BlazorAutoApp/docker/Dockerfile
+!BlazorAutoApp/Dockerfile
 !docker-compose.yml
 !BlazorAutoApp/appsettings.Docker.json
 !docker/**
-

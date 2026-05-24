@@ -17,7 +17,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Movies;
 
-[Collection("MediaTestCollection")]
+[Collection("IntegrationTestCollection")]
 public class GetMoviesTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;

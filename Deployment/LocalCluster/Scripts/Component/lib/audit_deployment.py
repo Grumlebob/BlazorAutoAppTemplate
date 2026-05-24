@@ -614,16 +614,31 @@ for moving_image in ["postgres:16-alpine", "redis:7-alpine", "postgres:latest", 
         fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: use exact image tags, not {moving_image}")
 
 
-program = read("BlazorAutoApp/Program.cs")
-for needle, why in [
-    ("PersistKeysToStackExchangeRedis", "Redis-backed Data Protection"),
-    ("UseForwardedHeaders", "forwarded header middleware"),
-    ("MapHealthChecks(\"/health/live\"", "liveness health endpoint"),
-    ("MapHealthChecks(\"/health/ready\"", "readiness health endpoint"),
-    ("Database:RunMigrationsAtStartup", "migration startup guard"),
+for path, needle, why in [
+    (
+        "BlazorAutoApp/Caching/AppCachingExtensions.cs",
+        "PersistKeysToStackExchangeRedis",
+        "Redis-backed Data Protection",
+    ),
+    ("BlazorAutoApp/Program.cs", "UseForwardedHeaders", "forwarded header middleware"),
+    (
+        "BlazorAutoApp/Diagnostics/HealthCheckEndpointExtensions.cs",
+        "MapHealthChecks(\"/health/live\"",
+        "liveness health endpoint",
+    ),
+    (
+        "BlazorAutoApp/Diagnostics/HealthCheckEndpointExtensions.cs",
+        "MapHealthChecks(\"/health/ready\"",
+        "readiness health endpoint",
+    ),
+    (
+        "BlazorAutoApp/Data/PersistenceExtensions.cs",
+        "Database:RunMigrationsAtStartup",
+        "migration startup guard",
+    ),
 ]:
-    if needle not in program:
-        fail(f"BlazorAutoApp/Program.cs: missing {why}")
+    if needle not in read(path):
+        fail(f"{path}: missing {why}")
 require_contains(
     "BlazorAutoApp/BlazorAutoApp.csproj",
     "Microsoft.AspNetCore.DataProtection.StackExchangeRedis",

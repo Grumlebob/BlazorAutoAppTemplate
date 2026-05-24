@@ -7,7 +7,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Architecture;
 
-[Collection("MediaTestCollection")]
+[Collection("IntegrationTestCollection")]
 public class DiWiringTests(WebAppFactory factory)
 {
     private readonly IServiceProvider _services = factory.Services;

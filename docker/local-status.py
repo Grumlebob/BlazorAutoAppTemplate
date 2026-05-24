@@ -124,7 +124,7 @@ def main() -> int:
                 fail(f".env missing {key}")
             elif value.startswith("REPLACE_WITH") or value == "INJECT_THIS_IN_ORDER_TO_RUN":
                 fail(f".env has placeholder value for {key}")
-            elif value == "" and key not in {"SENDGRID_API_KEY", "SENDGRID_FROM_EMAIL", "Authentication__Google__ClientId", "Authentication__Google__ClientSecret"}:
+            elif value == "" and key not in {"Authentication__Google__ClientId", "Authentication__Google__ClientSecret"}:
                 fail(f".env has empty required value for {key}")
         if values.get("ACCEPT_EULA") == "Y":
             ok("Seq EULA accepted for local container")

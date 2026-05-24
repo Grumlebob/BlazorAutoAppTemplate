@@ -11,6 +11,23 @@
   },
   "Serilog": {
     "SeqUrl": "INJECT_THIS_IN_ORDER_TO_RUN" 
+  },
+  "RateLimiting": {
+    "Global": {
+      "PermitLimit": 600,
+      "WindowSeconds": 60,
+      "QueueLimit": 0
+    },
+    "Api": {
+      "PermitLimit": 60,
+      "WindowSeconds": 60,
+      "QueueLimit": 0
+    },
+    "Authentication": {
+      "PermitLimit": 20,
+      "WindowSeconds": 300,
+      "QueueLimit": 0
+    }
   }
 }
 

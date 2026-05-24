@@ -1,16 +1,15 @@
-Testing
-=======
+# Testing
 
-This test project covers three layers:
+This project has four test layers:
 
 - Feature/integration tests for the vertical slices.
-- Architecture tests for repo structure and dependency rules.
-- Headed Playwright E2E tests for real browser render-mode, Movies, and Identity flows.
+- Architecture tests for repo structure and endpoint behavior.
+- Rate-limiting behavior tests.
+- Headed Playwright E2E tests for real browser render mode, Movies, and Identity flows.
 
-Normal Test Run
----------------
+## Normal Test Run
 
-Use this for day-to-day verification. E2E tests are skipped unless `RUN_E2E=1` is set.
+E2E tests are skipped unless `RUN_E2E=1` is set.
 
 ```powershell
 dotnet restore .\BlazorAutoApp.sln
@@ -20,8 +19,7 @@ dotnet test .\BlazorAutoApp.sln --no-build
 
 Integration tests use Testcontainers and PostgreSQL, so Docker must be running.
 
-Vertical Slice Rules
---------------------
+## Vertical Slice Rules
 
 Every Core feature slice should have a matching test slice with a one-to-one naming and namespace mapping.
 
@@ -38,16 +36,21 @@ Conventions:
 - Test namespace: `BlazorAutoApp.Test.Features.{Feature}`
 - Test class name: `{Slice}Tests`
 - Each feature test class must contain at least one `[Fact]` or `[Theory]`.
-- HTTP/API integration tests should use `[Collection("MediaTestCollection")]` and `WebAppFactory`.
+- HTTP/API integration tests should use `[Collection("IntegrationTestCollection")]` and `WebAppFactory`.
 
-Architecture Enforcement
-------------------------
+## Architecture Enforcement
 
 - `FeatureSlicesArchitectureTests` scans Core for public `*Request` classes under `Features.{Feature}` and asserts matching test classes exist.
 - `ArchitectureTests` enforces that each Core `*Api` interface has both client and server implementations under feature namespaces.
+- Endpoint tests verify current API behavior without banning future template users from adding new domains.
 
-Scaffolding Helper
-------------------
+## Rate Limiting
+
+`BlazorAutoApp.Test/Security/RateLimitingTests.cs` verifies that the Movies API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
+
+The test sends a unique `X-Forwarded-For` value so it does not consume the same limiter partition as other integration tests.
+
+## Scaffolding Helper
 
 From repo root:
 
@@ -57,10 +60,9 @@ pwsh -File .\BlazorAutoApp.Test\tools\NewFeatureTests.ps1 -Feature Movies
 
 The scaffolder scans `BlazorAutoApp.Core/Features/{Feature}` for `*Request` classes and creates missing stub test files under `BlazorAutoApp.Test/Features/{Feature}`.
 
-Headed Browser E2E
-------------------
+## Headed Browser E2E
 
-Playwright E2E tests are intentionally **headed by default**. The browser opens visibly so you can watch the flow and diagnose UI issues.
+Playwright E2E tests are intentionally headed by default. The browser opens visibly so you can watch the flow and diagnose UI issues.
 
 Start or rebuild the app stack:
 
@@ -90,8 +92,7 @@ Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
 ```
 
-E2E Environment Variables
--------------------------
+## E2E Environment Variables
 
 - `RUN_E2E=1`: enables the Playwright tests.
 - `E2E_BASE_URL`: target app URL. Defaults to `https://localhost:7186`.
@@ -107,8 +108,7 @@ Remove-Item Env:\E2E_SLOW_MO_MS -ErrorAction SilentlyContinue
 Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 ```
 
-E2E Coverage
-------------
+## E2E Coverage
 
 Current E2E tests verify:
 
@@ -123,8 +123,7 @@ Guidelines:
 - Keep E2E tests behind `RUN_E2E=1`.
 - Do not make headless the default local behavior.
 
-Failure Artifacts
------------------
+## Failure Artifacts
 
 On E2E failure, screenshots are written to:
 
@@ -134,8 +133,7 @@ TestResults/Playwright
 
 Successful E2E runs do not create screenshots. `TestResults` is generated output and can be deleted.
 
-Troubleshooting
----------------
+## Troubleshooting
 
 - Browser does not open: remove `E2E_HEADLESS` from the current shell.
 - Playwright says the browser executable is missing: rerun the Chromium install command above.

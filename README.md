@@ -1,56 +1,100 @@
-# Ship
+# BlazorAutoApp
 
-Ship is a Blazor Web App using Interactive Auto render mode, EF Core with PostgreSQL, Redis-backed caching/Data Protection, Serilog with Seq, Docker Compose for local development, and Ansible for the local Linux Mint production cluster.
+BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Movies feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, Seq logging, Docker Compose, and visible Playwright E2E tests.
 
 ## Start Here
 
-- `HowToRunLocally.md` explains local Docker and developer setup.
-- `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the practical deployment steps and where to enter machine-specific values.
-- `overview.md` is the deeper architecture walkthrough.
+- `HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
+- `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
+- `overview.md` explains the render-mode and vertical-slice architecture.
+- `BlazorAutoApp.Test/TESTING.md` explains unit/integration tests and headed Playwright E2E.
 
 ## Tech Stack
 
 - .NET 10 Blazor Web App with `InteractiveAuto`.
 - EF Core 10 and Npgsql for PostgreSQL.
-- ASP.NET Core Identity on the application `AppDbContext`.
-- Redis for HybridCache and production Data Protection keys.
+- ASP.NET Core Identity with component account pages and .NET 10 passkeys schema support.
+- Redis for HybridCache and Data Protection keys.
+- Built-in ASP.NET Core rate limiting for API and account endpoints.
+- Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - Serilog console logging and Seq in local Docker.
-- GitHub Actions CI, migration bundle build, GHCR image publish, and LAN deployment workflow.
+- GitHub Actions CI for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
 
 ## Repository Layout
 
-- `BlazorAutoApp.Core/Features/*` contains vertical slices with contracts, entities, requests, and responses.
-- `BlazorAutoApp` is the server host, EF Core owner, Minimal API owner, and SSR/prerender runtime.
-- `BlazorAutoApp.Client` is the WASM client loaded after hydration.
-- `BlazorAutoApp.Test` contains xUnit tests and architecture checks.
-- `Deployment/LocalCluster` contains Ansible, compose files, deployment scripts, and production inventory for the local Linux Mint cluster.
-- `.github/workflows/ci.yml` is the single CI workflow.
-- `.github/workflows/deploy-lan.yml` deploys a selected image tag through the self-hosted LAN runner.
+- `BlazorAutoApp.Core/Features/*` contains shared feature contracts, domain types, and request/response DTOs.
+- `BlazorAutoApp/Features/*` contains server-side feature implementations and endpoint mapping.
+- `BlazorAutoApp.Client/Features/*` contains client UI slices and WASM service implementations.
+- `BlazorAutoApp/Features/Login/Account` contains Identity account components and account endpoint helpers.
+- `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
+- `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
 - `docker-compose.yml` runs the local app stack.
 
-## Architecture
+## LocalCluster Deployment
 
-Core defines shared feature contracts such as `IMoviesApi`. The server implements those contracts with EF Core and exposes Minimal API endpoints. The WASM client implements the same contracts with `HttpClient`.
+The LocalCluster deployment flow is intentionally kept in this repository. It uses:
 
-Pages depend on the Core contracts, so the same UI works during server prerender and after WASM hydration. Pages use `PersistentComponentState` to avoid duplicate fetches when transitioning from SSR to interactive rendering.
+- `.github/workflows/ci.yml` to run deployment checks, build the migration bundle, build the Docker image, and push the image to GHCR on `main`.
+- `.github/workflows/cd-localcluster.yml` to deploy from the self-hosted LocalCluster runner.
+- `Deployment/LocalCluster/Scripts/audit-deployment.sh` and `validate-rendered-templates.sh` as deployment safety checks.
+- `Deployment/LocalCluster/HowToDeployLocalCluster.md` as the operating guide.
 
-Identity account pages:
+## URLs
 
-- Login: `/Identity/Account/Login`
-- Register: `/Identity/Account/Register`
+When running the Docker stack:
 
-## CI And Deployment
+- App: `https://localhost:7186`
+- Health: `https://localhost:7186/health`
+- Seq UI: `http://localhost:8081`
+- Redis Insight: `http://localhost:5540`
 
-`.github/workflows/ci.yml` runs the deployment audit, restore, build, tests, EF migration bundle build, Docker image build, and GHCR push for non-PR runs.
+Canonical account routes:
 
-`.github/workflows/auto-merge-dependabot.yml` only merges Dependabot PRs after `CI` succeeds.
+- Login: `/Account/Login`
+- Register: `/Account/Register`
+- Manage profile: `/Account/Manage`
 
-Production uses four Linux Mint nodes by default: `node-main` for Cloudflare Tunnel, Caddy, the self-hosted runner, and deployment/control responsibilities; `node-app1` and `node-app2` for app containers; and `node-db` for PostgreSQL and Redis. `node-main` can optionally become a third app server later, but that is not the recommended first-deployment layout.
-
-## Testing
+## Common Commands
 
 ```powershell
-dotnet test
+dotnet restore .\BlazorAutoApp.sln
+dotnet build .\BlazorAutoApp.sln --no-restore
+dotnet test .\BlazorAutoApp.sln --no-build
 ```
 
-Architecture tests enforce that public Core interfaces ending in `Api` have both server and client implementations, and that feature requests have matching tests.
+Run the app stack:
+
+```powershell
+pwsh -File ./docker/setup-local.ps1
+docker compose up -d --build web
+```
+
+Build Tailwind output:
+
+```powershell
+cd BlazorAutoApp.Client
+npm install
+npm audit
+npm run css:build
+```
+
+Run visible E2E:
+
+```powershell
+$env:RUN_E2E='1'
+$env:E2E_BASE_URL='https://localhost:7186'
+Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
+```
+
+## Current Behavior
+
+The Movies page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Movies data access is abstracted behind the shared `IMoviesApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/movies`.
+
+Rate limiting is enabled by default:
+
+- Global app limit: `600` requests per minute per user/IP.
+- Movies API limit: `60` requests per minute per user/IP.
+- Account POST endpoint limit: `20` requests per five minutes per user/IP.
+
+Override these values under the `RateLimiting` configuration section when building a real product from the template.

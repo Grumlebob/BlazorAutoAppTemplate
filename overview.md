@@ -1,233 +1,140 @@
 # Overview
 
-This solution enables Auto render mode across pages without duplicating UI code by abstracting data access behind a shared Core interface and using host-specific implementations for prerender (server) and post‑hydration (client/WASM).
+This solution is a .NET 10 Blazor Web App template built around Interactive Auto render mode. The home page is the Movies feature. It prerenders on the server, hydrates in the browser, and keeps the UI code shared by depending on feature contracts from the Core project.
 
 ## Architecture
 
-- Core contracts and models (vertical slice):
-  - `BlazorAutoApp.Core/Features/Movies`
-    - `Movie` entity
-    - Request/Response DTOs: GetMovies, GetMovie, CreateMovie, UpdateMovie, DeleteMovie
-    - `IMoviesApi` interface: unified Movies operations
+- `BlazorAutoApp.Core/Features/Movies`
+  - `Movie` domain type.
+  - Request/response DTOs for list, details, create, update, and delete.
+  - `IMoviesApi`, the shared interface used by pages.
+- `BlazorAutoApp`
+  - Server host, EF Core owner, Minimal API owner, startup composition, Identity account components, and SSR/prerender runtime.
+  - `MoviesServerService` implements `IMoviesApi` directly over EF Core.
+  - `/api/movies` exposes the Movies API for the hydrated client.
+- `BlazorAutoApp.Client`
+  - WASM client and UI slices.
+  - `MoviesClientService` implements `IMoviesApi` with `HttpClient`.
+- `BlazorAutoApp.Test`
+  - xUnit integration and architecture tests.
+  - Headed Playwright E2E tests for render mode, Movies, and Identity.
 
-- Server (SSR/prerender):
-  - EF Core with PostgreSQL via `AppDbContext`
-  - `MoviesServerService` implements `IMoviesApi` using EF Core (no HTTP)
-  - Minimal API endpoints call Core feature interfaces
-  - DI in feature `Composition.cs` files registers server implementations
-  - ASP.NET Core Identity handles authentication and account pages
+## Interactive Auto Flow
 
-- Client (WASM after hydration):
-  - `MoviesClientService` implements `IMoviesApi` using `HttpClient` against `/api/movies`
-  - DI in Client `Program.cs` registers client implementations
+1. The browser requests `/`.
+2. The server prerenders the Movies page using server DI.
+3. The page resolves `IMoviesApi` to `MoviesServerService` and reads from EF Core.
+4. The page persists the read model into `PersistentComponentState`.
+5. Blazor hydrates in the browser.
+6. The client resolves `IMoviesApi` to `MoviesClientService`.
+7. The page reads the persisted state to avoid an immediate duplicate fetch.
+8. Later interactions call `/api/movies` over HTTP.
 
-- UI (Client project):
-  - Pages inject Core feature interfaces and are agnostic to hosting model
-  - Auto render mode already enabled in Server `App.razor`:
-    - `<HeadOutlet @rendermode="InteractiveAuto" />`
-    - `<Routes @rendermode="InteractiveAuto" />`
+The home page includes render-mode diagnostics because this repository is a template app. Users should be able to see whether they are looking at prerendered, server-interactive, or WebAssembly-interactive behavior.
 
-## SSR Persistent State Pattern
+## Movies Feature
 
-Goal: Avoid double fetching during prerender → hydrate. Use `PersistentComponentState` to serialize server-fetched data into the HTML payload and read it on the client side on first render.
+Routes:
 
-Pattern applied to:
-- List page: `BlazorAutoApp.Client/Features/Movies/Pages/Index.razor`
-  - On initialize: try `AppState.TryTakeFromJson<GetMoviesResponse>(key, out var cached)`; if present, use it.
-  - If not present, fetch via `IMoviesApi` and register persist: `AppState.RegisterOnPersisting(() => AppState.PersistAsJson(key, response))`.
+- `/` and `/movies`: Movies list and home page.
+- `/movies/create`: create a movie.
+- `/movies/{id:int}`: details.
+- `/movies/{id:int}/edit`: edit.
 
-- Edit page: `BlazorAutoApp.Client/Features/Movies/Pages/Edit.razor`
-  - Same approach keyed by movie id, storing a `GetMovieResponse` snapshot.
+API endpoints:
 
-- Details page: `BlazorAutoApp.Client/Features/Movies/Pages/Details.razor`
-  - Route: `/movies/{Id:int}`
-  - Uses the same SSR state pattern with a per-id cache key to avoid re-fetching on hydrate.
+- `GET /api/movies`
+- `GET /api/movies/{id:int}`
+- `POST /api/movies`
+- `PUT /api/movies/{id:int}`
+- `DELETE /api/movies/{id:int}`
 
-When to use:
-- Use this pattern on read-only or read-first pages (lists, details, edit forms that preload). Don’t persist for pure input forms (create) where prerender lacks meaningful data.
+Validation lives on Core request DTOs, so server and client use the same rules.
 
-## Validation
+## Identity
 
-- DTO annotations in Core ensure consistent rules on both server and client:
-  - `CreateMovieRequest`, `UpdateMovieRequest` use `[Required]`, `[StringLength(200)]`, `[Range(0,10)]`.
-- Forms (`Create.razor`, `Edit.razor`) include `DataAnnotationsValidator` + `ValidationMessage` components for field-level messages.
-- Visual hints are styled in `BlazorAutoApp/wwwroot/app.css` using Blazor’s `valid/invalid` classes emitted by Input components (red for invalid, green for valid).
-- The Details page is read-only, so validation is not applicable there.
+Identity is real authentication/account management, not a showcase feature. Account components live under `BlazorAutoApp/Features/Login/Account`.
 
-## Endpoints (Minimal API)
+Canonical routes:
 
-- Use request/response DTOs from Core.
-- Return types:
-  - GET collection: 200 with `GetMoviesResponse`
-  - GET by id: 200 with `GetMovieResponse`, 404 if not found
-  - POST: 201 Created with `CreateMovieResponse` and Location header
-  - PUT: 204 No Content (400 if route/body id mismatch, 404 if not found)
-  - DELETE: 204 No Content (404 if not found)
+- `/Account/Login`
+- `/Account/Register`
+- `/Account/Manage`
 
-## Adding a New Page with SSR State
+Old package-style compatibility routes are intentionally not part of this template.
 
-1) Inject `PersistentComponentState` and `IMoviesApi`.
-2) Choose a unique cache key (include route params if needed).
-3) On initialize, try `TryTakeFromJson<T>(key, out var cached)` and use it if present.
-4) If not present, fetch via `IMoviesApi` and register persist:
-   - `AppState.RegisterOnPersisting(() => AppState.PersistAsJson(key, data))`.
+## Persistence And Caching
 
-This ensures SSR provides data to the client on first interactive render without a second HTTP call.
+- PostgreSQL is used through EF Core and `AppDbContext`.
+- The current template migration history starts with one clean initial migration.
+- Redis backs HybridCache and Data Protection keys.
+- Movies cache keys:
+  - List: `movies:list`
+  - Item: `movies:item:{id}`
+- Writes invalidate the list key and the touched item key.
 
-Example implementations in this repo:
-- List/home: `Client/Features/Movies/Pages/Index.razor` (caches `GetMoviesResponse`; routes `/` and `/movies`)
-- Details: `Client/Features/Movies/Pages/Details.razor` (caches `GetMovieResponse` per id)
-- Edit: `Client/Features/Movies/Pages/Edit.razor` (preloads and caches `GetMovieResponse` per id)
+Startup migrations run when `Database:RunMigrationsAtStartup` is true. Development defaults to true; Docker sets it explicitly for local use.
 
-## Notes / Tips
+## Rate Limiting
 
-- Server and client each register a different `IMoviesApi` implementation. Pages stay the same across modes.
-- Keep request/response DTOs in Core to prevent duplication across tiers.
-- Use 204 for mutation endpoints to simplify client handling; the client services return `bool` for success.
+Rate limiting is configured in `BlazorAutoApp/Security/AppRateLimiting.cs` and uses ASP.NET Core's built-in rate limiter middleware.
+
+Default limits:
+
+- Global app limit: `600` requests per minute per user/IP.
+- Movies API limit: `60` requests per minute per user/IP.
+- Account POST endpoint limit: `20` requests per five minutes per user/IP.
+
+Rejected requests return `429` with a `Retry-After` header and a problem response body.
+
+Configuration section:
+
+```json
+"RateLimiting": {
+  "Global": { "PermitLimit": 600, "WindowSeconds": 60, "QueueLimit": 0 },
+  "Api": { "PermitLimit": 60, "WindowSeconds": 60, "QueueLimit": 0 },
+  "Authentication": { "PermitLimit": 20, "WindowSeconds": 300, "QueueLimit": 0 }
+}
+```
+
+## Tailwind
+
+Tailwind source:
+
+```text
+BlazorAutoApp.Client/Styles/input.css
+```
+
+Generated output:
+
+```text
+BlazorAutoApp/wwwroot/tailwind.css
+```
+
+Commands:
+
+```powershell
+cd BlazorAutoApp.Client
+npm install
+npm run css:build
+```
 
 ## Migrations
 
-- Provider: PostgreSQL via `Npgsql.EntityFrameworkCore.PostgreSQL`.
-- Connection string: `DefaultConnection` in `BlazorAutoApp/appsettings.json`.
-- Migrations folder: `BlazorAutoApp/Data/Migrations`.
-- Add migration:
-  - `dotnet ef migrations add <Name> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations`
-- Apply to database:
-  - `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
-- Runtime apply: `Program.cs` calls `db.Database.Migrate()` on startup.
-- EF CLI: pinned to `10.0.8` in `.config/dotnet-tools.json` to match runtime.
+Add a migration:
 
-## Architecture Tests
-
-- Project: `BlazorAutoApp.Test` (xUnit).
-- Rule: For each public Core interface ending with `Api`, there must be both a server and a client implementation.
-- Test: `ArchitectureTests.ForEachCoreApiInterface_HasServerAndClientImplementation()` reflects over assemblies to enforce the rule.
-- Run: `dotnet test` at the solution root.
-
-## Lifecycle (Auto Render)
-
-1) Request arrives to server
-   - Router renders page with `InteractiveAuto`.
-   - Components resolve `IMoviesApi` → `MoviesServerService` (server DI).
-   - Data loads via EF Core (no HTTP).
-
-2) Persist SSR data (optional but used here)
-   - Page stores results with `PersistentComponentState.PersistAsJson(key, data)` inside `RegisterOnPersisting`.
-   - Server emits HTML + a JSON payload for each key.
-
-3) Hydration in browser
-   - Blazor bootstraps; components re-initialize.
-   - DI resolves `IMoviesApi` → `MoviesClientService` (client DI).
-   - Pages call `TryTakeFromJson(key, out data)` to read cached SSR data and avoid an immediate HTTP request.
-
-4) Interactivity / further actions
-   - Any subsequent data changes use `MoviesClientService` over HTTP to the server APIs.
-
-## Redis & Caching
-
-- Purpose: Speed up reads and reduce DB load using `HybridCache` backed by Redis plus in-memory cache.
-- Configuration:
-  - `Program.cs`: `AddStackExchangeRedisCache` + `AddHybridCache`.
-  - `appsettings.json` → `Redis:Configuration` (e.g., `localhost:6379`).
-  - Cache TTLs in `Cache:Movies`: `ListTtlMinutes`, `ItemTtlMinutes`.
-- Keys:
-  - List: `movies:list`
-  - Item: `movies:item:{id}`
-- Invalidation: On `Create`, `Update`, `Delete`, the server removes `movies:list` and the affected `movies:item:{id}`.
-- Tests: The test fixture replaces Redis with in-memory distributed cache to avoid external dependency while keeping `HybridCache` behavior.
-
-### Redis Insight (UI)
-
-- Purpose: Introspect Redis keys, values, TTLs and hit patterns while developing.
-- Compose service: added `redisinsight` to `docker-compose.yml` (exposes UI on `http://localhost:5540`).
-- How to use:
-  - Start the stack: `docker compose up -d redis redisinsight` (or `docker compose up -d` for all services).
-  - Open Redis Insight in your browser: `http://localhost:5540`.
-  - Add a database connection (copy/paste):
-    - redis://redis:6379
-    - This URL works inside the compose network (RedisInsight → redis).
-    - Alternative from host (outside compose network): redis://localhost:6379
-  - You should see keys such as Movies cache entries.
-
-Notes:
-- The app reads `Redis:Configuration` from configuration (default `localhost:6379`). When running via compose locally, that points to the `redis` container.
-- Override via env or `appsettings.*.json` if you use a remote Redis.
-
-```
-Client (UI) --HTTP--> Minimal API Endpoints --calls--> MoviesServerService (IMoviesApi)
-                                                |
-                                                v
-                                         [ GetOrCreate ]
-                                                |
-                                                v
-                                        +-------------------+
-                                        |    HybridCache    |
-                                        +---------+---------+
-                                                  | \
-                                        Memory hit|  \ Redis hit
-                                                  |   \
-                                             +----v-+  +----v---+
-                                             |Memory|  | Redis  |
-                                             +------+  +--------+
-                                                  \
-                                       miss -> factory (load via EF Core)
-                                                    \
-                                                     v
-                                              +------+------+
-                                              |  AppDbCtx   |
-                                              +------+------+
-                                                     |
-                                                     v
-                                                 PostgreSQL
-
-Invalidation on writes: MoviesServerService removes keys `movies:list` and `movies:item:{id}`.
-```
-
-- Read path:
-  - `MoviesServerService.Get*` → `HybridCache.GetOrCreateAsync`
-  - Cache hit: served from Memory or Redis.
-  - Cache miss: load via EF Core (`AppDbContext`) from PostgreSQL, then populate caches.
-- Write path:
-  - After `Create/Update/Delete`: persist via EF Core, then best-effort cache invalidation of list + item keys.
-
-## Short Diagram
-
-```
-Browser ── HTTP ─▶ Server (SSR)
-   │                 │
-   │                 ├─ Resolve IMoviesApi → MoviesServerService
-   │                 ├─ Load data via EF (DbContext)
-   │                 ├─ Persist SSR state (PersistentComponentState)
-   │                 ▼
-   ◀──────────── HTML + JSON (SSR state) ─────────────
-   │
-   ├─ Hydration (InteractiveAuto)
-   ├─ Resolve IMoviesApi → MoviesClientService (HttpClient)
-   ├─ TryTakeFromJson(state) to avoid re-fetch
-   └─ Interactive operations → call /api/movies via HTTP
-```
-
-# Tailwind
-
-go to BlazorAutoApp.Client
-run:
-
-First time: npm install
-For future building: npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
-
-
-# Migrations
-
-In appsettings.json set the port to your Postgres usually Port=5433 or Port=5432
-
-Add migration, from project source root:
+```powershell
 dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations
+```
 
-Apply migrations, from project source root:
+Apply migrations:
+
+```powershell
 dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
+```
 
+Bundle migrations for deployment verification:
 
-# Dev certificate
-
-Go to: docker/create-dev-cert.ps1 
-run it.
+```powershell
+dotnet ef migrations bundle --project BlazorAutoApp\BlazorAutoApp.csproj --startup-project BlazorAutoApp\BlazorAutoApp.csproj --configuration Release --self-contained --runtime linux-x64 --output artifacts\migrations\verify-migrate
+```

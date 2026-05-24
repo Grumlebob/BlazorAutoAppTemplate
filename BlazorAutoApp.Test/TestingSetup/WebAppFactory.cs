@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using BlazorAutoApp.Data;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -21,6 +18,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const int MaxWaitTimeMinutes = 5;
     private const string RyukImageEnvironmentVariable = "TESTCONTAINERS_RYUK_CONTAINER_IMAGE";
     private const string RyukImage = "testcontainers/ryuk:0.12.0";
+    private const string ConnectionStringEnvironmentVariable = "ConnectionStrings__DefaultConnection";
+    private const string RedisConfigurationEnvironmentVariable = "Redis__Configuration";
+    private const string StartupMigrationsEnvironmentVariable = "Database__RunMigrationsAtStartup";
 
     static WebAppFactory()
     {
@@ -37,54 +37,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private string _connectionString = default!;
     private Respawner _respawner = default!;
     public HttpClient HttpClient { get; private set; } = default!;
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        //Setup dependency injection for this test application
-        // Provide required env vars so Program.cs doesn't throw GetEnvVar() exceptions
-        // Database envs are ignored in tests (DI overridden), but set to avoid early checks
-        Environment.SetEnvironmentVariable("Database__Host", "localhost");
-        Environment.SetEnvironmentVariable("Database__Port", "5432");
-        Environment.SetEnvironmentVariable("Database__Name", "testdb");
-        Environment.SetEnvironmentVariable("Database__Username", "postgres");
-        Environment.SetEnvironmentVariable("Database__Password", "postgres");
-        // Tests replace distributed caching with memory; do not require a host Redis instance.
-        Environment.SetEnvironmentVariable("Redis__Configuration", "CHANGE_ME");
-        builder.ConfigureTestServices(services =>
-        {
-            //Remove the existing KinoContext from the services
-            var descriptor = services.SingleOrDefault(d =>
-                d.ServiceType == typeof(DbContextOptions<AppDbContext>)
-            );
-
-            if (descriptor != null)
-            {
-                services.Remove(descriptor);
-            }
-
-            // Remove any existing factory to avoid lifetime mismatches
-            var factoryDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IDbContextFactory<AppDbContext>));
-            if (factoryDesc != null)
-            {
-                services.Remove(factoryDesc);
-            }
-
-            // Register factory (factory-only approach)
-            services.AddDbContextFactory<AppDbContext>(options =>
-            {
-                options.UseNpgsql(_dbContainer.GetConnectionString());
-            });
-
-            // Ensure HybridCache uses in-memory distributed cache in tests (no Redis)
-            var dcDescs = services.Where(d => d.ServiceType == typeof(Microsoft.Extensions.Caching.Distributed.IDistributedCache)).ToList();
-            foreach (var dc in dcDescs)
-            {
-                services.Remove(dc);
-            }
-            services.AddDistributedMemoryCache();
-            services.AddHybridCache();
-        });
-    }
 
     public async Task ResetDatabaseAsync()
     {
@@ -105,6 +57,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await _dbContainer.StartAsync();
 
         _connectionString = _dbContainer.GetConnectionString();
+        Environment.SetEnvironmentVariable(ConnectionStringEnvironmentVariable, _connectionString);
+        Environment.SetEnvironmentVariable(RedisConfigurationEnvironmentVariable, "CHANGE_ME");
+        Environment.SetEnvironmentVariable(StartupMigrationsEnvironmentVariable, "true");
 
         HttpClient = CreateClient();
         //Seeding data can take a long time, so we set a longer timeout
@@ -139,5 +94,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public new async ValueTask DisposeAsync()
     {
         await _dbContainer.StopAsync();
+        Environment.SetEnvironmentVariable(ConnectionStringEnvironmentVariable, null);
+        Environment.SetEnvironmentVariable(RedisConfigurationEnvironmentVariable, null);
+        Environment.SetEnvironmentVariable(StartupMigrationsEnvironmentVariable, null);
     }
 }

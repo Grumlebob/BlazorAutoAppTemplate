@@ -5,6 +5,7 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
 using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Features.Movies.Validation;
+using BlazorAutoApp.Security;
 
 namespace BlazorAutoApp.Features.Movies.Endpoints;
 
@@ -12,7 +13,8 @@ public static class MovieEndpoints
 {
     public static IEndpointRouteBuilder MapMovieEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/api/movies");
+        var group = routes.MapGroup("/api/movies")
+            .RequireRateLimiting(AppRateLimiting.ApiPolicyName);
 
         group.MapGet("/", async ([AsParameters] GetMoviesRequest req, IMoviesApi movies, ILogger<Program> log) =>
         {
