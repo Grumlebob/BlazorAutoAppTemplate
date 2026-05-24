@@ -50,7 +50,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         Environment.SetEnvironmentVariable("Database__Password", "postgres");
         // Tests replace distributed caching with memory; do not require a host Redis instance.
         Environment.SetEnvironmentVariable("Redis__Configuration", "CHANGE_ME");
-        Environment.SetEnvironmentVariable("Storage__HullImages__RootPath", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "HullImages-Test"));
         builder.ConfigureTestServices(services =>
         {
             //Remove the existing KinoContext from the services

@@ -1,11 +1,5 @@
-using InspectionRecord = BlazorAutoApp.Core.Features.Inspections.Inspection.Domain.Inspection;
-using InspectionFlowRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionFlow;
-using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain;
 using ClientImports = BlazorAutoApp.Client._Imports;
 using BlazorAutoApp.Features.IdentityShowcase;
-using BlazorAutoApp.Features.Inspections.HullImages;
-using BlazorAutoApp.Features.Inspections.InspectionFlow;
-using BlazorAutoApp.Features.Inspections.VesselPartDetails;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
@@ -171,9 +165,6 @@ var healthChecksBuilder = builder.Services.AddHealthChecks()
 
 builder.Services
     .AddMoviesFeature(builder.Configuration)
-    .AddHullImagesFeature(builder.Configuration)
-    .AddInspectionFlowFeature()
-    .AddVesselPartDetailsFeature()
     .AddIdentityShowcaseFeature();
 
 if (hasRedis)
@@ -293,35 +284,6 @@ if (runMigrationsAtStartup)
                 await EnsureRoleExistsAsync(roleManager, logger, "Admin");
                 await EnsureRoleExistsAsync(roleManager, logger, "Viewer");
             }
-
-            // Seed demo inspection
-            try
-            {
-                // Seed a fixed Inspection for Admin demo flow
-                var adminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-                var existingAdmin = await db.Inspections.FirstOrDefaultAsync(i => i.Id == adminFlowId);
-                if (existingAdmin is null)
-                {
-                    db.Inspections.Add(new InspectionRecord
-                    {
-                        Id = adminFlowId,
-                        CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
-                    });
-                    // Optional: seed an initial flow record
-                    db.InspectionFlows.Add(new InspectionFlowRecord
-                    {
-                        Id = adminFlowId,
-                        VesselName = null,
-                        InspectionType = InspectionType.GoProInspection
-                    });
-                    await db.SaveChangesAsync();
-                    logger.LogInformation("Seeded Admin demo inspection flow with Id {Id}", adminFlowId);
-                }
-            }
-            catch (Exception seedEx)
-            {
-                logger.LogWarning(seedEx, "Inspection seed step skipped due to error");
-            }
         }
         catch (Exception ex)
         {
@@ -332,7 +294,6 @@ if (runMigrationsAtStartup)
 }
 
 app.MapStaticAssets();
-app.UseHullImagesTus();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
@@ -353,9 +314,6 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 // Minimal API endpoints
 app.MapMoviesFeature();
-app.MapHullImagesFeature();
-app.MapInspectionFlowFeature();
-app.MapVesselPartDetailsFeature();
 app.MapIdentityShowcaseFeature();
 
 async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, ILogger<Program> logger, string roleName)

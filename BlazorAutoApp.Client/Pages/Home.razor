@@ -4,7 +4,7 @@
 
 <div class="space-y-6">
     <div>
-        <h1 class="text-3xl font-bold text-black">Welcome to a sample site showcasing Blazor Auto mode with TUS file upload protocol</h1>
+        <h1 class="text-3xl font-bold text-black">Welcome to the Blazor Auto sample</h1>
         <p class="text-black mb-4">Current rendering mode: @RendererInfo.Name</p>
     </div>
 
@@ -113,28 +113,12 @@
             }
         }
     </section>
-
-    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold text-slate-900">Inspection Actions</h2>
-        <p class="mt-1 text-sm text-slate-600">Quick actions for demo and real inspection flow.</p>
-        <div class="mt-4 flex flex-wrap gap-3">
-            <button class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    @onclick="StartInspection">
-                Start New Inspection
-            </button>
-            <button class="rounded bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700"
-                    @onclick="GoToAdminFlow">
-                Admin: Open Demo Inspection Flow
-            </button>
-        </div>
-    </section>
 </div>
 
 @code {
     [Inject] private IIdentityShowcaseApi IdentityShowcaseApi { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
-    private static readonly Guid AdminFlowId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private bool _identityLoading = true;
     private string? _identityError;
     private IdentityShowcasePublicInfo _publicInfo = new()
@@ -185,17 +169,6 @@
         {
             _adminProbeLoading = false;
         }
-    }
-
-    private void StartInspection()
-    {
-        var id = Guid.NewGuid();
-        Nav.NavigateTo($"/inspection/{id}/flow");
-    }
-
-    private void GoToAdminFlow()
-    {
-        Nav.NavigateTo($"/inspection/{AdminFlowId}/flow");
     }
 
     private void GoToLogin()

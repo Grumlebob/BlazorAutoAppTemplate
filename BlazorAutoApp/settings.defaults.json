@@ -9,11 +9,6 @@
   "Redis": {
     "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN" 
   },
-  "Storage": {
-    "HullImages": {
-      "RootPath": "INJECT_THIS_IN_ORDER_TO_RUN" 
-    }
-  },
   "Serilog": {
     "SeqUrl": "INJECT_THIS_IN_ORDER_TO_RUN" 
   }

@@ -27,39 +27,6 @@ public class EndpointSurfaceTests(WebAppFactory factory)
     }
 
     [Fact]
-    public void HullImagesEndpoints_Exist_With_Expected_Routes()
-    {
-        var endpoints = RouteEndpoints();
-
-        Assert.True(Has(endpoints, "GET", "/api/hull-images/", "/api/hull-images"));
-        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}"));
-        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}/original"));
-        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}/thumbnail/{size:int}"));
-        Assert.True(Has(endpoints, "GET", "/api/hull-images/tus/result"));
-        Assert.True(Has(endpoints, "POST", "/api/hull-images/metadata"));
-        Assert.True(Has(endpoints, "POST", "/api/hull-images/prune-missing"));
-        Assert.True(Has(endpoints, "DELETE", "/api/hull-images/{id:int}"));
-    }
-
-    [Fact]
-    public void InspectionFlowEndpoints_Exist_With_Expected_Routes()
-    {
-        var endpoints = RouteEndpoints();
-
-        Assert.True(Has(endpoints, "GET", "/api/inspection-flow/{id:guid}"));
-        Assert.True(Has(endpoints, "POST", "/api/inspection-flow/{id:guid}"));
-    }
-
-    [Fact]
-    public void VesselPartDetailsEndpoints_Exist_With_Expected_Routes()
-    {
-        var endpoints = RouteEndpoints();
-
-        Assert.True(Has(endpoints, "GET", "/api/vessel-part-details/{vesselPartId:int}"));
-        Assert.True(Has(endpoints, "PUT", "/api/vessel-part-details/{vesselPartId:int}"));
-    }
-
-    [Fact]
     public void IdentityShowcaseEndpoints_Exist_With_Expected_Routes()
     {
         var endpoints = RouteEndpoints();

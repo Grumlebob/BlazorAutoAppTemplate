@@ -36,7 +36,7 @@ services:
       - "7186:7186"
     volumes:
       - ./docker/https:/https:ro
-      # Persist application storage (uploads, thumbnails, TUS temp)
+      # Persist application storage such as DataProtection keys
       - ./data/storage:/app/Storage
 
   seq:

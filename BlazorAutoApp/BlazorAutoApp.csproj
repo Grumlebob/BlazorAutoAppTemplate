@@ -18,7 +18,6 @@
     <PackageReference Include="NuGet.Protocol" Version="7.6.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <ProjectReference Include="..\BlazorAutoApp.Client\BlazorAutoApp.Client.csproj" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.8" />
     <ProjectReference Include="..\BlazorAutoApp.Core\BlazorAutoApp.Core.csproj" />
@@ -35,7 +34,6 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="10.6.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.8" />
-    <PackageReference Include="tusdotnet" Version="2.11.1" />
     <Content Update="settings.defaults.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

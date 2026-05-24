@@ -69,7 +69,6 @@ Database__Username=postgres
 Database__Password=postgres
 
 Redis__Configuration=redis:6379
-Storage__HullImages__RootPath=/app/Storage/HullImages
 
 ACCEPT_EULA=Y
 SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
@@ -164,7 +163,7 @@ Stop containers and delete Docker volumes:
 docker compose down --volumes
 ```
 
-Delete local uploaded/storage files:
+Delete local application storage:
 
 ```powershell
 Remove-Item -Recurse -Force ./data/storage -ErrorAction SilentlyContinue
@@ -179,7 +178,6 @@ Set environment variables in PowerShell:
 ```powershell
 $env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"
 $env:Redis__Configuration = "localhost:6379"
-$env:Storage__HullImages__RootPath = "Storage/HullImages"
 $env:Database__RunMigrationsAtStartup = "true"
 dotnet run --project BlazorAutoApp
 ```
