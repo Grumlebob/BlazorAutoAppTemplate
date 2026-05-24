@@ -22,7 +22,7 @@ public class GetHullImageTests(WebAppFactory factory) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
-    public Task DisposeAsync() => _reset();
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync() => await _reset();
 }
 

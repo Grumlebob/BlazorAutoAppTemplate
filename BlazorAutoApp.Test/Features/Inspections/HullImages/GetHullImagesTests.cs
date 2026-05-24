@@ -64,8 +64,8 @@ public class GetHullImagesTests : IAsyncLifetime, IDisposable
         Assert.Contains(list.Items, i => i.OriginalFileName == "test-image.PNG");
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
-    public Task DisposeAsync() => _resetDatabase();
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync() => await _resetDatabase();
     public void Dispose() => GC.SuppressFinalize(this);
 }
 

@@ -10,6 +10,7 @@ using BlazorAutoApp.Data;
 using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.Extensions.DependencyInjection;
+using SixLabors.ImageSharp;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Inspections.HullImages;
@@ -71,6 +72,19 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         var bytes = await _client.GetByteArrayAsync($"/api/hull-images/{created.Id}/original");
         Assert.Equal(original, bytes);
 
+        // Generate and verify thumbnail
+        var thumbRes = await _client.GetAsync($"/api/hull-images/{created.Id}/thumbnail/64");
+        Assert.Equal(HttpStatusCode.OK, thumbRes.StatusCode);
+        Assert.Equal("image/jpeg", thumbRes.Content.Headers.ContentType?.MediaType);
+        var thumbBytes = await thumbRes.Content.ReadAsByteArrayAsync();
+        using (var thumbnail = Image.Load(thumbBytes))
+        {
+            Assert.True(thumbnail.Width > 0);
+            Assert.True(thumbnail.Height > 0);
+            Assert.True(thumbnail.Width <= 64);
+            Assert.True(thumbnail.Height <= 64);
+        }
+
         // Range request
         var rangeReq = new HttpRequestMessage(HttpMethod.Get, $"/api/hull-images/{created.Id}/original");
         rangeReq.Headers.Range = new RangeHeaderValue(0, 9);
@@ -87,8 +101,8 @@ public class CreateHullImageTests : IAsyncLifetime, IDisposable
         Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
-    public Task DisposeAsync() => _resetDatabase();
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync() => await _resetDatabase();
     public void Dispose()
     {
         // factory is container-owned; no disposal required here

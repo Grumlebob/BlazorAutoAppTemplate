@@ -73,9 +73,9 @@ public class CreateMovieTests : IAsyncLifetime, IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public Task DisposeAsync() => _resetDatabase();
+    public async ValueTask DisposeAsync() => await _resetDatabase();
 
     public void Dispose() => GC.SuppressFinalize(this);
 }

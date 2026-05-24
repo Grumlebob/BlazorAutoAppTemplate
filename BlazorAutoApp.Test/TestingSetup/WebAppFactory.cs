@@ -19,9 +19,18 @@ namespace BlazorAutoApp.Test.TestingSetup;
 public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const int MaxWaitTimeMinutes = 5;
+    private const string RyukImageEnvironmentVariable = "TESTCONTAINERS_RYUK_CONTAINER_IMAGE";
+    private const string RyukImage = "testcontainers/ryuk:0.12.0";
 
-    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    static WebAppFactory()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RyukImageEnvironmentVariable)))
+        {
+            Environment.SetEnvironmentVariable(RyukImageEnvironmentVariable, RyukImage);
+        }
+    }
+
+    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:16-alpine")
         .Build();
 
     //Default! cause we are not initializing it here, but in the InitializeAsync method
@@ -92,7 +101,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _dbContainer.StartAsync();
 
@@ -128,8 +137,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     //"New": to tell compiler that this is a new DisposeAsync method
-    public new Task DisposeAsync()
+    public new async ValueTask DisposeAsync()
     {
-        return _dbContainer.StopAsync();
+        await _dbContainer.StopAsync();
     }
 }
