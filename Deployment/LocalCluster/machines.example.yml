@@ -3,7 +3,7 @@
 #
 # This is the single place to write machine discovery values.
 # Generate Deployment/LocalCluster/inventory/prod/hosts.yml from it with:
-#   bash Deployment/LocalCluster/scripts/generate-inventory.sh
+#   bash Deployment/LocalCluster/Scripts/generate-inventory.sh
 
 nodes:
   node-main:

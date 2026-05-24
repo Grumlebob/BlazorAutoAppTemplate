@@ -40,26 +40,26 @@ jobs:
 
       - name: Load deployment settings
         run: |
-          echo "APP_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_name)" >> "$GITHUB_ENV"
-          echo "APP_IMAGE=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image)" >> "$GITHUB_ENV"
-          echo "PUBLIC_HOSTNAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py public_hostname)" >> "$GITHUB_ENV"
-          echo "MIGRATION_BUNDLE_NAME=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py migration_bundle_name)" >> "$GITHUB_ENV"
-          echo "RUNNER_LABEL=$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py runner_label)" >> "$GITHUB_ENV"
+          echo "APP_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)" >> "$GITHUB_ENV"
+          echo "APP_IMAGE=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)" >> "$GITHUB_ENV"
+          echo "PUBLIC_HOSTNAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)" >> "$GITHUB_ENV"
+          echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name)" >> "$GITHUB_ENV"
+          echo "RUNNER_LABEL=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)" >> "$GITHUB_ENV"
           echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
           echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py app_image):${GITHUB_SHA}"
+            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image):${GITHUB_SHA}"
             echo
             echo "Expected app runner label:"
-            echo "$(python Deployment/LocalCluster/scripts/lib/read-deploy-setting.py runner_label)"
+            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Require successful CI for this commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CI_RUN_ID="$(python Deployment/LocalCluster/scripts/lib/find-successful-ci-run.py)"
+          CI_RUN_ID="$(bash Deployment/LocalCluster/Scripts/find-successful-ci-run.sh)"
           echo "CI_RUN_ID=${CI_RUN_ID}" >> "$GITHUB_ENV"
           echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -89,7 +89,7 @@ jobs:
           chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Install Ansible
-        run: bash Deployment/LocalCluster/scripts/support/install-ansible.sh
+        run: bash Deployment/LocalCluster/Scripts/install-ansible.sh
 
       - name: Write Ansible Vault password
         run: |
@@ -99,13 +99,13 @@ jobs:
           echo "ANSIBLE_VAULT_PASSWORD_FILE=${VAULT_PASSWORD_FILE}" >> "$GITHUB_ENV"
 
       - name: Deployment preflight
-        run: bash Deployment/LocalCluster/scripts/preflight.sh deploy
+        run: bash Deployment/LocalCluster/Scripts/preflight.sh deploy
 
       - name: Deploy with migrations
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          bash ../scripts/support/with-deploy-lock.sh \
+          bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
@@ -117,14 +117,14 @@ jobs:
         if: inputs.run_migrations == 'false'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          bash ../scripts/support/with-deploy-lock.sh \
+          bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
             -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check
-        run: bash Deployment/LocalCluster/scripts/acceptance-check.sh
+        run: bash Deployment/LocalCluster/Scripts/acceptance-check.sh
 
       - name: Remove Ansible Vault password file
         if: always()
