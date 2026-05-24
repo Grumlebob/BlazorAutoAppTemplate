@@ -29,9 +29,9 @@ public class MoviesCachingTests : IAsyncLifetime, IDisposable
         _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public Task DisposeAsync() => _resetDatabase();
+    public async ValueTask DisposeAsync() => await _resetDatabase();
 
     public void Dispose() => GC.SuppressFinalize(this);
 

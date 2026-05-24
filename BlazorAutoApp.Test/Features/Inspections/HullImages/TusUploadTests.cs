@@ -77,7 +77,7 @@ public class TusUploadTests(WebAppFactory factory) : IAsyncLifetime
         Assert.Equal(all, bytes);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
-    public Task DisposeAsync() => _resetDatabase();
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync() => await _resetDatabase();
 }
 

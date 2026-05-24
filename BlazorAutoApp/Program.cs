@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Npgsql;
 using StackExchange.Redis;
 using System.Security.Cryptography.X509Certificates;
 
@@ -133,15 +134,26 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         ForwardedHeaders.XForwardedFor |
         ForwardedHeaders.XForwardedProto |
         ForwardedHeaders.XForwardedHost;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
 // EF Core with PostgreSQL: prefer ConnectionStrings:DefaultConnection; fallback to Database__* env vars.
 var explicitConn = builder.Configuration.GetConnectionString("DefaultConnection");
-var connString = !string.IsNullOrWhiteSpace(explicitConn)
+var connString = ConfigurePostgresConnectionString(!string.IsNullOrWhiteSpace(explicitConn)
     ? explicitConn
-    : $"Host={GetEnvVar("Database__Host")};Port={GetEnvVar("Database__Port")};Database={GetEnvVar("Database__Name")};Username={GetEnvVar("Database__Username")};Password={GetEnvVar("Database__Password")}";
+    : $"Host={GetEnvVar("Database__Host")};Port={GetEnvVar("Database__Port")};Database={GetEnvVar("Database__Name")};Username={GetEnvVar("Database__Username")};Password={GetEnvVar("Database__Password")}");
+
+string ConfigurePostgresConnectionString(string connectionString)
+{
+    var connectionBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+    if (!connectionBuilder.ContainsKey("GSS Encryption Mode"))
+    {
+        connectionBuilder.GssEncryptionMode = GssEncryptionMode.Disable;
+    }
+
+    return connectionBuilder.ConnectionString;
+}
 
 void ConfigureDbContext(DbContextOptionsBuilder options)
 {
