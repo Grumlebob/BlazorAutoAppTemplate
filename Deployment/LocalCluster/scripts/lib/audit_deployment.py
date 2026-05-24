@@ -226,12 +226,15 @@ for script_name in sorted(
         )
 
 for needle, why in [
-    ("## 11. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
+    ("## 4. Reserve LAN IPs", "dedicated router IP reservation step"),
+    ("## 5. Generate Inventory", "dedicated control-machine inventory generation step"),
+    ("Ensure all four nodes are using their reserved IPs before proceeding.", "router reservation checkpoint"),
+    ("## 12. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
     ("New environment -> localcluster", "localcluster environment creation"),
     ("Deployment branches and tags: Selected branches and tags", "deployment branch restriction instructions"),
     ("Allowed branch: main", "main-only environment branch rule"),
     ("Environment localcluster exists and allows deployments from main.", "environment setup checkpoint"),
-    ("## 12. First Deploy From GitHub Actions", "first CD deploy step after environment setup"),
+    ("## 13. First Deploy From GitHub Actions", "first CD deploy step after environment setup"),
     ("publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`", "main-only CI publishing explanation"),
     ("Optional sanity check: before deploying, confirm the image tag exists.", "optional image check wording"),
     ("migration bundle artifact is missing or expired", "expired CI artifact recovery guidance"),

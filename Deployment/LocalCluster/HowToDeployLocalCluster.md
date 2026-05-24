@@ -18,10 +18,12 @@ Happy path:
 2. Confirm shared settings in all.yml.
 3. Run setup-control-machine.sh on the control machine.
 4. Run bootstrap-node.sh on every node and copy its values into machines.yml.
-5. Reserve LAN IPs, generate hosts.yml and bootstrap-hosts.yml, then commit all.yml and hosts.yml.
-6. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
-7. Create the Cloudflare tunnel and copy its token into vault.yml.
-8. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run acceptance-check.sh.
+5. Reserve LAN IPs in the router and confirm every node uses its reserved IP.
+6. Generate hosts.yml and bootstrap-hosts.yml on the control machine, then commit all.yml and hosts.yml.
+7. Run verify-bootstrap.sh, then prepare-fresh-linux-machines.sh.
+8. Create the Cloudflare tunnel and copy its token into vault.yml.
+9. Create the encrypted vault and run deploy preflight.
+10. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run acceptance-check.sh.
 ```
 
 Location labels in this guide:
@@ -494,7 +496,7 @@ Safe to rerun: yes.
 Success: prints username, hostname, lan_ip, and lan_mac.
 ```
 
-## 4. Reserve LAN IPs And Generate Inventory
+## 4. Reserve LAN IPs
 
 [router]
 
@@ -507,6 +509,12 @@ Reboot each node after adding the DHCP reservations, then confirm the active LAN
 ```bash
 ip -brief address
 ```
+
+Each node's active LAN IP must match the `ip` value recorded for that node in `Deployment/LocalCluster/machines.yml`.
+
+Ensure all four nodes are using their reserved IPs before proceeding.
+
+## 5. Generate Inventory
 
 [control]
 
@@ -556,7 +564,7 @@ git commit -m "Configure production deployment settings"
 
 `Deployment/LocalCluster/machines.yml` and `Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml` stay local and ignored by git. The deployment workflow checks out the repository on `node-main`, so it needs committed `all.yml` settings and committed `hosts.yml` inventory.
 
-## 5. Verify Bootstrap Access
+## 6. Verify Bootstrap Access
 
 [control]
 
@@ -586,7 +594,7 @@ If Ansible ping fails, test raw SSH to the failing node:
 ssh <linux-mint-install-user>@<node-lan-ip> hostname
 ```
 
-## 6. Prepare Fresh Linux Machines
+## 7. Prepare Fresh Linux Machines
 
 [control]
 
@@ -620,7 +628,7 @@ all nodes print docker compose version
 
 After this step, deployment uses the `deploy` user and the key at `~/.ssh/<app_name>_deploy`. Password SSH login is disabled by the SSH hardening role.
 
-## 7. Create The Cloudflare Tunnel
+## 8. Create The Cloudflare Tunnel
 
 [cloudflare]
 
@@ -688,7 +696,7 @@ bash ./Deployment/LocalCluster/scripts/check-cloudflare-tunnel.sh
 
 This checks that the tunnel named in `all.yml` contains this app's `public_hostname` and that DNS points to the selected tunnel.
 
-## 8. Create Secrets And The GitHub Vault Secret
+## 9. Create Secrets And The GitHub Vault Secret
 
 [control]
 
@@ -786,7 +794,7 @@ preflight ok (deploy)
 
 Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` are not already used by another service on the target nodes. Existing containers under this app's own `deploy_root` are allowed so the check stays safe to rerun. If app ownership markers exist on the nodes, preflight also rejects side-by-side collisions for app name, deploy root, public hostname, runner name, and runner label.
 
-## 9. Build And Push The First Image
+## 10. Build And Push The First Image
 
 [github]
 
@@ -828,7 +836,7 @@ If this returns `unauthorized`, log Docker in to GHCR with a GitHub account or t
 
 Do not run `CD - Deploy LocalCluster` yet; the self-hosted runner is installed in the next step.
 
-## 10. Install The GitHub Actions Runner
+## 11. Install The GitHub Actions Runner
 
 [control]
 
@@ -879,7 +887,7 @@ cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/scripts/check-github-runner.sh
 ```
 
-## 11. Configure The GitHub CD Environment
+## 12. Configure The GitHub CD Environment
 
 [github]
 
@@ -925,7 +933,7 @@ Checkpoint:
 Environment localcluster exists and allows deployments from main.
 ```
 
-## 12. First Deploy From GitHub Actions
+## 13. First Deploy From GitHub Actions
 
 [github]
 
@@ -955,7 +963,7 @@ The workflow installs Ansible, reads the vault password from GitHub Secrets, run
 
 If CD fails because the migration bundle artifact is missing or expired, rerun `CI` on `main` for the same commit, then rerun `CD - Deploy LocalCluster`.
 
-## 13. Verify The Deployment
+## 14. Verify The Deployment
 
 [control]
 
