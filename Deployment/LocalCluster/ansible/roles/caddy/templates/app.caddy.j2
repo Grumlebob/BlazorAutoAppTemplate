@@ -3,6 +3,8 @@ http://{{ public_hostname }} {
   reverse_proxy{% for host in groups['app_servers'] %} {{ hostvars[host].ansible_host }}:{{ app_port }}{% endfor %} {
     lb_policy cookie {{ app_name }}_lb
     health_uri /health/ready
+    health_interval 5s
+    health_timeout 2s
     header_up X-Forwarded-Proto https
     header_up X-Forwarded-Host {host}
   }

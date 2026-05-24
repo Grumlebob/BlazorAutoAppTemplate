@@ -96,6 +96,7 @@ def render_hosts(nodes: dict[str, dict[str, str]], app_name: str) -> str:
   vars:
     ansible_user: deploy
     ansible_ssh_private_key_file: ~/.ssh/{app_name}_deploy
+    ansible_python_interpreter: /usr/bin/python3
 
   children:
     load_balancer:
@@ -125,21 +126,25 @@ def render_bootstrap_hosts(nodes: dict[str, dict[str, str]]) -> str:
         node-main:
           ansible_host: {nodes["node-main"]["ip"]}
           ansible_user: {nodes["node-main"]["install_user"]}
+          ansible_python_interpreter: /usr/bin/python3
 
     app_servers:
       hosts:
         node-app1:
           ansible_host: {nodes["node-app1"]["ip"]}
           ansible_user: {nodes["node-app1"]["install_user"]}
+          ansible_python_interpreter: /usr/bin/python3
         node-app2:
           ansible_host: {nodes["node-app2"]["ip"]}
           ansible_user: {nodes["node-app2"]["install_user"]}
+          ansible_python_interpreter: /usr/bin/python3
 
     node_db:
       hosts:
         node-db:
           ansible_host: {nodes["node-db"]["ip"]}
           ansible_user: {nodes["node-db"]["install_user"]}
+          ansible_python_interpreter: /usr/bin/python3
 """
 
 

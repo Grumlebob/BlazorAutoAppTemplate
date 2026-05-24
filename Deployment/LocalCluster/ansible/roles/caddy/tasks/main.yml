@@ -65,3 +65,9 @@
     name: caddy
     enabled: true
     state: started
+
+- name: Reload Caddy with validated configuration
+  ansible.builtin.systemd:
+    name: caddy
+    state: reloaded
+  changed_when: false

@@ -1416,6 +1416,8 @@ If the public hostname fails:
 5. Confirm the tunnel token in vault.yml belongs to the same Cloudflare tunnel named in all.yml.
 ```
 
+If local Caddy health returns `503` while both app-node health checks pass, Caddy has matched the hostname but does not yet consider any upstream app node healthy. The acceptance script retries this case because it can happen immediately after app containers restart. If it still fails after the retry window, use the rendered Caddy site and Caddy logs printed by `acceptance-check.sh` to verify the app-node IPs and port.
+
 Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, regenerate `Deployment/LocalCluster/inventory/prod/hosts.yml`, change secrets in `Deployment/LocalCluster/inventory/prod/vault.yml`, and change shared non-secret deployment settings in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml`.
 
 ## Security Notes

@@ -524,6 +524,7 @@ for needle, why in [
     ("node-app1:", "node-app1 host"),
     ("node-app2:", "node-app2 host"),
     ("node-db:", "node-db host"),
+    ("ansible_python_interpreter: /usr/bin/python3", "stable Python interpreter path"),
 ]:
     if needle not in hosts:
         fail(f"Deployment/LocalCluster/inventory/prod/hosts.yml: missing {why}")
@@ -538,6 +539,7 @@ for needle, why in [
     ("node_db:", "node_db inventory group rendering"),
     ("render_bootstrap_hosts", "bootstrap inventory rendering"),
     ("install_user", "install user support"),
+    ("ansible_python_interpreter: /usr/bin/python3", "stable Python interpreter rendering"),
     ("--check", "read-only machines.yml validation mode"),
     ("machines.yml is valid", "clear machines validation success line"),
 ]:
@@ -652,6 +654,11 @@ require_contains(
     "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
     "set -euo pipefail",
     "strict Caddy key installation shell",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "Reload Caddy with validated configuration",
+    "partial-failure-safe Caddy reload",
 )
 
 for needle, why in [
@@ -867,6 +874,8 @@ for path, checks in {
         ("http://{{ public_hostname }}", "hostname-based Caddy listener for side-by-side apps"),
         ("bind 127.0.0.1", "loopback-only Caddy listener"),
         ("health_uri /health/ready", "readiness health check"),
+        ("health_interval 5s", "fast Caddy upstream health recovery"),
+        ("health_timeout 2s", "bounded Caddy upstream health checks"),
         ("lb_policy cookie {{ app_name }}_lb", "sticky sessions for Blazor Server"),
     ],
 }.items():
@@ -937,7 +946,10 @@ for path, checks in {
     ],
     "Deployment/LocalCluster/Scripts/acceptance-check.sh": [
         ("https://${PUBLIC_HOSTNAME}/health/ready", "public health check"),
-        ("-H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready", "hostname-aware local Caddy check"),
+        ("ANSIBLE_CONFIG", "LocalCluster Ansible config for ad-hoc checks"),
+        ("Host: \\$PUBLIC_HOSTNAME", "hostname-aware local Caddy check"),
+        ("local Caddy health still failed after 120 seconds", "local Caddy retry diagnostics"),
+        ("wait_for_public_health", "public health retry"),
         ("--services --filter status=running", "running compose service checks"),
         ("pg_isready", "PostgreSQL health check"),
         ("redis-cli", "Redis health check"),
