@@ -32,10 +32,26 @@
       - ansible_architecture in ["x86_64", "amd64"]
     fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
 
+- name: Remove legacy Docker apt repository list
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
 - name: Add Docker apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ docker_ubuntu_codename.stdout }} stable"
-    filename: docker
+  ansible.builtin.deb822_repository:
+    name: docker
+    types:
+      - deb
+    uris:
+      - https://download.docker.com/linux/ubuntu
+    suites:
+      - "{{ docker_ubuntu_codename.stdout }}"
+    components:
+      - stable
+    architectures:
+      - amd64
+    signed_by: /etc/apt/keyrings/docker.asc
+    enabled: true
     state: present
 
 - name: Install Docker Engine and Compose plugin

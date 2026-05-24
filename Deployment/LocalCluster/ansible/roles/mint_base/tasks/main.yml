@@ -21,6 +21,7 @@
       - lsb-release
       - openssh-server
       - python3-apt
+      - python3-debian
       - tar
       - ufw
     state: present

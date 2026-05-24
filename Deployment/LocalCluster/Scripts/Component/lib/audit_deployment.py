@@ -368,6 +368,8 @@ for path in deployment_text_files():
         fail(f"{rel}: deploy SSH key path must be derived from app_name, not local overrides")
     if "sudo apt install -y ansible" in text or "sudo apt-get install -y ansible" in text:
         fail(f"{rel}: use Deployment/LocalCluster/Scripts/install-ansible.sh instead of distro Ansible")
+    if "ansible.builtin.apt_repository" in text:
+        fail(f"{rel}: use ansible.builtin.deb822_repository instead of deprecated apt_repository")
     for forbidden in [".deploy.local", "discover-node", "health-check"]:
         if forbidden in text:
             fail(f"{rel}: contains stale deployment reference: {forbidden}")
@@ -745,6 +747,7 @@ if re.search(r"name: Stop existing app stack[\s\S]+?failed_when: false", site):
 for path, checks in {
     "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml": [
         ("name: deploy", "deploy user creation"),
+        ("python3-debian", "deb822 repository module dependency"),
         ("NOPASSWD:ALL", "passwordless sudo for automation"),
         ("90-localcluster-deploy", "neutral LocalCluster sudoers file"),
         ("authorized_keys", "deploy SSH public key installation"),
@@ -758,7 +761,10 @@ for path, checks in {
         ("UBUNTU_CODENAME", "Linux Mint Ubuntu base codename detection"),
         ("docker_ubuntu_codename.stdout | length > 0", "Ubuntu codename non-empty assertion"),
         ("This deployment supports only x86_64/amd64 Linux machines.", "amd64-only Docker guard"),
-        ("arch=amd64", "amd64 Docker apt repository"),
+        ("ansible.builtin.deb822_repository", "deb822 Docker apt repository"),
+        ("/etc/apt/sources.list.d/docker.list", "legacy Docker apt repository cleanup"),
+        ("signed_by: /etc/apt/keyrings/docker.asc", "Docker keyring-scoped apt repository"),
+        ("- amd64", "amd64 Docker apt repository"),
         ("docker-compose-plugin", "Docker Compose plugin"),
         ("groups: docker", "deploy docker group membership"),
     ],
