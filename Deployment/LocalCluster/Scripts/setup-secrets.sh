@@ -58,8 +58,13 @@ echo "validating encrypted vault contents"
 bash "$SCRIPT_DIR/check-vault.sh"
 
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-  printf '%s' "$VAULT_PASSWORD" | gh secret set ANSIBLE_VAULT_PASSWORD --body-file -
-  echo "GitHub repository secret set: ANSIBLE_VAULT_PASSWORD"
+  if printf '%s' "$VAULT_PASSWORD" | gh secret set ANSIBLE_VAULT_PASSWORD; then
+    echo "GitHub repository secret set: ANSIBLE_VAULT_PASSWORD"
+  else
+    echo "WARN  could not set the GitHub repository secret automatically." >&2
+    echo "      Set this GitHub secret manually:" >&2
+    echo "      ANSIBLE_VAULT_PASSWORD=<password used for Deployment/LocalCluster/inventory/prod/vault.yml>" >&2
+  fi
 else
   echo "WARN  gh is missing or not authenticated; set this GitHub secret manually:"
   echo "      ANSIBLE_VAULT_PASSWORD=<password used for Deployment/LocalCluster/inventory/prod/vault.yml>"

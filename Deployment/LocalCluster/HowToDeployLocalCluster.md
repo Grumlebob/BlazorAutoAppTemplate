@@ -81,7 +81,7 @@ Required values:
 | `cloudflare_tunnel_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
 | `cloudflared_version` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep the checked-in pinned release unless you are deliberately upgrading `cloudflared`. |
 | `migration_bundle_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
-| GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub token for an account that can read the package; classic PATs need `read:packages`. |
+| GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub personal access token classic for an account that can read the package; select `read:packages`. |
 | Cloudflare tunnel token | `Deployment/LocalCluster/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
 | Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
 
@@ -740,7 +740,98 @@ This checks that the tunnel named in `all.yml` contains this app's `public_hostn
 
 [control]
 
-Create or edit the encrypted Ansible Vault after the Cloudflare tunnel token is ready:
+This section creates the encrypted Ansible Vault file used by Ansible and the GitHub repository secret used by CD to decrypt it. Do not continue until you have the Cloudflare tunnel token from step 8.
+
+You need seven vault values:
+
+```yaml
+vault_postgres_user: <postgres-user>
+vault_postgres_password: <strong-db-password>
+vault_postgres_db: <postgres-database>
+vault_redis_password: <strong-redis-password>
+vault_ghcr_username: <github-username>
+vault_ghcr_token: <github-token-with-read-packages>
+vault_cloudflare_tunnel_token: <cloudflare-tunnel-token>
+```
+
+### 9.1 Choose Database And Redis Values
+
+Use names derived from `app_name`:
+
+```text
+app_name: my-app
+vault_postgres_user: my_app
+vault_postgres_db: my_app
+```
+
+Use only letters, numbers, and underscores for `vault_postgres_user` and `vault_postgres_db`. Do not start either value with a number.
+
+Generate safe database and Redis passwords:
+
+```bash
+python3 - <<'PY'
+import secrets
+import string
+
+alphabet = string.ascii_letters + string.digits + "._@%+-"
+for key in ["vault_postgres_password", "vault_redis_password"]:
+    print(f"{key}: {''.join(secrets.choice(alphabet) for _ in range(32))}")
+PY
+```
+
+The DB and Redis password character limits are intentional. Those values are rendered into runtime `.env` files and connection strings, so `check-vault.sh` rejects spaces, quotes, `$`, `#`, comma, semicolon, and other characters that are easy to misparse.
+
+For a first deployment, choose these values once and keep them. After the app is live, changing the database name, database user, or database password is a deliberate migration/rotation task, not a normal rerun step.
+
+### 9.2 Create The GHCR Read Token
+
+`vault_ghcr_username` is the GitHub username that owns the token. `vault_ghcr_token` is a GitHub personal access token classic with package read access. Use a classic token here because GitHub Container Registry package pulls outside GitHub Actions use personal access tokens classic.
+
+Create the token:
+
+1. Open GitHub in the browser while signed in as the account that can read the container package.
+2. Click your profile picture.
+3. Open `Settings`.
+4. Open `Developer settings`.
+5. Open `Personal access tokens`.
+6. Open `Tokens (classic)`.
+7. Click `Generate new token`.
+8. Choose `Generate new token (classic)`.
+9. Set `Note` to something recognizable, for example `localcluster-ghcr-read-<app_name>`.
+10. Set an expiration you can maintain. Ninety days is reasonable for a demo; one year is easier for a home server. Put the renewal date somewhere you will see it.
+11. Select only `read:packages`.
+12. Click `Generate token`.
+13. Copy the token immediately. GitHub only shows it once.
+
+If the package is owned by an organization that enforces SSO, authorize the token for that organization after creating it. If the package is private and a later pull says `unauthorized`, open the package settings in GitHub and confirm this user or one of its teams has read access to the package.
+
+Optional login check if Docker is installed on the control machine:
+
+```bash
+read -r -s -p "GHCR token: " GHCR_TOKEN
+echo
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
+docker logout ghcr.io
+unset GHCR_TOKEN
+```
+
+This only checks the token can authenticate to GHCR. The actual image tag does not exist until CI builds it in step 10.
+
+### 9.3 Confirm The Cloudflare Tunnel Token
+
+Use the token copied in step 8:
+
+```yaml
+vault_cloudflare_tunnel_token: "<cloudflare-tunnel-token>"
+```
+
+The value should start with `eyJ` and be much longer than a normal password. Do not paste the whole `cloudflared service install ...` command, only the token.
+
+For side-by-side apps on the same four nodes, reuse the same Cloudflare tunnel token unless you intentionally designed separate named `cloudflared` services. The normal second-fork path reuses the existing tunnel and only adds another public hostname.
+
+### 9.4 Create Or Edit The Encrypted Vault
+
+Run:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -748,6 +839,38 @@ bash ./Deployment/LocalCluster/Scripts/setup-secrets.sh
 ```
 
 This script creates `vault.yml` from the example if needed, opens it with `ansible-vault edit`, validates the encrypted values, and sets the GitHub repository secret `ANSIBLE_VAULT_PASSWORD` when GitHub CLI is authenticated.
+
+When prompted for `Ansible Vault password`, choose a new strong password if this is the first time you create `vault.yml`. Save it in a password manager immediately. If `vault.yml` already exists, enter the existing vault password.
+
+When the editor opens, replace every `REPLACE_WITH...` placeholder with the values gathered above. The file should look like this shape:
+
+```yaml
+vault_postgres_user: my_app
+vault_postgres_password: <generated-db-password>
+vault_postgres_db: my_app
+vault_redis_password: <generated-redis-password>
+vault_ghcr_username: <github-username-that-owns-the-token>
+vault_ghcr_token: <github-token-classic-with-read-packages>
+vault_cloudflare_tunnel_token: <cloudflare-tunnel-token-from-step-8>
+```
+
+Save and close the editor. The script then runs `check-vault.sh`.
+
+If GitHub CLI is authenticated, the script also sets this repository secret automatically:
+
+```text
+ANSIBLE_VAULT_PASSWORD
+```
+
+This secret is the Ansible Vault password, not the GHCR token. CD needs it so the self-hosted runner can decrypt the committed encrypted `vault.yml`.
+
+If the script prints that `gh` is missing, not authenticated, or could not set the secret automatically, set the GitHub secret manually:
+
+```text
+Repository -> Settings -> Secrets and variables -> Actions -> Secrets -> New repository secret
+Name: ANSIBLE_VAULT_PASSWORD
+Secret: <the Ansible Vault password you just saved>
+```
 
 Script notes:
 
@@ -760,18 +883,6 @@ Success: encrypted vault decrypts and has all required non-placeholder keys.
 
 Save the Ansible Vault password somewhere durable and private, like 1Password, Bitwarden, KeePass, or iCloud Keychain. You need the same password when running `ansible-vault view` or `ansible-vault edit`, and the GitHub repository secret must contain the same password.
 
-Fill every value in the vault:
-
-```yaml
-vault_postgres_user: <postgres-user>
-vault_postgres_password: <strong-db-password>
-vault_postgres_db: <postgres-database>
-vault_redis_password: <strong-redis-password>
-vault_ghcr_username: <github-username>
-vault_ghcr_token: <github-token-with-read-packages>
-vault_cloudflare_tunnel_token: <cloudflare-tunnel-token>
-```
-
 Where the values come from:
 
 | Vault key | How to choose or obtain it |
@@ -781,10 +892,8 @@ Where the values come from:
 | `vault_postgres_db` | Choose a database name, usually `app_name` with hyphens changed to underscores. Use only letters, numbers, and underscores; do not start with a number. Example: `my-app` becomes `my_app`. |
 | `vault_redis_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
 | `vault_ghcr_username` | Use the GitHub account that owns or can read the GHCR package. |
-| `vault_ghcr_token` | Create a GitHub fine-grained or classic token for that account with package read access. For a classic PAT, `read:packages` is the important permission. |
+| `vault_ghcr_token` | Create a GitHub personal access token classic for that account. Select `read:packages`; do not select write or delete package permissions. |
 | `vault_cloudflare_tunnel_token` | Copy the `eyJ...` tunnel token from the Cloudflare connector command in the previous step. |
-
-The DB and Redis password character limits are intentional. Those values are rendered into runtime `.env` files and connection strings, so `check-vault.sh` rejects spaces, quotes, `$`, `#`, comma, semicolon, and other characters that are easy to misparse.
 
 Checkpoint:
 

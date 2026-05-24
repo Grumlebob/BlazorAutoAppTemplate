@@ -274,6 +274,11 @@ for needle, why in [
     ("secondnotes", "side-by-side example app"),
     ("LOCALCLUSTER_RUNNER_LABEL", "side-by-side runner label variable guidance"),
     ("Repository -> Settings -> Secrets and variables -> Actions -> Variables", "GitHub repository variables UI path"),
+    ("Tokens (classic)", "GHCR classic token UI guidance"),
+    ("Select only `read:packages`", "minimum GHCR token permission guidance"),
+    ("GitHub only shows it once", "GitHub token one-time visibility warning"),
+    ("Name: ANSIBLE_VAULT_PASSWORD", "manual GitHub vault secret guidance"),
+    ("This secret is the Ansible Vault password, not the GHCR token.", "vault secret distinction"),
     ("summary.sh", "deployment summary command guidance"),
     ("doctor.sh", "doctor readiness command guidance"),
     ("acceptance-check.sh", "acceptance check guidance"),
@@ -1038,11 +1043,14 @@ for needle, why in [
 setup_secrets = read("Deployment/LocalCluster/Scripts/setup-secrets.sh")
 for needle, why in [
     ("gh secret set ANSIBLE_VAULT_PASSWORD", "GitHub vault password secret automation"),
+    ("could not set the GitHub repository secret automatically", "manual GitHub secret fallback"),
     ("ansible-vault edit", "vault editing"),
     ("check-vault.sh", "vault validation"),
 ]:
     if needle not in setup_secrets:
         fail(f"Deployment/LocalCluster/Scripts/setup-secrets.sh: missing {why}")
+if "--body-file" in setup_secrets:
+    fail("Deployment/LocalCluster/Scripts/setup-secrets.sh: gh secret set must read from stdin, not unsupported --body-file")
 
 verify_bootstrap = read("Deployment/LocalCluster/Scripts/verify-bootstrap.sh")
 for needle, why in [
