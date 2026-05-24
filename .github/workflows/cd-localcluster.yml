@@ -51,6 +51,9 @@ jobs:
             echo "Deploying image:"
             echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image):${GITHUB_SHA}"
             echo
+            echo "Public hostname:"
+            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
+            echo
             echo "Expected app runner label:"
             echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
           } >> "$GITHUB_STEP_SUMMARY"

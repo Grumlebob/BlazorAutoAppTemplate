@@ -219,6 +219,8 @@ If this is the only app on these four nodes, keep the default ports and continue
 
 If another LocalCluster app already runs on these nodes, stop here and choose unique side-by-side values before continuing.
 
+If you are only renaming the public domain for the same app, change only `public_hostname`. Keep `app_name`, `deploy_root`, ports, runner values, `cloudflare_tunnel_name`, and the Cloudflare tunnel token unchanged. Then add the new hostname to the same Cloudflare tunnel and run CD again so Caddy and the app ownership marker are rewritten with the new hostname.
+
 ### Optional: Second Fork On The Same Nodes
 
 Skip this subsection if this is the only app on the four nodes.
@@ -716,6 +718,8 @@ Service URL: 127.0.0.1:80
 The service URL is local to `node-main` because cloudflared connects to Caddy on the same machine. Do not put an app-node LAN IP here.
 
 For side-by-side apps, every public hostname still points to `127.0.0.1:80`. Caddy routes the request by hostname to the correct app port.
+
+If this is a domain-only rename for the same app, add the new `public_hostname` to the existing tunnel named by `cloudflare_tunnel_name`. Do not create a new tunnel and do not replace the vault tunnel token. After the new hostname works, remove the old Cloudflare public hostname only if you no longer want it to serve this app.
 
 Checkpoint:
 

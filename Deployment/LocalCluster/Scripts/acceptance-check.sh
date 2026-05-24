@@ -25,7 +25,7 @@ echo "checking database node"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && set -a && . ./.env && set +a && docker compose ps --services --filter status=running | grep -qx postgres && docker compose ps --services --filter status=running | grep -qx redis && docker compose exec -T postgres pg_isready -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" && docker compose exec -T redis redis-cli -a \"\$REDIS_PASSWORD\" ping | grep -qx PONG"
 
-echo "checking load balancer"
+echo "checking load balancer for ${PUBLIC_HOSTNAME}"
 ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS -H 'Host: ${PUBLIC_HOSTNAME}' http://127.0.0.1/health/ready"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active caddy"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active cloudflared"
@@ -38,7 +38,7 @@ echo "checking backup directory"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a \
   "if [ -d '${DEPLOY_ROOT}/backups' ]; then ls -1 '${DEPLOY_ROOT}/backups' | tail -n 5; else echo 'backup directory not present yet; it is created by migrations or manual backups'; fi"
 
-echo "checking public HTTPS health"
+echo "checking public HTTPS health: https://${PUBLIC_HOSTNAME}/health/ready"
 curl -fsS "https://${PUBLIC_HOSTNAME}/health/ready"
 echo
 
