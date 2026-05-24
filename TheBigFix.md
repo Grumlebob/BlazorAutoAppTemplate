@@ -33,6 +33,7 @@ Make this repository feel like a coherent .NET 10 Blazor template app:
   - server component Identity: `BlazorAutoApp/Features/Login/Account`
   - client login redirect helper: `BlazorAutoApp.Client/Features/Login/Components`
 - Playwright E2E tests were added under `BlazorAutoApp.Test/E2E` and are gated behind `RUN_E2E=1`.
+- Playwright E2E tests run headed by default with visible slow motion; `E2E_HEADLESS=1` is reserved for CI-style runs.
 - Playwright covers render-mode hydration, Movies create/view/back/edit-cancel navigation, and Identity register/logout/login/profile.
 - Browser E2E tests capture a screenshot under `TestResults/Playwright` only when a test fails.
 - Generated `bin`/`obj` outputs were deleted after resolved-path verification and rebuilt cleanly.
@@ -285,8 +286,10 @@ Implementation:
 - Add browser test folder:
   - `BlazorAutoApp.Test/E2E`
 - Add a base URL configuration:
-  - `E2E_BASE_URL` environment variable
-  - default to `https://localhost:7186`
+- `E2E_BASE_URL` environment variable
+- default to `https://localhost:7186`
+- Run headed by default so local developers can see the browser flow.
+- Support `E2E_SLOW_MO_MS` for visible action pacing and `E2E_HEADLESS=1` only for CI-style execution.
 - Keep E2E tests in a separate xUnit collection/category/trait so they can run explicitly without slowing every unit test pass.
 - Add a documented setup command to install browsers:
 

@@ -10,6 +10,13 @@ public abstract class BlazorE2ETestBase : PageTest
 {
     private static readonly Uri BaseUri = new(GetBaseUrl());
 
+    public override Task<BrowserTypeLaunchOptions?> LaunchOptionsAsync() =>
+        Task.FromResult<BrowserTypeLaunchOptions?>(new BrowserTypeLaunchOptions
+        {
+            Headless = IsHeadlessEnabled(),
+            SlowMo = GetSlowMoMilliseconds()
+        });
+
     public override BrowserNewContextOptions ContextOptions() => new()
     {
         IgnoreHTTPSErrors = true,
@@ -72,5 +79,19 @@ public abstract class BlazorE2ETestBase : PageTest
         }
 
         return baseUrl.TrimEnd('/') + "/";
+    }
+
+    private static bool IsHeadlessEnabled() =>
+        string.Equals(Environment.GetEnvironmentVariable("E2E_HEADLESS"), "1", StringComparison.OrdinalIgnoreCase);
+
+    private static float GetSlowMoMilliseconds()
+    {
+        var configured = Environment.GetEnvironmentVariable("E2E_SLOW_MO_MS");
+        if (float.TryParse(configured, out var slowMo) && slowMo >= 0)
+        {
+            return slowMo;
+        }
+
+        return 300;
     }
 }

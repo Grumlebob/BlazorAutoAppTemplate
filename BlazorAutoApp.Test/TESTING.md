@@ -42,3 +42,18 @@ Notes
 -----
 - Integration tests use Testcontainers + PostgreSQL; ensure Docker is running when executing `dotnet test`.
 - If you add new Core requests, the architecture test will fail until you add matching test classes.
+
+Headed Browser E2E
+------------------
+Playwright E2E tests are intentionally headed by default so the flow is visible while developing.
+
+1) Start the app stack from the repo root:
+   - PowerShell: `docker compose up -d --build web`
+2) Install Chromium once after building the test project:
+   - PowerShell: `pwsh .\BlazorAutoApp.Test\bin\Debug\net10.0\playwright.ps1 install chromium`
+3) Run the visible browser tests:
+   - PowerShell: `$env:RUN_E2E='1'; $env:E2E_BASE_URL='https://localhost:7186'; dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"`
+
+Options:
+- `E2E_SLOW_MO_MS` controls the visible delay between browser actions. Default is `300`.
+- `E2E_HEADLESS=1` is only for CI-style runs where a visible browser is not wanted.
