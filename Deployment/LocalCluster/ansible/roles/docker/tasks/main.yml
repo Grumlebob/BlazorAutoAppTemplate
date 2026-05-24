@@ -29,7 +29,7 @@
 - name: Require amd64 machine architecture
   ansible.builtin.assert:
     that:
-      - ansible_architecture in ["x86_64", "amd64"]
+      - ansible_facts["architecture"] in ["x86_64", "amd64"]
     fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
 
 - name: Remove legacy Docker apt repository list

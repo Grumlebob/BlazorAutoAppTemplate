@@ -375,6 +375,8 @@ for path in deployment_text_files():
         fail(f"{rel}: use Deployment/LocalCluster/Scripts/install-ansible.sh instead of distro Ansible")
     if "ansible.builtin.apt_repository" in text:
         fail(f"{rel}: use ansible.builtin.deb822_repository instead of deprecated apt_repository")
+    if "ansible_architecture" in text or "ansible_date_time" in text:
+        fail(f"{rel}: use ansible_facts[...] instead of deprecated top-level injected facts")
     for forbidden in [".deploy.local", "discover-node", "health-check"]:
         if forbidden in text:
             fail(f"{rel}: contains stale deployment reference: {forbidden}")
@@ -438,6 +440,11 @@ require_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared --version",
     "cloudflared installed-version verification",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "path: /etc/cloudflared",
+    "cloudflared config directory creation",
 )
 require_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",

@@ -10,7 +10,7 @@
 - name: Require amd64 machine architecture
   ansible.builtin.assert:
     that:
-      - ansible_architecture in ["x86_64", "amd64"]
+      - ansible_facts["architecture"] in ["x86_64", "amd64"]
     fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
 
 - name: Download cloudflared package
@@ -28,6 +28,14 @@
   register: cloudflared_installed_version
   changed_when: false
   failed_when: cloudflared_version not in cloudflared_installed_version.stdout
+
+- name: Ensure cloudflared config directory exists
+  ansible.builtin.file:
+    path: /etc/cloudflared
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
 
 - name: Check if cloudflared service is installed
   ansible.builtin.stat:
