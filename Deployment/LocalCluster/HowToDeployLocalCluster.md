@@ -597,6 +597,19 @@ git commit -m "Configure production deployment settings"
 
 [control]
 
+Run this only from a full repository checkout on the control machine. If you copied only `bootstrap-node.sh` and `discover-machines.sh` to a node, do not run this step there.
+
+Before running bootstrap verification, confirm the required local scripts exist:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+test -f Deployment/LocalCluster/scripts/status.sh
+test -f Deployment/LocalCluster/scripts/preflight.sh
+test -f Deployment/LocalCluster/scripts/support/ping-fresh-machines.sh
+```
+
+If any command says a file is missing, your checkout is stale or incomplete. Run `git pull --ff-only` from the repository root, or reclone the repository, then retry this step.
+
 Run:
 
 ```bash

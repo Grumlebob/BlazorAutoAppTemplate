@@ -232,6 +232,8 @@ for needle, why in [
     ("Ensure all four nodes are using their reserved IPs before proceeding.", "router reservation checkpoint"),
     ("validate-machines.sh", "machines.yml validation checkpoint before inventory generation"),
     ("Success: prints OK lines for machines.yml, deployment settings, and all four nodes.", "machines validation success checkpoint"),
+    ("Run this only from a full repository checkout on the control machine.", "verify-bootstrap full-checkout warning"),
+    ("test -f Deployment/LocalCluster/scripts/preflight.sh", "verify-bootstrap dependency checkpoint"),
     ("## 12. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
     ("New environment -> localcluster", "localcluster environment creation"),
     ("Deployment branches and tags: Selected branches and tags", "deployment branch restriction instructions"),
@@ -991,6 +993,8 @@ for needle, why in [
     ("status.sh\" bootstrap", "bootstrap status check"),
     ("preflight.sh\" bootstrap", "bootstrap preflight check"),
     ("support/ping-fresh-machines.sh", "fresh-machine ping check"),
+    ("missing required script", "clear missing dependency error"),
+    ("repository checkout is stale or incomplete", "stale checkout guidance"),
     ("bootstrap verification ok", "clear success line"),
 ]:
     if needle not in verify_bootstrap:
