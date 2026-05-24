@@ -1,59 +1,144 @@
-Vertical Slice Testing
-======================
+Testing
+=======
 
-This project follows vertical slice architecture for tests: every Core feature slice has a matching test slice with a one-to-one naming and namespace mapping.
+This test project covers three layers:
 
-Layout
-------
+- Feature/integration tests for the vertical slices.
+- Architecture tests for repo structure and dependency rules.
+- Headed Playwright E2E tests for real browser render-mode, Movies, and Identity flows.
+
+Normal Test Run
+---------------
+
+Use this for day-to-day verification. E2E tests are skipped unless `RUN_E2E=1` is set.
+
+```powershell
+dotnet restore .\BlazorAutoApp.sln
+dotnet build .\BlazorAutoApp.sln --no-restore
+dotnet test .\BlazorAutoApp.sln --no-build
+```
+
+Integration tests use Testcontainers and PostgreSQL, so Docker must be running.
+
+Vertical Slice Rules
+--------------------
+
+Every Core feature slice should have a matching test slice with a one-to-one naming and namespace mapping.
+
+Layout:
+
 - Core slice: `BlazorAutoApp.Core/Features/{Feature}/{Slice}Request.cs`
 - Test slice: `BlazorAutoApp.Test/Features/{Feature}/{Slice}Tests.cs`
-- Test infra: `BlazorAutoApp.Test/TestingSetup/*` (shared helpers, WebAppFactory, data generator)
+- Test infra: `BlazorAutoApp.Test/TestingSetup/*`
 - Architecture checks: `BlazorAutoApp.Test/Architecture/*`
+- Browser E2E: `BlazorAutoApp.Test/E2E/*`
 
-Conventions
------------
+Conventions:
+
 - Test namespace: `BlazorAutoApp.Test.Features.{Feature}`
-- Test class name: `{Slice}Tests` (suffix `Tests` required)
-- Each feature test class must contain at least one `[Fact]`/`[Theory]` method
-- Integration tests should use `[Collection("MediaTestCollection")]` to share the `WebAppFactory`
+- Test class name: `{Slice}Tests`
+- Each feature test class must contain at least one `[Fact]` or `[Theory]`.
+- HTTP/API integration tests should use `[Collection("MediaTestCollection")]` and `WebAppFactory`.
 
 Architecture Enforcement
 ------------------------
-- `FeatureSlicesArchitectureTests` scans Core for all public classes ending with `Request` under any `Features.{Feature}` namespace and asserts a matching test class exists with the conventions above.
-- `ArchitectureTests` enforces that each Core `*Api` interface has both client and server implementations and that implementations live under feature namespaces (`BlazorAutoApp.Client.Features.*`, `BlazorAutoApp.Features.*`).
 
-Authoring a New Feature's Tests
--------------------------------
-1) Identify the Core slices in `BlazorAutoApp.Core/Features/{Feature}` (e.g., `GetMoviesRequest`, `CreateMovieRequest`, etc.).
-2) For each `{Slice}Request`, add a corresponding `{Slice}Tests` to `BlazorAutoApp.Test/Features/{Feature}/`.
-3) Use the naming/namespace conventions above and include at least one `[Fact]`/`[Theory]`.
-4) If your tests hit the HTTP API, decorate the class with `[Collection("MediaTestCollection")]` and inject `WebAppFactory` in the constructor; obtain `HttpClient` via `factory.HttpClient` and services via `factory.Services`.
+- `FeatureSlicesArchitectureTests` scans Core for public `*Request` classes under `Features.{Feature}` and asserts matching test classes exist.
+- `ArchitectureTests` enforces that each Core `*Api` interface has both client and server implementations under feature namespaces.
 
 Scaffolding Helper
 ------------------
-Run the script below to scaffold missing `{Slice}Tests` files for a Core feature (creates skipped placeholder tests that you can fill in):
 
-- From repo root:
-  - PowerShell: `pwsh -File .\\BlazorAutoApp.Test\\tools\\NewFeatureTests.ps1 -Feature Movies`
+From repo root:
 
-The scaffolder scans `BlazorAutoApp.Core/Features/{Feature}` for `*Request` classes and creates stub test files in `BlazorAutoApp.Test/Features/{Feature}` if they are missing.
+```powershell
+pwsh -File .\BlazorAutoApp.Test\tools\NewFeatureTests.ps1 -Feature Movies
+```
 
-Notes
------
-- Integration tests use Testcontainers + PostgreSQL; ensure Docker is running when executing `dotnet test`.
-- If you add new Core requests, the architecture test will fail until you add matching test classes.
+The scaffolder scans `BlazorAutoApp.Core/Features/{Feature}` for `*Request` classes and creates missing stub test files under `BlazorAutoApp.Test/Features/{Feature}`.
 
 Headed Browser E2E
 ------------------
-Playwright E2E tests are intentionally headed by default so the flow is visible while developing.
 
-1) Start the app stack from the repo root:
-   - PowerShell: `docker compose up -d --build web`
-2) Install Chromium once after building the test project:
-   - PowerShell: `pwsh .\BlazorAutoApp.Test\bin\Debug\net10.0\playwright.ps1 install chromium`
-3) Run the visible browser tests:
-   - PowerShell: `$env:RUN_E2E='1'; $env:E2E_BASE_URL='https://localhost:7186'; dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"`
+Playwright E2E tests are intentionally **headed by default**. The browser opens visibly so you can watch the flow and diagnose UI issues.
 
-Options:
-- `E2E_SLOW_MO_MS` controls the visible delay between browser actions. Default is `300`.
-- `E2E_HEADLESS=1` is only for CI-style runs where a visible browser is not wanted.
+Start or rebuild the app stack:
+
+```powershell
+docker compose up -d --build web
+```
+
+Confirm the app is reachable:
+
+```powershell
+Invoke-WebRequest -Uri https://localhost:7186/health -SkipCertificateCheck
+```
+
+Install Chromium once after building the test project:
+
+```powershell
+pwsh .\BlazorAutoApp.Test\bin\Debug\net10.0\playwright.ps1 install chromium
+```
+
+Run visible E2E:
+
+```powershell
+$env:RUN_E2E='1'
+$env:E2E_BASE_URL='https://localhost:7186'
+$env:E2E_SLOW_MO_MS='450'
+Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
+```
+
+E2E Environment Variables
+-------------------------
+
+- `RUN_E2E=1`: enables the Playwright tests.
+- `E2E_BASE_URL`: target app URL. Defaults to `https://localhost:7186`.
+- `E2E_SLOW_MO_MS`: visible delay between browser actions. Defaults to `300`.
+- `E2E_HEADLESS=1`: runs without a visible browser. Use only for CI-style runs.
+
+Clear local E2E environment variables when done:
+
+```powershell
+Remove-Item Env:\RUN_E2E -ErrorAction SilentlyContinue
+Remove-Item Env:\E2E_BASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:\E2E_SLOW_MO_MS -ErrorAction SilentlyContinue
+Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
+```
+
+E2E Coverage
+------------
+
+Current E2E tests verify:
+
+- Home render-mode diagnostics hydrate to an interactive renderer.
+- Movies can create, view, navigate back, open edit, and cancel.
+- Identity can register, logout, login, and open the profile page.
+
+Guidelines:
+
+- Do not depend on seeded database rows; create unique data inside the test.
+- Prefer `data-testid` for workflow controls that are hard to select reliably.
+- Keep E2E tests behind `RUN_E2E=1`.
+- Do not make headless the default local behavior.
+
+Failure Artifacts
+-----------------
+
+On E2E failure, screenshots are written to:
+
+```text
+TestResults/Playwright
+```
+
+Successful E2E runs do not create screenshots. `TestResults` is generated output and can be deleted.
+
+Troubleshooting
+---------------
+
+- Browser does not open: remove `E2E_HEADLESS` from the current shell.
+- Playwright says the browser executable is missing: rerun the Chromium install command above.
+- App is unreachable: run `docker compose ps` and check `https://localhost:7186/health`.
+- Port `7186` is already in use: stop the old app process/container or change `E2E_BASE_URL` to the port you are actually using.
+- HTTPS certificate warnings are ignored by the E2E context through `IgnoreHTTPSErrors`.
