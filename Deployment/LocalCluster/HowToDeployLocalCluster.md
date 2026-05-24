@@ -1001,13 +1001,13 @@ Script notes:
 ```text
 Changes: installs and registers the self-hosted GitHub Actions runner on node-main.
 Writes: /opt/actions-runner-<app_name> and a systemd service on node-main.
-Safe to rerun: yes; an existing configured runner is reused and its service is installed or started if needed.
+Safe to rerun: yes; an existing configured runner is reused and its service is installed or started if needed. An incomplete runner directory for this app is cleaned up and reconfigured.
 Success: GitHub Actions runner ready on node-main (<node-main-ip>): <runner-name> [localcluster,<runner-label>].
 ```
 
 This script uses GitHub CLI to create a runner registration token, SSHes to `node-main`, installs the runner under `/opt/actions-runner-<app_name>`, and starts its systemd service.
 
-On rerun, the script verifies the configured runner name and repository, starts the service if needed, and resets custom runner labels to exactly `localcluster` plus the app-specific label.
+On rerun, the script verifies the configured runner name and repository, starts the service if needed, and resets custom runner labels to exactly `localcluster` plus the app-specific label. If an earlier failed run left `/opt/actions-runner-<app_name>` with a broken `.runner` file, the script repairs that app-specific directory automatically. If the directory belongs to a different runner name or repository, it stops and asks for manual cleanup.
 
 The workflow targets:
 

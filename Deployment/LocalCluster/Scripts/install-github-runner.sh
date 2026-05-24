@@ -59,9 +59,54 @@ case "$REMOTE_ARCH" in
 esac
 
 RUNNER_CONFIGURED="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" "[[ -f '$RUNNER_DIR/.runner' ]] && echo yes || echo no")"
+RUNNER_NEEDS_RECONFIGURE="no"
 RUNNER_TOKEN=""
 RUNNER_DOWNLOAD_URL=""
-if [[ "$RUNNER_CONFIGURED" != "yes" ]]; then
+if [[ "$RUNNER_CONFIGURED" == "yes" ]]; then
+  RUNNER_STATE="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" "RUNNER_DIR='$RUNNER_DIR' EXPECTED_REPO_URL='$REPO_URL' EXPECTED_RUNNER_NAME='$RUNNER_NAME' python3 - <<'PY'
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+runner_dir = Path(os.environ['RUNNER_DIR'])
+runner_file = runner_dir / '.runner'
+expected_repo_url = os.environ['EXPECTED_REPO_URL']
+expected_runner_name = os.environ['EXPECTED_RUNNER_NAME']
+
+try:
+    payload = json.loads(runner_file.read_text(encoding='utf-8'))
+except Exception:
+    print('broken')
+    raise SystemExit(0)
+
+runner_name = payload.get('agentName') or ''
+repo_url = payload.get('gitHubUrl') or payload.get('serverUrl') or ''
+
+if not runner_name:
+    print('broken')
+elif runner_name != expected_runner_name:
+    print('wrong-name')
+elif repo_url and repo_url.rstrip('/') != expected_repo_url.rstrip('/'):
+    print('wrong-repo')
+else:
+    print('ok')
+PY
+")"
+  case "$RUNNER_STATE" in
+    ok) ;;
+    broken)
+      echo "runner in $RUNNER_DIR is incomplete; it will be cleaned up and reconfigured"
+      RUNNER_NEEDS_RECONFIGURE="yes"
+      ;;
+    wrong-name) fail "runner in $RUNNER_DIR has a different name than $RUNNER_NAME; remove or reconfigure it manually" ;;
+    wrong-repo) fail "runner in $RUNNER_DIR is configured for another repository; remove or reconfigure it manually" ;;
+    *) fail "unexpected runner state from node-main: $RUNNER_STATE" ;;
+  esac
+fi
+
+if [[ "$RUNNER_CONFIGURED" != "yes" || "$RUNNER_NEEDS_RECONFIGURE" == "yes" ]]; then
   RUNNER_TOKEN="$(gh api -X POST "repos/$REPO_NAME/actions/runners/registration-token" --jq .token)"
   RUNNER_TAG="$(gh release view --repo actions/runner --json tagName --jq .tagName)"
   RUNNER_VERSION="${RUNNER_TAG#v}"
@@ -75,9 +120,10 @@ RUNNER_LABELS_Q="$(printf '%q' "$RUNNER_LABELS")"
 RUNNER_DOWNLOAD_URL_Q="$(printf '%q' "$RUNNER_DOWNLOAD_URL")"
 RUNNER_TOKEN_Q="$(printf '%q' "$RUNNER_TOKEN")"
 RUNNER_CONFIGURED_Q="$(printf '%q' "$RUNNER_CONFIGURED")"
+RUNNER_NEEDS_RECONFIGURE_Q="$(printf '%q' "$RUNNER_NEEDS_RECONFIGURE")"
 
 ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" \
-  "REPO_URL=$REPO_URL_Q RUNNER_DIR=$RUNNER_DIR_Q RUNNER_NAME=$RUNNER_NAME_Q RUNNER_LABELS=$RUNNER_LABELS_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
+  "REPO_URL=$REPO_URL_Q RUNNER_DIR=$RUNNER_DIR_Q RUNNER_NAME=$RUNNER_NAME_Q RUNNER_LABELS=$RUNNER_LABELS_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q RUNNER_NEEDS_RECONFIGURE=$RUNNER_NEEDS_RECONFIGURE_Q bash -s" <<REMOTE
 set -euo pipefail
 RUNNER_TOKEN=$RUNNER_TOKEN_Q
 
@@ -87,7 +133,16 @@ sudo mkdir -p "$RUNNER_DIR"
 sudo chown deploy:deploy "$RUNNER_DIR"
 cd "$RUNNER_DIR"
 
-if [[ "$RUNNER_CONFIGURED" == "yes" && -f .runner ]]; then
+if [[ "$RUNNER_NEEDS_RECONFIGURE" == "yes" ]]; then
+  echo "Cleaning incomplete GitHub Actions runner directory: $RUNNER_DIR"
+  if [[ -f ./svc.sh ]]; then
+    sudo ./svc.sh stop || true
+    sudo ./svc.sh uninstall || true
+  fi
+  find "$RUNNER_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+fi
+
+if [[ "$RUNNER_CONFIGURED" == "yes" && "$RUNNER_NEEDS_RECONFIGURE" != "yes" && -f .runner ]]; then
   CONFIGURED_RUNNER_NAME="\$(python3 - <<'PY'
 from __future__ import annotations
 

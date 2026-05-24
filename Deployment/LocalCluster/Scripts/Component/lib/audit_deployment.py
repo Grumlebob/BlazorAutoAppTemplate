@@ -1088,6 +1088,8 @@ for needle, why in [
     ("actions/runners/$RUNNER_ID/labels", "runner label repair API call"),
     ("check-github-runner.sh", "post-install runner verification"),
     ("agentName", "configured runner name verification"),
+    ("RUNNER_NEEDS_RECONFIGURE", "incomplete runner reconfiguration state"),
+    ("Cleaning incomplete GitHub Actions runner directory", "incomplete runner cleanup"),
     ("/opt/actions-runner-${APP_NAME}", "app-specific runner directory"),
     ("sudo ./svc.sh install deploy", "runner service install as deploy"),
 ]:
