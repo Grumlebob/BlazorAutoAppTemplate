@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
 ENV_EXAMPLE_PATH = ROOT / ".env.example"
 CERT_PATH = ROOT / "docker" / "https" / "aspnetapp.pfx"
+GLOBAL_JSON_PATH = ROOT / "global.json"
 
 REQUIRED_KEYS = [
     "App__Url",
@@ -23,7 +25,6 @@ REQUIRED_KEYS = [
     "Database__Username",
     "Database__Password",
     "Redis__Configuration",
-    "Storage__HullImages__RootPath",
     "ACCEPT_EULA",
     "SEQ_FIRSTRUN_ADMINPASSWORD",
 ]
@@ -73,6 +74,38 @@ def run_check(command: list[str], description: str) -> None:
         fail(description)
 
 
+def check_dotnet_sdk_version() -> None:
+    if not GLOBAL_JSON_PATH.exists():
+        warn("global.json missing; dotnet SDK version is not pinned")
+        return
+
+    try:
+        required_version = json.loads(GLOBAL_JSON_PATH.read_text(encoding="utf-8"))["sdk"]["version"]
+    except (json.JSONDecodeError, KeyError):
+        fail("global.json does not contain sdk.version")
+        return
+
+    try:
+        actual_version = subprocess.run(
+            ["dotnet", "--version"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        fail("dotnet SDK version check failed")
+        return
+
+    required_major = required_version.split(".", 1)[0]
+    actual_major = actual_version.split(".", 1)[0]
+    if actual_major != required_major:
+        fail(f"dotnet SDK major version is {actual_version}; expected {required_version} from global.json")
+        return
+
+    ok(f"dotnet SDK {actual_version} satisfies global.json {required_version}")
+
+
 def main() -> int:
     print("local development status")
     print()
@@ -113,6 +146,7 @@ def main() -> int:
 
     if command_exists("dotnet"):
         ok("dotnet command available")
+        check_dotnet_sdk_version()
     else:
         fail("dotnet command missing")
 

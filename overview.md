@@ -9,19 +9,24 @@ This solution enables Auto render mode across pages without duplicating UI code 
     - `Movie` entity
     - Request/Response DTOs: GetMovies, GetMovie, CreateMovie, UpdateMovie, DeleteMovie
     - `IMoviesApi` interface: unified Movies operations
+  - `BlazorAutoApp.Core/Features/IdentityShowcase`
+    - Request/Response DTOs for public, secure, and admin identity showcase calls
+    - `IIdentityShowcaseApi` interface: unified IdentityShowcase operations
 
 - Server (SSR/prerender):
   - EF Core with PostgreSQL via `AppDbContext`
   - `MoviesServerService` implements `IMoviesApi` using EF Core (no HTTP)
-  - Minimal API endpoints call `IMoviesApi`
-  - DI in `Program.cs`: `AddScoped<IMoviesApi, MoviesServerService>()`
+  - `IdentityShowcaseServerService` implements `IIdentityShowcaseApi` using ASP.NET Core Identity context
+  - Minimal API endpoints call Core feature interfaces
+  - DI in feature `Composition.cs` files registers server implementations
 
 - Client (WASM after hydration):
   - `MoviesClientService` implements `IMoviesApi` using `HttpClient` against `/api/movies`
-  - DI in Client `Program.cs`: `AddScoped<IMoviesApi, MoviesClientService>()`
+  - `IdentityShowcaseClientService` implements `IIdentityShowcaseApi` using `HttpClient` against `/api/identity-showcase`
+  - DI in Client `Program.cs` registers client implementations
 
 - UI (Client project):
-  - Pages inject `IMoviesApi` and are agnostic to hosting model
+  - Pages inject Core feature interfaces and are agnostic to hosting model
   - Auto render mode already enabled in Server `App.razor`:
     - `<HeadOutlet @rendermode="InteractiveAuto" />`
     - `<Routes @rendermode="InteractiveAuto" />`
@@ -31,14 +36,14 @@ This solution enables Auto render mode across pages without duplicating UI code 
 Goal: Avoid double fetching during prerender → hydrate. Use `PersistentComponentState` to serialize server-fetched data into the HTML payload and read it on the client side on first render.
 
 Pattern applied to:
-- List page: `BlazorAutoApp.Client/Pages/Movies/Index.razor`
+- List page: `BlazorAutoApp.Client/Features/Movies/Pages/Index.razor`
   - On initialize: try `AppState.TryTakeFromJson<GetMoviesResponse>(key, out var cached)`; if present, use it.
   - If not present, fetch via `IMoviesApi` and register persist: `AppState.RegisterOnPersisting(() => AppState.PersistAsJson(key, response))`.
 
-- Edit page: `BlazorAutoApp.Client/Pages/Movies/Edit.razor`
+- Edit page: `BlazorAutoApp.Client/Features/Movies/Pages/Edit.razor`
   - Same approach keyed by movie id, storing a `GetMovieResponse` snapshot.
 
-- Details page: `BlazorAutoApp.Client/Pages/Movies/Details.razor`
+- Details page: `BlazorAutoApp.Client/Features/Movies/Pages/Details.razor`
   - Route: `/movies/{Id:int}`
   - Uses the same SSR state pattern with a per-id cache key to avoid re-fetching on hydrate.
 
@@ -74,9 +79,9 @@ When to use:
 This ensures SSR provides data to the client on first interactive render without a second HTTP call.
 
 Example implementations in this repo:
-- List: `Client/Pages/Movies/Index.razor` (caches `GetMoviesResponse`)
-- Details: `Client/Pages/Movies/Details.razor` (caches `GetMovieResponse` per id)
-- Edit: `Client/Pages/Movies/Edit.razor` (preloads and caches `GetMovieResponse` per id)
+- List/home: `Client/Features/Movies/Pages/Index.razor` (caches `GetMoviesResponse`; routes `/` and `/movies`)
+- Details: `Client/Features/Movies/Pages/Details.razor` (caches `GetMovieResponse` per id)
+- Edit: `Client/Features/Movies/Pages/Edit.razor` (preloads and caches `GetMovieResponse` per id)
 
 ## Notes / Tips
 
@@ -94,7 +99,7 @@ Example implementations in this repo:
 - Apply to database:
   - `dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp`
 - Runtime apply: `Program.cs` calls `db.Database.Migrate()` on startup.
-- EF CLI: updated to `9.0.8` to match runtime.
+- EF CLI: pinned to `10.0.8` in `.config/dotnet-tools.json` to match runtime.
 
 ## Architecture Tests
 
@@ -146,7 +151,7 @@ Example implementations in this repo:
     - redis://redis:6379
     - This URL works inside the compose network (RedisInsight → redis).
     - Alternative from host (outside compose network): redis://localhost:6379
-  - You should see keys such as Movies cache entries and TUS correlation mappings (from `ITusResultRegistry`).
+  - You should see keys such as Movies cache entries.
 
 Notes:
 - The app reads `Redis:Configuration` from configuration (default `localhost:6379`). When running via compose locally, that points to the `redis` container.
@@ -208,10 +213,10 @@ Browser ── HTTP ─▶ Server (SSR)
 
 # Tailwind
 
-go to BlazorAutoApp\BlazorAutoApp.Client
+go to BlazorAutoApp.Client
 run:
 
-First time: npm install tailwindcss @tailwindcss/cli
+First time: npm install
 For future building: npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch
 
 
@@ -219,10 +224,10 @@ For future building: npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAuto
 
 In appsettings.json set the port to your Postgres usually Port=5433 or Port=5432
 
-Add migration, From project source root:
-dotnet ef migrations add AddVesselAndAiFields --project BlazorAutoApp --startup-project BlazorAutoApp
+Add migration, from project source root:
+dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations
 
-Apply migrations,From project source root:
+Apply migrations, from project source root:
 dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
 
 
@@ -230,28 +235,3 @@ dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoAp
 
 Go to: docker/create-dev-cert.ps1 
 run it.
-## Inspections Feature (Flow + HullImages)
-
-- Structure:
-  - All server HullImages code lives under `BlazorAutoApp/Features/Inspections/HullImages` (endpoints, storage, TUS, EF config).
-  - Flow server code under `BlazorAutoApp/Features/Inspections/InspectionFlow`.
-
-- Client UI:
-  - `BlazorAutoApp.Client/Pages/Inspection/Flow.razor` auto‑saves vessel name, inspection type and selected vessel parts (no Save button).
-  - Per‑part uploads use TUS with a queue:
-    - First clicked upload starts immediately and shows green progress.
-    - Additional parts show “Upload image to queue”; each part runs when prior finishes.
-  - Images show a small thumbnail and “AI Score: X.XX” beneath the filename. The score is a temporary placeholder until a backend scorer populates it.
-  - Details page for images (`/hull-images/{id}`) remains available. Back link respects `?return=` when linked from Flow.
-
-- APIs and DI:
-  - Passwordless: no verification/start step endpoint; a new inspection can be opened directly and is bootstrapped on first save.
-  - Flow upsert endpoint `/api/inspection-flow/{id}` diffs vessel parts by PartCode to preserve existing `InspectionVesselPart` ids (keeps linked images).
-
-- Tests:
-  - Integration tests cover: flow upsert (positive/negative), hull image upload and filtering by vessel part, and TUS upload path.
-
-Inspections endpoints (selected):
- - `/api/inspection-flow/{id}` (GET/POST): get/upsert flow; upsert preserves part ids by `PartCode`.
-- `/api/hull-images` (GET): supports filter by `VesselPartId`.
-- `/api/hull-images/tus` (POST + PATCH): TUS uploads; metadata supports `correlationId` and `vesselPartId`.

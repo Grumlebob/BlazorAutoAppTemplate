@@ -29,7 +29,8 @@ Do not edit `docker-compose.yml` for normal local values. `docker-compose.yml` r
 ## Prerequisites
 
 - Docker Desktop running.
-- .NET SDK 9.
+- .NET SDK 10.
+- Node.js 20 or newer if you rebuild Tailwind CSS locally.
 - Python available as `python`.
 - PowerShell available as `pwsh` or Windows PowerShell.
 

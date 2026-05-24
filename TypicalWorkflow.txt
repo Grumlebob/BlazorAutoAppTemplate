@@ -29,6 +29,6 @@ Note: ensure DB port in config/env matches your setup (usually 5432 or 5433).
 Run from `BlazorAutoApp.Client`:
 
 - First time only:
-  - `npm install tailwindcss @tailwindcss/cli`
+  - `npm install`
 - Watch/build CSS:
   - `npx @tailwindcss/cli -i .\Styles\input.css -o ..\BlazorAutoApp\wwwroot\tailwind.css --watch`

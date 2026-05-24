@@ -48,10 +48,10 @@ This plan defines endpoint abuse protection for this app so traffic spikes, bots
 - Suggested start: burst `20`, refill `1/sec`.
 - Queue: `0`.
 
-## 4) Heavy upload endpoints (TUS upload)
-- Policy: Concurrency limiter + request rate cap.
-- Suggested start: max concurrent uploads `2` per user/IP.
-- Separate strict limits for create/finalize endpoints.
+## 4) Expensive read endpoints
+- Policy: Stricter sliding window by user id or IP.
+- Suggested start: `20 requests / minute / user/IP`.
+- Keep these endpoints cached/indexed before tightening limits.
 
 ## 5) Admin-only endpoints
 - Policy: Higher per-user limits than public, still bounded.
@@ -60,7 +60,7 @@ This plan defines endpoint abuse protection for this app so traffic spikes, bots
 
 1. Add and configure rate limiter in `Program.cs`:
    - `builder.Services.AddRateLimiter(...)`
-   - Define named policies: `public-read`, `auth`, `mutating`, `uploads`, `admin`.
+   - Define named policies: `public-read`, `auth`, `mutating`, `expensive`, `admin`.
 2. Partition keys:
    - Authenticated: `User.Identity.Name` or user id claim.
    - Anonymous: forwarded client IP.

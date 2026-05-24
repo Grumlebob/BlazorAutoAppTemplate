@@ -10,8 +10,8 @@ Ship is a Blazor Web App using Interactive Auto render mode, EF Core with Postgr
 
 ## Tech Stack
 
-- .NET 9 Blazor Web App with `InteractiveAuto`.
-- EF Core 9 and Npgsql for PostgreSQL.
+- .NET 10 Blazor Web App with `InteractiveAuto`.
+- EF Core 10 and Npgsql for PostgreSQL.
 - ASP.NET Core Identity on the application `AppDbContext`.
 - Redis for HybridCache and production Data Protection keys.
 - Serilog console logging and Seq in local Docker.

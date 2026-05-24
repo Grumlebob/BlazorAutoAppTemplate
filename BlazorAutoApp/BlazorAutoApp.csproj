@@ -9,15 +9,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.8" />
-    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.2">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="NuGet.Packaging" Version="7.6.0">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="NuGet.Protocol" Version="7.6.0">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <ProjectReference Include="..\BlazorAutoApp.Client\BlazorAutoApp.Client.csproj" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.8" />
     <ProjectReference Include="..\BlazorAutoApp.Core\BlazorAutoApp.Core.csproj" />

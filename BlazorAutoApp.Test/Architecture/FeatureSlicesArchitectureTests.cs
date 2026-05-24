@@ -80,6 +80,16 @@ public class FeatureSlicesArchitectureTests
     }
 
     [Fact]
+    public void ClientPages_LiveInside_FeatureSlices()
+    {
+        var root = SourceSearch.GetRepoRoot();
+        var rootPagesFolder = Path.Combine(root, "BlazorAutoApp.Client", "Pages");
+
+        Assert.False(Directory.Exists(rootPagesFolder),
+            "Client pages must live under BlazorAutoApp.Client/Features/{Feature}/Pages, not BlazorAutoApp.Client/Pages.");
+    }
+
+    [Fact]
     public void EachCoreRequest_HasMatchingFeatureTestClass()
     {
         var requests = ArchitectureAssemblies.Core.GetTypes()
