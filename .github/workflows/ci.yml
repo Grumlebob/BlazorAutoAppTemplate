@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload migration bundle
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.APP_NAME }}-migrate-linux-x64
           path: artifacts/migrations/${{ env.MIGRATION_BUNDLE_NAME }}
@@ -80,7 +80,7 @@ jobs:
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
