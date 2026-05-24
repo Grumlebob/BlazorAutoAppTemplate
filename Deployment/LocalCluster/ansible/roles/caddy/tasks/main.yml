@@ -12,7 +12,7 @@
 
 - name: Add Caddy apt key
   ansible.builtin.shell: |
-    set -eu
+    set -euo pipefail
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   args:
     executable: /bin/bash

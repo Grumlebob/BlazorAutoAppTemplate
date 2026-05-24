@@ -463,6 +463,26 @@ require_contains(
 )
 require_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared_tunnel_token_marker_missing",
+    "Cloudflare missing marker recovery",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Compute Cloudflare tunnel token hash",
+    "Cloudflare token hash computed before dependent facts",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared_tunnel_token_hash_mismatch",
+    "Cloudflare token mismatch detection",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "cloudflared_tunnel_token_changed | bool",
+    "Cloudflare token change condition coerced to bool",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared service uninstall",
     "Cloudflare tunnel token rotation handling",
 )
@@ -476,6 +496,13 @@ require_not_contains(
     "cloudflared_deb_arch",
     "cloudflared multi-architecture package mapping",
 )
+cloudflared_tasks = read("Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml")
+cloudflared_refuse_match = re.search(
+    r"- name: Refuse accidental Cloudflare tunnel token replacement[\s\S]+?(?=\n- name:)",
+    cloudflared_tasks,
+)
+if cloudflared_refuse_match and "cloudflared_tunnel_token_changed" in cloudflared_refuse_match.group(0):
+    fail("Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml: missing marker must recover, only hash mismatch should refuse token replacement")
 
 
 ansible_cfg = read("Deployment/LocalCluster/ansible/ansible.cfg")
@@ -620,6 +647,11 @@ require_contains(
     "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
     "creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
     "idempotent Caddy key installation",
+)
+require_contains(
+    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "set -euo pipefail",
+    "strict Caddy key installation shell",
 )
 
 for needle, why in [
@@ -782,6 +814,7 @@ for path, checks in {
     "Deployment/LocalCluster/ansible/roles/firewall/tasks/main.yml": [
         ("ufw allow OpenSSH", "SSH firewall rule"),
         ("{{ app_name }}-docker-user-firewall.service", "Docker published-port firewall service"),
+        ("Apply Docker published-port firewall rules", "Docker published-port firewall rule reapplication"),
         ("groups[\"node_db\"]", "node_db firewall targeting"),
         ("to any port {{ postgres_port }}", "PostgreSQL firewall port"),
         ("to any port {{ redis_port }}", "Redis firewall port"),

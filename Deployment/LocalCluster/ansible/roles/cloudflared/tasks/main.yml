@@ -54,13 +54,26 @@
   when: cloudflared_token_marker.stat.exists
   no_log: true
 
-- name: Decide whether Cloudflare tunnel service needs reinstall
+- name: Compute Cloudflare tunnel token hash
   ansible.builtin.set_fact:
     cloudflared_tunnel_token_hash: "{{ vault_cloudflare_tunnel_token | hash('sha256') }}"
+  no_log: true
+
+- name: Decide whether Cloudflare tunnel service needs reinstall
+  ansible.builtin.set_fact:
+    cloudflared_tunnel_token_marker_missing: "{{ not cloudflared_token_marker.stat.exists }}"
+    cloudflared_tunnel_token_hash_mismatch: >-
+      {{
+        cloudflared_token_marker.stat.exists
+        and ((cloudflared_token_marker_content.content | default('') | b64decode | trim) != cloudflared_tunnel_token_hash)
+      }}
     cloudflared_tunnel_token_changed: >-
       {{
         (not cloudflared_token_marker.stat.exists)
-        or ((cloudflared_token_marker_content.content | b64decode | trim) != (vault_cloudflare_tunnel_token | hash('sha256')))
+        or (
+          cloudflared_token_marker.stat.exists
+          and ((cloudflared_token_marker_content.content | default('') | b64decode | trim) != cloudflared_tunnel_token_hash)
+        )
       }}
   no_log: true
 
@@ -73,22 +86,22 @@
       only when intentionally rotating the cluster tunnel.
   when:
     - cloudflared_service.stat.exists
-    - cloudflared_tunnel_token_changed
+    - cloudflared_tunnel_token_hash_mismatch | bool
     - not (cloudflared_allow_token_rotation | default(false) | bool)
 
-- name: Uninstall cloudflared service when tunnel token changed
+- name: Uninstall cloudflared service when token marker is missing or changed
   ansible.builtin.command: cloudflared service uninstall
   register: cloudflared_service_uninstall
   changed_when: cloudflared_service_uninstall.rc == 0
   failed_when: false
   when:
     - cloudflared_service.stat.exists
-    - cloudflared_tunnel_token_changed
+    - cloudflared_tunnel_token_changed | bool
 
 - name: Install cloudflared service with tunnel token
   ansible.builtin.command: "cloudflared service install {{ vault_cloudflare_tunnel_token }}"
   no_log: true
-  when: (not cloudflared_service.stat.exists) or cloudflared_tunnel_token_changed
+  when: (not cloudflared_service.stat.exists) or (cloudflared_tunnel_token_changed | bool)
 
 - name: Store Cloudflare tunnel token marker
   ansible.builtin.copy:
