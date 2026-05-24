@@ -1,0 +1,43 @@
+@using Microsoft.AspNetCore.Components
+
+<div class="rounded border border-gray-300 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm" data-testid="render-mode-badge">
+    <div class="font-medium text-gray-900">Render mode</div>
+    <div>Configured: <span data-testid="configured-render-mode">@ConfiguredMode</span></div>
+    <div>Assigned: <span data-testid="assigned-render-mode">@AssignedModeName</span></div>
+    <div>Current: <span data-testid="current-renderer">@CurrentRendererName</span></div>
+    <div>Interactive: <span data-testid="is-interactive">@InteractiveText</span></div>
+</div>
+
+@code {
+    [Parameter]
+    public IComponentRenderMode? Assigned { get; set; }
+
+    [Parameter]
+    public string ConfiguredMode { get; set; } = "Interactive Auto";
+
+    private string AssignedModeName => FormatRenderMode(Assigned ?? AssignedRenderMode) ?? "Static";
+
+    private string CurrentRendererName =>
+        RendererInfo.Name == "Static" && ConfiguredMode != "Static"
+            ? "Static prerender"
+            : RendererInfo.Name;
+
+    private string InteractiveText => RendererInfo.IsInteractive ? "yes" : "no";
+
+    private static string? FormatRenderMode(IComponentRenderMode? mode)
+    {
+        if (mode is null)
+        {
+            return null;
+        }
+
+        var name = mode.GetType().Name.Replace("RenderMode", "", StringComparison.Ordinal);
+        return name switch
+        {
+            "InteractiveAuto" => "Interactive Auto",
+            "InteractiveServer" => "Interactive Server",
+            "InteractiveWebAssembly" => "Interactive WebAssembly",
+            _ => name
+        };
+    }
+}

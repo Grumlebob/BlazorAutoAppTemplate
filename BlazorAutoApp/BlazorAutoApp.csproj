@@ -2,12 +2,13 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.8" />
     <ProjectReference Include="..\BlazorAutoApp.Client\BlazorAutoApp.Client.csproj" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.8" />

@@ -9,6 +9,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files first for better layer caching
+COPY global.json ./
 COPY BlazorAutoApp/BlazorAutoApp.csproj BlazorAutoApp/
 COPY BlazorAutoApp.Client/BlazorAutoApp.Client.csproj BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/BlazorAutoApp.Core.csproj BlazorAutoApp.Core/

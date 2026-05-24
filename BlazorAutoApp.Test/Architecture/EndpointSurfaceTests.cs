@@ -26,16 +26,6 @@ public class EndpointSurfaceTests(WebAppFactory factory)
         Assert.True(Has(endpoints, "DELETE", "/api/movies/{id:int}"));
     }
 
-    [Fact]
-    public void IdentityShowcaseEndpoints_Exist_With_Expected_Routes()
-    {
-        var endpoints = RouteEndpoints();
-
-        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/public"));
-        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/secure"));
-        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/admin-probe"));
-    }
-
     private List<RouteEndpoint> RouteEndpoints()
     {
         var dataSource = _services.GetRequiredService<EndpointDataSource>();

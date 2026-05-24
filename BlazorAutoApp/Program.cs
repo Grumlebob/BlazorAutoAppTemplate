@@ -1,5 +1,6 @@
 using ClientImports = BlazorAutoApp.Client._Imports;
-using BlazorAutoApp.Features.IdentityShowcase;
+using BlazorAutoApp.Features.Login.Account;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
@@ -66,7 +67,12 @@ builder.Host.UseSerilog((ctx, _, config) =>
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
-    .AddInteractiveWebAssemblyComponents();
+    .AddInteractiveWebAssemblyComponents()
+    .AddAuthenticationStateSerialization();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<IdentityRedirectManager>();
+builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
 // Redis (distributed cache) + Hybrid cache
 var redisConn = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
@@ -158,14 +164,12 @@ void ConfigureDbContext(DbContextOptionsBuilder options)
 
 builder.Services.AddDbContext<AppDbContext>(ConfigureDbContext, optionsLifetime: ServiceLifetime.Singleton);
 builder.Services.AddDbContextFactory<AppDbContext>(ConfigureDbContext);
-builder.Services.AddRazorPages();
 
 var healthChecksBuilder = builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
 
 builder.Services
-    .AddMoviesFeature(builder.Configuration)
-    .AddIdentityShowcaseFeature();
+    .AddMoviesFeature(builder.Configuration);
 
 if (hasRedis)
 {
@@ -181,25 +185,37 @@ healthChecksBuilder.AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);
 builder.Services.AddHybridCache();
 
 
+builder.Services.AddAuthorization();
+
+var authenticationBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+});
+authenticationBuilder.AddIdentityCookies();
+
 builder.Services
-    .AddDefaultIdentity<ApplicationUser>(options =>
+    .AddIdentityCore<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = false;
+        options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>();
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
 var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
 {
-    builder.Services
-        .AddAuthentication()
-        .AddGoogle(options =>
-        {
-            options.ClientId = googleClientId;
-            options.ClientSecret = googleClientSecret;
-        });
+    authenticationBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+    });
 }
 
 var app = builder.Build();
@@ -240,6 +256,10 @@ else
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
+app.UseWhen(ShouldRenderStatusCodePage, branch =>
+{
+    branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+});
 
 app.UseHttpsRedirection();
 
@@ -298,7 +318,10 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(ClientImports).Assembly);
-app.MapRazorPages();
+app.MapAdditionalIdentityEndpoints();
+app.MapGet("/Identity/Account/Login", (string? returnUrl) => Results.Redirect(BuildIdentityRedirect("Account/Login", returnUrl)));
+app.MapGet("/Identity/Account/Register", (string? returnUrl) => Results.Redirect(BuildIdentityRedirect("Account/Register", returnUrl)));
+app.MapGet("/Identity/Account/Manage", () => Results.Redirect("/Account/Manage"));
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live")
@@ -314,7 +337,26 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 // Minimal API endpoints
 app.MapMoviesFeature();
-app.MapIdentityShowcaseFeature();
+
+static string BuildIdentityRedirect(string path, string? returnUrl)
+{
+    if (string.IsNullOrWhiteSpace(returnUrl))
+    {
+        return $"/{path}";
+    }
+
+    return $"/{path}?returnUrl={Uri.EscapeDataString(returnUrl)}";
+}
+
+static bool ShouldRenderStatusCodePage(HttpContext context)
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        return false;
+    }
+
+    return HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method);
+}
 
 async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, ILogger<Program> logger, string roleName)
 {

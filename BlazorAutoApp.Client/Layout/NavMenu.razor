@@ -1,76 +1,93 @@
+@implements IDisposable
+
 @inject NavigationManager Navigation
 
 <div class="max-h-16 h-16 bg-stone-50 text-gray-900 border-b border-gray-200 flex justify-between items-center px-4 w-full">
-
     <a href="/" class="overflow-hidden flex-shrink-0 w-fit pl-2">
-        <img src="grumlebet_gb_logo.svg" alt="Logo" class="min-h-6 h-6 w-auto lg:min-h-12 lg:h-12 max-w-none"/>
+        <img src="grumlebet_gb_logo.svg" alt="Logo" class="min-h-6 h-6 w-auto lg:min-h-12 lg:h-12 max-w-none" />
     </a>
-    
 
     <div class="flex items-center space-x-4">
-        <button @onclick="ToggleMenu" class="md:hidden">
+        <button @onclick="ToggleMenu" class="md:hidden" type="button" aria-label="Toggle menu">
             <svg class="h-6 w-6 fill-current" viewBox="0 0 24 24">
                 <path fill-rule="evenodd"
-                      d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2z"/>
+                      d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z" />
             </svg>
         </button>
 
         <div class="hidden md:flex items-center space-x-4">
             <NavLink class="md:px-4" href="/" Match="NavLinkMatch.All">Movies</NavLink>
-            <NavLink class="md:px-4" href="/identity-showcase">Identity Showcase</NavLink>
-            <button type="button"
-                    class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100"
-                    @onclick="GoToAccount">
-                Account
-            </button>
-            <button type="button"
-                    class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700"
-                    @onclick="GoToLogin">
-                Login
-            </button>
+            <AuthorizeView>
+                <Authorized>
+                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@_currentUrl" />
+                        <button type="submit" class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700">Logout</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Register">Register</a>
+                    <a class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
+                </NotAuthorized>
+            </AuthorizeView>
         </div>
-        
     </div>
 </div>
 
-
 @{
-var menuVisibleClass = _menuVisible ? "" : "hidden";
+    var menuVisibleClass = _menuVisible ? "" : "hidden";
 }
 
 <ul class="@($"flex flex-col {menuVisibleClass} bg-stone-50 border-b border-gray-200 text-gray-900 px-4 py-2 md:hidden w-full")">
     <NavLink class="py-2" href="/" Match="NavLinkMatch.All">Movies</NavLink>
-    <NavLink class="py-2" href="/identity-showcase">Identity Showcase</NavLink>
-    <li class="py-2">
-        <button type="button"
-                class="w-full rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100"
-                @onclick="GoToAccount">
-            Account
-        </button>
-    </li>
-    <li class="py-2">
-        <button type="button"
-                class="w-full rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700"
-                @onclick="GoToLogin">
-            Login
-        </button>
-    </li>
+    <AuthorizeView>
+        <Authorized>
+            <li class="py-2">
+                <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+            </li>
+            <li class="py-2">
+                <form action="Account/Logout" method="post">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="@_currentUrl" />
+                    <button type="submit" class="w-full rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700">Logout</button>
+                </form>
+            </li>
+        </Authorized>
+        <NotAuthorized>
+            <li class="py-2">
+                <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Register">Register</a>
+            </li>
+            <li class="py-2">
+                <a class="block rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
+            </li>
+        </NotAuthorized>
+    </AuthorizeView>
 </ul>
 
 @code {
-private bool _menuVisible = false;
+    private bool _menuVisible;
+    private string? _currentUrl;
 
-private void ToggleMenu() {
-_menuVisible = !_menuVisible;
-}
+    protected override void OnInitialized()
+    {
+        _currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.LocationChanged += OnLocationChanged;
+    }
 
-private void GoToLogin()
-{
-    Navigation.NavigateTo("/Identity/Account/Login", forceLoad: true);
-}
+    private void ToggleMenu()
+    {
+        _menuVisible = !_menuVisible;
+    }
 
-private void GoToAccount()
-{
-    Navigation.NavigateTo("/Identity/Account/Manage", forceLoad: true);
-}
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _currentUrl = Navigation.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 }

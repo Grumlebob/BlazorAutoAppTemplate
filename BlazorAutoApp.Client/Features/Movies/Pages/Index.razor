@@ -2,16 +2,15 @@
 @page "/movies"
 
 @inject IMoviesApi Movies
-@inject NavigationManager Nav
-@inject PersistentComponentState AppState
 
 <PageTitle>Movies</PageTitle>
 
-<h1 class="text-2xl font-semibold mb-2">Movies</h1>
+<div class="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <h1 class="text-2xl font-semibold">Movies</h1>
+    <RenderModeBadge Assigned="AssignedRenderMode" ConfiguredMode="Interactive Auto" />
+</div>
 
-<p class="text-sm text-gray-500 mb-3">rendermode: @RendererInfo.Name</p>
-
-<button class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700" @onclick="GoToCreate">Add Movie</button>
+<a data-testid="add-movie" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700" href="/movies/create">Add Movie</a>
 
 @if (_loading)
 {
@@ -34,16 +33,16 @@ else
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-            @foreach (var m in _movies)
+            @foreach (var m in MoviesState ?? [])
             {
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50" data-testid="@($"movie-row-{m.Id}")">
                     <td class="px-3 py-2 text-gray-900">@m.Title</td>
                     <td class="px-3 py-2 text-gray-900">@m.Director</td>
                     <td class="px-3 py-2 text-gray-900">@m.Rating</td>
                     <td class="px-3 py-2">
-                        <a class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 mr-2" href="@($"/movies/{m.Id}")">View</a>
-                        <button class="inline-flex items-center rounded-md border border-gray-400 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 mr-2" @onclick="() => GoToEdit(m.Id)">Edit</button>
-                        <button class="inline-flex items-center rounded-md border border-red-600 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" @onclick="() => DeleteAsync(m.Id)">Delete</button>
+                        <a data-testid="movie-view" class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 mr-2" href="@($"/movies/{m.Id}")">View</a>
+                        <a data-testid="movie-edit" class="inline-flex items-center rounded-md border border-gray-400 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 mr-2" href="@($"/movies/edit/{m.Id}")">Edit</a>
+                        <button data-testid="movie-delete" class="inline-flex items-center rounded-md border border-red-600 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" @onclick="() => DeleteAsync(m.Id)">Delete</button>
                     </td>
                 </tr>
             }
@@ -55,23 +54,19 @@ else
 @code {
     private bool _loading = true;
     private string? _error;
-    private List<Movie> _movies = [];
-    private const string CacheKey = "Movies_Index_List";
+
+    [PersistentState(AllowUpdates = true)]
+    public List<Movie>? MoviesState { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        if (AppState.TryTakeFromJson<GetMoviesResponse>(CacheKey, out var cached) && cached is not null)
+        if (MoviesState is not null)
         {
-            _movies = cached.Movies ?? [];
             _loading = false;
             return;
         }
+
         await LoadAsync();
-        AppState.RegisterOnPersisting(async () =>
-        {
-            AppState.PersistAsJson(CacheKey, new GetMoviesResponse { Movies = _movies });
-            await Task.CompletedTask;
-        });
     }
 
     private async Task LoadAsync()
@@ -81,7 +76,7 @@ else
         try
         {
             var res = await Movies.GetAsync(new GetMoviesRequest());
-            _movies = res.Movies;
+            MoviesState = res.Movies;
         }
         catch (Exception ex)
         {
@@ -105,7 +100,4 @@ else
             _error = ex.Message;
         }
     }
-
-    private void GoToCreate() => Nav.NavigateTo("/movies/create");
-    private void GoToEdit(int id) => Nav.NavigateTo($"/movies/edit/{id}");
 }

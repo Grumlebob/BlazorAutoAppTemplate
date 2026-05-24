@@ -9,20 +9,16 @@ This solution enables Auto render mode across pages without duplicating UI code 
     - `Movie` entity
     - Request/Response DTOs: GetMovies, GetMovie, CreateMovie, UpdateMovie, DeleteMovie
     - `IMoviesApi` interface: unified Movies operations
-  - `BlazorAutoApp.Core/Features/IdentityShowcase`
-    - Request/Response DTOs for public, secure, and admin identity showcase calls
-    - `IIdentityShowcaseApi` interface: unified IdentityShowcase operations
 
 - Server (SSR/prerender):
   - EF Core with PostgreSQL via `AppDbContext`
   - `MoviesServerService` implements `IMoviesApi` using EF Core (no HTTP)
-  - `IdentityShowcaseServerService` implements `IIdentityShowcaseApi` using ASP.NET Core Identity context
   - Minimal API endpoints call Core feature interfaces
   - DI in feature `Composition.cs` files registers server implementations
+  - ASP.NET Core Identity handles authentication and account pages
 
 - Client (WASM after hydration):
   - `MoviesClientService` implements `IMoviesApi` using `HttpClient` against `/api/movies`
-  - `IdentityShowcaseClientService` implements `IIdentityShowcaseApi` using `HttpClient` against `/api/identity-showcase`
   - DI in Client `Program.cs` registers client implementations
 
 - UI (Client project):

@@ -34,12 +34,10 @@ Core defines shared feature contracts such as `IMoviesApi`. The server implement
 
 Pages depend on the Core contracts, so the same UI works during server prerender and after WASM hydration. Pages use `PersistentComponentState` to avoid duplicate fetches when transitioning from SSR to interactive rendering.
 
-Identity endpoints:
+Identity account pages:
 
 - Login: `/Identity/Account/Login`
 - Register: `/Identity/Account/Register`
-- Public showcase: `/api/identity-showcase/public`
-- Authorized showcase: `/api/identity-showcase/secure`
 
 ## CI And Deployment
 
