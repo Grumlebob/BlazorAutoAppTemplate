@@ -1,4 +1,6 @@
-using BlazorAutoApp.Core.Features.IdentityShowcase;
+using BlazorAutoApp.Core.Features.IdentityShowcase.Contracts;
+using BlazorAutoApp.Features.IdentityShowcase.Endpoints;
+using BlazorAutoApp.Features.IdentityShowcase.Services;
 
 namespace BlazorAutoApp.Features.IdentityShowcase;
 

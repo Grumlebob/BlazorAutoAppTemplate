@@ -1,4 +1,7 @@
-@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Contracts
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Domain
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.GetVesselPartDetails
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.UpsertVesselPartDetails
 @using System.ComponentModel.DataAnnotations
 @inject IVesselPartDetailsApi Api
 
@@ -142,10 +145,10 @@
     private string? _error;
     private string? _info;
 
-    [Inject] private BlazorAutoApp.Core.Features.Inspections.HullImages.IHullImagesApi HullApi { get; set; } = default!;
+    [Inject] private BlazorAutoApp.Core.Features.Inspections.HullImages.Contracts.IHullImagesApi HullApi { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
-    private List<BlazorAutoApp.Core.Features.Inspections.HullImages.HullImage> _images = new();
+    private List<BlazorAutoApp.Core.Features.Inspections.HullImages.Domain.HullImage> _images = new();
     private bool _uploading = false;
     private long _bytesUploaded = 0;
     private long _totalBytes = 0;
@@ -217,7 +220,7 @@
     {
         try
         {
-            var res = await HullApi.GetAsync(new BlazorAutoApp.Core.Features.Inspections.HullImages.GetHullImagesRequest { VesselPartId = VesselPartId });
+            var res = await HullApi.GetAsync(new BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImages.GetHullImagesRequest { VesselPartId = VesselPartId });
             _images = res.Items.ToList();
         }
         catch { _images = new(); }

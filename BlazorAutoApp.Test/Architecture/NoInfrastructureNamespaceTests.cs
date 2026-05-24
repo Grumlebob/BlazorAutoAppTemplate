@@ -1,6 +1,3 @@
-using BlazorAutoApp.Client.Features.Movies;
-using BlazorAutoApp.Core.Features.Movies;
-using BlazorAutoApp.Features.Movies;
 using System;
 using System.Linq;
 using Xunit;
@@ -12,8 +9,7 @@ public class NoInfrastructureNamespaceTests
     [Fact]
     public void ServerAssembly_HasNo_Infrastructure_Namespace()
     {
-        var server = typeof(MoviesServerService).Assembly;
-        var offendingTypes = server.GetTypes()
+        var offendingTypes = ArchitectureAssemblies.Server.GetTypes()
             .Where(t => t.Namespace != null && t.Namespace.Split('.').Contains("Infrastructure", StringComparer.Ordinal))
             .ToList();
 
@@ -31,8 +27,7 @@ public class NoInfrastructureNamespaceTests
     [Fact]
     public void ClientAssembly_HasNo_Infrastructure_Namespace()
     {
-        var client = typeof(MoviesClientService).Assembly;
-        var offendingTypes = client.GetTypes()
+        var offendingTypes = ArchitectureAssemblies.Client.GetTypes()
             .Where(t => t.Namespace != null && t.Namespace.Split('.').Contains("Infrastructure", StringComparer.Ordinal))
             .ToList();
 
@@ -50,8 +45,7 @@ public class NoInfrastructureNamespaceTests
     [Fact]
     public void CoreAssembly_HasNo_Infrastructure_Namespace()
     {
-        var core = typeof(IMoviesApi).Assembly;
-        var offendingTypes = core.GetTypes()
+        var offendingTypes = ArchitectureAssemblies.Core.GetTypes()
             .Where(t => t.Namespace != null && t.Namespace.Split('.').Contains("Infrastructure", StringComparer.Ordinal))
             .ToList();
 

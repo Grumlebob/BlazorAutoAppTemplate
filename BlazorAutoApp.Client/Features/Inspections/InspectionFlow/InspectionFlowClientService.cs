@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Contracts;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UseCases.GetInspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UseCases.UpsertInspectionFlow;
 
 namespace BlazorAutoApp.Client.Features.Inspections.InspectionFlow;
 

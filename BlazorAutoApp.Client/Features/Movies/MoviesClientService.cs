@@ -1,5 +1,10 @@
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.Movies;
+using BlazorAutoApp.Core.Features.Movies.Contracts;
+using BlazorAutoApp.Core.Features.Movies.UseCases.CreateMovie;
+using BlazorAutoApp.Core.Features.Movies.UseCases.DeleteMovie;
+using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
+using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
+using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 
 namespace BlazorAutoApp.Client.Features.Movies;
 

@@ -1,4 +1,6 @@
-using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Contracts;
+using BlazorAutoApp.Features.Inspections.InspectionFlow.Endpoints;
+using BlazorAutoApp.Features.Inspections.InspectionFlow.Services;
 
 namespace BlazorAutoApp.Features.Inspections.InspectionFlow;
 

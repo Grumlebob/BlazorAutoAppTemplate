@@ -1,6 +1,13 @@
 @page "/inspection/{Id:guid}/flow"
-@using BlazorAutoApp.Core.Features.Inspections.HullImages
-@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails
+@using BlazorAutoApp.Core.Features.Inspections.HullImages.Contracts
+@using BlazorAutoApp.Core.Features.Inspections.HullImages.Domain
+@using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.CreateHullImage
+@using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImage
+@using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImages
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Contracts
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Domain
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.GetVesselPartDetails
+@using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.UpsertVesselPartDetails
 
 <PageTitle>Inspection Flow</PageTitle>
 
@@ -10,7 +17,7 @@
         <div>
             <label class="block text-black mb-1">Inspection Type</label>
             <select class="border rounded w-full px-3 py-2 text-black" value="@_type" @onchange="OnTypeChanged">
-                @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>())
+                @foreach (var it in Enum.GetValues<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionType>())
                 {
                     <option value="@it">@it</option>
                 }
@@ -245,7 +252,7 @@
     private FlowAngle _angle = FlowAngle.Starboard;
 
     private string _vesselName = string.Empty;
-    private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType.GoProInspection;
+    private BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionType _type = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionType.GoProInspection;
     private HashSet<string> _selectedPartCodes = new(StringComparer.Ordinal);
     private HashSet<string> _partiallyCompletedPartCodes = new(StringComparer.Ordinal);
     private HashSet<string> _completedPartCodes = new(StringComparer.Ordinal);
@@ -299,7 +306,7 @@
     private Task OnTypeChanged(ChangeEventArgs e)
     {
         var s = e?.Value?.ToString();
-        if (!string.IsNullOrWhiteSpace(s) && Enum.TryParse<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionType>(s, out var t))
+        if (!string.IsNullOrWhiteSpace(s) && Enum.TryParse<BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionType>(s, out var t))
         {
             _type = t;
             return SaveFlowAsync();
@@ -473,7 +480,7 @@
         _error = null; _info = null;
         try
         {
-            var payload = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UpsertInspectionFlowRequest
+            var payload = new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.UseCases.UpsertInspectionFlow.UpsertInspectionFlowRequest
             {
                 Id = Id,
                 VesselName = _vesselName,
@@ -481,7 +488,7 @@
                 VesselParts = _selectedPartCodes.Select(code =>
                 {
                     var existing = _vesselParts.FirstOrDefault(v => string.Equals(v.PartCode, code, StringComparison.Ordinal));
-                    return new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionVesselPartDto
+                    return new BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Contracts.InspectionVesselPartDto
                     {
                         Id = existing?.Id,
                         PartCode = code

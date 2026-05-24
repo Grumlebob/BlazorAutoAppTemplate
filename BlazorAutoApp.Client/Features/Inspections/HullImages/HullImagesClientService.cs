@@ -1,6 +1,9 @@
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.Inspections.HullImages;
 using BlazorAutoApp.Client.Features.Inspections.HullImages.Http;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.Contracts;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.CreateHullImage;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImage;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImages;
 
 namespace BlazorAutoApp.Client.Features.Inspections.HullImages;
 

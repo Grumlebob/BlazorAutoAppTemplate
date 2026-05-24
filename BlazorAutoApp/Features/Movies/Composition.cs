@@ -1,4 +1,7 @@
-using BlazorAutoApp.Core.Features.Movies;
+using BlazorAutoApp.Core.Features.Movies.Contracts;
+using BlazorAutoApp.Features.Movies.Caching;
+using BlazorAutoApp.Features.Movies.Endpoints;
+using BlazorAutoApp.Features.Movies.Services;
 
 namespace BlazorAutoApp.Features.Movies;
 

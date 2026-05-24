@@ -1,4 +1,6 @@
-using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Contracts;
+using BlazorAutoApp.Features.Inspections.VesselPartDetails.Endpoints;
+using BlazorAutoApp.Features.Inspections.VesselPartDetails.Services;
 
 namespace BlazorAutoApp.Features.Inspections.VesselPartDetails;
 

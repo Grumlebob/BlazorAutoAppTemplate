@@ -1,6 +1,8 @@
-using BlazorAutoApp.Core.Features.Inspections.Inspection;
-using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
-using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using BlazorAutoApp.Core.Features.Movies.Domain;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.Domain;
+using BlazorAutoApp.Core.Features.Inspections.Inspection.Domain;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -105,15 +107,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         base.OnModelCreating(modelBuilder);
 
         // Apply per-feature configurations
-        modelBuilder.ApplyConfiguration(new Features.Movies.MovieEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.HullImages.HullImageEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.Inspection.InspectionEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionFlowEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.InspectionVesselPartEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.VesselPartDetailsEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.FoulingObservationEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.CoatingConditionEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.HullConditionEntityTypeConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.HullRatingEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Movies.Persistence.MovieEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.HullImages.Persistence.HullImageEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.Inspection.Persistence.InspectionEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.Persistence.InspectionFlowEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.InspectionFlow.Persistence.InspectionVesselPartEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.Persistence.VesselPartDetailsEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.Persistence.FoulingObservationEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.Persistence.CoatingConditionEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.Persistence.HullConditionEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Inspections.VesselPartDetails.Persistence.HullRatingEntityTypeConfiguration());
     }
 }

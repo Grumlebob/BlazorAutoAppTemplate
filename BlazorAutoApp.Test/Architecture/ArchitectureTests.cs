@@ -1,28 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using BlazorAutoApp.Client.Features.Movies;
-using BlazorAutoApp.Core.Features.Movies;
-using BlazorAutoApp.Features.Movies;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Architecture;
 
 public class ArchitectureTests
 {
+    private const string CoreFeaturePrefix = "BlazorAutoApp.Core.Features.";
+    private const string ServerFeaturePrefix = "BlazorAutoApp.Features.";
+    private const string ClientFeaturePrefix = "BlazorAutoApp.Client.Features.";
+
     [Fact]
     public void ForEachCoreApiInterface_HasServerAndClientImplementation()
     {
-        // Assemblies
-        var coreAssembly = typeof(IMoviesApi).Assembly;
-        var serverAssembly = typeof(MoviesServerService).Assembly;
-        var clientAssembly = typeof(MoviesClientService).Assembly;
-
-        // Convention: public interfaces in Core ending with 'Api'
-        var apiInterfaces = coreAssembly.GetTypes()
-            .Where(t => t.IsInterface && t.IsPublic && t.Name.EndsWith("Api", StringComparison.Ordinal))
-            .ToList();
+        var apiInterfaces = CoreApiInterfaces();
 
         Assert.NotEmpty(apiInterfaces);
 
@@ -30,9 +22,9 @@ public class ArchitectureTests
 
         foreach (var api in apiInterfaces)
         {
-            var serverCount = serverAssembly.GetTypes()
+            var serverCount = ArchitectureAssemblies.Server.GetTypes()
                 .Count(t => t.IsClass && !t.IsAbstract && api.IsAssignableFrom(t));
-            var clientCount = clientAssembly.GetTypes()
+            var clientCount = ArchitectureAssemblies.Client.GetTypes()
                 .Count(t => t.IsClass && !t.IsAbstract && api.IsAssignableFrom(t));
 
             if (serverCount != 1 || clientCount != 1)
@@ -50,13 +42,7 @@ public class ArchitectureTests
     [Fact]
     public void Implementations_LiveIn_FeatureNamespaces()
     {
-        var coreAssembly = typeof(IMoviesApi).Assembly;
-        var serverAssembly = typeof(MoviesServerService).Assembly;
-        var clientAssembly = typeof(MoviesClientService).Assembly;
-
-        var apiInterfaces = coreAssembly.GetTypes()
-            .Where(t => t.IsInterface && t.IsPublic && t.Name.EndsWith("Api", StringComparison.Ordinal))
-            .ToList();
+        var apiInterfaces = CoreApiInterfaces();
 
         Assert.NotEmpty(apiInterfaces);
 
@@ -64,26 +50,36 @@ public class ArchitectureTests
 
         foreach (var api in apiInterfaces)
         {
-            var serverImpls = serverAssembly.GetTypes()
+            var featurePath = GetFeaturePath(api);
+            if (featurePath is null)
+            {
+                failures.Add($"{api.FullName}: API interfaces must live under {CoreFeaturePrefix}{{Feature}}.Contracts");
+                continue;
+            }
+
+            var expectedServerPrefix = ServerFeaturePrefix + featurePath;
+            var expectedClientPrefix = ClientFeaturePrefix + featurePath;
+
+            var serverImpls = ArchitectureAssemblies.Server.GetTypes()
                 .Where(t => t.IsClass && !t.IsAbstract && api.IsAssignableFrom(t))
                 .ToList();
 
-            var clientImpls = clientAssembly.GetTypes()
+            var clientImpls = ArchitectureAssemblies.Client.GetTypes()
                 .Where(t => t.IsClass && !t.IsAbstract && api.IsAssignableFrom(t))
                 .ToList();
 
-            if (serverImpls.Any(t => t.Namespace is null || !t.Namespace.StartsWith("BlazorAutoApp.Features.", StringComparison.Ordinal)))
+            if (serverImpls.Any(t => t.Namespace is null || !t.Namespace.StartsWith(expectedServerPrefix, StringComparison.Ordinal)))
             {
                 var root = SourceSearch.GetRepoRoot();
                 var hints = serverImpls.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp", t));
-                failures.Add($"{api.FullName}: server implementations must live under BlazorAutoApp.Features.* (found: {string.Join(", ", serverImpls.Select(x => x.FullName))})\n  > " + string.Join("\n  > ", hints));
+                failures.Add($"{api.FullName}: server implementations must live under {expectedServerPrefix}.* (found: {string.Join(", ", serverImpls.Select(x => x.FullName))})\n  > " + string.Join("\n  > ", hints));
             }
 
-            if (clientImpls.Any(t => t.Namespace is null || !t.Namespace.StartsWith("BlazorAutoApp.Client.Features.", StringComparison.Ordinal)))
+            if (clientImpls.Any(t => t.Namespace is null || !t.Namespace.StartsWith(expectedClientPrefix, StringComparison.Ordinal)))
             {
                 var root = SourceSearch.GetRepoRoot();
                 var hints = clientImpls.SelectMany(t => SourceSearch.FindTypeHints(root, "BlazorAutoApp.Client", t));
-                failures.Add($"{api.FullName}: client implementations must live under BlazorAutoApp.Client.Features.* (found: {string.Join(", ", clientImpls.Select(x => x.FullName))})\n  > " + string.Join("\n  > ", hints));
+                failures.Add($"{api.FullName}: client implementations must live under {expectedClientPrefix}.* (found: {string.Join(", ", clientImpls.Select(x => x.FullName))})\n  > " + string.Join("\n  > ", hints));
             }
         }
 
@@ -93,13 +89,37 @@ public class ArchitectureTests
     [Fact]
     public void ClientAssembly_HasNo_ServiceNamespace()
     {
-        var clientAssembly = typeof(MoviesClientService).Assembly;
-        var offenders = clientAssembly.GetTypes()
+        var offenders = ArchitectureAssemblies.Client.GetTypes()
             .Where(t => t.Namespace is not null && t.Namespace.StartsWith("BlazorAutoApp.Client.Services", StringComparison.Ordinal))
             .Select(t => t.FullName)
             .OrderBy(x => x)
             .ToList();
 
         Assert.True(offenders.Count == 0, "Client service namespace is not allowed:\n" + string.Join("\n", offenders));
+    }
+
+    private static List<Type> CoreApiInterfaces()
+    {
+        return ArchitectureAssemblies.Core.GetTypes()
+            .Where(t => t.IsInterface && t.IsPublic && t.Name.EndsWith("Api", StringComparison.Ordinal))
+            .ToList();
+    }
+
+    private static string? GetFeaturePath(Type api)
+    {
+        if (api.Namespace is null || !api.Namespace.StartsWith(CoreFeaturePrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var relative = api.Namespace[CoreFeaturePrefix.Length..];
+        var parts = relative.Split('.');
+        var contractsIndex = Array.IndexOf(parts, "Contracts");
+        if (contractsIndex <= 0)
+        {
+            return null;
+        }
+
+        return string.Join('.', parts.Take(contractsIndex));
     }
 }

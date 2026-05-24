@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.IdentityShowcase;
+using BlazorAutoApp.Core.Features.IdentityShowcase.Contracts;
+using BlazorAutoApp.Core.Features.IdentityShowcase.UseCases.GetIdentityShowcaseAdminProbe;
+using BlazorAutoApp.Core.Features.IdentityShowcase.UseCases.GetPublicIdentityShowcase;
+using BlazorAutoApp.Core.Features.IdentityShowcase.UseCases.GetSecureIdentityShowcase;
 
 namespace BlazorAutoApp.Client.Features.IdentityShowcase;
 

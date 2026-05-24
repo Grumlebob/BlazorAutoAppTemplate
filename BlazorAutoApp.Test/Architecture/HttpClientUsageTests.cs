@@ -1,5 +1,3 @@
-using BlazorAutoApp.Client.Features.Movies;
-using BlazorAutoApp.Features.Movies;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,10 +41,9 @@ public class HttpClientUsageTests
     [Fact]
     public void ServerAssembly_HasNo_HttpClient_InjectionOrSurface()
     {
-        var server = typeof(MoviesServerService).Assembly;
         var offenders = new List<string>();
 
-        foreach (var t in server.GetTypes())
+        foreach (var t in ArchitectureAssemblies.Server.GetTypes())
         {
             // Fields
             foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
@@ -94,12 +91,11 @@ public class HttpClientUsageTests
     [Fact]
     public void BlazorComponents_DoNotInject_HttpClient()
     {
-        var client = typeof(MoviesClientService).Assembly;
         var offenders = new List<string>();
         var componentType = typeof(ComponentBase);
         const string injectAttrName = "InjectAttribute";
 
-        foreach (var t in client.GetTypes().Where(tt => componentType.IsAssignableFrom(tt)))
+        foreach (var t in ArchitectureAssemblies.Client.GetTypes().Where(tt => componentType.IsAssignableFrom(tt)))
         {
             foreach (var p in t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {

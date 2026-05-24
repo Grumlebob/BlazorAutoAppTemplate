@@ -17,26 +17,77 @@ public class EndpointSurfaceTests(WebAppFactory factory)
     [Fact]
     public void MoviesEndpoints_Exist_With_Expected_Routes()
     {
+        var endpoints = RouteEndpoints();
+
+        Assert.True(Has(endpoints, "GET", "/api/movies/", "/api/movies"));
+        Assert.True(Has(endpoints, "GET", "/api/movies/{id:int}"));
+        Assert.True(Has(endpoints, "POST", "/api/movies/", "/api/movies"));
+        Assert.True(Has(endpoints, "PUT", "/api/movies/{id:int}"));
+        Assert.True(Has(endpoints, "DELETE", "/api/movies/{id:int}"));
+    }
+
+    [Fact]
+    public void HullImagesEndpoints_Exist_With_Expected_Routes()
+    {
+        var endpoints = RouteEndpoints();
+
+        Assert.True(Has(endpoints, "GET", "/api/hull-images/", "/api/hull-images"));
+        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}"));
+        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}/original"));
+        Assert.True(Has(endpoints, "GET", "/api/hull-images/{id:int}/thumbnail/{size:int}"));
+        Assert.True(Has(endpoints, "GET", "/api/hull-images/tus/result"));
+        Assert.True(Has(endpoints, "POST", "/api/hull-images/metadata"));
+        Assert.True(Has(endpoints, "POST", "/api/hull-images/prune-missing"));
+        Assert.True(Has(endpoints, "DELETE", "/api/hull-images/{id:int}"));
+    }
+
+    [Fact]
+    public void InspectionFlowEndpoints_Exist_With_Expected_Routes()
+    {
+        var endpoints = RouteEndpoints();
+
+        Assert.True(Has(endpoints, "GET", "/api/inspection-flow/{id:guid}"));
+        Assert.True(Has(endpoints, "POST", "/api/inspection-flow/{id:guid}"));
+    }
+
+    [Fact]
+    public void VesselPartDetailsEndpoints_Exist_With_Expected_Routes()
+    {
+        var endpoints = RouteEndpoints();
+
+        Assert.True(Has(endpoints, "GET", "/api/vessel-part-details/{vesselPartId:int}"));
+        Assert.True(Has(endpoints, "PUT", "/api/vessel-part-details/{vesselPartId:int}"));
+    }
+
+    [Fact]
+    public void IdentityShowcaseEndpoints_Exist_With_Expected_Routes()
+    {
+        var endpoints = RouteEndpoints();
+
+        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/public"));
+        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/secure"));
+        Assert.True(Has(endpoints, "GET", "/api/identity-showcase/admin-probe"));
+    }
+
+    private List<RouteEndpoint> RouteEndpoints()
+    {
         var dataSource = _services.GetRequiredService<EndpointDataSource>();
-        var endpoints = dataSource.Endpoints.OfType<RouteEndpoint>().ToList();
+        return dataSource.Endpoints.OfType<RouteEndpoint>().ToList();
+    }
 
-        bool Has(string method, params string[] patterns)
+    private static bool Has(List<RouteEndpoint> endpoints, string method, params string[] patterns)
+    {
+        return endpoints.Any(e =>
         {
-            return endpoints.Any(e =>
-            {
-                var httpMethods = e.Metadata.OfType<Microsoft.AspNetCore.Routing.HttpMethodMetadata>().FirstOrDefault()?.HttpMethods;
-                if (httpMethods is null || !httpMethods.Contains(method, StringComparer.OrdinalIgnoreCase)) return false;
-                var raw = e.RoutePattern.RawText ?? string.Empty;
-                return patterns.Any(p => string.Equals(raw, p, StringComparison.Ordinal))
-                    || patterns.Any(p => string.Equals(raw.TrimEnd('/'), p.TrimEnd('/'), StringComparison.Ordinal));
-            });
-        }
+            var httpMethods = e.Metadata.OfType<HttpMethodMetadata>().FirstOrDefault()?.HttpMethods;
+            if (httpMethods is null || !httpMethods.Contains(method, StringComparer.OrdinalIgnoreCase)) return false;
+            var raw = Normalize(e.RoutePattern.RawText ?? string.Empty);
+            return patterns.Any(p => string.Equals(raw, Normalize(p), StringComparison.Ordinal));
+        });
+    }
 
-        Assert.True(Has("GET", "/api/movies/", "/api/movies"));
-        Assert.True(Has("GET", "/api/movies/{id:int}"));
-        Assert.True(Has("POST", "/api/movies/", "/api/movies"));
-        Assert.True(Has("PUT", "/api/movies/{id:int}"));
-        Assert.True(Has("DELETE", "/api/movies/{id:int}"));
+    private static string Normalize(string pattern)
+    {
+        return pattern.Trim('/');
     }
 }
-

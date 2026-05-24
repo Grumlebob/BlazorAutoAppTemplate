@@ -5,7 +5,11 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
-using BlazorAutoApp.Core.Features.Inspections.HullImages;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.Contracts;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.Domain;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.CreateHullImage;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImage;
+using BlazorAutoApp.Core.Features.Inspections.HullImages.UseCases.GetHullImages;
 using BlazorAutoApp.Test.TestingSetup;
 using Xunit;
 

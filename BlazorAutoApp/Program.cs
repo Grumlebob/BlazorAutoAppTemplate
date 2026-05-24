@@ -1,6 +1,6 @@
-using BlazorAutoApp.Core.Features.Inspections.InspectionFlow;
-using InspectionRecord = BlazorAutoApp.Core.Features.Inspections.Inspection.Inspection;
-using InspectionFlowRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.InspectionFlow;
+using InspectionRecord = BlazorAutoApp.Core.Features.Inspections.Inspection.Domain.Inspection;
+using InspectionFlowRecord = BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain.InspectionFlow;
+using BlazorAutoApp.Core.Features.Inspections.InspectionFlow.Domain;
 using ClientImports = BlazorAutoApp.Client._Imports;
 using BlazorAutoApp.Features.IdentityShowcase;
 using BlazorAutoApp.Features.Inspections.HullImages;

@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
-using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.Contracts;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.GetVesselPartDetails;
+using BlazorAutoApp.Core.Features.Inspections.VesselPartDetails.UseCases.UpsertVesselPartDetails;
 
 namespace BlazorAutoApp.Client.Features.Inspections.VesselPartDetails;
 
