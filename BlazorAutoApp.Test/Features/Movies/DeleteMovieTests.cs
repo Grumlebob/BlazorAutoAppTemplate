@@ -3,10 +3,11 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using BlazorAutoApp.Infrastructure.Persistence;
-using BlazorAutoApp.Test.TestingSetup;
+using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using BlazorAutoApp.Test.Features.Movies.TestData;
 
 namespace BlazorAutoApp.Test.Features.Movies;
 
@@ -15,15 +16,16 @@ public class DeleteMovieTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
     private readonly Func<Task> _resetDatabase;
-    private readonly DataGenerator _data = new();
+    private readonly MovieDataGenerator _data = new();
+    private readonly IServiceScope _scope;
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
     public DeleteMovieTests(WebAppFactory factory)
     {
         _client = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
-        var scope = factory.Services.CreateScope();
-        _dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        _scope = factory.Services.CreateScope();
+        _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     }
 
     [Fact]
@@ -52,9 +54,13 @@ public class DeleteMovieTests : IAsyncLifetime, IDisposable
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public async ValueTask InitializeAsync() => await _resetDatabase();
 
     public async ValueTask DisposeAsync() => await _resetDatabase();
 
-    public void Dispose() => GC.SuppressFinalize(this);
+    public void Dispose()
+    {
+        _scope.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

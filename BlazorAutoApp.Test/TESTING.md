@@ -4,7 +4,7 @@ This project has four test layers:
 
 - Feature/integration tests for the vertical slices.
 - Architecture tests for repo structure and endpoint behavior.
-- Rate-limiting behavior tests.
+- Infrastructure/hosting behavior tests.
 - Headed Playwright E2E tests for real browser render mode, Movies, and Identity flows.
 
 ## Normal Test Run
@@ -27,9 +27,11 @@ Layout:
 
 - Core slice: `BlazorAutoApp.Core/Features/{Feature}/{Slice}Request.cs`
 - Test slice: `BlazorAutoApp.Test/Features/{Feature}/{Slice}Tests.cs`
-- Test infra: `BlazorAutoApp.Test/TestingSetup/*`
-- Architecture checks: `BlazorAutoApp.Test/Architecture/*`
-- Browser E2E: `BlazorAutoApp.Test/E2E/*`
+- Feature test data: `BlazorAutoApp.Test/Features/{Feature}/TestData/*`
+- Test integration support: `BlazorAutoApp.Test/TestSupport/Integration/*`
+- Architecture checks: `BlazorAutoApp.Test/Architecture/{Concern}/*`
+- Infrastructure checks: `BlazorAutoApp.Test/Infrastructure/{Concern}/*`
+- Browser E2E: `BlazorAutoApp.Test/E2E/{Concern}/*`
 
 Conventions:
 
@@ -40,25 +42,18 @@ Conventions:
 
 ## Architecture Enforcement
 
-- `FeatureSlicesArchitectureTests` scans Core for public `*Request` classes under `Features.{Feature}` and asserts matching test classes exist.
-- `ArchitectureTests` enforces that each Core `*Api` interface has both client and server implementations under feature namespaces.
-- Endpoint tests verify current API behavior without banning future template users from adding new domains.
+- `Architecture/Slices` scans Core for public `*Request` classes under `Features.{Feature}` and asserts matching feature test classes exist.
+- `Architecture/Boundaries` verifies project references, DTO placement, HTTP client usage, and infrastructure namespace boundaries.
+- `Architecture/Composition` verifies DI wiring.
+- `Architecture/Endpoints` verifies current API endpoint behavior without banning future template users from adding new domains.
+- `Architecture/Persistence` verifies EF model and entity configuration placement.
+- `Architecture/Support` contains shared reflection/source-search helpers for architecture tests.
 
-## Rate Limiting
+## Infrastructure Hosting Tests
 
-`BlazorAutoApp.Test/Security/RateLimitingTests.cs` verifies that the Movies API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
+`BlazorAutoApp.Test/Infrastructure/Hosting/RateLimitingTests.cs` verifies that the Movies API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
 
-`BlazorAutoApp.Test/Security/ForwardedHeadersTests.cs` verifies that the app does not ship trust-all forwarded headers and that configured proxy/network trust is applied explicitly.
-
-## Scaffolding Helper
-
-From repo root:
-
-```powershell
-pwsh -File .\BlazorAutoApp.Test\tools\NewFeatureTests.ps1 -Feature Movies
-```
-
-The scaffolder scans `BlazorAutoApp.Core/Features/{Feature}` for `*Request` classes and creates missing stub test files under `BlazorAutoApp.Test/Features/{Feature}`.
+`BlazorAutoApp.Test/Infrastructure/Hosting/ForwardedHeadersTests.cs` verifies that the app does not ship trust-all forwarded headers and that configured proxy/network trust is applied explicitly.
 
 ## Headed Browser E2E
 
@@ -130,6 +125,14 @@ Current E2E tests verify:
 - Movies can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
 - Identity can register, logout, login, open the profile page, open passkeys, and use the local forgot-password flow.
 - Visual snapshots are captured for homepage, Movies create/details/edit, login/register, account manage, and not-found screens.
+
+E2E layout:
+
+- `E2E/AppShell`: template/app-shell browser checks such as render-mode diagnostics.
+- `E2E/Features/Login`: Identity browser flows.
+- `E2E/Features/Movies`: Movies browser flows.
+- `E2E/VisualRegression`: screenshot capture tests.
+- `E2E/Support`: shared Playwright base classes and guards.
 
 Guidelines:
 

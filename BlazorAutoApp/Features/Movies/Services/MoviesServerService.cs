@@ -24,26 +24,28 @@ public class MoviesServerService(
 
     public async Task<GetMoviesResponse> GetAsync(GetMoviesRequest req, CancellationToken cancellationToken = default)
     {
-        var key = "movies:list";
+        var key = MoviesCacheKeys.List;
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetMoviesResponse>(LoadMoviesAsync(ct)),
             new HybridCacheEntryOptions
             {
                 Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ListTtlMinutes))
             },
+            tags: [MoviesCacheKeys.Tag],
             cancellationToken: cancellationToken);
         return result!;
     }
 
     public async Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req, CancellationToken cancellationToken = default)
     {
-        var key = $"movies:item:{req.Id}";
+        var key = MoviesCacheKeys.Item(req.Id);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetMovieResponse?>(LoadMovieAsync(req.Id, ct)),
             new HybridCacheEntryOptions
             {
                 Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ItemTtlMinutes))
             },
+            tags: [MoviesCacheKeys.Tag],
             cancellationToken: cancellationToken);
         return result;
     }
@@ -118,8 +120,8 @@ public class MoviesServerService(
     {
         try
         {
-            await _cache.RemoveAsync("movies:list", cancellationToken);
-            await _cache.RemoveAsync($"movies:item:{id}", cancellationToken);
+            await _cache.RemoveAsync(MoviesCacheKeys.List, cancellationToken);
+            await _cache.RemoveAsync(MoviesCacheKeys.Item(id), cancellationToken);
         }
         catch (Exception ex)
         {
