@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Account.Pages;
 using BlazorAutoApp.Features.Login.Account.Pages.Manage;
-using BlazorAutoApp.Data;
 
 namespace Microsoft.AspNetCore.Routing;
 

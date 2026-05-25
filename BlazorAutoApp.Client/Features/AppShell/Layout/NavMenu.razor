@@ -1,0 +1,69 @@
+@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
+
+<div class="relative max-h-16 h-16 bg-stone-50 text-gray-900 border-b border-gray-200 flex justify-between items-center px-4 w-full">
+    <a href="/" class="flex items-center gap-2 overflow-hidden flex-shrink-0 w-fit pl-2 text-lg font-semibold tracking-normal text-gray-950">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded bg-gray-900 text-sm font-bold text-white">M</span>
+        <span>Movies</span>
+    </a>
+
+    <div class="flex items-center space-x-4">
+        <details class="md:hidden">
+            <summary class="cursor-pointer list-none rounded p-2 hover:bg-gray-100" aria-label="Toggle menu">
+                <svg class="h-6 w-6 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill-rule="evenodd"
+                          d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z" />
+                </svg>
+            </summary>
+
+            <ul class="absolute left-0 right-0 top-16 z-40 flex flex-col bg-stone-50 border-b border-gray-200 text-gray-900 px-4 py-2 shadow-md">
+                <li>
+                    <NavLink class="block py-2" href="/" Match="NavLinkMatch.All">Movies</NavLink>
+                </li>
+                <AuthorizeView>
+                    <Authorized>
+                        <li class="py-2">
+                            <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+                        </li>
+                        <li class="py-2">
+                            <form action="Account/Logout" method="post">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="ReturnUrl" value="@CurrentUrl" />
+                                <button type="submit" class="w-full rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700">Logout</button>
+                            </form>
+                        </li>
+                    </Authorized>
+                    <NotAuthorized>
+                        <li class="py-2">
+                            <a class="block rounded border border-gray-300 px-3 py-2 text-left text-sm hover:bg-gray-100" href="Account/Register">Register</a>
+                        </li>
+                        <li class="py-2">
+                            <a class="block rounded bg-gray-900 px-3 py-2 text-left text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
+                        </li>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </ul>
+        </details>
+
+        <div class="hidden md:flex items-center space-x-4">
+            <NavLink class="md:px-4" href="/" Match="NavLinkMatch.All">Movies</NavLink>
+            <AuthorizeView>
+                <Authorized>
+                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@CurrentUrl" />
+                        <button type="submit" class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700">Logout</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Register">Register</a>
+                    <a class="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-700" href="Account/Login">Login</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string CurrentUrl => NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+}

@@ -2,7 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using BlazorAutoApp.Data;
+using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestingSetup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

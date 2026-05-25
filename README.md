@@ -26,7 +26,9 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 - `BlazorAutoApp.Core/Features/*` contains shared feature contracts, domain types, and request/response DTOs.
 - `BlazorAutoApp/Features/*` contains server-side feature implementations and endpoint mapping.
+- `BlazorAutoApp/Infrastructure/*` contains server host/platform concerns such as persistence, caching, Data Protection, rate limiting, forwarded headers, and health checks.
 - `BlazorAutoApp.Client/Features/*` contains client UI slices and WASM service implementations.
+- `BlazorAutoApp.Client/Features/AppShell` contains layout, reconnect UI, not-found UI, and template render-mode diagnostics.
 - `BlazorAutoApp/Features/Login/Account` contains Identity account components and account endpoint helpers.
 - `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
 - `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.

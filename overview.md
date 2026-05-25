@@ -71,7 +71,7 @@ The client has a small login route helper under `BlazorAutoApp.Client/Features/L
 - The current template migration history starts with one clean initial migration.
 - Redis backs HybridCache and Data Protection keys.
 - `App:Name` scopes Data Protection keys and authenticator issuer names for forks.
-- If Redis is not configured, local/dev fallback keys are written under `/app/Storage` or `BlazorAutoApp/Storage`; this is runtime key storage, not upload storage.
+- If Redis is not configured, local direct runs write fallback keys under `data/storage/DataProtection-Keys`; Docker and LocalCluster use `/app/Storage/DataProtection-Keys`. This is runtime key storage, not upload or media storage.
 - Movies cache keys:
   - List: `movies:list`
   - Item: `movies:item:{id}`
@@ -81,7 +81,7 @@ Startup migrations run when `Database:RunMigrationsAtStartup` is true. Developme
 
 ## Rate Limiting
 
-Rate limiting is configured in `BlazorAutoApp/Security/AppRateLimiting.cs` and uses ASP.NET Core's built-in rate limiter middleware.
+Rate limiting is configured in `BlazorAutoApp/Infrastructure/Hosting/AppRateLimiting.cs` and uses ASP.NET Core's built-in rate limiter middleware.
 
 Default limits:
 

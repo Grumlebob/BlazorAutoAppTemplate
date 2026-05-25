@@ -1,6 +1,10 @@
-<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Features.AppShell.Pages.NotFound)">
+@using BlazorAutoApp.Client.Features.AppShell.Layout
+@using BlazorAutoApp.Client.Features.AppShell.Pages
+@using BlazorAutoApp.Client.Features.Login.Components
+
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(NotFound)">
     <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
             <NotAuthorized>
                 <RedirectToLogin />
             </NotAuthorized>

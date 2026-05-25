@@ -1,2 +1,2 @@
-global using BlazorAutoApp.Data;
+global using BlazorAutoApp.Infrastructure.Persistence;
 global using Microsoft.EntityFrameworkCore;

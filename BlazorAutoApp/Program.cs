@@ -1,11 +1,8 @@
-using BlazorAutoApp.Caching;
 using BlazorAutoApp.Components;
-using BlazorAutoApp.Configuration;
-using BlazorAutoApp.Data;
-using BlazorAutoApp.Diagnostics;
+using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Movies;
-using BlazorAutoApp.Security;
+using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ClientImports = BlazorAutoApp.Client._Imports;
 

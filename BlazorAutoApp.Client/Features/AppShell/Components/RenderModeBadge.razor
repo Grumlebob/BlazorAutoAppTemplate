@@ -1,0 +1,9 @@
+@namespace BlazorAutoApp.Client.Features.AppShell.Components
+
+<div class="rounded border border-gray-300 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm" data-testid="render-mode-badge">
+    <div class="font-medium text-gray-900">Render mode</div>
+    <div>Configured: <span data-testid="configured-render-mode">@ConfiguredMode</span></div>
+    <div>Assigned: <span data-testid="assigned-render-mode">@AssignedModeName</span></div>
+    <div>Current: <span data-testid="current-renderer">@CurrentRendererName</span></div>
+    <div>Interactive: <span data-testid="is-interactive">@InteractiveText</span></div>
+</div>

@@ -616,23 +616,23 @@ for moving_image in ["postgres:16-alpine", "redis:7-alpine", "postgres:latest", 
 
 for path, needle, why in [
     (
-        "BlazorAutoApp/Caching/AppCachingExtensions.cs",
+        "BlazorAutoApp/Infrastructure/Hosting/AppCachingExtensions.cs",
         "PersistKeysToStackExchangeRedis",
         "Redis-backed Data Protection",
     ),
     ("BlazorAutoApp/Program.cs", "UseForwardedHeaders", "forwarded header middleware"),
     (
-        "BlazorAutoApp/Diagnostics/HealthCheckEndpointExtensions.cs",
+        "BlazorAutoApp/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
         "MapHealthChecks(\"/health/live\"",
         "liveness health endpoint",
     ),
     (
-        "BlazorAutoApp/Diagnostics/HealthCheckEndpointExtensions.cs",
+        "BlazorAutoApp/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
         "MapHealthChecks(\"/health/ready\"",
         "readiness health endpoint",
     ),
     (
-        "BlazorAutoApp/Data/PersistenceExtensions.cs",
+        "BlazorAutoApp/Infrastructure/Persistence/PersistenceExtensions.cs",
         "Database:RunMigrationsAtStartup",
         "migration startup guard",
     ),

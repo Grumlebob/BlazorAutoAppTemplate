@@ -5,7 +5,7 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
 using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Features.Movies.Validation;
-using BlazorAutoApp.Security;
+using BlazorAutoApp.Infrastructure.Hosting;
 
 namespace BlazorAutoApp.Features.Movies.Endpoints;
 

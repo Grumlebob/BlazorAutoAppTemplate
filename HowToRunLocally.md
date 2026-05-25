@@ -97,7 +97,7 @@ Docker uses:
 - `ASPNETCORE_ENVIRONMENT=Docker`
 - `Database__RunMigrationsAtStartup=true`
 
-The `./data/storage:/app/Storage` mount is local runtime storage for fallback Data Protection keys. It is not upload or media storage.
+The `./data/storage:/app/Storage` mount is local runtime storage for fallback Data Protection keys inside Docker. Direct local runs use `data/storage/DataProtection-Keys`. Neither path is upload or media storage.
 
 The Docker profile applies EF migrations on startup. If you reset the local database, recreate the stack with volumes removed:
 

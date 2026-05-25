@@ -54,12 +54,7 @@ __pycache__/
 .ruff_cache/
 
 # Local app runtime data
-BlazorAutoApp/Storage/*
 /data/storage/
-/Runtime/Temp/
-/Runtime/Garbage/
-/Runtime/*.log
-BlazorAutoApp/wwwroot/test-assets/*
 
 # LocalCluster generated local inventory
 /Deployment/LocalCluster/machines.yml

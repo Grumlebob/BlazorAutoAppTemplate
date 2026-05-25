@@ -12,6 +12,9 @@
   "Redis": {
     "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN"
   },
+  "DataProtection": {
+    "KeyStoragePath": "../data/storage/DataProtection-Keys"
+  },
   "ForwardedHeaders": {
     "ForwardLimit": 1,
     "KnownProxies": [],
