@@ -66,6 +66,35 @@ SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
 
 ## Start The Stack
 
+In Rider, use the shared run configuration:
+
+```text
+Local Docker Stack
+```
+
+It runs `RunLocal.ps1`, prepares `.env` and the HTTPS certificate, starts Docker Compose, waits for `/health/ready`, and opens the app.
+The runner waits for Docker Desktop to be ready before it starts the stack.
+
+From a terminal, the same one-click path is:
+
+```powershell
+.\RunLocal.ps1
+```
+
+Reset the local Docker database and service volumes before starting:
+
+```powershell
+.\RunLocal.ps1 -ResetDatabase
+```
+
+Start without opening the browser:
+
+```powershell
+.\RunLocal.ps1 -NoBrowser
+```
+
+Manual equivalent:
+
 ```powershell
 docker compose up -d --build web
 ```
@@ -229,4 +258,10 @@ Stop containers and delete local Docker volumes:
 
 ```powershell
 docker compose down --volumes
+```
+
+If the app exits while applying a fresh initial migration and the logs mention an existing table such as `AspNetRoles`, the local Docker database volume is from an older template version. Reset the local Docker volumes:
+
+```powershell
+.\RunLocal.ps1 -ResetDatabase
 ```

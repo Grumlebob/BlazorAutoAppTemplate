@@ -77,8 +77,7 @@ dotnet package list --project .\BlazorAutoApp.sln --vulnerable --include-transit
 Run the app stack:
 
 ```powershell
-pwsh -File ./docker/setup-local.ps1
-docker compose up -d --build web
+.\RunLocal.ps1
 ```
 
 Build Tailwind output:
