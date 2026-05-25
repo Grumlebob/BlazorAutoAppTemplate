@@ -78,6 +78,7 @@ public class CreateMovieTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PostAsJsonAsync("/api/movies", create);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await ProblemDetailsAssert.IsValidationProblemAsync(response, nameof(CreateMovieRequest.Rating));
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

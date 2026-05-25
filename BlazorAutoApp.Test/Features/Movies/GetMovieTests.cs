@@ -12,6 +12,7 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestSupport.Integration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -59,6 +60,7 @@ public class GetMovieTests : IAsyncLifetime, IDisposable
     {
         var response = await _client.GetAsync("/api/movies/999999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Movie not found");
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

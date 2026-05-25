@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-migration-bundle>]" >&2
+  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-migration-bundle>] [--reset-db <app-name>/<database-name>]" >&2
   exit 1
 }
 
@@ -12,15 +12,38 @@ APP_VERSION="$1"
 shift
 
 EXTRA_ARGS=(-e "app_version=$APP_VERSION")
+RUN_MIGRATIONS=false
+RESET_DATABASE=false
 
-if [[ $# -gt 0 ]]; then
-  [[ "$1" == "--migrate" && $# -eq 2 ]] || usage
-  [[ -f "$2" ]] || {
-    echo "migration bundle not found: $2" >&2
-    exit 1
-  }
-  MIGRATION_BUNDLE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
-  EXTRA_ARGS+=(-e "run_migrations=true" -e "migration_bundle_local_path=$MIGRATION_BUNDLE")
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --migrate)
+      [[ $# -ge 2 ]] || usage
+      [[ -f "$2" ]] || {
+        echo "migration bundle not found: $2" >&2
+        exit 1
+      }
+      MIGRATION_BUNDLE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+      EXTRA_ARGS+=(-e "run_migrations=true" -e "migration_bundle_local_path=$MIGRATION_BUNDLE")
+      RUN_MIGRATIONS=true
+      shift 2
+      ;;
+    --reset-db)
+      [[ $# -ge 2 ]] || usage
+      RESET_CONFIRMATION="$2"
+      EXTRA_ARGS+=(-e "reset_database=true" -e "reset_database_confirmation=$RESET_CONFIRMATION")
+      RESET_DATABASE=true
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+if [[ "$RESET_DATABASE" == true && "$RUN_MIGRATIONS" != true ]]; then
+  echo "--reset-db must be used with --migrate so the fresh database is immediately migrated" >&2
+  exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

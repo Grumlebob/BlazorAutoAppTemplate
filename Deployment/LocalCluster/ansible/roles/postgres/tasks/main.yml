@@ -32,6 +32,7 @@
     mode: "0750"
   loop:
     - backup-db.sh
+    - reset-db.sh
     - restore-db.sh
 
 - name: Start PostgreSQL and Redis

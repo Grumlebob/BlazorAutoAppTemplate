@@ -8,6 +8,8 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `Component/node-db/` contains maintenance scripts copied onto the database node by Ansible.
 
+`deploy.sh <git-sha> --migrate <bundle> --reset-db <app-name>/<database-name>` performs a guarded disposable database reset before running the migration bundle. Use it only when the target database is intentionally throwaway.
+
 `summary.sh` prints the concrete deployment target without contacting remote nodes.
 
 `validate-machines.sh` checks `machines.yml` and deployment settings without writing generated inventory files.

@@ -12,6 +12,7 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestSupport.Integration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -86,6 +87,7 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/movies/{movie.Id}", update);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status400BadRequest, "Movie id mismatch");
     }
 
     [Fact]
@@ -101,6 +103,7 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync("/api/movies/424242", update);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Movie not found");
     }
 
     [Fact]
@@ -123,6 +126,10 @@ public class UpdateMovieTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/movies/{movie.Id}", update);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await ProblemDetailsAssert.IsValidationProblemAsync(
+            response,
+            nameof(UpdateMovieRequest.Title),
+            nameof(UpdateMovieRequest.Rating));
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

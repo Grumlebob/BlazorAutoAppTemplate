@@ -16,7 +16,7 @@ public class DependencyBoundariesTests
         Assert.DoesNotContain(refs, n => n.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal));
         Assert.DoesNotContain(refs, n => n.StartsWith("Npgsql", StringComparison.Ordinal));
     }
-    
+
     [Fact]
     public void Client_DoesNotReference_EFCore_Or_Npgsql()
     {

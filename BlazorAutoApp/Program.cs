@@ -11,6 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddAppConfiguration(builder.Environment);
 builder.AddAppObservability();
 builder.Services.AddAppOptions(builder.Configuration);
+builder.Services.AddProblemDetails();
+builder.Services.AddValidation();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()

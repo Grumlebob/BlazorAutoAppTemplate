@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestSupport.Integration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -52,6 +53,7 @@ public class DeleteMovieTests : IAsyncLifetime, IDisposable
     {
         var response = await _client.DeleteAsync("/api/movies/10101010");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Movie not found");
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();
