@@ -73,9 +73,9 @@ else
                 PersistedMovie = response;
             }
         }
-        catch (Exception ex)
+        catch
         {
-            _error = ex.Message;
+            _error = "Movie details could not be loaded.";
         }
         finally
         {

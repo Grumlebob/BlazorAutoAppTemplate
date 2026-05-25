@@ -20,7 +20,7 @@ internal sealed class AppRateLimitingOptions
 
     public RateLimitRuleOptions Authentication { get; set; } = new()
     {
-        PermitLimit = 20,
+        PermitLimit = 120,
         WindowSeconds = 300,
         QueueLimit = 0
     };

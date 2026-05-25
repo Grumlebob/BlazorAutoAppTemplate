@@ -10,6 +10,8 @@ WORKDIR /src
 
 # Copy project files first for better layer caching
 COPY global.json ./
+COPY Directory.Build.props ./
+COPY Directory.Packages.props ./
 COPY BlazorAutoApp/BlazorAutoApp.csproj BlazorAutoApp/
 COPY BlazorAutoApp.Client/BlazorAutoApp.Client.csproj BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/BlazorAutoApp.Core.csproj BlazorAutoApp.Core/

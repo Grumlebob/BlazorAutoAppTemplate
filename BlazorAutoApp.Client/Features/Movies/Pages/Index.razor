@@ -2,6 +2,7 @@
 @page "/movies"
 
 @inject IMoviesApi Movies
+@inject IJSRuntime JS
 
 <PageTitle>Movies</PageTitle>
 
@@ -22,33 +23,42 @@ else if (_error is not null)
 }
 else
 {
-    <div class="mt-3 overflow-x-auto border border-gray-200 rounded">
-        <table class="min-w-full text-sm">
-            <thead class="bg-gray-50">
-                <tr class="text-left text-gray-700">
-                    <th class="px-3 py-2 font-medium">Title</th>
-                    <th class="px-3 py-2 font-medium">Director</th>
-                    <th class="px-3 py-2 font-medium">Rating</th>
-                    <th class="px-3 py-2 font-medium">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-            @foreach (var m in MoviesState ?? [])
-            {
-                <tr class="hover:bg-gray-50" data-testid="@($"movie-row-{m.Id}")">
-                    <td class="px-3 py-2 text-gray-900">@m.Title</td>
-                    <td class="px-3 py-2 text-gray-900">@m.Director</td>
-                    <td class="px-3 py-2 text-gray-900">@m.Rating</td>
-                    <td class="px-3 py-2">
-                        <a data-testid="movie-view" class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 mr-2" href="@($"/movies/{m.Id}")">View</a>
-                        <a data-testid="movie-edit" class="inline-flex items-center rounded-md border border-gray-400 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 mr-2" href="@($"/movies/edit/{m.Id}")">Edit</a>
-                        <button data-testid="movie-delete" class="inline-flex items-center rounded-md border border-red-600 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" @onclick="() => DeleteAsync(m.Id)">Delete</button>
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+    @if (MoviesState is null || MoviesState.Count == 0)
+    {
+        <div data-testid="movie-empty-state" class="mt-4 rounded border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-600">
+            No movies saved yet.
+        </div>
+    }
+    else
+    {
+        <div class="mt-3 overflow-x-auto border border-gray-200 rounded">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-gray-700">
+                        <th class="px-3 py-2 font-medium">Title</th>
+                        <th class="px-3 py-2 font-medium">Director</th>
+                        <th class="px-3 py-2 font-medium">Rating</th>
+                        <th class="px-3 py-2 font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                @foreach (var m in MoviesState)
+                {
+                    <tr class="hover:bg-gray-50" data-testid="@($"movie-row-{m.Id}")">
+                        <td class="px-3 py-2 text-gray-900">@m.Title</td>
+                        <td class="px-3 py-2 text-gray-900">@m.Director</td>
+                        <td class="px-3 py-2 text-gray-900">@m.Rating</td>
+                        <td class="px-3 py-2">
+                            <a data-testid="movie-view" class="inline-flex items-center rounded-md border border-blue-600 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 mr-2" href="@($"/movies/{m.Id}")">View</a>
+                            <a data-testid="movie-edit" class="inline-flex items-center rounded-md border border-gray-400 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 mr-2" href="@($"/movies/edit/{m.Id}")">Edit</a>
+                            <button data-testid="movie-delete" class="inline-flex items-center rounded-md border border-red-600 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" @onclick="() => DeleteAsync(m.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @code {
@@ -78,9 +88,9 @@ else
             var res = await Movies.GetAsync(new GetMoviesRequest());
             MoviesState = res.Movies;
         }
-        catch (Exception ex)
+        catch
         {
-            _error = ex.Message;
+            _error = "Movies could not be loaded.";
         }
         finally
         {
@@ -92,12 +102,18 @@ else
     {
         try
         {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this movie?");
+            if (!confirmed)
+            {
+                return;
+            }
+
             var success = await Movies.DeleteAsync(new DeleteMovieRequest { Id = id });
             if (success) await LoadAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            _error = ex.Message;
+            _error = "Movie could not be deleted.";
         }
     }
 }

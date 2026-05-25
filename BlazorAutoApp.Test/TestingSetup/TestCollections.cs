@@ -1,5 +1,7 @@
 using Xunit;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace BlazorAutoApp.Test.TestingSetup;
 
 // Centralized xUnit collection definition for integration tests

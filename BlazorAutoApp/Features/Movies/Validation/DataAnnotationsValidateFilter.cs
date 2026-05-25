@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace BlazorAutoApp.Features.Movies.Validation;
 
 public class DataAnnotationsValidateFilter<T> : IEndpointFilter where T : class

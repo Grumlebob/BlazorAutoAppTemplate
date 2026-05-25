@@ -1,3 +1,7 @@
+using Serilog;
+using Serilog.Debugging;
+using Serilog.Events;
+
 namespace BlazorAutoApp.Diagnostics;
 
 internal static class ObservabilityExtensions
@@ -8,10 +12,12 @@ internal static class ObservabilityExtensions
         {
             SelfLog.Enable(m => Console.Error.WriteLine($"[Serilog SelfLog] {m}"));
 
+            var appName = ctx.Configuration.GetValue<string>("App:Name") ?? "BlazorAutoApp";
+
             config.ReadFrom.Configuration(ctx.Configuration)
                 .Enrich.FromLogContext()
                 .Enrich.WithEnvironmentName()
-                .Enrich.WithProperty("Application", "BlazorAutoApp");
+                .Enrich.WithProperty("Application", appName);
 
             var hasSeqSink = ctx.Configuration.GetSection("Serilog:WriteTo").GetChildren()
                 .Any(c => string.Equals(c["Name"], "Seq", StringComparison.OrdinalIgnoreCase));
@@ -47,7 +53,6 @@ internal static class ObservabilityExtensions
                 ctx.Set("RequestId", http.TraceIdentifier);
                 ctx.Set("RemoteIp", http.Connection.RemoteIpAddress?.ToString() ?? "");
                 ctx.Set("UserName", http.User.Identity?.Name ?? "");
-                ctx.Set("QueryString", http.Request.QueryString.HasValue ? http.Request.QueryString.Value : "");
             };
         });
     }

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
+using BlazorAutoApp.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
 using StackExchange.Redis;
 using System.Security.Cryptography.X509Certificates;
 
@@ -14,8 +16,7 @@ internal static class AppCachingExtensions
         IHealthChecksBuilder healthChecks)
     {
         var redisConnection = configuration.GetSection("Redis").GetValue<string>("Configuration");
-        var hasRedis = !string.IsNullOrWhiteSpace(redisConnection) &&
-            !string.Equals(redisConnection, "CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+        var hasRedis = !AppOptionsExtensions.IsPlaceholder(redisConnection);
 
         IConnectionMultiplexer? redis = null;
         if (hasRedis)
@@ -30,8 +31,9 @@ internal static class AppCachingExtensions
             services.AddDistributedMemoryCache();
         }
 
+        var appName = configuration.GetValue<string>("App:Name") ?? "BlazorAutoApp";
         var dataProtection = services.AddDataProtection()
-            .SetApplicationName("BlazorAutoApp");
+            .SetApplicationName(appName);
 
         if (redis is not null)
         {
@@ -73,7 +75,7 @@ internal static class AppCachingExtensions
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Startup] Failed to configure DataProtection certificate encryption: {ex.Message}");
+            Log.Warning(ex, "Failed to configure Data Protection certificate encryption from {CertificatePath}", certificatePath);
         }
     }
 }

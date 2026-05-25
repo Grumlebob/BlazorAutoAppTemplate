@@ -40,22 +40,24 @@ jobs:
 
       - name: Load deployment settings
         run: |
-          echo "APP_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)" >> "$GITHUB_ENV"
-          echo "APP_IMAGE=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)" >> "$GITHUB_ENV"
-          echo "PUBLIC_HOSTNAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)" >> "$GITHUB_ENV"
-          echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name)" >> "$GITHUB_ENV"
-          echo "RUNNER_LABEL=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)" >> "$GITHUB_ENV"
-          echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
-          echo "APP_VERSION=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          {
+            echo "APP_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)"
+            echo "APP_IMAGE=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)"
+            echo "PUBLIC_HOSTNAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
+            echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name)"
+            echo "RUNNER_LABEL=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
+            echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            echo "APP_VERSION=${GITHUB_SHA}"
+          } >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image):${GITHUB_SHA}"
+            printf '%s:%s\n' "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)" "${GITHUB_SHA}"
             echo
             echo "Public hostname:"
-            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
+            bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname
             echo
             echo "Expected app runner label:"
-            echo "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
+            bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Require successful CI for this commit

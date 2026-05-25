@@ -82,9 +82,9 @@ else
                 ApplyMovie(response);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            _error = ex.Message;
+            _error = "Movie could not be loaded.";
         }
         finally
         {
@@ -94,8 +94,15 @@ else
 
     private async Task HandleSubmit()
     {
-        var success = await Movies.UpdateAsync(_model);
-        if (success) Nav.NavigateTo("/movies");
+        try
+        {
+            var success = await Movies.UpdateAsync(_model);
+            if (success) Nav.NavigateTo("/movies");
+        }
+        catch
+        {
+            _error = "Movie could not be saved.";
+        }
     }
 
     private void ApplyMovie(GetMovieResponse movie)

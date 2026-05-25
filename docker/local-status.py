@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,13 @@ GLOBAL_JSON_PATH = ROOT / "global.json"
 
 REQUIRED_KEYS = [
     "App__Url",
+    "App__Name",
+    "APP_HTTPS_HOST_PORT",
+    "POSTGRES_HOST_PORT",
+    "REDIS_HOST_PORT",
+    "SEQ_UI_HOST_PORT",
+    "SEQ_INGESTION_HOST_PORT",
+    "REDIS_INSIGHT_HOST_PORT",
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
     "POSTGRES_DB",
@@ -27,6 +35,16 @@ REQUIRED_KEYS = [
     "Redis__Configuration",
     "ACCEPT_EULA",
     "SEQ_FIRSTRUN_ADMINPASSWORD",
+]
+
+PORTS = [
+    ("app HTTPS", "APP_HTTPS_HOST_PORT", 7186),
+    ("app HTTP", None, 5025),
+    ("PostgreSQL", "POSTGRES_HOST_PORT", 5432),
+    ("Redis", "REDIS_HOST_PORT", 6379),
+    ("Seq UI", "SEQ_UI_HOST_PORT", 8081),
+    ("Seq ingestion", "SEQ_INGESTION_HOST_PORT", 5341),
+    ("Redis Insight", "REDIS_INSIGHT_HOST_PORT", 5540),
 ]
 
 
@@ -74,6 +92,61 @@ def run_check(command: list[str], description: str) -> None:
         fail(description)
 
 
+def check_command_version(command: str, args: list[str], description: str) -> None:
+    executable = shutil.which(command)
+    if executable is None:
+        fail(f"{description} missing")
+        return
+    try:
+        version = subprocess.run(
+            [executable, *args],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip().splitlines()[0]
+    except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
+        fail(f"{description} version check failed")
+        return
+    ok(f"{description} available: {version}")
+
+
+def port_is_open(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.25)
+        return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def configured_port(values: dict[str, str], key: str | None, default: int) -> int:
+    if key is None:
+        return default
+
+    raw_value = values.get(key)
+    if not raw_value:
+        return default
+
+    try:
+        port = int(raw_value)
+    except ValueError:
+        fail(f".env has non-numeric {key}: {raw_value}")
+        return default
+
+    if not 0 < port < 65536:
+        fail(f".env has out-of-range {key}: {raw_value}")
+        return default
+
+    return port
+
+
+def check_ports(values: dict[str, str]) -> None:
+    for label, key, default in PORTS:
+        port = configured_port(values, key, default)
+        if port_is_open(port):
+            warn(f"{label} port {port} is already listening on 127.0.0.1")
+        else:
+            ok(f"{label} port {port} is free on 127.0.0.1")
+
+
 def check_dotnet_sdk_version() -> None:
     if not GLOBAL_JSON_PATH.exists():
         warn("global.json missing; dotnet SDK version is not pinned")
@@ -115,6 +188,8 @@ def main() -> int:
     else:
         fail(".env.example missing")
 
+    values: dict[str, str] = {}
+
     if ENV_PATH.exists():
         ok(".env exists")
         values = parse_env(ENV_PATH)
@@ -149,6 +224,15 @@ def main() -> int:
         check_dotnet_sdk_version()
     else:
         fail("dotnet command missing")
+
+    check_command_version("node", ["--version"], "Node.js")
+    check_command_version("npm", ["--version"], "npm")
+    check_ports(values)
+
+    if (ROOT / "Deployment" / "LocalCluster" / "HowToDeployLocalCluster.md").exists():
+        ok("LocalCluster deployment guide exists")
+    else:
+        fail("LocalCluster deployment guide missing")
 
     print()
     if failures:

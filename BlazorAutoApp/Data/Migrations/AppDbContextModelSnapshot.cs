@@ -37,9 +37,6 @@ namespace BlazorAutoApp.Data.Migrations
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("ReleaseYear")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)

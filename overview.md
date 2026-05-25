@@ -63,11 +63,15 @@ Canonical routes:
 
 Old package-style compatibility routes are intentionally not part of this template.
 
+The client has a small login route helper under `BlazorAutoApp.Client/Features/Login/Components` because redirects need to participate in client routing. The server account implementation remains in the login feature on the server.
+
 ## Persistence And Caching
 
 - PostgreSQL is used through EF Core and `AppDbContext`.
 - The current template migration history starts with one clean initial migration.
 - Redis backs HybridCache and Data Protection keys.
+- `App:Name` scopes Data Protection keys and authenticator issuer names for forks.
+- If Redis is not configured, local/dev fallback keys are written under `/app/Storage` or `BlazorAutoApp/Storage`; this is runtime key storage, not upload storage.
 - Movies cache keys:
   - List: `movies:list`
   - Item: `movies:item:{id}`
@@ -83,9 +87,11 @@ Default limits:
 
 - Global app limit: `600` requests per minute per user/IP.
 - Movies API limit: `60` requests per minute per user/IP.
-- Account POST endpoint limit: `20` requests per five minutes per user/IP.
+- Account POST endpoint limit: `120` requests per five minutes per user/IP.
 
 Rejected requests return `429` with a `Retry-After` header and a problem response body.
+
+Forwarded headers are configured through `ForwardedHeaders`. The template clears ASP.NET Core's default trusted proxy lists and trusts only configured proxies/networks. LocalCluster sets the Caddy node IP as a trusted proxy for app servers.
 
 Configuration section:
 
@@ -93,7 +99,7 @@ Configuration section:
 "RateLimiting": {
   "Global": { "PermitLimit": 600, "WindowSeconds": 60, "QueueLimit": 0 },
   "Api": { "PermitLimit": 60, "WindowSeconds": 60, "QueueLimit": 0 },
-  "Authentication": { "PermitLimit": 20, "WindowSeconds": 300, "QueueLimit": 0 }
+  "Authentication": { "PermitLimit": 120, "WindowSeconds": 300, "QueueLimit": 0 }
 }
 ```
 

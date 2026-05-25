@@ -1,22 +1,2 @@
-global using BlazorAutoApp.Components;
 global using BlazorAutoApp.Data;
-global using BlazorAutoApp.Features.Movies;
 global using Microsoft.EntityFrameworkCore;
-global using BlazorAutoApp.Core.Features.Movies.Contracts;
-global using BlazorAutoApp.Core.Features.Movies.Domain;
-global using BlazorAutoApp.Core.Features.Movies.UseCases.CreateMovie;
-global using BlazorAutoApp.Core.Features.Movies.UseCases.DeleteMovie;
-global using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
-global using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
-global using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
-global using Microsoft.AspNetCore.Mvc;
-global using Serilog;
-global using Serilog.Events;
-global using Serilog.Debugging;
-global using Microsoft.EntityFrameworkCore.Metadata.Builders;
-global using Microsoft.Extensions.Caching.Hybrid;
-global using Microsoft.Extensions.Options;
-global using System.ComponentModel.DataAnnotations;
-global using System.Collections.Concurrent;
-global using Microsoft.AspNetCore.Components;
-

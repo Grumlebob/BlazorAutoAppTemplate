@@ -44,6 +44,7 @@ def render_caddy(app_name: str, hostname: str, app_port: str) -> str:
 def render_env(path: Path, values: dict[str, str]) -> str:
     rendered = replace_vars(path.read_text(encoding="utf-8-sig"), values)
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['node_db'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
+    rendered = re.sub(r"\{\{\s*hostvars\[groups\['load_balancer'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.10", rendered)
     if "{{" in rendered or "{%" in rendered:
         fail(f"unrendered env template markers in {path}")
     return rendered
@@ -106,7 +107,9 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     compose_env = {
         "APP_IMAGE": "ghcr.io/example/notes",
         "APP_VERSION": "abcdef123456",
+        "APP_NAME": "notes",
         "APP_PORT": "8080",
+        "FORWARDED_HEADERS_KNOWN_PROXY": "10.10.0.10",
         "POSTGRES_HOST": "10.10.0.20",
         "POSTGRES_PORT": "5432",
         "POSTGRES_DB": "appdb",

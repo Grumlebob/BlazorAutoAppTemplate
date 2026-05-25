@@ -35,7 +35,15 @@ Local Docker values live in `.env`. Do not edit `docker-compose.yml` for normal 
 The defaults in `.env.example` are enough for local development:
 
 ```env
+App__Name=BlazorAutoApp
 App__Url=https://localhost:7186
+
+APP_HTTPS_HOST_PORT=7186
+POSTGRES_HOST_PORT=5432
+REDIS_HOST_PORT=6379
+SEQ_UI_HOST_PORT=8081
+SEQ_INGESTION_HOST_PORT=5341
+REDIS_INSIGHT_HOST_PORT=5540
 
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -69,6 +77,10 @@ Open:
 - Seq UI: `http://localhost:8081`
 - Redis Insight: `http://localhost:5540`
 
+Docker publishes app, PostgreSQL, Redis, Seq, and Redis Insight ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
+
+If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `docker compose up -d --build`. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
+
 Redis Insight can connect to:
 
 ```text
@@ -84,6 +96,8 @@ Docker uses:
 - `BlazorAutoApp/appsettings.Docker.json`
 - `ASPNETCORE_ENVIRONMENT=Docker`
 - `Database__RunMigrationsAtStartup=true`
+
+The `./data/storage:/app/Storage` mount is local runtime storage for fallback Data Protection keys. It is not upload or media storage.
 
 The Docker profile applies EF migrations on startup. If you reset the local database, recreate the stack with volumes removed:
 
@@ -110,6 +124,20 @@ dotnet run --project BlazorAutoApp --urls "https://localhost:7286"
 ```
 
 When changing the app URL for E2E, set `E2E_BASE_URL` to the same URL.
+
+Local port checklist:
+
+```text
+7186 app HTTPS
+5025 optional app HTTP
+5432 PostgreSQL
+6379 Redis
+8081 Seq UI
+5341 Seq ingestion
+5540 Redis Insight
+```
+
+For Docker host-port conflicts, prefer changing `.env` values such as `POSTGRES_HOST_PORT=5433` or `APP_HTTPS_HOST_PORT=7286` instead of editing `docker-compose.yml`.
 
 ## Tailwind
 
@@ -159,6 +187,16 @@ dotnet test
 
 Visible E2E is documented in `BlazorAutoApp.Test/TESTING.md`.
 
+Deployment validation without deploying:
+
+```powershell
+bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+python -m yamllint .github Deployment/LocalCluster
+docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7
+docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
+```
+
 ## Troubleshooting
 
 Check local setup:
@@ -178,7 +216,7 @@ docker compose logs postgres --tail=100
 Recreate the HTTPS certificate:
 
 ```powershell
-pwsh -File ./docker/create-dev-cert.ps1
+pwsh -File ./docker/create-dev-cert.ps1 -Force
 ```
 
 Stop containers while keeping volumes:

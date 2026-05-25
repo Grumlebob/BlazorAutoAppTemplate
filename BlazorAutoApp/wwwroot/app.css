@@ -125,6 +125,12 @@ h3 {
     border-radius: 0.25rem;
 }
 
+.account-muted {
+    margin-bottom: 1rem;
+    color: #4b5563;
+    font-size: 0.875rem;
+}
+
 .account-button-primary,
 .account-button-secondary,
 .account-button-danger,

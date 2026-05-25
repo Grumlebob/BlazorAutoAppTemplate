@@ -10,6 +10,13 @@ internal static class PersistenceExtensions
         IConfiguration configuration,
         IHealthChecksBuilder healthChecks)
     {
+        var hasConnectionString = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("DefaultConnection"));
+        services.AddOptions<DatabaseOptions>()
+            .Bind(configuration.GetSection(DatabaseOptions.SectionName))
+            .Validate(options => hasConnectionString || options.HasRequiredValues(), "Either ConnectionStrings:DefaultConnection or complete Database:* settings must be configured.")
+            .Validate(options => options.Port > 0 && options.Port <= 65535, "Database:Port must be between 1 and 65535.")
+            .ValidateOnStart();
+
         var connectionString = BuildConnectionString(configuration);
 
         void ConfigureDbContext(DbContextOptionsBuilder options)

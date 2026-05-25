@@ -4,6 +4,7 @@ using BlazorAutoApp.Configuration;
 using BlazorAutoApp.Data;
 using BlazorAutoApp.Diagnostics;
 using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Features.Movies;
 using BlazorAutoApp.Security;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ClientImports = BlazorAutoApp.Client._Imports;
@@ -12,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddAppConfiguration(builder.Environment);
 builder.AddAppObservability();
+builder.Services.AddAppOptions(builder.Configuration);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -22,7 +24,7 @@ var healthChecks = builder.Services
     .AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
 
-builder.Services.AddAppForwarding();
+builder.Services.AddAppForwarding(builder.Configuration);
 builder.Services.AddAppAntiforgery(builder.Environment);
 builder.Services.AddAppCachingAndDataProtection(builder.Configuration, builder.Environment, healthChecks);
 builder.Services.AddAppPersistence(builder.Configuration, healthChecks);

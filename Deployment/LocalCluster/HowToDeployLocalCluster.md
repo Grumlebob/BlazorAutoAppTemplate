@@ -975,6 +975,18 @@ For `main`, the CI workflow builds/tests the app, builds the migration bundle ar
 <app_image>:<selected-commit-sha>
 ```
 
+CI and CD are intentionally tied to the same commit:
+
+```text
+CI workflow: .github/workflows/ci.yml
+CD workflow: .github/workflows/cd-localcluster.yml
+Container image: <app_image>:<selected-commit-sha>
+Migration bundle artifact: <app_name>-migrate-linux-x64
+Migration bundle file: <migration_bundle_name>
+```
+
+The CD workflow first finds a successful CI run for the selected commit, verifies the GHCR image tag exists, and then downloads the migration bundle artifact from that CI run when `run_migrations` is `true`. If any of those values do not line up, deploy should stop instead of mixing artifacts from different commits.
+
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
 ```bash

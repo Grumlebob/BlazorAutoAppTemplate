@@ -16,6 +16,4 @@ public class Movie
 
     [Range(0, 10)]
     public int Rating { get; set; }
-
-    public int? ReleaseYear { get; set; }
 }

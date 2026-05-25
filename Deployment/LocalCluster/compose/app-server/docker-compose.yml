@@ -5,6 +5,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: "http://+:${APP_PORT}"
+      App__Name: ${APP_NAME}
+      ForwardedHeaders__KnownProxies__0: ${FORWARDED_HEADERS_KNOWN_PROXY}
       Database__RunMigrationsAtStartup: "false"
       ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Redis__Configuration: ${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD},abortConnect=false

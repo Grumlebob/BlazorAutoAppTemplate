@@ -12,6 +12,15 @@ internal sealed class DatabaseOptions
     public string? Username { get; init; }
     public string? Password { get; init; }
 
+    public bool HasRequiredValues()
+    {
+        return HasValue(Host) &&
+            Port > 0 &&
+            HasValue(Name) &&
+            HasValue(Username) &&
+            HasValue(Password);
+    }
+
     public string ToConnectionString()
     {
         ValidateRequired(Host, nameof(Host));
@@ -30,10 +39,15 @@ internal sealed class DatabaseOptions
         }.ConnectionString;
     }
 
+    private static bool HasValue(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+            !string.Equals(value, "INJECT_THIS_IN_ORDER_TO_RUN", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void ValidateRequired(string? value, string name)
     {
-        if (string.IsNullOrWhiteSpace(value) ||
-            string.Equals(value, "INJECT_THIS_IN_ORDER_TO_RUN", StringComparison.OrdinalIgnoreCase))
+        if (!HasValue(value))
         {
             throw new InvalidOperationException($"Missing required Database:{name} configuration.");
         }

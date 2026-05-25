@@ -1,16 +1,21 @@
 {
+  "App": {
+    "Name": "BlazorAutoApp"
+  },
   "Database": {
     "Host": "INJECT_THIS_IN_ORDER_TO_RUN",
-    "Port": "INJECT_THIS_IN_ORDER_TO_RUN", 
+    "Port": 5432,
     "Name": "INJECT_THIS_IN_ORDER_TO_RUN",
     "Username": "INJECT_THIS_IN_ORDER_TO_RUN",
     "Password": "INJECT_THIS_IN_ORDER_TO_RUN"
   },
   "Redis": {
-    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN" 
+    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN"
   },
-  "Serilog": {
-    "SeqUrl": "INJECT_THIS_IN_ORDER_TO_RUN" 
+  "ForwardedHeaders": {
+    "ForwardLimit": 1,
+    "KnownProxies": [],
+    "KnownNetworks": []
   },
   "RateLimiting": {
     "Global": {
@@ -24,7 +29,7 @@
       "QueueLimit": 0
     },
     "Authentication": {
-      "PermitLimit": 20,
+      "PermitLimit": 120,
       "WindowSeconds": 300,
       "QueueLimit": 0
     }

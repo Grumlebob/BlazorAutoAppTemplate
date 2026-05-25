@@ -1,5 +1,6 @@
 param(
-  [string]$Password = "localdevpassword"
+  [string]$Password = "localdevpassword",
+  [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9,6 +10,12 @@ if (-not (Test-Path $outDir)) {
 }
 
 $pfxPath = Join-Path $outDir 'aspnetapp.pfx'
+
+if ((Test-Path $pfxPath) -and -not $Force) {
+  Write-Host "HTTPS dev certificate already exists: $pfxPath"
+  Write-Host "Use -Force to recreate it."
+  return
+}
 
 Write-Host "Exporting ASP.NET Core HTTPS dev cert to: $pfxPath"
 & dotnet dev-certs https --trust | Out-Null

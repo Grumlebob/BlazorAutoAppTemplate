@@ -22,25 +22,60 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             await Page.Locator("#Input\\.Password").FillAsync(password);
             await Page.Locator("#Input\\.ConfirmPassword").FillAsync(password);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Register" }).ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
-            await Expect(Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = email }))
+            var accountLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = email });
+            await MakeNavigationItemVisibleAsync(accountLink);
+            await Expect(accountLink)
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
-            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Logout" }).ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-            await Expect(Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Login" }))
+            var logoutButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Logout" });
+            await MakeNavigationItemVisibleAsync(logoutButton);
+            await logoutButton.ClickAsync();
+            var loginLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Login" });
+            await MakeNavigationItemVisibleAsync(loginLink);
+            await Expect(loginLink)
                 .ToBeVisibleAsync();
 
-            await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Login" }).ClickAsync();
+            await loginLink.ClickAsync();
             await Page.Locator("#Input\\.Email").FillAsync(email);
             await Page.Locator("#Input\\.Password").FillAsync(password);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Log in", Exact = true }).ClickAsync();
-            await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await MakeNavigationItemVisibleAsync(accountLink);
+            await Expect(accountLink)
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
-            await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = email }).ClickAsync();
+            await accountLink.ClickAsync();
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Profile" }))
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+
+            await GoToAsync("/Account/Manage/Passkeys");
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Manage your passkeys" }))
+                .ToBeVisibleAsync();
+            await Expect(Page.GetByText("No passkeys are registered.")).ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add a new passkey" }))
+                .ToBeVisibleAsync();
+
+            await MakeNavigationItemVisibleAsync(logoutButton);
+            await logoutButton.ClickAsync();
+            await MakeNavigationItemVisibleAsync(loginLink);
+            await Expect(loginLink)
+                .ToBeVisibleAsync();
+
+            await GoToAsync("/Account/ForgotPassword");
+            await Page.Locator("#Input\\.Email").FillAsync(email);
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Reset password" }).ClickAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Forgot password confirmation" }))
+                .ToBeVisibleAsync();
         });
+    }
+
+    private async Task MakeNavigationItemVisibleAsync(ILocator locator)
+    {
+        if (await locator.IsVisibleAsync())
+        {
+            return;
+        }
+
+        await Page.GetByLabel("Toggle menu").ClickAsync();
     }
 }

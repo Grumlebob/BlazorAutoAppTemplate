@@ -23,7 +23,8 @@ internal static class SourceSearch
         if (!Directory.Exists(folder)) yield break;
         var exts = extensions.Length == 0 ? [".cs", ".razor"] : extensions;
         foreach (var file in Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
-                                       .Where(f => exts.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)))
+                                       .Where(f => exts.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                                       .Where(f => !IsGeneratedPath(root, f)))
         {
             var lines = File.ReadAllLines(file);
             for (int i = 0; i < lines.Length; i++)
@@ -38,5 +39,15 @@ internal static class SourceSearch
         => Grep(root, $"class {t.Name}", projectFolder, ".cs")
             .Concat(Grep(root, t.Namespace ?? string.Empty, projectFolder, ".cs"))
             .Distinct();
-}
 
+    private static bool IsGeneratedPath(string root, string file)
+    {
+        var relative = Path.GetRelativePath(root, file)
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return relative.Any(part =>
+            part.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+            part.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+            part.Equals("node_modules", StringComparison.OrdinalIgnoreCase) ||
+            part.Equals("TestResults", StringComparison.OrdinalIgnoreCase));
+    }
+}

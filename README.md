@@ -7,7 +7,8 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
 - `overview.md` explains the render-mode and vertical-slice architecture.
-- `BlazorAutoApp.Test/TESTING.md` explains unit/integration tests and headed Playwright E2E.
+- `TESTING.md` links to the full unit/integration and headed Playwright E2E guide.
+- `TemplateCustomization.md` lists the first things to rename or configure in a fork.
 
 ## Tech Stack
 
@@ -19,6 +20,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - Serilog console logging and Seq in local Docker.
 - GitHub Actions CI for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
+- Centralized NuGet package versions in `Directory.Packages.props`.
 
 ## Repository Layout
 
@@ -48,6 +50,10 @@ When running the Docker stack:
 - Seq UI: `http://localhost:8081`
 - Redis Insight: `http://localhost:5540`
 
+Local Docker publishes these ports on `127.0.0.1` only.
+
+If a default port is already in use, change the matching `*_HOST_PORT` value in `.env`; for example `POSTGRES_HOST_PORT=5433` or `APP_HTTPS_HOST_PORT=7286`.
+
 Canonical account routes:
 
 - Login: `/Account/Login`
@@ -60,6 +66,9 @@ Canonical account routes:
 dotnet restore .\BlazorAutoApp.sln
 dotnet build .\BlazorAutoApp.sln --no-restore
 dotnet test .\BlazorAutoApp.sln --no-build
+dotnet package list --project .\BlazorAutoApp.sln --outdated
+dotnet package list --project .\BlazorAutoApp.sln --deprecated
+dotnet package list --project .\BlazorAutoApp.sln --vulnerable --include-transitive
 ```
 
 Run the app stack:
@@ -95,6 +104,8 @@ Rate limiting is enabled by default:
 
 - Global app limit: `600` requests per minute per user/IP.
 - Movies API limit: `60` requests per minute per user/IP.
-- Account POST endpoint limit: `20` requests per five minutes per user/IP.
+- Account POST endpoint limit: `120` requests per five minutes per user/IP.
 
 Override these values under the `RateLimiting` configuration section when building a real product from the template.
+
+Forwarded headers are trusted only from configured proxies or networks. LocalCluster injects the Caddy node IP into the app-server environment; direct public clients cannot choose their own `X-Forwarded-For` value by default.

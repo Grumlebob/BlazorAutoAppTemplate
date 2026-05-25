@@ -8,9 +8,9 @@ namespace BlazorAutoApp.Core.Features.Movies.Contracts;
 
 public interface IMoviesApi
 {
-    Task<GetMoviesResponse> GetAsync(GetMoviesRequest req);
-    Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req);
-    Task<CreateMovieResponse> CreateAsync(CreateMovieRequest req);
-    Task<bool> UpdateAsync(UpdateMovieRequest req);
-    Task<bool> DeleteAsync(DeleteMovieRequest req);
+    Task<GetMoviesResponse> GetAsync(GetMoviesRequest req, CancellationToken cancellationToken = default);
+    Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req, CancellationToken cancellationToken = default);
+    Task<CreateMovieResponse> CreateAsync(CreateMovieRequest req, CancellationToken cancellationToken = default);
+    Task<bool> UpdateAsync(UpdateMovieRequest req, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(DeleteMovieRequest req, CancellationToken cancellationToken = default);
 }

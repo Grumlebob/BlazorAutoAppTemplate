@@ -20,10 +20,11 @@ public abstract class BlazorE2ETestBase : PageTest
     public override BrowserNewContextOptions ContextOptions() => new()
     {
         IgnoreHTTPSErrors = true,
+        RecordVideoDir = GetPlaywrightArtifactPath("Videos"),
         ViewportSize = new ViewportSize
         {
-            Width = 1280,
-            Height = 900
+            Width = GetViewportDimension("E2E_VIEWPORT_WIDTH", 1280),
+            Height = GetViewportDimension("E2E_VIEWPORT_HEIGHT", 900)
         }
     };
 
@@ -32,7 +33,7 @@ public abstract class BlazorE2ETestBase : PageTest
         var target = new Uri(BaseUri, path.TrimStart('/'));
         return Page.GotoAsync(target.ToString(), new PageGotoOptions
         {
-            WaitUntil = WaitUntilState.NetworkIdle
+            WaitUntil = WaitUntilState.DOMContentLoaded
         });
     }
 
@@ -48,16 +49,29 @@ public abstract class BlazorE2ETestBase : PageTest
 
     protected async Task RunWithFailureScreenshotAsync(Func<Task> test)
     {
+        var artifactDirectory = GetPlaywrightArtifactPath();
+        Directory.CreateDirectory(artifactDirectory);
+        await Context.Tracing.StartAsync(new TracingStartOptions
+        {
+            Screenshots = true,
+            Snapshots = true,
+            Sources = true
+        });
+
         try
         {
             await test();
+            await Context.Tracing.StopAsync();
         }
         catch
         {
-            var screenshotDirectory = Path.Combine("TestResults", "Playwright");
-            Directory.CreateDirectory(screenshotDirectory);
+            var tracePath = Path.Combine(
+                artifactDirectory,
+                $"{GetType().Name}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.zip");
+            await Context.Tracing.StopAsync(new TracingStopOptions { Path = tracePath });
+
             var screenshotPath = Path.Combine(
-                screenshotDirectory,
+                artifactDirectory,
                 $"{GetType().Name}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.png");
 
             await Page.ScreenshotAsync(new PageScreenshotOptions
@@ -93,5 +107,43 @@ public abstract class BlazorE2ETestBase : PageTest
         }
 
         return 300;
+    }
+
+    private static int GetViewportDimension(string variableName, int defaultValue)
+    {
+        var configured = Environment.GetEnvironmentVariable(variableName);
+        if (int.TryParse(configured, out var dimension) && dimension > 0)
+        {
+            return dimension;
+        }
+
+        return defaultValue;
+    }
+
+    protected static string GetPlaywrightArtifactPath(params string[] segments)
+    {
+        var root = FindRepositoryRoot();
+        var pathParts = new string[segments.Length + 3];
+        pathParts[0] = root;
+        pathParts[1] = "BlazorAutoApp.Test";
+        pathParts[2] = Path.Combine("TestResults", "Playwright");
+        Array.Copy(segments, 0, pathParts, 3, segments.Length);
+        return Path.Combine(pathParts);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "BlazorAutoApp.sln")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        return AppContext.BaseDirectory;
     }
 }

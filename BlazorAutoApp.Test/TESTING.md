@@ -48,7 +48,7 @@ Conventions:
 
 `BlazorAutoApp.Test/Security/RateLimitingTests.cs` verifies that the Movies API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
 
-The test sends a unique `X-Forwarded-For` value so it does not consume the same limiter partition as other integration tests.
+`BlazorAutoApp.Test/Security/ForwardedHeadersTests.cs` verifies that the app does not ship trust-all forwarded headers and that configured proxy/network trust is applied explicitly.
 
 ## Scaffolding Helper
 
@@ -97,6 +97,7 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 - `RUN_E2E=1`: enables the Playwright tests.
 - `E2E_BASE_URL`: target app URL. Defaults to `https://localhost:7186`.
 - `E2E_SLOW_MO_MS`: visible delay between browser actions. Defaults to `300`.
+- `E2E_VIEWPORT_WIDTH` and `E2E_VIEWPORT_HEIGHT`: browser viewport. Defaults to `1280x900`.
 - `E2E_HEADLESS=1`: runs without a visible browser. Use only for CI-style runs.
 
 Clear local E2E environment variables when done:
@@ -105,7 +106,20 @@ Clear local E2E environment variables when done:
 Remove-Item Env:\RUN_E2E -ErrorAction SilentlyContinue
 Remove-Item Env:\E2E_BASE_URL -ErrorAction SilentlyContinue
 Remove-Item Env:\E2E_SLOW_MO_MS -ErrorAction SilentlyContinue
+Remove-Item Env:\E2E_VIEWPORT_WIDTH -ErrorAction SilentlyContinue
+Remove-Item Env:\E2E_VIEWPORT_HEIGHT -ErrorAction SilentlyContinue
 Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
+```
+
+Run the same visible E2E flow at a mobile viewport:
+
+```powershell
+$env:RUN_E2E='1'
+$env:E2E_BASE_URL='https://localhost:7186'
+$env:E2E_VIEWPORT_WIDTH='390'
+$env:E2E_VIEWPORT_HEIGHT='844'
+Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
 ```
 
 ## E2E Coverage
@@ -113,8 +127,9 @@ Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 Current E2E tests verify:
 
 - Home render-mode diagnostics hydrate to an interactive renderer.
-- Movies can create, view, navigate back, open edit, and cancel.
-- Identity can register, logout, login, and open the profile page.
+- Movies can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
+- Identity can register, logout, login, open the profile page, open passkeys, and use the local forgot-password flow.
+- Visual snapshots are captured for homepage, Movies create/details/edit, login/register, account manage, and not-found screens.
 
 Guidelines:
 
@@ -131,7 +146,20 @@ On E2E failure, screenshots are written to:
 TestResults/Playwright
 ```
 
-Successful E2E runs do not create screenshots. `TestResults` is generated output and can be deleted.
+Failed E2E runs also retain a Playwright trace zip, and browser videos are written under `TestResults/Playwright/Videos`. `TestResults` is generated output and can be deleted.
+Normal snapshot runs write page screenshots under `TestResults/Playwright/Snapshots`.
+
+## Deployment Checks
+
+Run these before changing LocalCluster deployment files:
+
+```powershell
+bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+python -m yamllint .github Deployment/LocalCluster
+docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7
+docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
+```
 
 ## Troubleshooting
 

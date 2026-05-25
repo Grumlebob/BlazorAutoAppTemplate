@@ -16,58 +16,70 @@ public static class MovieEndpoints
         var group = routes.MapGroup("/api/movies")
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName);
 
-        group.MapGet("/", async ([AsParameters] GetMoviesRequest req, IMoviesApi movies, ILogger<Program> log) =>
+        group.MapGet("/", async ([AsParameters] GetMoviesRequest req, IMoviesApi movies, ILogger<Program> log, CancellationToken cancellationToken) =>
         {
             log.LogDebug("Listing movies");
-            var result = await movies.GetAsync(req);
+            var result = await movies.GetAsync(req, cancellationToken);
             return Results.Ok(result);
         });
 
-        group.MapGet("/{id:int}", async ([AsParameters] GetMovieRequest req, IMoviesApi movies, ILogger<Program> log) =>
+        group.MapGet("/{id:int}", async ([AsParameters] GetMovieRequest req, IMoviesApi movies, ILogger<Program> log, CancellationToken cancellationToken) =>
         {
-            var result = await movies.GetByIdAsync(req);
+            var result = await movies.GetByIdAsync(req, cancellationToken);
             if (result is null)
             {
                 log.LogWarning("Movie {MovieId} not found", req.Id);
-                return Results.NotFound();
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Movie not found",
+                    detail: $"Movie {req.Id} was not found.");
             }
             log.LogInformation("Fetched movie {MovieId}", req.Id);
             return Results.Ok(result);
         });
 
-        group.MapPost("/", async (IMoviesApi movies, CreateMovieRequest dto, ILogger<Program> log) =>
+        group.MapPost("/", async (IMoviesApi movies, CreateMovieRequest dto, ILogger<Program> log, CancellationToken cancellationToken) =>
         {
-            var response = await movies.CreateAsync(dto);
+            var response = await movies.CreateAsync(dto, cancellationToken);
             log.LogInformation("Created movie {MovieId} - {Title}", response.Id, response.Title);
             return Results.Created($"/api/movies/{response.Id}", response);
         })
         .AddEndpointFilter(new DataAnnotationsValidateFilter<CreateMovieRequest>());
 
-        group.MapPut("/{id:int}", async (int id, UpdateMovieRequest req, IMoviesApi movies, ILogger<Program> log) =>
+        group.MapPut("/{id:int}", async (int id, UpdateMovieRequest req, IMoviesApi movies, ILogger<Program> log, CancellationToken cancellationToken) =>
         {
             if (id != req.Id)
             {
                 log.LogWarning("Update mismatch: route id {RouteId} != body id {BodyId}", id, req.Id);
-                return Results.BadRequest("Route id and body id do not match.");
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Movie id mismatch",
+                    detail: "The route id and body id do not match.");
             }
-            var success = await movies.UpdateAsync(req);
+            var success = await movies.UpdateAsync(req, cancellationToken);
             if (!success)
             {
                 log.LogWarning("Movie {MovieId} not found for update", req.Id);
-                return Results.NotFound();
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Movie not found",
+                    detail: $"Movie {req.Id} was not found.");
             }
             log.LogInformation("Updated movie {MovieId}", req.Id);
             return Results.NoContent();
         })
         .AddEndpointFilter(new DataAnnotationsValidateFilter<UpdateMovieRequest>());
 
-        group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, IMoviesApi movies, ILogger<Program> log) =>
+        group.MapDelete("/{id:int}", async ([AsParameters] DeleteMovieRequest req, IMoviesApi movies, ILogger<Program> log, CancellationToken cancellationToken) =>
         {
-            var success = await movies.DeleteAsync(req);
+            var success = await movies.DeleteAsync(req, cancellationToken);
             if (!success)
             {
                 log.LogWarning("Movie {MovieId} not found for delete", req.Id);
-                return Results.NotFound();
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Movie not found",
+                    detail: $"Movie {req.Id} was not found.");
             }
             log.LogInformation("Deleted movie {MovieId}", req.Id);
             return Results.NoContent();

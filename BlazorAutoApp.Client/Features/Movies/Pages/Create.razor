@@ -5,6 +5,11 @@
 
 <h1 class="text-2xl font-semibold mb-2">Create Movie</h1>
 
+@if (_error is not null)
+{
+    <p class="mb-3 text-sm text-red-600">@_error</p>
+}
+
 <EditForm Model="_model" OnValidSubmit="HandleSubmit" class="max-w-xl">
     <DataAnnotationsValidator />
     <ValidationSummary class="mb-3 text-sm text-red-600" />
@@ -31,10 +36,18 @@
 
 @code {
     private CreateMovieRequest _model = new() { Title = string.Empty, Rating = 0 };
+    private string? _error;
 
     private async Task HandleSubmit()
     {
-        var response = await Movies.CreateAsync(_model);
-        if (response is not null) Nav.NavigateTo("/movies");
+        try
+        {
+            var response = await Movies.CreateAsync(_model);
+            if (response is not null) Nav.NavigateTo("/movies");
+        }
+        catch
+        {
+            _error = "Movie could not be saved.";
+        }
     }
 }

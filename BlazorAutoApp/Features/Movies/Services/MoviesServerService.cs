@@ -6,16 +6,23 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
 using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Features.Movies.Caching;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Options;
 
 namespace BlazorAutoApp.Features.Movies.Services;
 
-public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, HybridCache cache, IOptions<MoviesCacheOptions> cacheOptions) : IMoviesApi
+public class MoviesServerService(
+    IDbContextFactory<AppDbContext> dbFactory,
+    HybridCache cache,
+    IOptions<MoviesCacheOptions> cacheOptions,
+    ILogger<MoviesServerService> logger) : IMoviesApi
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly HybridCache _cache = cache;
     private readonly MoviesCacheOptions _cacheOptions = cacheOptions.Value ?? new MoviesCacheOptions();
+    private readonly ILogger<MoviesServerService> _logger = logger;
 
-    public async Task<GetMoviesResponse> GetAsync(GetMoviesRequest req)
+    public async Task<GetMoviesResponse> GetAsync(GetMoviesRequest req, CancellationToken cancellationToken = default)
     {
         var key = "movies:list";
         var result = await _cache.GetOrCreateAsync(key,
@@ -23,11 +30,12 @@ public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, Hybr
             new HybridCacheEntryOptions
             {
                 Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ListTtlMinutes))
-            });
+            },
+            cancellationToken: cancellationToken);
         return result!;
     }
 
-    public async Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req)
+    public async Task<GetMovieResponse?> GetByIdAsync(GetMovieRequest req, CancellationToken cancellationToken = default)
     {
         var key = $"movies:item:{req.Id}";
         var result = await _cache.GetOrCreateAsync(key,
@@ -35,7 +43,8 @@ public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, Hybr
             new HybridCacheEntryOptions
             {
                 Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ItemTtlMinutes))
-            });
+            },
+            cancellationToken: cancellationToken);
         return result;
     }
 
@@ -60,9 +69,9 @@ public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, Hybr
         };
     }
 
-    public async Task<CreateMovieResponse> CreateAsync(CreateMovieRequest req)
+    public async Task<CreateMovieResponse> CreateAsync(CreateMovieRequest req, CancellationToken cancellationToken = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync();
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
         var movie = new Movie
         {
             Title = req.Title,
@@ -70,8 +79,8 @@ public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, Hybr
             Rating = req.Rating
         };
         db.Movies.Add(movie);
-        await db.SaveChangesAsync();
-        await InvalidateAsync(movie.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(movie.Id, cancellationToken);
         return new CreateMovieResponse
         {
             Id = movie.Id,
@@ -81,40 +90,40 @@ public class MoviesServerService(IDbContextFactory<AppDbContext> dbFactory, Hybr
         };
     }
 
-    public async Task<bool> UpdateAsync(UpdateMovieRequest req)
+    public async Task<bool> UpdateAsync(UpdateMovieRequest req, CancellationToken cancellationToken = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync();
-        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id, cancellationToken);
         if (movie is null) return false;
         movie.Title = req.Title;
         movie.Director = req.Director;
         movie.Rating = req.Rating;
-        await db.SaveChangesAsync();
-        await InvalidateAsync(req.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(req.Id, cancellationToken);
         return true;
     }
 
-    public async Task<bool> DeleteAsync(DeleteMovieRequest req)
+    public async Task<bool> DeleteAsync(DeleteMovieRequest req, CancellationToken cancellationToken = default)
     {
-        await using var db = await _dbFactory.CreateDbContextAsync();
-        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id);
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var movie = await db.Movies.FirstOrDefaultAsync(m => m.Id == req.Id, cancellationToken);
         if (movie is null) return false;
         db.Movies.Remove(movie);
-        await db.SaveChangesAsync();
-        await InvalidateAsync(req.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        await InvalidateAsync(req.Id, cancellationToken);
         return true;
     }
 
-    private async Task InvalidateAsync(int id)
+    private async Task InvalidateAsync(int id, CancellationToken cancellationToken)
     {
         try
         {
-            await _cache.RemoveAsync("movies:list");
-            await _cache.RemoveAsync($"movies:item:{id}");
+            await _cache.RemoveAsync("movies:list", cancellationToken);
+            await _cache.RemoveAsync($"movies:item:{id}", cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
-            // Best-effort invalidation; avoid surfacing cache errors to API consumers
+            _logger.LogWarning(ex, "Failed to invalidate Movies cache for movie {MovieId}", id);
         }
     }
 }

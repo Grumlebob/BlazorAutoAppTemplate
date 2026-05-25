@@ -59,8 +59,7 @@ namespace BlazorAutoApp.Data.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Director = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    Rating = table.Column<int>(type: "integer", nullable: false),
-                    ReleaseYear = table.Column<int>(type: "integer", nullable: true)
+                    Rating = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
