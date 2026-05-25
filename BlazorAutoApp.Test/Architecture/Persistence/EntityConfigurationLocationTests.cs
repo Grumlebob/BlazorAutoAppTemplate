@@ -41,7 +41,7 @@ public class EntityConfigurationLocationTests
                 .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEntityTypeConfiguration<>)))
             .ToList();
 
-        // Ensure at least one exists (Movies config in this template)
+        // Ensure at least one exists (Books config in this template)
         Assert.NotEmpty(configTypes);
 
         var offenders = configTypes

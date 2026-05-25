@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using BlazorAutoApp.Features.Movies.Caching;
+using BlazorAutoApp.Features.Books.Caching;
 using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,10 +29,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string AppNameEnvironmentVariable = "App__Name";
     private const string CacheInvalidationEnabledEnvironmentVariable = "Cache__Invalidation__Enabled";
     private const string CacheInvalidationNodeIdEnvironmentVariable = "Cache__Invalidation__NodeId";
-    private const string CacheMoviesLocalListTtlEnvironmentVariable = "Cache__Movies__LocalListTtlSeconds";
-    private const string CacheMoviesLocalItemTtlEnvironmentVariable = "Cache__Movies__LocalItemTtlSeconds";
-    private const string CacheMoviesDisableLocalEnvironmentVariable = "Cache__Movies__DisableLocalCache";
+    private const string CacheBooksLocalListTtlEnvironmentVariable = "Cache__Books__LocalListTtlSeconds";
+    private const string CacheBooksLocalItemTtlEnvironmentVariable = "Cache__Books__LocalItemTtlSeconds";
+    private const string CacheBooksDisableLocalEnvironmentVariable = "Cache__Books__DisableLocalCache";
     private const string StartupMigrationsEnvironmentVariable = "Database__RunMigrationsAtStartup";
+    private const string SeedLocalDefaultsEnvironmentVariable = "Books__SeedLocalDefaults";
     private const string ForwardedHeaderKnownNetworkV4EnvironmentVariable = "ForwardedHeaders__KnownNetworks__0";
     private const string ForwardedHeaderKnownNetworkV6EnvironmentVariable = "ForwardedHeaders__KnownNetworks__1";
     private const string ApiRateLimitEnvironmentVariable = "RateLimiting__Api__PermitLimit";
@@ -84,6 +87,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Redis:Configuration"] = _redisConnectionString,
                 ["Redis:AllowMissing"] = redisAllowMissing.ToString(),
                 ["Database:RunMigrationsAtStartup"] = "false",
+                ["Books:SeedLocalDefaults"] = "false",
                 ["ForwardedHeaders:KnownNetworks:0"] = "0.0.0.0/0",
                 ["ForwardedHeaders:KnownNetworks:1"] = "::/0",
                 ["RateLimiting:Api:PermitLimit"] = "60",
@@ -98,20 +102,32 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             if (_options.LocalListTtlSeconds is not null)
             {
-                values["Cache:Movies:LocalListTtlSeconds"] = _options.LocalListTtlSeconds.Value.ToString();
+                values["Cache:Books:LocalListTtlSeconds"] = _options.LocalListTtlSeconds.Value.ToString();
             }
 
             if (_options.LocalItemTtlSeconds is not null)
             {
-                values["Cache:Movies:LocalItemTtlSeconds"] = _options.LocalItemTtlSeconds.Value.ToString();
+                values["Cache:Books:LocalItemTtlSeconds"] = _options.LocalItemTtlSeconds.Value.ToString();
             }
 
             if (_options.DisableLocalCache is not null)
             {
-                values["Cache:Movies:DisableLocalCache"] = _options.DisableLocalCache.Value.ToString();
+                values["Cache:Books:DisableLocalCache"] = _options.DisableLocalCache.Value.ToString();
             }
 
             configuration.AddInMemoryCollection(values);
+        });
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
+                options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
+            })
+            .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                TestAuthenticationHandler.SchemeName,
+                _ => { });
         });
     }
 
@@ -125,8 +141,16 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var cache = scope.ServiceProvider.GetService<Microsoft.Extensions.Caching.Hybrid.HybridCache>();
         if (cache is not null)
         {
-            try { await cache.RemoveByTagAsync(MoviesCacheKeys.AllTag); } catch { }
+            try { await cache.RemoveByTagAsync(BooksCacheKeys.AllTag); } catch { }
         }
+    }
+
+    public HttpClient CreateAuthenticatedClient(string userName = "integration-user@example.test")
+    {
+        var client = CreateClient();
+        client.Timeout = TimeSpan.FromMinutes(MaxWaitTimeMinutes);
+        client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, userName);
+        return client;
     }
 
     public async ValueTask InitializeAsync()
@@ -159,10 +183,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [RedisAllowMissingEnvironmentVariable] = redisAllowMissing.ToString(),
                 [CacheInvalidationEnabledEnvironmentVariable] = (_options.CacheInvalidationEnabled ?? !string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal)).ToString(),
                 [CacheInvalidationNodeIdEnvironmentVariable] = _options.CacheInvalidationNodeId,
-                [CacheMoviesLocalListTtlEnvironmentVariable] = _options.LocalListTtlSeconds?.ToString(),
-                [CacheMoviesLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
-                [CacheMoviesDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
+                [CacheBooksLocalListTtlEnvironmentVariable] = _options.LocalListTtlSeconds?.ToString(),
+                [CacheBooksLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
+                [CacheBooksDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
                 [StartupMigrationsEnvironmentVariable] = "false",
+                [SeedLocalDefaultsEnvironmentVariable] = "false",
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
                 [ForwardedHeaderKnownNetworkV6EnvironmentVariable] = "::/0",
                 [ApiRateLimitEnvironmentVariable] = "60",

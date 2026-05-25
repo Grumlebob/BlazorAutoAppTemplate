@@ -21,7 +21,7 @@ Important boundary: this plan is intentionally destructive to the current deploy
   - `BlazorAutoApp/Infrastructure/Persistence/Migrations/20260524175426_InitialTemplateSchema.cs`
 - That migration contains only the current template schema:
   - ASP.NET Core Identity tables, including passkeys.
-  - `Movies`.
+  - `Books`.
 - No `Inspections`, TUS, upload, or old image tables are present in the current migration files.
 - The LocalCluster deployment keeps PostgreSQL data in the `postgres_data` Docker volume.
 - If the deployed database already contains older tables and older `__EFMigrationsHistory` rows from previous app versions, a squashed/fresh initial migration can fail by trying to create tables that already exist.
@@ -93,7 +93,7 @@ Execution notes:
 
 Status: done.
 
-Note: the current repo already has a single clean initial migration with only Identity/passkeys and Movies. This phase is still valid if the goal is a new timestamp/name and a completely freshly generated baseline, but it is not the fix for the observed deployment failure by itself. Phase 6 is required because the deployed database already has tables.
+Note: the current repo already has a single clean initial migration with only Identity/passkeys and Books. This phase is still valid if the goal is a new timestamp/name and a completely freshly generated baseline, but it is not the fix for the observed deployment failure by itself. Phase 6 is required because the deployed database already has tables.
 
 Steps:
 
@@ -110,7 +110,7 @@ Steps:
 3. Review the generated migration carefully.
 4. Verify it contains only:
    - Identity schema version 3/passkey-capable Identity tables.
-   - `Movies`.
+   - `Books`.
 5. Verify it contains no:
    - Inspections.
    - uploads.
@@ -127,7 +127,7 @@ Execution notes:
 
 - Removed old baseline migration `20260524175426_InitialTemplateSchema`.
 - Generated fresh baseline migration `20260525172002_InitialTemplateSchema`.
-- Verified the generated migration contains Identity/passkey tables and `Movies`.
+- Verified the generated migration contains Identity/passkey tables and `Books`.
 - Verified no generated migration content contains `Inspection`, `Tus`, `Upload`, or stale image-processing tables.
 - `dotnet ef migrations list --project .\BlazorAutoApp\BlazorAutoApp.csproj --startup-project .\BlazorAutoApp\BlazorAutoApp.csproj` shows exactly:
   - `20260525172002_InitialTemplateSchema (Pending)`
@@ -141,11 +141,11 @@ Steps:
 1. Start a disposable local PostgreSQL database or use the test/container setup.
 2. Apply the new migration to an empty database.
 3. Verify the schema:
-   - `Movies`
+   - `Books`
    - Identity tables
    - `__EFMigrationsHistory`
 4. Run the app against that fresh database.
-5. Run integration tests that cover Identity startup and Movies endpoints.
+5. Run integration tests that cover Identity startup and Books endpoints.
 
 Done when:
 
@@ -162,7 +162,7 @@ Execution notes:
   - `AspNetRoles`
   - `AspNetUsers`
   - `AspNetUserPasskeys`
-  - `Movies`
+  - `Books`
 
 ## Phase 5: Build And Test The Migration Bundle
 
@@ -194,7 +194,7 @@ Execution notes:
 - Built the deployment-shaped Linux bundle inside `mcr.microsoft.com/dotnet/sdk:10.0`, not from the Windows SDK, so the result is an ELF Linux executable.
 - Output bundle: `artifacts/migrations/ship-migrate`.
 - Tested that Linux bundle inside `mcr.microsoft.com/dotnet/runtime-deps:10.0` against a fresh PostgreSQL container.
-- Verified the bundle applied `20260525172002_InitialTemplateSchema` and created the expected Identity/passkey, Movies, and EF history tables.
+- Verified the bundle applied `20260525172002_InitialTemplateSchema` and created the expected Identity/passkey, Books, and EF history tables.
 
 ## Phase 6: Reset The Current Deployment Database
 
@@ -294,8 +294,8 @@ Steps:
 
 1. Run deployment acceptance checks.
 2. Open the deployed app.
-3. Verify Movies home page loads.
-4. Create, view, edit, and delete a movie.
+3. Verify Books home page loads.
+4. Create, view, edit, and delete a Book.
 5. Register/login if Identity is expected to be active in this environment.
 6. Confirm no startup migration is running in app containers:
    - production compose should keep `Database__RunMigrationsAtStartup: "false"`.

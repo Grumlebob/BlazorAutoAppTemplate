@@ -1,6 +1,6 @@
-using BlazorAutoApp.Core.Features.Movies.Domain;
+using BlazorAutoApp.Core.Features.Books.Domain;
 using BlazorAutoApp.Features.Login.Account;
-using BlazorAutoApp.Features.Movies.Persistence;
+using BlazorAutoApp.Features.Books.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -19,12 +19,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         IdentityUserToken<string>,
         IdentityUserPasskey<string>>(options)
 {
-    public DbSet<Movie> Movies => Set<Movie>();
+    public DbSet<Book> Books => Set<Book>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfiguration(new MovieEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new BookEntityTypeConfiguration());
     }
 }

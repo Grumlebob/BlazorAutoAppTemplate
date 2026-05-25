@@ -15,9 +15,11 @@ Use this checklist when forking the template.
 
 ## Domain And Features
 
-- The current sample domain is Movies. Replace or extend it under `Features/{Feature}` slices.
+- The current sample domain is Books with `Title`, optional `Author`, and optional `Url`.
+- Replace or extend it under `Features/{Feature}` slices.
 - Keep shared request/response contracts in `BlazorAutoApp.Core`.
 - Keep client pages under `BlazorAutoApp.Client/Features/{Feature}/Pages`.
+- Books create/update/delete are authenticated management actions; list/details remain public for the template bookcase.
 
 ## Identity
 

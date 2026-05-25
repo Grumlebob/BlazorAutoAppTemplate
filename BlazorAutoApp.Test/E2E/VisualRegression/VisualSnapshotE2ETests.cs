@@ -16,50 +16,52 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
         await RunWithFailureScreenshotAsync(async () =>
         {
             var suffix = Guid.NewGuid().ToString("N")[..8];
-            var title = $"Snapshot Movie {suffix}";
-            var director = $"Snapshot Director {suffix}";
+            var title = $"Snapshot Book {suffix}";
+            var author = $"Snapshot Author {suffix}";
+            var url = $"https://example.test/books/{suffix}";
 
             await GoHomeAndWaitForInteractivityAsync();
             await CaptureAsync("home");
 
-            await Page.GetByTestId("add-movie").ClickAsync();
-            await CaptureAsync("movies-create");
-
-            await Page.GetByTestId("movie-title").FillAsync(title);
-            await Page.GetByTestId("movie-director").FillAsync(director);
-            await Page.GetByTestId("movie-rating").FillAsync("9");
-            await Page.GetByTestId("movie-save").ClickAsync();
-
-            var row = Page.Locator("tbody tr").Filter(new LocatorFilterOptions { HasTextString = title });
-            await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
-            await row.GetByTestId("movie-view").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title })).ToBeVisibleAsync();
-            await CaptureAsync("movies-details");
-
-            await Page.GetByTestId("movie-back").ClickAsync();
-            await row.GetByTestId("movie-edit").ClickAsync();
-            await Expect(Page.GetByTestId("movie-title")).ToHaveValueAsync(title);
-            await CaptureAsync("movies-edit");
-
+            var email = $"snapshot-{suffix}@example.test";
+            const string password = "Passw0rd!";
             await GoToAsync("/Account/Login");
             await CaptureAsync("login");
 
             await GoToAsync("/Account/Register");
             await CaptureAsync("register");
-
-            var email = $"snapshot-{suffix}@example.test";
-            const string password = "Passw0rd!";
             await Page.Locator("#Input\\.Email").FillAsync(email);
             await Page.Locator("#Input\\.Password").FillAsync(password);
             await Page.Locator("#Input\\.ConfirmPassword").FillAsync(password);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Register" }).ClickAsync();
+            await GoHomeAndWaitForInteractivityAsync();
+
+            await Page.GetByTestId("add-book").ClickAsync();
+            await CaptureAsync("books-create");
+
+            await Page.GetByTestId("book-title").FillAsync(title);
+            await Page.GetByTestId("book-author").FillAsync(author);
+            await Page.GetByTestId("book-url").FillAsync(url);
+            await Page.GetByTestId("book-save").ClickAsync();
+
+            var row = Page.Locator("[data-testid^='book-row-']").Filter(new LocatorFilterOptions { HasTextString = title });
+            await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await row.GetByTestId("book-view").ClickAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title })).ToBeVisibleAsync();
+            await CaptureAsync("books-details");
+
+            await Page.GetByTestId("book-back").ClickAsync();
+            await row.GetByTestId("book-edit").ClickAsync();
+            await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(title);
+            await CaptureAsync("books-edit");
+
             await GoToAsync("/Account/Manage");
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Profile" }))
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
             await CaptureAsync("account-manage");
 
-            await GoToAsync("/movies/99999999");
-            await Expect(Page.GetByText("Movie not found.")).ToBeVisibleAsync();
+            await GoToAsync("/books/99999999");
+            await Expect(Page.GetByText("Book not found.")).ToBeVisibleAsync();
             await CaptureAsync("not-found");
         });
     }

@@ -1,6 +1,6 @@
 # BlazorAutoApp
 
-BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Movies feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, Seq logging, Docker Compose, and visible Playwright E2E tests.
+BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Books feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, Seq logging, Docker Compose, and visible Playwright E2E tests.
 
 ## Start Here
 
@@ -100,14 +100,16 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 ## Current Behavior
 
-The Movies page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Movies data access is abstracted behind the shared `IMoviesApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/movies`.
+The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG bookcase; logged-in users also see `Add Book` and the `Saved books` management list. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
 
-Redis is required outside development/test environments. It backs distributed `HybridCache`, Data Protection keys, and cross-node movie cache invalidation. The default invalidation strategy uses Redis pub/sub with short local-cache TTLs; if strict freshness matters more than in-process cache speed, set `Cache__Movies__DisableLocalCache=true` on every app node. Durable invalidation, such as Redis Streams or a database outbox, should be added by apps that need guaranteed delivery.
+Local development seeds a small set of common books after startup migrations when `Books:SeedLocalDefaults=true`. The seed is disabled in base configuration and enabled for Development/Docker local runs.
+
+Redis is required outside development/test environments. It backs distributed `HybridCache`, Data Protection keys, and cross-node book cache invalidation. The default invalidation strategy uses Redis pub/sub with short local-cache TTLs; if strict freshness matters more than in-process cache speed, set `Cache__Books__DisableLocalCache=true` on every app node. Durable invalidation, such as Redis Streams or a database outbox, should be added by apps that need guaranteed delivery.
 
 Rate limiting is enabled by default:
 
 - Global app limit: `600` requests per minute per user/IP.
-- Movies API limit: `60` requests per minute per user/IP.
+- Books API limit: `60` requests per minute per user/IP.
 - Account POST endpoint limit: `120` requests per five minutes per user/IP.
 
 Override these values under the `RateLimiting` configuration section when building a real product from the template.

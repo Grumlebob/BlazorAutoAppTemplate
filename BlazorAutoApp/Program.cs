@@ -1,7 +1,7 @@
 using BlazorAutoApp.Components;
 using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Features.Login.Account;
-using BlazorAutoApp.Features.Movies;
+using BlazorAutoApp.Features.Books;
 using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ClientImports = BlazorAutoApp.Client._Imports;
@@ -28,7 +28,7 @@ builder.Services.AddAppAntiforgery(builder.Environment);
 builder.Services.AddAppCachingAndDataProtection(builder.Configuration, builder.Environment, healthChecks);
 builder.Services.AddAppPersistence(builder.Configuration, healthChecks);
 builder.Services.AddAppRateLimiting(builder.Configuration);
-builder.Services.AddMoviesFeature(builder.Configuration);
+builder.Services.AddBooksFeature(builder.Configuration);
 builder.Services.AddLoginFeature(builder.Configuration);
 
 var app = builder.Build();
@@ -66,6 +66,7 @@ app.Use(async (ctx, next) =>
 });
 
 await app.ApplyAppMigrationsAsync();
+await app.SeedLocalBooksAsync();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
@@ -74,7 +75,7 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(ClientImports).Assembly);
 app.MapAdditionalIdentityEndpoints();
 app.MapAppHealthChecks();
-app.MapMoviesFeature();
+app.MapBooksFeature();
 
 app.Run();
 

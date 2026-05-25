@@ -121,9 +121,9 @@ Priority: high.
 
 Findings:
 
-- `BlazorAutoApp/Features/Movies/Validation/DataAnnotationsValidateFilter.cs` is a custom validation filter.
+- `BlazorAutoApp/Features/Books/Validation/DataAnnotationsValidateFilter.cs` is a custom validation filter.
 - ASP.NET Core 10 has built-in Minimal API validation via `AddValidation`.
-- The Movies endpoints currently use `Results.Ok`, `Results.Created`, `Results.NoContent`, and `Results.Problem` instead of `TypedResults`.
+- The Books endpoints currently use `Results.Ok`, `Results.Created`, `Results.NoContent`, and `Results.Problem` instead of `TypedResults`.
 - There is no central `AddProblemDetails`/`IProblemDetailsService` customization.
 - There is no OpenAPI output for the API surface. That is optional for a UI-first template, but modern Minimal API templates often expose it in Development.
 
@@ -131,8 +131,8 @@ Plan:
 
 1. Add `Microsoft.Extensions.Validation` only if required by the current ASP.NET Core 10 package graph.
 2. Register `builder.Services.AddValidation()`.
-3. Remove the custom Movies `DataAnnotationsValidateFilter<T>` if built-in validation covers the same request DTOs.
-4. Convert Movies endpoints to `TypedResults` where the return shape is stable:
+3. Remove the custom Books `DataAnnotationsValidateFilter<T>` if built-in validation covers the same request DTOs.
+4. Convert Books endpoints to `TypedResults` where the return shape is stable:
    - list: `TypedResults.Ok`
    - get by id: typed `Ok` or `Problem`/`NotFound`
    - create: `TypedResults.Created`
@@ -148,9 +148,9 @@ Risks:
 
 Done when:
 
-- `builder.Services.AddValidation()` is registered and the custom Movies validation filter was removed.
+- `builder.Services.AddValidation()` is registered and the custom Books validation filter was removed.
 - `builder.Services.AddProblemDetails()` is registered so Minimal API validation can use the platform problem details service.
-- Movies endpoints use `TypedResults`, explicit result unions, endpoint names, tags, and problem/validation response metadata.
+- Books endpoints use `TypedResults`, explicit result unions, endpoint names, tags, and problem/validation response metadata.
 - Create/update validation tests still pass.
 - API response tests cover 400 validation, 400 domain mismatch, 404 problem responses, 201 create, and 204 update/delete.
 - No custom validation code remains.
@@ -178,7 +178,7 @@ Findings:
 Plan:
 
 1. Keep the current Interactive Auto app-level render mode.
-2. Keep render-mode diagnostics on the Movies-first home page because this is a Blazor template.
+2. Keep render-mode diagnostics on the Books-first home page because this is a Blazor template.
 3. Review whether any Identity/static SSR page accidentally depends on hydrated interactivity.
 4. Keep headed Playwright render-mode tests as the acceptance gate.
 5. Avoid moving server Identity pages into the client project unless adopting global client-side interactivity for all routes, which this app does not need.
@@ -186,15 +186,15 @@ Plan:
 Done when:
 
 - Render-mode E2E verifies assigned mode, prerender/static phase, and hydrated renderer.
-- Movies pages continue working after browser Back and explicit Back navigation.
+- Books pages continue working after browser Back and explicit Back navigation.
 - Identity static SSR flows still work.
 
 Execution notes:
 
 - Kept the current Interactive Auto app-level render mode.
-- Kept Movies as the homepage and kept render-mode diagnostics visible there.
+- Kept Books as the homepage and kept render-mode diagnostics visible there.
 - Kept Identity under the server-side Login slice because those account pages are static SSR/server concerns.
-- Existing headed E2E coverage remains the acceptance gate for render mode, Movies navigation, and Identity.
+- Existing headed E2E coverage remains the acceptance gate for render mode, Books navigation, and Identity.
 
 ## Phase 4: EF Core 10 And Persistence Modernization
 
@@ -247,16 +247,16 @@ Findings:
 
 Plan:
 
-1. Keep the current `HybridCache` abstraction and Movies-owned keys/tags.
+1. Keep the current `HybridCache` abstraction and Books-owned keys/tags.
 2. Add metrics or structured logs around:
    - invalidation publish failures
    - subscriber reconnects
    - invalidation apply failures
 3. Document when template users should choose:
    - default local cache + pub/sub
-   - `Cache__Movies__DisableLocalCache=true`
+   - `Cache__Books__DisableLocalCache=true`
    - durable invalidation with Redis Streams or a database outbox
-4. Consider a later durable invalidation plan only if the template grows beyond simple Movies demo data.
+4. Consider a later durable invalidation plan only if the template grows beyond simple Books demo data.
 
 Done when:
 
@@ -269,7 +269,7 @@ Execution notes:
 - Kept `HybridCache` plus Redis pub/sub invalidation.
 - Added an operator-visible log when a Redis invalidation publish sees no subscriber acknowledgements.
 - Existing warnings already cover publish failures, subscriber reconnect failures, malformed messages, and invalidation apply failures.
-- README and LocalCluster deployment docs now explain Redis pub/sub at-most-once behavior and `Cache__Movies__DisableLocalCache=true`.
+- README and LocalCluster deployment docs now explain Redis pub/sub at-most-once behavior and `Cache__Books__DisableLocalCache=true`.
 
 ## Phase 6: Container And Deployment Modernization
 

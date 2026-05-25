@@ -5,7 +5,7 @@ This project has four test layers:
 - Feature/integration tests for the vertical slices.
 - Architecture tests for repo structure and endpoint behavior.
 - Infrastructure/hosting behavior tests.
-- Headed Playwright E2E tests for real browser render mode, Movies, and Identity flows.
+- Headed Playwright E2E tests for real browser render mode, Books, and Identity flows.
 
 ## Normal Test Run
 
@@ -21,12 +21,12 @@ Integration tests use Testcontainers and PostgreSQL, so Docker must be running.
 
 ## Cross-Node Cache Invalidation Tests
 
-Movies cross-node cache invalidation tests start two in-memory app hosts against one shared PostgreSQL Testcontainer and one shared Redis Testcontainer. These tests verify the production shape where multiple app servers share Redis and need Redis pub/sub to invalidate each other's in-process `HybridCache` entries.
+Books cross-node cache invalidation tests start two in-memory app hosts against one shared PostgreSQL Testcontainer and one shared Redis Testcontainer. These tests verify the production shape where multiple app servers share Redis and need Redis pub/sub to invalidate each other's in-process `HybridCache` entries.
 
 Run them directly with:
 
 ```powershell
-dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "FullyQualifiedName~MoviesCrossNodeCacheInvalidationTests"
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "FullyQualifiedName~BooksCrossNodeCacheInvalidationTests"
 ```
 
 The shared fixture lives under `TestSupport/Integration`. Normal integration tests keep Redis disabled with `Redis:AllowMissing=true` unless the test explicitly opts into shared Redis.
@@ -63,7 +63,7 @@ Conventions:
 
 ## Infrastructure Hosting Tests
 
-`BlazorAutoApp.Test/Infrastructure/Hosting/RateLimitingTests.cs` verifies that the Movies API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
+`BlazorAutoApp.Test/Infrastructure/Hosting/RateLimitingTests.cs` verifies that the Books API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
 
 `BlazorAutoApp.Test/Infrastructure/Hosting/ForwardedHeadersTests.cs` verifies that the app does not ship trust-all forwarded headers and that configured proxy/network trust is applied explicitly.
 
@@ -134,15 +134,16 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 Current E2E tests verify:
 
 - Home render-mode diagnostics hydrate to an interactive renderer.
-- Movies can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
+- Anonymous Books home hides management actions while keeping the public bookcase visible.
+- Authenticated Books users can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
 - Identity can register, logout, login, open the profile page, open passkeys, and use the local forgot-password flow.
-- Visual snapshots are captured for homepage, Movies create/details/edit, login/register, account manage, and not-found screens.
+- Visual snapshots are captured for homepage, Books create/details/edit, login/register, account manage, and not-found screens.
 
 E2E layout:
 
 - `E2E/AppShell`: template/app-shell browser checks such as render-mode diagnostics.
 - `E2E/Features/Login`: Identity browser flows.
-- `E2E/Features/Movies`: Movies browser flows.
+- `E2E/Features/Books`: Books browser flows.
 - `E2E/VisualRegression`: screenshot capture tests.
 - `E2E/Support`: shared Playwright base classes and guards.
 

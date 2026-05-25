@@ -1,0 +1,119 @@
+@page "/books/{Id:int}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@inject IBooksApi Books
+@inject NavigationManager Nav
+
+<h1 class="text-2xl font-semibold mb-2">Edit Book</h1>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-red-600">@_error</p>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit" class="max-w-xl">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="mb-3 text-sm text-red-600" />
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <InputText data-testid="book-title" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Title" />
+            <ValidationMessage For="() => _model.Title" class="text-sm text-red-600" />
+        </div>
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Author</label>
+            <InputText data-testid="book-author" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Author" />
+            <ValidationMessage For="() => _model.Author" class="text-sm text-red-600" />
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <InputText data-testid="book-url" type="url" placeholder="https://example.com/book" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500" @bind-Value="_model.Url" />
+            <ValidationMessage For="() => _model.Url" class="text-sm text-red-600" />
+        </div>
+        <div class="flex items-center gap-2">
+            <button data-testid="book-save" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700" type="submit">Save</button>
+            <a data-testid="book-cancel" class="inline-flex items-center rounded-md border border-gray-400 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" href="/books">Cancel</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private UpdateBookRequest _model = new() { Id = 0, Title = string.Empty };
+
+    [PersistentState]
+    public int? PersistedBookId { get; set; }
+
+    [PersistentState]
+    public GetBookResponse? PersistedBook { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            if (PersistedBookId == Id && PersistedBook is not null)
+            {
+                ApplyBook(PersistedBook);
+            }
+            else
+            {
+                var response = await Books.GetByIdAsync(new GetBookRequest { Id = Id });
+                if (response is null)
+                {
+                    _error = "Book not found";
+                    return;
+                }
+
+                PersistedBookId = Id;
+                PersistedBook = response;
+                ApplyBook(response);
+            }
+        }
+        catch
+        {
+            _error = "Book could not be loaded.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            var success = await Books.UpdateAsync(_model);
+            if (success) Nav.NavigateTo("/books");
+        }
+        catch
+        {
+            _error = "Book could not be saved.";
+        }
+    }
+
+    private void ApplyBook(GetBookResponse book)
+    {
+        _model = new UpdateBookRequest
+        {
+            Id = book.Id,
+            Title = book.Title,
+            Author = book.Author,
+            Url = book.Url
+        };
+    }
+}

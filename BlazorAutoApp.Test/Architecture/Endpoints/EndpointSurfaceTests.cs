@@ -15,15 +15,15 @@ public class EndpointSurfaceTests(WebAppFactory factory)
     private readonly IServiceProvider _services = factory.Services;
 
     [Fact]
-    public void MoviesEndpoints_Exist_With_Expected_Routes()
+    public void BooksEndpoints_Exist_With_Expected_Routes()
     {
         var endpoints = RouteEndpoints();
 
-        Assert.True(Has(endpoints, "GET", "/api/movies/", "/api/movies"));
-        Assert.True(Has(endpoints, "GET", "/api/movies/{id:int}"));
-        Assert.True(Has(endpoints, "POST", "/api/movies/", "/api/movies"));
-        Assert.True(Has(endpoints, "PUT", "/api/movies/{id:int}"));
-        Assert.True(Has(endpoints, "DELETE", "/api/movies/{id:int}"));
+        Assert.True(Has(endpoints, "GET", "/api/books/", "/api/books"));
+        Assert.True(Has(endpoints, "GET", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "POST", "/api/books/", "/api/books"));
+        Assert.True(Has(endpoints, "PUT", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "DELETE", "/api/books/{id:int}"));
     }
 
     private List<RouteEndpoint> RouteEndpoints()

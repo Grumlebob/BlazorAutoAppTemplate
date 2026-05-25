@@ -16,7 +16,7 @@ public sealed class RateLimitingTests(WebAppFactory factory)
     private readonly HttpClient _client = factory.HttpClient;
 
     [Fact]
-    public async Task MoviesApi_ReturnsTooManyRequests_WhenApiLimitIsExceeded()
+    public async Task BooksApi_ReturnsTooManyRequests_WhenApiLimitIsExceeded()
     {
         var forwardedIp = $"203.0.113.{Random.Shared.Next(1, 255)}";
         var lastStatusCode = HttpStatusCode.OK;
@@ -24,7 +24,7 @@ public sealed class RateLimitingTests(WebAppFactory factory)
 
         for (var requestNumber = 1; requestNumber <= ApiPermitLimit + 1; requestNumber++)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/movies");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/books");
             request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedIp);
 
             using var response = await _client.SendAsync(request);

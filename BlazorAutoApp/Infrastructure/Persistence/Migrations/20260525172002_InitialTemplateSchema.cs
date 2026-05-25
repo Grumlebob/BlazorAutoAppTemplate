@@ -52,18 +52,18 @@ namespace BlazorAutoApp.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Movies",
+                name: "Books",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Director = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    Rating = table.Column<int>(type: "integer", nullable: false)
+                    Author = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    Url = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Movies", x => x.Id);
+                    table.PrimaryKey("PK_Books", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -256,7 +256,7 @@ namespace BlazorAutoApp.Infrastructure.Persistence.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Movies");
+                name: "Books");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

@@ -1,0 +1,217 @@
+@page "/"
+@page "/books"
+
+@inject IBooksApi Books
+@inject IJSRuntime JS
+
+<PageTitle>Books</PageTitle>
+
+<div class="books-home">
+    <div class="books-home-header">
+        <div>
+            <h1>Books</h1>
+            <p class="books-home-subtitle">A small Blazor library running in Interactive Auto.</p>
+        </div>
+        <RenderModeBadge Assigned="@AssignedRenderMode" ConfiguredMode="Interactive Auto" />
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="books-home-actions">
+                <a data-testid="add-book" class="book-primary-action" href="/books/create">Add Book</a>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+
+    @if (_loading)
+    {
+        <p class="books-status">Loading...</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="books-status books-status-error">@_error</p>
+    }
+    else
+    {
+        var hasBooks = BooksState is { Count: > 0 };
+        var bookcaseItems = BuildBookcaseItems();
+
+        <section class="bookcase" aria-label="Bookcase" data-testid="bookcase">
+            <div class="bookcase-viewport">
+                <div class="bookcase-track">
+                    @for (var pass = 0; pass < 2; pass++)
+                    {
+                        var isDuplicate = pass == 1;
+                        for (var index = 0; index < bookcaseItems.Count; index++)
+                        {
+                            var book = bookcaseItems[index];
+                            var isRepeatedBook = hasBooks && BooksState is not null && index >= BooksState.Count;
+                            var isHiddenCopy = isDuplicate || isRepeatedBook;
+                            var seed = book.Id + (index * 37) + (pass * 1000);
+
+                            if (hasBooks)
+                            {
+                                <a data-testid="book-spine"
+                                   class="book-spine-link"
+                                   href="@($"/books/{book.Id}")"
+                                   aria-hidden="@(isHiddenCopy ? "true" : null)"
+                                   tabindex="@(isHiddenCopy ? "-1" : null)"
+                                   aria-label="@($"{book.Title} details")">
+                                    <BookSpine Seed="@seed" Title="@book.Title" Author="@book.Author" Url="@book.Url" />
+                                </a>
+                            }
+                            else
+                            {
+                                <span class="book-spine-placeholder" aria-hidden="true">
+                                    <BookSpine Seed="@seed" Title="@book.Title" Author="@book.Author" Url="@book.Url" />
+                                </span>
+                            }
+                        }
+                    }
+                </div>
+            </div>
+            <div class="bookcase-shelf" aria-hidden="true"></div>
+        </section>
+
+        @if (!hasBooks)
+        {
+            <p data-testid="book-empty-state" class="books-empty-state">No books saved yet.</p>
+        }
+        <AuthorizeView>
+            <Authorized>
+                @if (hasBooks)
+                {
+                    <section class="books-list" aria-label="Saved books">
+                        <div class="books-list-header">
+                            <h2>Saved books</h2>
+                            <span>@BooksState!.Count total</span>
+                        </div>
+
+                        <div class="books-list-grid">
+                            @foreach (var book in BooksState!)
+                            {
+                                <article class="book-list-item" data-testid="@($"book-row-{book.Id}")">
+                                    <div>
+                                        <h3>@book.Title</h3>
+                                        <p>@(string.IsNullOrWhiteSpace(book.Author) ? "Unknown author" : book.Author)</p>
+                                        @if (string.IsNullOrWhiteSpace(book.Url))
+                                        {
+                                            <span>No URL</span>
+                                        }
+                                        else
+                                        {
+                                            <a class="book-list-url" href="@book.Url" target="_blank" rel="noopener noreferrer">Open URL</a>
+                                        }
+                                    </div>
+                                    <div class="book-list-actions">
+                                        <a data-testid="book-view" href="@($"/books/{book.Id}")">View</a>
+                                        <a data-testid="book-edit" href="@($"/books/{book.Id}/edit")">Edit</a>
+                                        <button data-testid="book-delete" type="button" @onclick="() => DeleteAsync(book.Id)">Delete</button>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    </section>
+                }
+            </Authorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    private static readonly BookcaseItem[] PlaceholderBooks =
+    [
+        new(-1, "Pride and Prejudice", "Jane Austen", null),
+        new(-2, "1984", "George Orwell", null),
+        new(-3, "The Hobbit", "J.R.R. Tolkien", null),
+        new(-4, "To Kill a Mockingbird", "Harper Lee", null),
+        new(-5, "The Great Gatsby", "F. Scott Fitzgerald", null),
+        new(-6, "Moby-Dick", "Herman Melville", null),
+        new(-7, "Jane Eyre", "Charlotte Bronte", null),
+        new(-8, "Frankenstein", "Mary Shelley", null),
+        new(-9, "The Odyssey", "Homer", null),
+        new(-10, "Don Quixote", "Miguel de Cervantes", null),
+        new(-11, "War and Peace", "Leo Tolstoy", null),
+        new(-12, "The Trial", "Franz Kafka", null)
+    ];
+
+    private bool _loading = true;
+    private string? _error;
+
+    [PersistentState(AllowUpdates = true)]
+    public List<Book>? BooksState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (BooksState is not null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var res = await Books.GetAsync(new GetBooksRequest());
+            BooksState = res.Books;
+        }
+        catch
+        {
+            _error = "Books could not be loaded.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private IReadOnlyList<BookcaseItem> BuildBookcaseItems()
+    {
+        if (BooksState is not { Count: > 0 })
+        {
+            return PlaceholderBooks;
+        }
+
+        var items = BooksState
+            .Select(book => new BookcaseItem(book.Id, book.Title, book.Author, book.Url))
+            .ToList();
+
+        for (var i = 0; items.Count < 12; i++)
+        {
+            var source = BooksState[i % BooksState.Count];
+            items.Add(new BookcaseItem(source.Id, source.Title, source.Author, source.Url));
+        }
+
+        return items;
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var success = await Books.DeleteAsync(new DeleteBookRequest { Id = id });
+            if (success)
+            {
+                await LoadAsync();
+            }
+        }
+        catch
+        {
+            _error = "Book could not be deleted.";
+        }
+    }
+
+    private sealed record BookcaseItem(int Id, string Title, string? Author, string? Url);
+}

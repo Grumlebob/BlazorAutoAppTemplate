@@ -1,55 +1,63 @@
 # Overview
 
-This solution is a .NET 10 Blazor Web App template built around Interactive Auto render mode. The home page is the Movies feature. It prerenders on the server, hydrates in the browser, and keeps the UI code shared by depending on feature contracts from the Core project.
+This solution is a .NET 10 Blazor Web App template built around Interactive Auto render mode. The home page is the Books feature. It prerenders on the server, hydrates in the browser, and keeps the UI code shared by depending on feature contracts from the Core project.
 
 ## Architecture
 
-- `BlazorAutoApp.Core/Features/Movies`
-  - `Movie` domain type.
+- `BlazorAutoApp.Core/Features/Books`
+  - `Book` domain type.
   - Request/response DTOs for list, details, create, update, and delete.
-  - `IMoviesApi`, the shared interface used by pages.
+  - `IBooksApi`, the shared interface used by pages.
 - `BlazorAutoApp`
   - Server host, EF Core owner, Minimal API owner, startup composition, Identity account components, and SSR/prerender runtime.
-  - `MoviesServerService` implements `IMoviesApi` directly over EF Core.
-  - `/api/movies` exposes the Movies API for the hydrated client.
+  - `BooksServerService` implements `IBooksApi` directly over EF Core.
+  - `/api/books` exposes the Books API for the hydrated client.
 - `BlazorAutoApp.Client`
   - WASM client and UI slices.
-  - `MoviesClientService` implements `IMoviesApi` with `HttpClient`.
+  - `BooksClientService` implements `IBooksApi` with `HttpClient`.
 - `BlazorAutoApp.Test`
   - xUnit integration and architecture tests.
-  - Headed Playwright E2E tests for render mode, Movies, and Identity.
+  - Headed Playwright E2E tests for render mode, Books, and Identity.
 
 ## Interactive Auto Flow
 
 1. The browser requests `/`.
-2. The server prerenders the Movies page using server DI.
-3. The page resolves `IMoviesApi` to `MoviesServerService` and reads from EF Core.
+2. The server prerenders the Books page using server DI.
+3. The page resolves `IBooksApi` to `BooksServerService` and reads from EF Core.
 4. The page persists the read model into `PersistentComponentState`.
 5. Blazor hydrates in the browser.
-6. The client resolves `IMoviesApi` to `MoviesClientService`.
+6. The client resolves `IBooksApi` to `BooksClientService`.
 7. The page reads the persisted state to avoid an immediate duplicate fetch.
-8. Later interactions call `/api/movies` over HTTP.
+8. Later interactions call `/api/books` over HTTP.
 
 The home page includes render-mode diagnostics because this repository is a template app. Users should be able to see whether they are looking at prerendered, server-interactive, or WebAssembly-interactive behavior.
 
-## Movies Feature
+## Books Feature
+
+Books have:
+
+- required `Title`
+- optional `Author`
+- optional absolute HTTP/HTTPS `Url`
 
 Routes:
 
-- `/` and `/movies`: Movies list and home page.
-- `/movies/create`: create a movie.
-- `/movies/{id:int}`: details.
-- `/movies/{id:int}/edit`: edit.
+- `/` and `/books`: Books list and home page.
+- `/books/create`: create a Book, requires login.
+- `/books/{id:int}`: details.
+- `/books/{id:int}/edit`: edit, requires login.
 
 API endpoints:
 
-- `GET /api/movies`
-- `GET /api/movies/{id:int}`
-- `POST /api/movies`
-- `PUT /api/movies/{id:int}`
-- `DELETE /api/movies/{id:int}`
+- `GET /api/books`
+- `GET /api/books/{id:int}`
+- `POST /api/books`, requires login.
+- `PUT /api/books/{id:int}`, requires login.
+- `DELETE /api/books/{id:int}`, requires login.
 
 Validation lives on Core request DTOs, so server and client use the same rules.
+
+The public home page always shows the SVG bookcase. Authenticated users additionally get `Add Book` and the `Saved books` management list. Local Development and Docker runs seed common default books after startup migrations when `Books:SeedLocalDefaults=true`.
 
 ## Identity
 
@@ -72,9 +80,9 @@ The client has a small login route helper under `BlazorAutoApp.Client/Features/L
 - Redis backs HybridCache and Data Protection keys.
 - `App:Name` scopes Data Protection keys and authenticator issuer names for forks.
 - If Redis is not configured, local direct runs write fallback keys under `data/storage/DataProtection-Keys`; Docker and LocalCluster use `/app/Storage/DataProtection-Keys`. This is runtime key storage, not upload or media storage.
-- Movies cache keys:
-  - List: `movies:list`
-  - Item: `movies:item:{id}`
+- Books cache keys:
+  - List: `books:list`
+  - Item: `books:item:{id}`
 - Writes invalidate the list key and the touched item key.
 
 Startup migrations run when `Database:RunMigrationsAtStartup` is true. Development defaults to true; Docker sets it explicitly for local use.
@@ -86,7 +94,7 @@ Rate limiting is configured in `BlazorAutoApp/Infrastructure/Hosting/AppRateLimi
 Default limits:
 
 - Global app limit: `600` requests per minute per user/IP.
-- Movies API limit: `60` requests per minute per user/IP.
+- Books API limit: `60` requests per minute per user/IP.
 - Account POST endpoint limit: `120` requests per five minutes per user/IP.
 
 Rejected requests return `429` with a `Retry-After` header and a problem response body.

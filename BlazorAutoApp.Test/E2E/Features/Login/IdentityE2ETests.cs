@@ -25,27 +25,27 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Register" }).ClickAsync();
 
             var accountLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = email });
-            await MakeNavigationItemVisibleAsync(accountLink);
-            await Expect(accountLink)
+            var visibleAccountLink = await MakeNavigationItemVisibleAsync(accountLink);
+            await Expect(visibleAccountLink)
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
             var logoutButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Logout" });
-            await MakeNavigationItemVisibleAsync(logoutButton);
-            await logoutButton.ClickAsync();
+            var visibleLogoutButton = await MakeNavigationItemVisibleAsync(logoutButton);
+            await visibleLogoutButton.ClickAsync();
             var loginLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Login" });
-            await MakeNavigationItemVisibleAsync(loginLink);
-            await Expect(loginLink)
+            var visibleLoginLink = await MakeNavigationItemVisibleAsync(loginLink);
+            await Expect(visibleLoginLink)
                 .ToBeVisibleAsync();
 
-            await loginLink.ClickAsync();
+            await visibleLoginLink.ClickAsync();
             await Page.Locator("#Input\\.Email").FillAsync(email);
             await Page.Locator("#Input\\.Password").FillAsync(password);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Log in", Exact = true }).ClickAsync();
-            await MakeNavigationItemVisibleAsync(accountLink);
-            await Expect(accountLink)
+            visibleAccountLink = await MakeNavigationItemVisibleAsync(accountLink);
+            await Expect(visibleAccountLink)
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
-            await accountLink.ClickAsync();
+            await visibleAccountLink.ClickAsync();
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Profile" }))
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
@@ -56,10 +56,10 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add a new passkey" }))
                 .ToBeVisibleAsync();
 
-            await MakeNavigationItemVisibleAsync(logoutButton);
-            await logoutButton.ClickAsync();
-            await MakeNavigationItemVisibleAsync(loginLink);
-            await Expect(loginLink)
+            visibleLogoutButton = await MakeNavigationItemVisibleAsync(logoutButton);
+            await visibleLogoutButton.ClickAsync();
+            visibleLoginLink = await MakeNavigationItemVisibleAsync(loginLink);
+            await Expect(visibleLoginLink)
                 .ToBeVisibleAsync();
 
             await GoToAsync("/Account/ForgotPassword");
@@ -70,13 +70,46 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
         });
     }
 
-    private async Task MakeNavigationItemVisibleAsync(ILocator locator)
+    private async Task<ILocator> MakeNavigationItemVisibleAsync(ILocator locator)
     {
-        if (await locator.IsVisibleAsync())
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
         {
-            return;
+            var visible = await FirstVisibleAsync(locator);
+            if (visible is not null)
+            {
+                return visible;
+            }
+
+            await OpenMobileNavigationMenuAsync();
+            await Task.Delay(250);
         }
 
-        await Page.GetByLabel("Toggle menu").ClickAsync();
+        await Expect(locator.First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        return locator.First;
+    }
+
+    private static async Task<ILocator?> FirstVisibleAsync(ILocator locator)
+    {
+        var count = await locator.CountAsync();
+        for (var i = 0; i < count; i++)
+        {
+            var candidate = locator.Nth(i);
+            if (await candidate.IsVisibleAsync())
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task OpenMobileNavigationMenuAsync()
+    {
+        var mobileMenu = Page.GetByTestId("nav-menu");
+        if (await mobileMenu.CountAsync() > 0)
+        {
+            await mobileMenu.EvaluateAsync("element => element.setAttribute('open', '')");
+        }
     }
 }
