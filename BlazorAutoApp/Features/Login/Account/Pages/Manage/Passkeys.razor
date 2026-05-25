@@ -118,7 +118,7 @@ else
         var attestationResult = await SignInManager.PerformPasskeyAttestationAsync(Input.CredentialJson);
         if (!attestationResult.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus($"Error: Could not add the passkey: {attestationResult.Failure.Message}", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: Could not add the passkey.", HttpContext);
             return;
         }
 
@@ -145,7 +145,7 @@ else
                 await DeletePasskey();
                 break;
             default:
-                RedirectManager.RedirectToCurrentPageWithStatus($"Error: Unknown action '{Action}'.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: Unknown passkey action.", HttpContext);
                 break;
         }
     }

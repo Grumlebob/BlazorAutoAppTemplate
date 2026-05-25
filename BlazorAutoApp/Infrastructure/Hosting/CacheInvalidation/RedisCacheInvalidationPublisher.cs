@@ -22,6 +22,15 @@ internal sealed class RedisCacheInvalidationPublisher(
         var recipients = await subscriber
             .PublishAsync(RedisChannel.Literal(_options.EffectiveChannelName), payload)
             .WaitAsync(cancellationToken);
+
+        if (recipients == 0)
+        {
+            _logger.LogInformation(
+                "Published cache invalidation for {CacheInvalidationScope} with no active Redis subscriber acknowledgements",
+                message.Scope);
+            return;
+        }
+
         _logger.LogDebug(
             "Published cache invalidation for {CacheInvalidationScope} to {SubscriberCount} subscriber(s)",
             message.Scope,

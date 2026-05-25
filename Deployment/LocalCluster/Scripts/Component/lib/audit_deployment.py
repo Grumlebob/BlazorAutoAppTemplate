@@ -577,7 +577,7 @@ for path, checks in {
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
     ("${APP_IMAGE}:${APP_VERSION}", "immutable image variables"),
-    ('ASPNETCORE_URLS: "http://+:${APP_PORT}"', "configured app listen port"),
+    ("ASPNETCORE_HTTP_PORTS: ${APP_PORT}", "configured app listen port"),
     ('"${APP_PORT}:${APP_PORT}"', "configured published app port"),
     ('Database__RunMigrationsAtStartup: "false"', "production startup migrations disabled"),
     ("ConnectionStrings__DefaultConnection", "database connection injection"),

@@ -57,6 +57,12 @@ jobs:
       - name: Verify .NET formatting
         run: dotnet format --verify-no-changes --verbosity minimal --no-restore
 
+      - name: Audit .NET packages for vulnerabilities
+        run: dotnet list BlazorAutoApp.sln package --vulnerable --include-transitive
+
+      - name: Audit .NET packages for deprecations
+        run: dotnet list BlazorAutoApp.sln package --deprecated
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
 

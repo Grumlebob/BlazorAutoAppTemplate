@@ -11,6 +11,11 @@ on:
         options:
           - "true"
           - "false"
+      reset_database_confirmation:
+        description: "Optional disposable DB reset confirmation token: <app-name>/<database-name>"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -59,6 +64,12 @@ jobs:
             echo "Expected app runner label:"
             bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate database reset input
+        if: inputs.reset_database_confirmation != '' && inputs.run_migrations != 'true'
+        run: |
+          echo "reset_database_confirmation can only be used when run_migrations is true." >&2
+          exit 1
 
       - name: Require successful CI for this commit
         env:
@@ -109,14 +120,25 @@ jobs:
       - name: Deploy with migrations
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
+        env:
+          RESET_DATABASE_CONFIRMATION: ${{ inputs.reset_database_confirmation }}
         run: |
+          RESET_ARGS=()
+          if [ -n "${RESET_DATABASE_CONFIRMATION}" ]; then
+            RESET_ARGS=(
+              -e reset_database=true
+              -e "reset_database_confirmation=${RESET_DATABASE_CONFIRMATION}"
+            )
+          fi
+
           bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
-            -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+            -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}" \
+            "${RESET_ARGS[@]}"
 
       - name: Deploy without migrations
         if: inputs.run_migrations == 'false'

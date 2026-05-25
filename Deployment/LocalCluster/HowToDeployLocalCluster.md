@@ -1256,6 +1256,18 @@ set +a
 ./migrations/<migration_bundle_name> --connection "Host=localhost;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 ```
 
+If a template database is disposable and a squashed fresh initial migration fails with an error such as `42P07: relation "AspNetRoles" already exists`, reset that database before rerunning the bundle. This is only for a throwaway database with no real data.
+
+From a control machine or runner with Ansible, vault access, and the deploy key:
+
+```bash
+bash Deployment/LocalCluster/Scripts/deploy.sh <git-sha> \
+  --migrate artifacts/migrations/<migration_bundle_name> \
+  --reset-db <app_name>/<postgres_database_name>
+```
+
+The reset command stops app containers first, creates a backup, refuses to run unless the confirmation token matches the deployed app/database, recreates the database, and immediately runs the migration bundle.
+
 ## Reference: Optional Cloudflare API Helper
 
 Use this only if you want the script to create or update the Cloudflare tunnel instead of using the dashboard.

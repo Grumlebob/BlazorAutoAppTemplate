@@ -1,6 +1,6 @@
 # Modern .NET 10 Review
 
-Status: review created on 2026-05-25; Minimal API and formatting phases executed on 2026-05-25.
+Status: review created on 2026-05-25; executable modernization phases completed on 2026-05-25.
 
 This document is a review and execution plan only. It records modernization findings for the current repository and must not be treated as permission to change application code, deployment scripts, generated assets, or test behavior until execution is explicitly requested.
 
@@ -157,7 +157,7 @@ Done when:
 
 ## Phase 3: Blazor Web App And Render Mode Review
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -189,9 +189,16 @@ Done when:
 - Movies pages continue working after browser Back and explicit Back navigation.
 - Identity static SSR flows still work.
 
+Execution notes:
+
+- Kept the current Interactive Auto app-level render mode.
+- Kept Movies as the homepage and kept render-mode diagnostics visible there.
+- Kept Identity under the server-side Login slice because those account pages are static SSR/server concerns.
+- Existing headed E2E coverage remains the acceptance gate for render mode, Movies navigation, and Identity.
+
 ## Phase 4: EF Core 10 And Persistence Modernization
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -217,9 +224,17 @@ Done when:
 - Production has a documented transient-failure strategy.
 - Migration behavior remains explicit and test-covered.
 
+Execution notes:
+
+- Added Npgsql `EnableRetryOnFailure()` to the EF Core context configuration.
+- Kept simple tracked mutations instead of changing to bulk APIs; that is clearer for this template.
+- Kept migration bundle deployment as the production migration path.
+- Added architecture coverage that LocalCluster app servers keep `Database__RunMigrationsAtStartup: "false"`.
+- The side mission regenerated the fresh baseline migration and tested it against PostgreSQL.
+
 ## Phase 5: Caching And Cross-Node Runtime Review
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -249,9 +264,16 @@ Done when:
 - Operators can observe invalidation failures.
 - Documentation makes the at-most-once tradeoff explicit.
 
+Execution notes:
+
+- Kept `HybridCache` plus Redis pub/sub invalidation.
+- Added an operator-visible log when a Redis invalidation publish sees no subscriber acknowledgements.
+- Existing warnings already cover publish failures, subscriber reconnect failures, malformed messages, and invalidation apply failures.
+- README and LocalCluster deployment docs now explain Redis pub/sub at-most-once behavior and `Cache__Movies__DisableLocalCache=true`.
+
 ## Phase 6: Container And Deployment Modernization
 
-Status: pending.
+Status: done.
 
 Priority: high.
 
@@ -282,9 +304,18 @@ Done when:
 - LocalCluster rendered templates validate.
 - Non-root container can read certs, write Data Protection fallback storage if needed, and bind configured ports.
 
+Execution notes:
+
+- Dockerfile now creates `/app/Storage`, copies published files with `--chown=app:app`, and runs as `USER app`.
+- Production LocalCluster compose now uses `ASPNETCORE_HTTP_PORTS: ${APP_PORT}` instead of `ASPNETCORE_URLS`.
+- Added tests that enforce non-root Dockerfile behavior and production startup-migration disablement.
+- Docker build passed.
+- A disposable local Compose project started on alternate host ports and `/health/ready` passed under the non-root image.
+- LocalCluster deployment audit and rendered-template validation pass.
+
 ## Phase 7: Package And Supply Chain Reproducibility
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -315,9 +346,17 @@ Done when:
 - CI clearly fails on vulnerabilities/deprecated packages.
 - Direct package updates remain covered by Dependabot.
 
+Execution notes:
+
+- Kept central package management.
+- Did not enable NuGet lock files yet; for this template, explicit audit gates plus Dependabot are the chosen balance for now.
+- Added CI steps for transitive NuGet vulnerability checks and deprecated package checks.
+- Local NuGet vulnerable/deprecated checks pass.
+- npm audit and npm outdated are clean.
+
 ## Phase 8: CI And Quality Gates
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -342,12 +381,20 @@ Done when:
 - The visible E2E workflow remains opt-in and documented.
 - CI stays fast enough for Dependabot.
 
+Execution notes:
+
+- CI now runs `dotnet format --verify-no-changes`.
+- CI now runs explicit NuGet vulnerable/deprecated package checks.
+- Kept headed E2E opt-in through `RUN_E2E=1`; normal CI still skips browser E2E.
+- Actionlint, yamllint, ShellCheck, deployment audit, and rendered template validation pass.
+
 ## Phase 9: Security Headers And HTTP Surface
-SKIP
+
+Status: skipped by plan.
 
 ## Phase 10: Identity And Passkey Review
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -372,9 +419,16 @@ Done when:
 - No user-facing error leaks internal IDs unnecessarily.
 - Identity remains isolated in the Login slice.
 
+Execution notes:
+
+- Kept component Identity and passkeys.
+- Kept Identity under `Features/Login/Account`.
+- Removed user-facing Identity messages that exposed user IDs or raw external-provider/passkey details.
+- Identity E2E remains opt-in/headed and is skipped by default unless `RUN_E2E=1`.
+
 ## Phase 11: Test Infrastructure Modernization
 
-Status: pending.
+Status: done.
 
 Priority: medium.
 
@@ -403,9 +457,16 @@ Done when:
 - Any environment override is documented and isolated.
 - Full suite still passes.
 
+Execution notes:
+
+- Kept xUnit v3, Testcontainers, Respawn, and Playwright.
+- Preserved disabled test parallelization because process environment overrides are still used for startup-time configuration.
+- Added an explicit comment in `WebAppFactory` explaining why scoped process environment overrides exist.
+- Full Release suite passes.
+
 ## Phase 12: Documentation And Template Readiness
 
-Status: pending.
+Status: done.
 
 Priority: low.
 
@@ -413,8 +474,8 @@ Findings:
 
 - Runtime docs are strong: README, local run docs, deployment guide, testing docs, and customization notes exist.
 - Historical plan files are large and useful for development history, but they may confuse template consumers if shipped as first-class root docs:
-  - `TheBigFixUpBeforePeopleUseIt.md`
-  - `Strategy.md`
+  - `docs/plans/TheBigFixUpBeforePeopleUseIt.md`
+  - `docs/plans/Strategy.md`
   - `Modern.md`
 - The encrypted Ansible vault is present and appears to be an actual Ansible Vault file, not plaintext.
 
@@ -434,8 +495,16 @@ Done when:
 - A new template user can find the normal docs without reading historical refactor plans.
 - No deployment capability is hidden or accidentally removed.
 
+Execution notes:
+
+- Moved older historical plans to `docs/plans`.
+- Left active plans `Modern.md` and `ModernSideMission.md` at repo root because they are still being used in this workflow.
+- README now points normal users to runtime docs and notes where historical plans live.
+- Deployment docs now include the guarded disposable database reset path for fresh baseline migration failures.
+
 ## Phase 13: Optional Future Modernization
-SKIP
+
+Status: skipped by plan.
 ## Final Acceptance For Modernization Execution
 
 When this plan is later executed, final verification should include:

@@ -21,7 +21,10 @@ internal static class PersistenceExtensions
 
         void ConfigureDbContext(DbContextOptionsBuilder options)
         {
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(connectionString, npgsql =>
+            {
+                npgsql.EnableRetryOnFailure();
+            });
         }
 
         services.AddDbContextFactory<AppDbContext>(ConfigureDbContext);

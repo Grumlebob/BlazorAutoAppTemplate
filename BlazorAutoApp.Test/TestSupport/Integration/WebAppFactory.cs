@@ -147,6 +147,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         if (_options.UseProcessEnvironmentOverrides)
         {
+            // Minimal hosting reads some configuration before WebApplicationFactory
+            // configuration callbacks can replace it. Keep these overrides scoped
+            // and test parallelization disabled while this startup-time coupling exists.
             var redisAllowMissing = string.IsNullOrWhiteSpace(_options.RedisConnectionString);
             _environmentOverrides = new EnvironmentVariableScope(new Dictionary<string, string?>
             {

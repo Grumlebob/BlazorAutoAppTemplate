@@ -33,6 +33,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
 - `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
 - `docker-compose.yml` runs the local app stack.
+- `docs/plans` contains historical planning notes that are not required for normal template use.
 
 ## LocalCluster Deployment
 
@@ -101,6 +102,8 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 ## Current Behavior
 
 The Movies page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Movies data access is abstracted behind the shared `IMoviesApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/movies`.
+
+Redis is required outside development/test environments. It backs distributed `HybridCache`, Data Protection keys, and cross-node movie cache invalidation. The default invalidation strategy uses Redis pub/sub with short local-cache TTLs; if strict freshness matters more than in-process cache speed, set `Cache__Movies__DisableLocalCache=true` on every app node. Durable invalidation, such as Redis Streams or a database outbox, should be added by apps that need guaranteed delivery.
 
 Rate limiting is enabled by default:
 
