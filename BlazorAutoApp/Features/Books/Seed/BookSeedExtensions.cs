@@ -6,6 +6,10 @@ internal static class BookSeedExtensions
 {
     private static readonly BookSeedItem[] DefaultBooks =
     [
+        new("Ship", "Template"),
+        new("TraceBack", "Diagnostics"),
+        new("ImprovedDb", "Data"),
+        new("KinoJoin", "Cinema"),
         new("Pride and Prejudice", "Jane Austen"),
         new("1984", "George Orwell"),
         new("The Hobbit", "J.R.R. Tolkien"),

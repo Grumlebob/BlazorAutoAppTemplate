@@ -57,7 +57,7 @@ API endpoints:
 
 Validation lives on Core request DTOs, so server and client use the same rules.
 
-The public home page always shows the SVG bookcase. Authenticated users additionally get `Add Book` and the `Saved books` management list. Local Development and Docker runs seed common default books after startup migrations when `Books:SeedLocalDefaults=true`.
+The public home page always shows the SVG bookcase with larger side-view book SVGs. Authenticated users additionally get `Add Book` and the `Saved books` management list. Local Development and Docker runs seed fixed template books plus common default books after startup migrations when `Books:SeedLocalDefaults=true`.
 
 ## Identity
 
