@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
+using BlazorAutoApp.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using StackExchange.Redis;
@@ -16,15 +17,42 @@ internal static class AppCachingExtensions
     {
         var redisConnection = configuration.GetSection("Redis").GetValue<string>("Configuration");
         var hasRedis = !AppOptionsExtensions.IsPlaceholder(redisConnection);
+        var allowMissingRedis = AllowMissingRedis(configuration, environment);
         services.AddOptions<DataProtectionKeyStorageOptions>()
             .Bind(configuration.GetSection(DataProtectionKeyStorageOptions.SectionName))
             .Validate(options => !string.IsNullOrWhiteSpace(options.KeyStoragePath), "DataProtection:KeyStoragePath must be configured.")
             .ValidateOnStart();
 
+        if (!hasRedis && !allowMissingRedis)
+        {
+            throw new InvalidOperationException(
+                "Redis:Configuration must be configured outside development/test environments. " +
+                "Set Redis:AllowMissing=true only for deliberate local or test fallback.");
+        }
+
         IConnectionMultiplexer? redis = null;
         if (hasRedis)
         {
-            redis = ConnectionMultiplexer.Connect(redisConnection!);
+            try
+            {
+                redis = ConnectionMultiplexer.Connect(redisConnection!);
+            }
+            catch (Exception ex) when (allowMissingRedis)
+            {
+                hasRedis = false;
+                Log.Warning(ex, "Redis is configured but unavailable; using local development cache fallbacks.");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Redis is required outside development/test environments but the configured Redis endpoint is unavailable. " +
+                    "Fix Redis:Configuration or set Redis:AllowMissing=true only for deliberate local or test fallback.",
+                    ex);
+            }
+        }
+
+        if (redis is not null)
+        {
             services.AddSingleton(redis);
             services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
             healthChecks.AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
@@ -62,8 +90,14 @@ internal static class AppCachingExtensions
         }
 
         services.AddHybridCache();
+        services.AddAppCacheInvalidation(configuration, environment, hasRedis);
         return services;
     }
+
+    private static bool AllowMissingRedis(IConfiguration configuration, IHostEnvironment environment) =>
+        environment.IsDevelopment()
+        || environment.IsEnvironment("Testing")
+        || configuration.GetSection("Redis").GetValue<bool>("AllowMissing");
 
     private static string ResolveDataProtectionKeyStoragePath(
         DataProtectionKeyStorageOptions options,

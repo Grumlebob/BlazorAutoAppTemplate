@@ -19,6 +19,18 @@ dotnet test .\BlazorAutoApp.sln --no-build
 
 Integration tests use Testcontainers and PostgreSQL, so Docker must be running.
 
+## Cross-Node Cache Invalidation Tests
+
+Movies cross-node cache invalidation tests start two in-memory app hosts against one shared PostgreSQL Testcontainer and one shared Redis Testcontainer. These tests verify the production shape where multiple app servers share Redis and need Redis pub/sub to invalidate each other's in-process `HybridCache` entries.
+
+Run them directly with:
+
+```powershell
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "FullyQualifiedName~MoviesCrossNodeCacheInvalidationTests"
+```
+
+The shared fixture lives under `TestSupport/Integration`. Normal integration tests keep Redis disabled with `Redis:AllowMissing=true` unless the test explicitly opts into shared Redis.
+
 ## Vertical Slice Rules
 
 Every Core feature slice should have a matching test slice with a one-to-one naming and namespace mapping.

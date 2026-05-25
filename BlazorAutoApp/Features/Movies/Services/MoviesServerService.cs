@@ -6,19 +6,22 @@ using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovie;
 using BlazorAutoApp.Core.Features.Movies.UseCases.GetMovies;
 using BlazorAutoApp.Core.Features.Movies.UseCases.UpdateMovie;
 using BlazorAutoApp.Features.Movies.Caching;
+using BlazorAutoApp.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;
 
 namespace BlazorAutoApp.Features.Movies.Services;
 
-public class MoviesServerService(
+internal class MoviesServerService(
     IDbContextFactory<AppDbContext> dbFactory,
     HybridCache cache,
+    ICacheInvalidator cacheInvalidator,
     IOptions<MoviesCacheOptions> cacheOptions,
     ILogger<MoviesServerService> logger) : IMoviesApi
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly HybridCache _cache = cache;
+    private readonly ICacheInvalidator _cacheInvalidator = cacheInvalidator;
     private readonly MoviesCacheOptions _cacheOptions = cacheOptions.Value ?? new MoviesCacheOptions();
     private readonly ILogger<MoviesServerService> _logger = logger;
 
@@ -27,11 +30,8 @@ public class MoviesServerService(
         var key = MoviesCacheKeys.List;
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetMoviesResponse>(LoadMoviesAsync(ct)),
-            new HybridCacheEntryOptions
-            {
-                Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ListTtlMinutes))
-            },
-            tags: [MoviesCacheKeys.Tag],
+            CreateEntryOptions(_cacheOptions.ListTtlMinutes, _cacheOptions.LocalListTtlSeconds),
+            tags: [MoviesCacheKeys.AllTag, MoviesCacheKeys.ListTag],
             cancellationToken: cancellationToken);
         return result!;
     }
@@ -41,11 +41,8 @@ public class MoviesServerService(
         var key = MoviesCacheKeys.Item(req.Id);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetMovieResponse?>(LoadMovieAsync(req.Id, ct)),
-            new HybridCacheEntryOptions
-            {
-                Expiration = TimeSpan.FromMinutes(Math.Max(1, _cacheOptions.ItemTtlMinutes))
-            },
-            tags: [MoviesCacheKeys.Tag],
+            CreateEntryOptions(_cacheOptions.ItemTtlMinutes, _cacheOptions.LocalItemTtlSeconds),
+            tags: [MoviesCacheKeys.AllTag, MoviesCacheKeys.ItemTag(req.Id)],
             cancellationToken: cancellationToken);
         return result;
     }
@@ -82,7 +79,7 @@ public class MoviesServerService(
         };
         db.Movies.Add(movie);
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(movie.Id, cancellationToken);
+        await InvalidateAsync(movie.Id);
         return new CreateMovieResponse
         {
             Id = movie.Id,
@@ -101,7 +98,7 @@ public class MoviesServerService(
         movie.Director = req.Director;
         movie.Rating = req.Rating;
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(req.Id, cancellationToken);
+        await InvalidateAsync(req.Id);
         return true;
     }
 
@@ -112,20 +109,33 @@ public class MoviesServerService(
         if (movie is null) return false;
         db.Movies.Remove(movie);
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(req.Id, cancellationToken);
+        await InvalidateAsync(req.Id);
         return true;
     }
 
-    private async Task InvalidateAsync(int id, CancellationToken cancellationToken)
+    private async Task InvalidateAsync(int id)
     {
         try
         {
-            await _cache.RemoveAsync(MoviesCacheKeys.List, cancellationToken);
-            await _cache.RemoveAsync(MoviesCacheKeys.Item(id), cancellationToken);
+            await _cacheInvalidator.InvalidateAsync(MoviesCacheKeys.ForChangedMovie(id), CancellationToken.None);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to invalidate Movies cache for movie {MovieId}", id);
         }
+    }
+
+    private HybridCacheEntryOptions CreateEntryOptions(int distributedTtlMinutes, int localTtlSeconds)
+    {
+        var flags = _cacheOptions.DisableLocalCache
+            ? HybridCacheEntryFlags.DisableLocalCache
+            : HybridCacheEntryFlags.None;
+
+        return new HybridCacheEntryOptions
+        {
+            Expiration = TimeSpan.FromMinutes(Math.Max(1, distributedTtlMinutes)),
+            LocalCacheExpiration = TimeSpan.FromSeconds(Math.Max(1, localTtlSeconds)),
+            Flags = flags
+        };
     }
 }

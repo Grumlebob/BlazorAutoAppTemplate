@@ -1213,6 +1213,10 @@ PostgreSQL and Redis use their standard container ports inside their containers.
 
 PostgreSQL data is stored in the `postgres_data` Docker volume under that Compose project. Redis is also persistent: it stores data in the `redis_data` Docker volume and uses append-only persistence. This matters because the app stores shared runtime state such as Data Protection keys in Redis.
 
+Redis is also used for multi-node cache invalidation. Each app node publishes movie cache invalidation messages after successful writes, and the other app nodes subscribe on an app/environment-scoped channel named `<App:Name>:<EnvironmentName>:cache-invalidation:v1` unless `Cache:Invalidation:ChannelName` overrides it. Redis pub/sub is at-most-once, so the app also keeps explicit short local `HybridCache` TTLs as the fallback: movie lists default to 5 seconds locally and 5 minutes in distributed cache, while movie items default to 10 seconds locally and 10 minutes in distributed cache. If strict freshness is more important than local in-process cache speed, set `Cache__Movies__DisableLocalCache=true` on the app nodes.
+
+Do not set `Redis__AllowMissing=true` in LocalCluster. That setting is only for deliberate local/test fallback; production and Docker deployments should fail fast when Redis is missing or unreachable.
+
 Caddy is installed on `node-main`. The deployed Caddy site is generated from:
 
 ```text
