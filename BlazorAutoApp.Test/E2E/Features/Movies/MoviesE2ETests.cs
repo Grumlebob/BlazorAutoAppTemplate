@@ -21,7 +21,12 @@ public sealed class MoviesE2ETests : BlazorE2ETestBase
             var updatedTitle = $"E2E Movie Updated {suffix}";
             var director = $"E2E Director {suffix}";
 
-            await Page.GetByTestId("add-movie").ClickAsync();
+            var addMovieButton = Page.GetByTestId("add-movie");
+            Assert.Equal("rgb(255, 255, 255)", await GetCssColorAsync(addMovieButton));
+            await addMovieButton.HoverAsync();
+            Assert.Equal("rgb(255, 255, 255)", await GetCssColorAsync(addMovieButton));
+
+            await addMovieButton.ClickAsync();
             await Page.GetByTestId("movie-title").FillAsync(title);
             await Page.GetByTestId("movie-director").FillAsync(director);
             await Page.GetByTestId("movie-rating").FillAsync("8");
@@ -62,4 +67,7 @@ public sealed class MoviesE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByText("Movie not found.")).ToBeVisibleAsync();
         });
     }
+
+    private static Task<string> GetCssColorAsync(ILocator locator) =>
+        locator.EvaluateAsync<string>("element => getComputedStyle(element).color");
 }
