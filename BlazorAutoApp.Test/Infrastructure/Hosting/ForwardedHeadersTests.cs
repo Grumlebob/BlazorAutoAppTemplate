@@ -20,6 +20,7 @@ public sealed class ForwardedHeadersTests
         {
             ["Database__RunMigrationsAtStartup"] = "false",
             ["Redis__Configuration"] = "CHANGE_ME",
+            ["Redis__AllowMissing"] = "true",
             ["ForwardedHeaders__KnownNetworks__0"] = null,
             ["ForwardedHeaders__KnownNetworks__1"] = null,
             ["ForwardedHeaders__KnownProxies__0"] = null
@@ -43,6 +44,7 @@ public sealed class ForwardedHeadersTests
         {
             ["Database__RunMigrationsAtStartup"] = "false",
             ["Redis__Configuration"] = "CHANGE_ME",
+            ["Redis__AllowMissing"] = "true",
             ["ForwardedHeaders__KnownNetworks__0"] = "10.0.0.0/8",
             ["ForwardedHeaders__KnownProxies__0"] = "127.0.0.1"
         });
@@ -60,7 +62,8 @@ public sealed class ForwardedHeadersTests
         {
             ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable",
             ["Database:RunMigrationsAtStartup"] = "false",
-            ["Redis:Configuration"] = "CHANGE_ME"
+            ["Redis:Configuration"] = "CHANGE_ME",
+            ["Redis:AllowMissing"] = "true"
         };
 
         foreach (var (key, value) in overrides)

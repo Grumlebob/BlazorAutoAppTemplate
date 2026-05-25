@@ -10,7 +10,8 @@
     "Password": "INJECT_THIS_IN_ORDER_TO_RUN"
   },
   "Redis": {
-    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN"
+    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "AllowMissing": false
   },
   "DataProtection": {
     "KeyStoragePath": "../data/storage/DataProtection-Keys"
