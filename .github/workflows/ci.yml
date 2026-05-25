@@ -57,7 +57,14 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Docker preflight for integration tests
+        run: |
+          docker info
+          docker pull postgres:16.14-alpine3.23
+
       - name: Test
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: dotnet test --configuration Release --no-build
 
       - name: Install frontend dependencies
