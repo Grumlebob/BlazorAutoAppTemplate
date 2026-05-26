@@ -9,12 +9,12 @@
             <stop offset="56%" stop-color="@Palette.Middle" />
             <stop offset="100%" stop-color="@Palette.End" />
         </linearGradient>
-        <linearGradient id="@PageGradientId" x1="108" x2="161" y1="108" y2="108" gradientUnits="userSpaceOnUse">
+        <linearGradient id="@PageGradientId" x1="105" x2="158" y1="108" y2="108" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="@Palette.PageStart" />
             <stop offset="65%" stop-color="@Palette.PageMiddle" />
             <stop offset="100%" stop-color="@Palette.PageEnd" />
         </linearGradient>
-        @if (Design is BookCoverDesign.ClothHardback)
+        @if (Design.Kind is BookCoverDesignKind.ClothHardback)
         {
             <pattern id="@ClothWeaveId" width="5" height="5" patternUnits="userSpaceOnUse">
                 <path d="M0 1h5M1 0v5" stroke="#ffffff" stroke-width="0.35" opacity="0.16" />
@@ -26,23 +26,25 @@
         <ellipse cx="91" cy="205" rx="62" ry="7" fill="#111827" opacity="0.15" />
 
         <g class="@PagesClass">
-            <path d="@PagePath" fill="url(#@PageGradientId)" />
-            <path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
-                  stroke="@Palette.PageLine"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  opacity="0.5" />
-            @PageTabs()
+            <g transform="@PageGeometryTransform">
+                <path d="@PagePath" fill="url(#@PageGradientId)" />
+                <path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
+                      stroke="@Palette.PageLine"
+                      stroke-width="1.2"
+                      stroke-linecap="round"
+                      opacity="0.5" />
+                <BookCoverPageTabs Kind="@Design.Kind" />
+            </g>
         </g>
 
         <g class="@CoverClass">
             <path d="@CoverPath" fill="url(#@CoverGradientId)" />
-            @if (Design is BookCoverDesign.ClothHardback)
+            @if (Design.Kind is BookCoverDesignKind.ClothHardback)
             {
                 <path d="@CoverPath" fill="url(#@ClothWeaveId)" />
             }
 
-            @CoverArtwork()
+            <BookCoverArtwork Kind="@Design.Kind" />
             @TitlePlate()
             @TitleTextMarkup
         </g>
@@ -70,22 +72,19 @@
 
     private uint StableTitleSeed => ComputeStableTitleSeed(DisplayTitle);
 
-    private BookCoverDesign Design => (BookCoverDesign)((StableTitleSeed + StableSeed) % 6);
+    private BookCoverDesignDefinition Design =>
+        BookCoverDesignCatalog.All[(int)((StableTitleSeed + StableSeed) % (uint)BookCoverDesignCatalog.All.Count)];
 
     private BookCoverPalette Palette => Palettes[(int)(StableSeed % (uint)Palettes.Length)];
 
     private IReadOnlyList<string> TitleLines => BookCoverTextLayout.TitleLines(DisplayTitle);
 
-    private BookCoverPlate Plate => Design is BookCoverDesign.ClothHardback
-        ? new(26, 62, 94, 88, 11, 32, 68, 82, 76, 8, 73)
-        : Design is BookCoverDesign.FieldNotebook
-            ? new(34, 74, 88, 72, 10, 40, 80, 76, 60, 7, 78)
-            : new(35, 76, 86, 68, 9, 41, 82, 74, 56, 7, 78);
+    private BookCoverTitlePlate Plate => Design.Plate;
 
     private int TitleY => TitleLines.Count switch
     {
-        1 => Design is BookCoverDesign.ClothHardback ? 111 : 114,
-        2 => Design is BookCoverDesign.ClothHardback ? 98 : 103,
+        1 => Design.Kind is BookCoverDesignKind.ClothHardback ? 111 : 114,
+        2 => Design.Kind is BookCoverDesignKind.ClothHardback ? 98 : 103,
         _ => 94
     };
 
@@ -99,17 +98,15 @@
 
     private string ClothWeaveId => $"book-cover-cloth-{_id}";
 
-    private string CoverPath => Design is BookCoverDesign.ModernPaperback
-        ? "M26 20h85c14 0 25 12 25 27v124c0 15-11 27-25 27H26c-12 0-22-10-22-22V42c0-12 10-22 22-22z"
-        : "M27 18h84c14 0 25 12 25 27v126c0 15-11 27-25 27H27c-12 0-22-10-22-22V40c0-12 10-22 22-22z";
+    private const string PageGeometryTransform = "translate(-3 0)";
 
-    private string PagePath => Design is BookCoverDesign.ModernPaperback
-        ? "M109 26h24c16 0 28 12 28 28v114c0 18-12 31-31 31h-21z"
-        : "M109 24h24c16 0 28 12 28 28v116c0 18-12 31-31 31h-21z";
+    private string CoverPath => Design.CoverPath;
+
+    private string PagePath => Design.PagePath;
 
     private string PagesClass => ForcedOpen
-        ? "translate-x-px transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-focus-visible:translate-x-px group-focus-within:translate-x-px motion-reduce:transform-none motion-reduce:transition-none";
+        ? "translate-x-px -translate-y-[2px] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
+        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-visible:translate-x-px group-focus-visible:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
 
     private string CoverClass => ForcedOpen
         ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
@@ -124,61 +121,6 @@
         new("#be123c", "#9f1239", "#4c0519", "#fff1f2", "#fecdd3", "#111827", "#fefce8", "#eee8c9", "#cfc7b8", "#9b958c", "#fecdd3"),
         new("#0f766e", "#0f766e", "#134e4a", "#f0fdfa", "#ccfbf1", "#111827", "#fff9ed", "#f4ead9", "#d8d0c4", "#a8a29e", "#ccfbf1")
     ];
-
-    private RenderFragment CoverArtwork() => Design switch
-    {
-        BookCoverDesign.ClothHardback => @<g>
-            <path d="M43 38h75M43 178h75" stroke="#e0f2fe" stroke-width="2.2" stroke-linecap="round" opacity="0.72" />
-            <path d="M47 49h67M47 167h67" stroke="#7dd3fc" stroke-width="1.35" stroke-linecap="round" opacity="0.52" />
-        </g>,
-        BookCoverDesign.ModernPaperback => @<g>
-            <path d="M4 42c0-12 10-22 22-22h85c14 0 25 12 25 27v30H4z" fill="#fed7aa" opacity="0.9" />
-            <path d="M4 159h132v12c0 15-11 27-25 27H26c-12 0-22-10-22-22z" fill="#431407" opacity="0.34" />
-            <path d="M31 33h88M31 183h88" stroke="#fff7ed" stroke-width="1.8" stroke-linecap="round" opacity="0.64" />
-            <path d="M21 41v132" stroke="#fff7ed" stroke-width="2.4" stroke-linecap="round" opacity="0.24" />
-        </g>,
-        BookCoverDesign.TechnicalManual => @<g>
-            <rect x="19" y="34" width="113" height="145" rx="5" fill="none" stroke="#bef264" stroke-width="1.25" opacity="0.46" />
-            <path d="M31 47h86M31 168h86M112 47h9M112 168h9" stroke="#14b8a6" stroke-width="1.55" stroke-linecap="round" opacity="0.75" />
-            <path d="M28 63h16M28 78h23M28 93h16M28 108h23M28 123h16M28 138h23" stroke="#d9f99d" stroke-width="1.1" stroke-linecap="round" opacity="0.36" />
-            <path d="M121 62v90" stroke="#14b8a6" stroke-width="1.1" stroke-linecap="round" opacity="0.38" />
-        </g>,
-        BookCoverDesign.DecorativeHardcover => @<g>
-            <rect x="19" y="33" width="114" height="146" rx="7" fill="none" stroke="#c7d2fe" stroke-width="1.35" opacity="0.5" />
-            <path d="M32 45h78M32 168h78" stroke="#eab308" stroke-width="2" stroke-linecap="round" opacity="0.7" />
-            <path d="M29 55l7-7 7 7-7 7zM108 55l7-7 7 7-7 7zM29 158l7-7 7 7-7 7zM108 158l7-7 7 7-7 7z" fill="#eab308" opacity="0.62" />
-            <path d="M32 68c10-6 21-6 32 0M91 68c10-6 21-6 30 0M32 147c10 6 21 6 32 0M91 147c10 6 21 6 30 0" stroke="#a5b4fc" stroke-width="1.15" stroke-linecap="round" opacity="0.48" />
-        </g>,
-        BookCoverDesign.LibraryLedger => @<g>
-            <rect x="18" y="32" width="116" height="148" rx="7" fill="none" stroke="#fda4af" stroke-width="1.9" opacity="0.58" />
-            <rect x="25" y="42" width="102" height="128" rx="5" fill="none" stroke="#fecdd3" stroke-width="1.25" opacity="0.5" />
-            <path d="M29 52h14M29 160h14M111 52h14M111 160h14M32 52v14M32 146v14M122 52v14M122 146v14" stroke="#38bdf8" stroke-width="1.7" stroke-linecap="round" opacity="0.7" />
-            <path d="M28 70h98M28 151h98" stroke="#fecdd3" stroke-width="1.05" stroke-linecap="round" opacity="0.36" />
-        </g>,
-        BookCoverDesign.FieldNotebook => @<g>
-            <path d="M31 44h88M31 171h88" stroke="#5eead4" stroke-width="1.8" stroke-linecap="round" opacity="0.6" />
-            <path d="M30 61h90M30 78h90M30 95h90M30 112h90M30 129h90M30 146h90" stroke="#ccfbf1" stroke-width="1.05" stroke-linecap="round" opacity="0.22" />
-            <circle cx="24" cy="57" r="2.35" fill="#ccfbf1" opacity="0.68" />
-            <circle cx="24" cy="88" r="2.35" fill="#ccfbf1" opacity="0.68" />
-            <circle cx="24" cy="119" r="2.35" fill="#ccfbf1" opacity="0.68" />
-            <circle cx="24" cy="150" r="2.35" fill="#ccfbf1" opacity="0.68" />
-        </g>,
-        _ => @<g></g>
-    };
-
-    private RenderFragment PageTabs() => Design switch
-    {
-        BookCoverDesign.TechnicalManual => @<g>
-            <rect x="154" y="58" width="7" height="15" rx="2.5" fill="#14b8a6" opacity="0.72" />
-            <rect x="154" y="90" width="7" height="15" rx="2.5" fill="#bef264" opacity="0.72" />
-            <rect x="154" y="122" width="7" height="15" rx="2.5" fill="#14b8a6" opacity="0.58" />
-        </g>,
-        BookCoverDesign.FieldNotebook => @<g>
-            <rect x="154" y="67" width="7" height="17" rx="2.5" fill="#f97316" opacity="0.58" />
-            <rect x="154" y="104" width="7" height="17" rx="2.5" fill="#5eead4" opacity="0.58" />
-        </g>,
-        _ => @<g></g>
-    };
 
     private RenderFragment TitlePlate() => @<g>
         <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="@Palette.Panel" opacity="0.99" />
@@ -237,26 +179,4 @@
         string PageLine,
         string Accent);
 
-    private readonly record struct BookCoverPlate(
-        int X,
-        int Y,
-        int Width,
-        int Height,
-        int Radius,
-        int InnerX,
-        int InnerY,
-        int InnerWidth,
-        int InnerHeight,
-        int InnerRadius,
-        int TextX);
-
-    private enum BookCoverDesign
-    {
-        ClothHardback,
-        ModernPaperback,
-        TechnicalManual,
-        DecorativeHardcover,
-        LibraryLedger,
-        FieldNotebook
-    }
 }

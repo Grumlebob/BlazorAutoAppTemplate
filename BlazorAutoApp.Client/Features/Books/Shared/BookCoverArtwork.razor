@@ -1,0 +1,37 @@
+@if (Kind is BookCoverDesignKind.ClothHardback)
+{
+    <g>
+        <path d="M42 38h74M42 178h74" stroke="#e0f2fe" stroke-width="2.2" stroke-linecap="round" opacity="0.72" />
+        <path d="M46 49h66M46 167h66" stroke="#7dd3fc" stroke-width="1.35" stroke-linecap="round" opacity="0.52" />
+    </g>
+}
+else if (Kind is BookCoverDesignKind.TechnicalManual)
+{
+    <g>
+        <path d="M31 47h78M31 168h78" stroke="#14b8a6" stroke-width="1.55" stroke-linecap="round" opacity="0.75" />
+        <path d="M29 63h17M29 78h24M29 93h17M29 108h24M29 123h17M29 138h24" stroke="#d9f99d" stroke-width="1.1" stroke-linecap="round" opacity="0.36" />
+    </g>
+}
+else if (Kind is BookCoverDesignKind.DecorativeHardcover)
+{
+    <g>
+        <path d="M30 55l7-7 7 7-7 7zM100 55l7-7 7 7-7 7zM30 158l7-7 7 7-7 7zM100 158l7-7 7 7-7 7z" fill="#eab308" opacity="0.62" />
+        <path d="M32 68c10-6 21-6 32 0M84 68c10-6 21-6 30 0M32 147c10 6 21 6 32 0M84 147c10 6 21 6 30 0" stroke="#a5b4fc" stroke-width="1.15" stroke-linecap="round" opacity="0.48" />
+    </g>
+}
+else if (Kind is BookCoverDesignKind.FieldNotebook)
+{
+    <g>
+        <path d="M31 44h82M31 171h82" stroke="#5eead4" stroke-width="1.8" stroke-linecap="round" opacity="0.6" />
+        <path d="M31 61h82M31 78h82M31 95h82M31 112h82M31 129h82M31 146h82" stroke="#ccfbf1" stroke-width="1.05" stroke-linecap="round" opacity="0.22" />
+        <circle cx="24" cy="57" r="2.35" fill="#ccfbf1" opacity="0.68" />
+        <circle cx="24" cy="88" r="2.35" fill="#ccfbf1" opacity="0.68" />
+        <circle cx="24" cy="119" r="2.35" fill="#ccfbf1" opacity="0.68" />
+        <circle cx="24" cy="150" r="2.35" fill="#ccfbf1" opacity="0.68" />
+    </g>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public BookCoverDesignKind Kind { get; set; }
+}

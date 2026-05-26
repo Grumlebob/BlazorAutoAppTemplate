@@ -1,0 +1,23 @@
+@if (Kind is BookCoverDesignKind.TechnicalManual)
+{
+    <g>
+        <rect x="154" y="50" width="7" height="14" rx="2.5" fill="#22c55e" opacity="0.7" />
+        <rect x="154" y="80" width="7" height="14" rx="2.5" fill="#f59e0b" opacity="0.74" />
+        <rect x="154" y="110" width="7" height="14" rx="2.5" fill="#f97316" opacity="0.66" />
+        <rect x="154" y="140" width="7" height="14" rx="2.5" fill="#38bdf8" opacity="0.7" />
+    </g>
+}
+else if (Kind is BookCoverDesignKind.FieldNotebook)
+{
+    <g>
+        <rect x="154" y="48" width="7" height="14" rx="2.5" fill="#f97316" opacity="0.62" />
+        <rect x="154" y="78" width="7" height="14" rx="2.5" fill="#fde047" opacity="0.62" />
+        <rect x="154" y="108" width="7" height="14" rx="2.5" fill="#5eead4" opacity="0.62" />
+        <rect x="154" y="138" width="7" height="14" rx="2.5" fill="#38bdf8" opacity="0.58" />
+    </g>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public BookCoverDesignKind Kind { get; set; }
+}

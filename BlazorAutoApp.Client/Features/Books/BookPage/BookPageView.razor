@@ -1,93 +1,56 @@
-<div class="mx-auto w-[min(calc(100vw-2rem),35rem)] overflow-hidden" data-testid="book-page-view">
-    <h1 class="sr-only">@DisplayTitle</h1>
-    <svg class="block h-auto w-full"
-         viewBox="0 0 560 720"
-         role="img"
-         aria-labelledby="@TitleElementId @DescriptionElementId">
-        <title id="@TitleElementId">@DisplayTitle</title>
-        <desc id="@DescriptionElementId">@DescriptionText</desc>
-        <defs>
-            <linearGradient id="@PaperGradientId" x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0" stop-color="#fffaf0" />
-                <stop offset="0.54" stop-color="#fffdf7" />
-                <stop offset="1" stop-color="#f2e5cf" />
-            </linearGradient>
-            <linearGradient id="@SpineGradientId" x1="0" x2="1">
-                <stop offset="0" stop-color="#b79d75" />
-                <stop offset="0.38" stop-color="#decbaa" />
-                <stop offset="1" stop-color="#f0e2ca" />
-            </linearGradient>
-            <filter id="@PageShadowId" x="-8%" y="-6%" width="116%" height="116%">
-                <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.18" />
-            </filter>
-        </defs>
+<BookPageFrame TestId="book-page-view"
+               Heading="@DisplayTitle"
+               Title="@DisplayTitle"
+               Description="@DescriptionText">
+    <TopControls>
+        <a href="@CloseHref" data-testid="book-back" aria-label="Close book">
+            @CloseIcon(CloseControlX)
+        </a>
 
-        <rect width="560" height="720" fill="#f8fafc" />
-
-        <g filter="url(#@PageShadowId)">
-            <path d="M62 34h396c25 0 45 20 45 45v562c0 25-20 45-45 45H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="url(#@PaperGradientId)" />
-            <path d="M62 34h26v652H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="url(#@SpineGradientId)" opacity="0.95" />
-            <g opacity="0.32">
-                <path d="M470 52c11 9 17 22 17 38v540c0 16-6 29-17 38" fill="none" stroke="#d6c3a4" stroke-width="1.4" stroke-linecap="round" />
-                <path d="M478 58c9 8 14 19 14 33v538c0 14-5 25-14 33" fill="none" stroke="#eadbc3" stroke-width="1.1" stroke-linecap="round" />
-                <path d="M485 66c6 7 9 16 9 27v534c0 11-3 20-9 27" fill="none" stroke="#f3e7d3" stroke-width="1" stroke-linecap="round" />
+        @if (CanDelete)
+        {
+            <g role="button"
+               tabindex="0"
+               data-testid="book-delete"
+               aria-label="@DeleteLabel"
+               @onclick="OnDelete"
+               @onkeydown="HandleDeleteKeyDown">
+                @TrashIcon(DeleteControlX)
             </g>
-            <path d="M62 34h396c25 0 45 20 45 45v562c0 25-20 45-45 45H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="none" stroke="#d7c3a1" stroke-width="2" />
+        }
 
-            <path d="M70 78v554" stroke="#a88e66" stroke-width="2.2" stroke-linecap="round" opacity="0.3" />
-            <path d="M81 92v526" stroke="#fff7ea" stroke-width="3.2" stroke-linecap="round" opacity="0.66" />
-            <path d="M140 126h286M140 164h300M140 202h278M140 240h300M140 278h278M140 316h300M140 354h278M140 392h300M140 430h278M140 468h300M140 506h278" stroke="#eadbc3" stroke-width="1.5" stroke-linecap="round" opacity="0.5" />
-            <path d="M141 604h286" stroke="#d6c3a4" stroke-width="2" stroke-linecap="round" opacity="0.8" />
-
-            <a href="@CloseHref" data-testid="book-back" aria-label="Close book">
-                @CloseIcon(CloseControlX)
+        @if (!string.IsNullOrWhiteSpace(EditHref))
+        {
+            <a href="@EditHref" data-testid="book-edit-pencil" aria-label="@EditLabel">
+                @PencilIcon()
             </a>
-
-            @if (CanDelete)
-            {
-                <g role="button"
-                   tabindex="0"
-                   data-testid="book-delete"
-                   aria-label="@DeleteLabel"
-                   @onclick="OnDelete"
-                   @onkeydown="HandleDeleteKeyDown">
-                    @TrashIcon(DeleteControlX)
-                </g>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(EditHref))
-            {
-                <a href="@EditHref" data-testid="book-edit-pencil" aria-label="@EditLabel">
-                    @PencilIcon()
-                </a>
-            }
-
-            <g transform="translate(108 132)">
-                <rect x="0" y="0" width="344" height="252" rx="28" fill="#fffefa" stroke="#dac5a1" stroke-width="2" />
-                <path d="M28 45h288" stroke="#efe1c9" stroke-width="2" stroke-linecap="round" />
-                @TitleTextMarkup
-                @AuthorTextMarkup
-            </g>
-
-            @if (HasUrl)
-            {
-                <a href="@Url" target="_blank" rel="noopener noreferrer" data-testid="book-url-link" aria-label="@SiteLabel">
-                    @SiteAction("Go to site", "#eff6ff", "#bfdbfe", "#dbeafe", "#1d4ed8")
-                </a>
-            }
-            else
-            {
-                <g data-testid="book-no-site">
-                    @SiteAction("No site", "#f8fafc", "#e5e7eb", "#f1f5f9", "#64748b")
-                </g>
-            }
+        }
+    </TopControls>
+    <MainContent>
+        <g transform="translate(108 132)">
+            <rect x="0" y="0" width="344" height="252" rx="28" fill="#fffefa" stroke="#dac5a1" stroke-width="2" />
+            <path d="M28 45h288" stroke="#efe1c9" stroke-width="2" stroke-linecap="round" />
+            @TitleTextMarkup
+            @AuthorTextMarkup
         </g>
-    </svg>
-</div>
+    </MainContent>
+    <LowerContent>
+        @if (HasUrl)
+        {
+            <a href="@Url" target="_blank" rel="noopener noreferrer" data-testid="book-url-link" aria-label="@SiteLabel">
+                @SiteAction("Go to site", "#eff6ff", "#bfdbfe", "#dbeafe", "#1d4ed8")
+            </a>
+        }
+        else
+        {
+            <g data-testid="book-no-site">
+                @SiteAction("No site", "#f8fafc", "#e5e7eb", "#f1f5f9", "#64748b")
+            </g>
+        }
+    </LowerContent>
+</BookPageFrame>
 
 @code {
-    private readonly string _id = Guid.NewGuid().ToString("N");
-
     [Parameter, EditorRequired]
     public required string Title { get; set; }
 
@@ -134,16 +97,6 @@
         2 => 215,
         _ => 216
     };
-
-    private string TitleElementId => $"book-page-title-{_id}";
-
-    private string DescriptionElementId => $"book-page-desc-{_id}";
-
-    private string PaperGradientId => $"book-page-paper-{_id}";
-
-    private string SpineGradientId => $"book-page-spine-{_id}";
-
-    private string PageShadowId => $"book-page-shadow-{_id}";
 
     private string DescriptionText => HasUrl
         ? $"{DisplayTitle} by {DisplayAuthor}, with a site link."

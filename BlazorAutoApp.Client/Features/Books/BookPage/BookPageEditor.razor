@@ -1,74 +1,79 @@
 @using Microsoft.AspNetCore.Components.Forms
 
-<section class="mx-auto w-[min(calc(100vw-2rem),42rem)]" data-testid="book-page-editor">
-    <h1 class="sr-only">@Heading</h1>
-
+<section class="mx-auto w-[min(calc(100vw-2rem),35rem)]">
     @if (_editContext is not null)
     {
         <CascadingValue Value="_editContext" IsFixed="true">
-            <div class="relative overflow-hidden rounded-[2rem] border border-[#d7c3a1] bg-[#fffaf0] px-6 py-7 shadow-[0_1.25rem_2.5rem_rgb(15_23_42_/_0.14)] sm:px-10 sm:py-9">
-                <DataAnnotationsValidator />
-                @TopRightClose()
-
-                <div class="pointer-events-none absolute inset-y-0 left-0 w-[4.4rem] rounded-l-[2rem] bg-[linear-gradient(90deg,#b79d75,#decbaa_45%,#f0e2ca)] sm:w-[5.1rem]" aria-hidden="true"></div>
-                <div class="pointer-events-none absolute bottom-8 right-5 top-8 w-7 rounded-r-[1.5rem] border-r border-[#eadbc3] opacity-40" aria-hidden="true"></div>
-
-                <div class="relative ml-12 sm:ml-16">
-                    @if (!string.IsNullOrWhiteSpace(Error))
-                    {
-                        <p class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">@Error</p>
-                    }
-
-                    <ValidationSummary class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" />
-
-                    <div class="rounded-[1.5rem] border border-[#dac5a1] bg-[#fffefa] px-5 py-5 sm:px-7 sm:py-6">
-                        <div class="mb-4 border-b border-[#efe1c9] pb-3">
-                            <label class="mb-1 block text-sm font-semibold text-gray-700" for="@TitleInputId">Title</label>
+            <DataAnnotationsValidator />
+            <BookPageFrame TestId="book-page-editor"
+                           Heading="@Heading"
+                           Title="@Heading"
+                           Description="@EditorDescription"
+                           ContainerClass="mx-auto w-[min(calc(100vw-2rem),35rem)] overflow-visible">
+                <TopControls>
+                    <a href="@CancelHref" data-testid="book-back" aria-label="@CancelLabel">
+                        @CloseIcon(430)
+                    </a>
+                </TopControls>
+                <MainContent>
+                    <foreignObject x="108" y="132" width="344" height="252">
+                        <div xmlns="http://www.w3.org/1999/xhtml"
+                             class="flex h-full flex-col rounded-[28px] border border-[#dac5a1] bg-[#fffefa] px-7 py-6 text-gray-950 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.75)]">
+                            <label class="sr-only" for="@TitleInputId">Title</label>
                             <textarea id="@TitleInputId"
                                       data-testid="book-title"
-                                      class="block min-h-16 w-full resize-none overflow-hidden border-0 bg-transparent px-0 py-1 font-serif text-xl font-bold leading-snug text-gray-950 outline-none placeholder:text-gray-300 focus:ring-0 sm:text-2xl lg:text-3xl"
+                                      class="block min-h-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 pt-5 text-center font-serif text-[2rem] font-bold leading-tight text-gray-950 outline-none placeholder:text-gray-300 focus:ring-0"
                                       placeholder="Book title"
                                       rows="2"
                                       value="@Model.Title"
                                       @oninput="HandleTitleInput"></textarea>
-                            <ValidationMessage For="() => Model.Title" class="mt-1 block text-sm text-red-600" />
-                        </div>
+                            <ValidationMessage For="() => Model.Title" class="mt-1 block text-center text-[0.78rem] font-semibold leading-tight text-red-700" />
 
-                        <div class="mb-4">
-                            <label class="mb-1 block text-sm font-semibold text-gray-700" for="@AuthorInputId">Author</label>
-                            <input id="@AuthorInputId"
-                                   data-testid="book-author"
-                                   class="block w-full rounded-md border border-[#e7d7bd] bg-white/70 px-3 py-2 text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                   placeholder="Author"
-                                   value="@Model.Author"
-                                   @oninput="HandleAuthorInput" />
-                            <ValidationMessage For="() => Model.Author" class="mt-1 block text-sm text-red-600" />
+                            <div class="mt-3 border-t border-[#efe1c9] pt-4">
+                                <label class="sr-only" for="@AuthorInputId">Author</label>
+                                <input id="@AuthorInputId"
+                                       data-testid="book-author"
+                                       class="block w-full border-0 bg-transparent px-1 text-center text-[1.25rem] font-medium leading-tight text-slate-600 outline-none placeholder:text-slate-300 focus:ring-0"
+                                       placeholder="Author"
+                                       value="@Model.Author"
+                                       @oninput="HandleAuthorInput" />
+                                <ValidationMessage For="() => Model.Author" class="mt-1 block text-center text-[0.78rem] font-semibold leading-tight text-red-700" />
+                            </div>
                         </div>
+                    </foreignObject>
+                </MainContent>
+                <LowerContent>
+                    <foreignObject x="108" y="436" width="344" height="168">
+                        <div xmlns="http://www.w3.org/1999/xhtml"
+                             class="flex h-full flex-col items-center justify-end gap-3">
+                            @if (!string.IsNullOrWhiteSpace(Error))
+                            {
+                                <p class="w-full rounded-xl border border-red-200 bg-red-50/95 px-3 py-2 text-center text-[0.82rem] font-semibold leading-snug text-red-700">@Error</p>
+                            }
 
-                        <div>
-                            <label class="mb-1 block text-sm font-semibold text-gray-700" for="@UrlInputId">Site URL</label>
-                            <input id="@UrlInputId"
-                                   data-testid="book-url"
-                                   type="url"
-                                   class="block w-full rounded-md border border-[#e7d7bd] bg-white/70 px-3 py-2 text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                   placeholder="https://example.com/book"
-                                   value="@Model.Url"
-                                   @oninput="HandleUrlInput" />
-                            <ValidationMessage For="() => Model.Url" class="mt-1 block text-sm text-red-600" />
+                            <div class="w-full rounded-2xl border border-[#eadbc3] bg-[#fffefa]/95 px-4 py-3">
+                                <label class="sr-only" for="@UrlInputId">Site URL</label>
+                                <input id="@UrlInputId"
+                                       data-testid="book-url"
+                                       type="url"
+                                       class="block w-full border-0 bg-transparent text-center text-[1.05rem] font-medium text-slate-700 outline-none placeholder:text-slate-300 focus:ring-0"
+                                       placeholder="https://example.com/book"
+                                       value="@Model.Url"
+                                       @oninput="HandleUrlInput" />
+                                <ValidationMessage For="() => Model.Url" class="mt-1 block text-center text-[0.78rem] font-semibold leading-tight text-red-700" />
+                            </div>
+
+                            <button data-testid="book-save"
+                                    class="inline-flex h-[3.1rem] min-w-[12.25rem] items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-5 text-[1.08rem] font-bold text-white shadow-sm transition-colors hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                    type="button"
+                                    disabled="@IsBusy"
+                                    @onclick="SubmitAsync">
+                                @SubmitLabel
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="mt-5 flex flex-wrap items-center gap-2">
-                        <button data-testid="book-save"
-                                class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-                                type="button"
-                                disabled="@IsBusy"
-                                @onclick="SubmitAsync">
-                            @SubmitLabel
-                        </button>
-                    </div>
-                </div>
-            </div>
+                    </foreignObject>
+                </LowerContent>
+            </BookPageFrame>
         </CascadingValue>
     }
 </section>
@@ -114,6 +119,8 @@
 
     private FieldIdentifier UrlField => new(Model, nameof(BookPageEditorModel.Url));
 
+    private string EditorDescription => $"{Heading} page with title, author, and site URL fields.";
+
     protected override void OnParametersSet()
     {
         if (!ReferenceEquals(Model, _editContextModel))
@@ -123,26 +130,10 @@
         }
     }
 
-    private RenderFragment TopRightClose() => builder =>
-    {
-        builder.OpenElement(0, "a");
-        builder.AddAttribute(1, "data-testid", "book-back");
-        builder.AddAttribute(2, "class", CloseButtonClass);
-        builder.AddAttribute(3, "href", CancelHref);
-        builder.AddAttribute(4, "target", "_top");
-        builder.AddAttribute(5, "data-enhance-nav", "false");
-        builder.AddAttribute(6, "aria-label", CancelLabel);
-        builder.AddMarkupContent(7, CloseIconMarkup);
-        builder.CloseElement();
-    };
-
-    private const string CloseButtonClass = "absolute right-5 top-5 z-10 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d7c3a1] bg-[#fffefa] text-gray-700 shadow-sm transition-colors hover:bg-white hover:text-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
-
-    private const string CloseIconMarkup = """
-        <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
-            <path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-        </svg>
-        """;
+    private static RenderFragment CloseIcon(int x) => @<g transform="@($"translate({x} 74)")" aria-hidden="true">
+        <rect x="0" y="0" width="50" height="50" rx="16" fill="#fffefa" stroke="#d7c3a1" stroke-width="2" />
+        <path d="M18 18l14 14M32 18L18 32" stroke="#334155" stroke-width="3" stroke-linecap="round" />
+    </g>;
 
     private void HandleTitleInput(ChangeEventArgs args)
     {

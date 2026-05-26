@@ -54,16 +54,17 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
             await Page.GetByTestId("book-url").FillAsync(url);
             await Page.GetByTestId("book-save").ClickAsync();
 
-            var row = Page.Locator("[data-testid^='book-row-']").Filter(new LocatorFilterOptions { HasTextString = title });
-            await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
-            await TrackCreatedBookFromRowAsync(row, title, url);
-            await row.GetByTestId("book-view").ClickAsync();
+            var bookLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = $"{title} details" }).First;
+            await Expect(bookLink).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await bookLink.ClickAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title })).ToBeVisibleAsync();
             await CaptureAsync("books-details");
 
             await Page.GetByTestId("book-back").ClickAsync();
-            await row.GetByTestId("book-edit").ClickAsync();
+            await Expect(bookLink).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await bookLink.ClickAsync();
+            await Page.GetByTestId("book-edit-pencil").ClickAsync();
             await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(title);
             await CaptureAsync("books-edit");
