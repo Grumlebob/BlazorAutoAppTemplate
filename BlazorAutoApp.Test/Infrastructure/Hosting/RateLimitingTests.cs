@@ -13,12 +13,14 @@ public sealed class RateLimitingTests(WebAppFactory factory)
     private const int ApiPermitLimit = 60;
     private const int AuthenticationPermitLimit = 20;
 
+    private readonly WebAppFactory _factory = factory;
     private readonly HttpClient _client = factory.HttpClient;
 
     [Fact]
     public async Task BooksApi_ReturnsTooManyRequests_WhenApiLimitIsExceeded()
     {
         var forwardedIp = $"203.0.113.{Random.Shared.Next(1, 255)}";
+        using var client = _factory.CreateAuthenticatedClient($"rate-{Guid.NewGuid():N}@example.test");
         var lastStatusCode = HttpStatusCode.OK;
         var lastResponseHadRetryAfter = false;
 
@@ -27,7 +29,7 @@ public sealed class RateLimitingTests(WebAppFactory factory)
             using var request = new HttpRequestMessage(HttpMethod.Get, "/api/books");
             request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedIp);
 
-            using var response = await _client.SendAsync(request);
+            using var response = await client.SendAsync(request);
             lastStatusCode = response.StatusCode;
             lastResponseHadRetryAfter = response.Headers.RetryAfter is not null;
 

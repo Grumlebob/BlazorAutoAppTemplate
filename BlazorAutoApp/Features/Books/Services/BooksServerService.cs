@@ -17,47 +17,57 @@ internal class BooksServerService(
     HybridCache cache,
     ICacheInvalidator cacheInvalidator,
     IOptions<BooksCacheOptions> cacheOptions,
+    ICurrentUserAccessor currentUser,
     ILogger<BooksServerService> logger) : IBooksApi
 {
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
     private readonly HybridCache _cache = cache;
     private readonly ICacheInvalidator _cacheInvalidator = cacheInvalidator;
     private readonly BooksCacheOptions _cacheOptions = cacheOptions.Value ?? new BooksCacheOptions();
+    private readonly ICurrentUserAccessor _currentUser = currentUser;
     private readonly ILogger<BooksServerService> _logger = logger;
 
     public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
     {
-        var key = BooksCacheKeys.List;
+        var userId = _currentUser.GetRequiredUserId();
+        var key = BooksCacheKeys.List(userId);
         var result = await _cache.GetOrCreateAsync(key,
-            ct => new ValueTask<GetBooksResponse>(LoadBooksAsync(ct)),
+            ct => new ValueTask<GetBooksResponse>(LoadBooksAsync(userId, ct)),
             CreateEntryOptions(_cacheOptions.ListTtlMinutes, _cacheOptions.LocalListTtlSeconds),
-            tags: [BooksCacheKeys.AllTag, BooksCacheKeys.ListTag],
+            tags: [BooksCacheKeys.AllTag, BooksCacheKeys.ListTag(userId)],
             cancellationToken: cancellationToken);
         return result!;
     }
 
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
     {
-        var key = BooksCacheKeys.Item(req.Id);
+        var userId = _currentUser.GetRequiredUserId();
+        var key = BooksCacheKeys.Item(userId, req.Id);
         var result = await _cache.GetOrCreateAsync(key,
-            ct => new ValueTask<GetBookResponse?>(LoadBookAsync(req.Id, ct)),
+            ct => new ValueTask<GetBookResponse?>(LoadBookAsync(userId, req.Id, ct)),
             CreateEntryOptions(_cacheOptions.ItemTtlMinutes, _cacheOptions.LocalItemTtlSeconds),
-            tags: [BooksCacheKeys.AllTag, BooksCacheKeys.ItemTag(req.Id)],
+            tags: [BooksCacheKeys.AllTag, BooksCacheKeys.ItemTag(userId, req.Id)],
             cancellationToken: cancellationToken);
         return result;
     }
 
-    private async Task<GetBooksResponse> LoadBooksAsync(CancellationToken ct)
+    private async Task<GetBooksResponse> LoadBooksAsync(string userId, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        var items = await db.Books.AsNoTracking().ToListAsync(ct);
+        var items = await db.Books
+            .AsNoTracking()
+            .Where(book => book.OwnerUserId == userId)
+            .OrderBy(book => book.Id)
+            .ToListAsync(ct);
         return new GetBooksResponse { Books = items };
     }
 
-    private async Task<GetBookResponse?> LoadBookAsync(int id, CancellationToken ct)
+    private async Task<GetBookResponse?> LoadBookAsync(string userId, int id, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
+        var book = await db.Books
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == id && m.OwnerUserId == userId, ct);
         if (book is null) return null;
         return new GetBookResponse
         {
@@ -70,16 +80,18 @@ internal class BooksServerService(
 
     public async Task<CreateBookResponse> CreateAsync(CreateBookRequest req, CancellationToken cancellationToken = default)
     {
+        var userId = _currentUser.GetRequiredUserId();
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
         var book = new Book
         {
             Title = req.Title,
             Author = req.Author,
-            Url = NormalizeUrl(req.Url)
+            Url = NormalizeUrl(req.Url),
+            OwnerUserId = userId
         };
         db.Books.Add(book);
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(book.Id);
+        await InvalidateAsync(userId, book.Id);
         return new CreateBookResponse
         {
             Id = book.Id,
@@ -91,33 +103,39 @@ internal class BooksServerService(
 
     public async Task<bool> UpdateAsync(UpdateBookRequest req, CancellationToken cancellationToken = default)
     {
+        var userId = _currentUser.GetRequiredUserId();
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var book = await db.Books.FirstOrDefaultAsync(m => m.Id == req.Id, cancellationToken);
+        var book = await db.Books.FirstOrDefaultAsync(
+            m => m.Id == req.Id && m.OwnerUserId == userId,
+            cancellationToken);
         if (book is null) return false;
         book.Title = req.Title;
         book.Author = req.Author;
         book.Url = NormalizeUrl(req.Url);
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(req.Id);
+        await InvalidateAsync(userId, req.Id);
         return true;
     }
 
     public async Task<bool> DeleteAsync(DeleteBookRequest req, CancellationToken cancellationToken = default)
     {
+        var userId = _currentUser.GetRequiredUserId();
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var book = await db.Books.FirstOrDefaultAsync(m => m.Id == req.Id, cancellationToken);
+        var book = await db.Books.FirstOrDefaultAsync(
+            m => m.Id == req.Id && m.OwnerUserId == userId,
+            cancellationToken);
         if (book is null) return false;
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);
-        await InvalidateAsync(req.Id);
+        await InvalidateAsync(userId, req.Id);
         return true;
     }
 
-    private async Task InvalidateAsync(int id)
+    private async Task InvalidateAsync(string userId, int id)
     {
         try
         {
-            await _cacheInvalidator.InvalidateAsync(BooksCacheKeys.ForChangedBook(id), CancellationToken.None);
+            await _cacheInvalidator.InvalidateAsync(BooksCacheKeys.ForChangedBook(userId, id), CancellationToken.None);
         }
         catch (Exception ex)
         {

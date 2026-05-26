@@ -9,6 +9,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddBooksFeature(this IServiceCollection services, IConfiguration config)
     {
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
         services.AddScoped<IBooksApi, BooksServerService>();
         services.Configure<BooksCacheOptions>(config.GetSection("Cache:Books"));
         return services;

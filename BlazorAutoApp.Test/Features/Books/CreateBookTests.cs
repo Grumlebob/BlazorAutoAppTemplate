@@ -11,6 +11,7 @@ using BlazorAutoApp.Core.Features.Books.UseCases.GetBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Infrastructure.Persistence;
+using BlazorAutoApp.Test.Features.Books.TestData;
 using Microsoft.EntityFrameworkCore;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,6 +60,7 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
         Assert.NotNull(persisted);
         Assert.Equal(create.Title, persisted!.Title);
         Assert.Equal(create.Url, persisted.Url);
+        Assert.Equal(BookDataGenerator.DefaultOwnerUserId, persisted.OwnerUserId);
     }
 
     [Fact]

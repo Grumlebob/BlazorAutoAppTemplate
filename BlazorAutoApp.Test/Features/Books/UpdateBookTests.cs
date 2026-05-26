@@ -45,6 +45,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }
@@ -75,6 +76,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }
@@ -109,11 +111,42 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task Update_OtherUsersBook_Returns404AndDoesNotPersist()
+    {
+        var book = _data.Generator.Generate();
+        book.OwnerUserId = "other-user@example.test";
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
+            db.Books.Add(book);
+            await db.SaveChangesAsync();
+        }
+
+        var update = new UpdateBookRequest
+        {
+            Id = book.Id,
+            Title = "Should Not Persist",
+            Author = book.Author,
+            Url = book.Url
+        };
+
+        var response = await _client.PutAsJsonAsync($"/api/books/{book.Id}", update);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+
+        await using var verifyDb = await _dbFactory.CreateDbContextAsync();
+        var refreshed = await verifyDb.Books.AsNoTracking().FirstAsync(m => m.Id == book.Id);
+        Assert.Equal(book.Title, refreshed.Title);
+        Assert.Equal("other-user@example.test", refreshed.OwnerUserId);
+    }
+
+    [Fact]
     public async Task Update_InvalidBody_ReturnsBadRequest()
     {
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }
@@ -139,6 +172,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }

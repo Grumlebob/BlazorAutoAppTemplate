@@ -16,12 +16,12 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
         {
             var suffix = Guid.NewGuid().ToString("N")[..10];
             var email = $"e2e-{suffix}@example.test";
-            const string password = "Passw0rd!";
+            TrackCreatedUser(email);
 
             await GoToAsync("/Account/Register");
             await Page.Locator("#Input\\.Email").FillAsync(email);
-            await Page.Locator("#Input\\.Password").FillAsync(password);
-            await Page.Locator("#Input\\.ConfirmPassword").FillAsync(password);
+            await Page.Locator("#Input\\.Password").FillAsync(E2EPassword);
+            await Page.Locator("#Input\\.ConfirmPassword").FillAsync(E2EPassword);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Register" }).ClickAsync();
 
             var accountLink = Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = email });
@@ -39,7 +39,7 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
 
             await visibleLoginLink.ClickAsync();
             await Page.Locator("#Input\\.Email").FillAsync(email);
-            await Page.Locator("#Input\\.Password").FillAsync(password);
+            await Page.Locator("#Input\\.Password").FillAsync(E2EPassword);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Log in", Exact = true }).ClickAsync();
             visibleAccountLink = await MakeNavigationItemVisibleAsync(accountLink);
             await Expect(visibleAccountLink)

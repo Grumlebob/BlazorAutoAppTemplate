@@ -8,7 +8,15 @@ namespace BlazorAutoApp.Test.E2E.Support;
 
 public abstract class BlazorE2ETestBase : PageTest
 {
+    protected const string E2EPassword = E2ETestDataCleanup.DefaultPassword;
+
     private static readonly Uri BaseUri = new(GetBaseUrl());
+    private readonly E2ETestDataCleanup _testDataCleanup;
+
+    protected BlazorE2ETestBase()
+    {
+        _testDataCleanup = new E2ETestDataCleanup(() => Page, GoToAsync);
+    }
 
     public override Task<BrowserTypeLaunchOptions?> LaunchOptionsAsync() =>
         Task.FromResult<BrowserTypeLaunchOptions?>(new BrowserTypeLaunchOptions
@@ -58,6 +66,7 @@ public abstract class BlazorE2ETestBase : PageTest
             Sources = true
         });
 
+        var testFailed = false;
         try
         {
             await test();
@@ -65,6 +74,7 @@ public abstract class BlazorE2ETestBase : PageTest
         }
         catch
         {
+            testFailed = true;
             var tracePath = Path.Combine(
                 artifactDirectory,
                 $"{GetType().Name}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.zip");
@@ -82,7 +92,27 @@ public abstract class BlazorE2ETestBase : PageTest
 
             throw;
         }
+        finally
+        {
+            try
+            {
+                await _testDataCleanup.CleanupAsync();
+            }
+            catch (Exception ex) when (testFailed)
+            {
+                Console.Error.WriteLine($"E2E cleanup failed after test failure: {ex}");
+            }
+        }
     }
+
+    protected void TrackCreatedUser(string email, string password = E2EPassword) =>
+        _testDataCleanup.TrackCreatedUser(email, password);
+
+    protected void TrackCreatedBook(string title, string? url = null, int? id = null) =>
+        _testDataCleanup.TrackCreatedBook(title, url, id);
+
+    protected Task TrackCreatedBookFromRowAsync(ILocator row, string title, string? url = null) =>
+        _testDataCleanup.TrackCreatedBookFromRowAsync(row, title, url);
 
     private static string GetBaseUrl()
     {

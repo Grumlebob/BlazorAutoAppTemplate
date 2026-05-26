@@ -103,6 +103,7 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 - `RUN_E2E=1`: enables the Playwright tests.
 - `E2E_BASE_URL`: target app URL. Defaults to `https://localhost:7186`.
+- `E2E_CLEANUP_CONNECTION_STRING`: optional PostgreSQL connection string used only for E2E cleanup fallback. When omitted, cleanup uses `ConnectionStrings__DefaultConnection` or local `.env` PostgreSQL values.
 - `E2E_SLOW_MO_MS`: visible delay between browser actions. Defaults to `300`.
 - `E2E_VIEWPORT_WIDTH` and `E2E_VIEWPORT_HEIGHT`: browser viewport. Defaults to `1280x900`.
 - `E2E_HEADLESS=1`: runs without a visible browser. Use only for CI-style runs.
@@ -134,8 +135,8 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 Current E2E tests verify:
 
 - Home render-mode diagnostics hydrate to an interactive renderer.
-- Anonymous Books home hides management actions while keeping the public bookcase visible.
-- Authenticated Books users can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
+- Anonymous Books home shows **The Authors Bookcase** and the login CTA while hiding Add Book and the saved-books table.
+- Authenticated Books users see **The Authors Bookcase** plus their own bookcase, then can create, view, use explicit Back, use browser Back, edit, cancel, delete with confirmation, and show not found.
 - Identity can register, logout, login, open the profile page, open passkeys, and use the local forgot-password flow.
 - Visual snapshots are captured for homepage, Books create/details/edit, login/register, account manage, and not-found screens.
 
@@ -150,6 +151,7 @@ E2E layout:
 Guidelines:
 
 - Do not depend on seeded database rows; create unique data inside the test.
+- Track every E2E-created user/book with the shared cleanup helpers so records are deleted even when a test fails midway.
 - Prefer `data-testid` for workflow controls that are hard to select reliably.
 - Keep E2E tests behind `RUN_E2E=1`.
 - Do not make headless the default local behavior.

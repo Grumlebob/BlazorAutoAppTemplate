@@ -1,0 +1,151 @@
+<section class="@SectionClass" aria-label="@Title" data-testid="@TestId">
+    <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <h2 class="mb-0 text-xl font-semibold leading-snug text-gray-900" data-testid="@($"{TestId}-title")">@Title</h2>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="mt-1 text-sm text-gray-600">@Description</p>
+            }
+        </div>
+        @if (Actions is not null)
+        {
+            <div class="flex flex-wrap gap-2">
+                @Actions
+            </div>
+        }
+    </div>
+
+    @if (Books.Count == 0)
+    {
+        <div class="border-y border-gray-200 bg-white px-3 py-8 text-center text-sm text-gray-600" data-testid="@EmptyTestId">
+            @EmptyMessage
+        </div>
+    }
+    else
+    {
+        var shelfItems = BuildShelfItems();
+
+        <div class="overflow-hidden">
+            <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-2 pt-6 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto [&::-webkit-scrollbar]:hidden"
+                 tabindex="0"
+                 aria-label="@($"{Title} scrollable shelf")">
+                <div class="flex w-max gap-[0.85rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.1rem]">
+                    @for (var pass = 0; pass < 2; pass++)
+                    {
+                        var isDuplicate = pass == 1;
+                        for (var index = 0; index < shelfItems.Count; index++)
+                        {
+                            var book = shelfItems[index];
+                            var isRepeatedBook = index >= Books.Count;
+                            var isHiddenCopy = isDuplicate || isRepeatedBook;
+                            var seed = BuildBookSeed(book, index, pass);
+
+                            if (LinkBooks && !isHiddenCopy && !string.IsNullOrWhiteSpace(book.Href))
+                            {
+                                <a data-testid="@($"{TestId}-book")"
+                                   class="@BookFrameClass"
+                                   href="@book.Href"
+                                   aria-label="@($"{book.Title} details")">
+                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                                </a>
+                            }
+                            else
+                            {
+                                <span data-testid="@($"{TestId}-book")"
+                                      class="@BookFrameClass"
+                                      aria-hidden="@(isHiddenCopy ? "true" : null)">
+                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                                </span>
+                            }
+                        }
+                    }
+                </div>
+            </div>
+            <div class="h-[1.35rem] bg-[linear-gradient(180deg,#6b4f35_0%,#49331f_72%,#2f2116_100%)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.22),0_0.5rem_1.25rem_rgb(17_24_39_/_0.12)] sm:h-[1.65rem]" aria-hidden="true"></div>
+        </div>
+    }
+</section>
+
+@code {
+    private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none";
+
+    [Parameter, EditorRequired]
+    public required string Title { get; set; }
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string TestId { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<BookcaseBook> Books { get; set; } = [];
+
+    [Parameter]
+    public bool LinkBooks { get; set; }
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No books saved yet.";
+
+    [Parameter]
+    public string EmptyTestId { get; set; } = "bookcase-empty-state";
+
+    [Parameter]
+    public string SectionClass { get; set; } = "mt-6";
+
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    private IReadOnlyList<BookcaseBook> BuildShelfItems()
+    {
+        if (Books.Count == 0)
+        {
+            return [];
+        }
+
+        var items = Books.ToList();
+        for (var i = 0; items.Count < 12; i++)
+        {
+            items.Add(Books[i % Books.Count]);
+        }
+
+        return items;
+    }
+
+    private int BuildBookSeed(BookcaseBook book, int index, int pass)
+    {
+        unchecked
+        {
+            var hash = 2166136261u;
+            hash = AddHash(hash, TestId);
+            hash = AddHash(hash, book.Id);
+            hash = AddHash(hash, book.Title);
+            hash = AddHash(hash, index);
+            hash = AddHash(hash, pass);
+            return (int)hash;
+        }
+    }
+
+    private static uint AddHash(uint hash, int value)
+    {
+        unchecked
+        {
+            hash ^= (uint)value;
+            return hash * 16777619u;
+        }
+    }
+
+    private static uint AddHash(uint hash, string? value)
+    {
+        unchecked
+        {
+            foreach (var character in value.AsSpan())
+            {
+                hash ^= character;
+                hash *= 16777619u;
+            }
+
+            return hash;
+        }
+    }
+}

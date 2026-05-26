@@ -16,4 +16,8 @@ public class Book
 
     [MaxLength(2048)]
     public string? Url { get; set; }
+
+    [Required]
+    [MaxLength(450)]
+    public required string OwnerUserId { get; set; }
 }

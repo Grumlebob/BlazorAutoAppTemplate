@@ -33,11 +33,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string CacheBooksLocalItemTtlEnvironmentVariable = "Cache__Books__LocalItemTtlSeconds";
     private const string CacheBooksDisableLocalEnvironmentVariable = "Cache__Books__DisableLocalCache";
     private const string StartupMigrationsEnvironmentVariable = "Database__RunMigrationsAtStartup";
-    private const string SeedLocalDefaultsEnvironmentVariable = "Books__SeedLocalDefaults";
     private const string ForwardedHeaderKnownNetworkV4EnvironmentVariable = "ForwardedHeaders__KnownNetworks__0";
     private const string ForwardedHeaderKnownNetworkV6EnvironmentVariable = "ForwardedHeaders__KnownNetworks__1";
     private const string ApiRateLimitEnvironmentVariable = "RateLimiting__Api__PermitLimit";
     private const string AuthenticationRateLimitEnvironmentVariable = "RateLimiting__Authentication__PermitLimit";
+    private const string LocalAccountsEnabledEnvironmentVariable = "LocalAccounts__Enabled";
     static WebAppFactory()
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RyukImageEnvironmentVariable)))
@@ -87,7 +87,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Redis:Configuration"] = _redisConnectionString,
                 ["Redis:AllowMissing"] = redisAllowMissing.ToString(),
                 ["Database:RunMigrationsAtStartup"] = "false",
-                ["Books:SeedLocalDefaults"] = "false",
+                ["LocalAccounts:Enabled"] = "false",
                 ["ForwardedHeaders:KnownNetworks:0"] = "0.0.0.0/0",
                 ["ForwardedHeaders:KnownNetworks:1"] = "::/0",
                 ["RateLimiting:Api:PermitLimit"] = "60",
@@ -187,7 +187,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [CacheBooksLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
                 [CacheBooksDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
                 [StartupMigrationsEnvironmentVariable] = "false",
-                [SeedLocalDefaultsEnvironmentVariable] = "false",
+                [LocalAccountsEnabledEnvironmentVariable] = "false",
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
                 [ForwardedHeaderKnownNetworkV6EnvironmentVariable] = "::/0",
                 [ApiRateLimitEnvironmentVariable] = "60",

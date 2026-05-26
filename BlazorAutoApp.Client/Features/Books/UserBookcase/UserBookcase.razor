@@ -1,0 +1,118 @@
+@inject IBooksApi Books
+@inject IJSRuntime JS
+
+@if (_loading)
+{
+    <p class="mt-6 text-gray-600">Loading your bookcase...</p>
+}
+else if (_error is not null)
+{
+    <p class="mt-6 text-red-600">@_error</p>
+}
+else
+{
+    var hasUserBooks = UserBooksState is { Count: > 0 };
+
+    <BookcaseShelf Title="Your Bookcase"
+                   Description="Only books you have saved."
+                   TestId="user-bookcase"
+                   Books="UserBookcaseBookMapper.ToBookcaseBooks(UserBooksState)"
+                   LinkBooks="true"
+                   EmptyMessage="Your bookcase is empty."
+                   EmptyTestId="user-book-empty-state">
+        <Actions>
+            <a data-testid="add-book"
+               class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+               href="/books/create">Add Book</a>
+        </Actions>
+    </BookcaseShelf>
+
+    @if (hasUserBooks)
+    {
+        <UserBookcaseTable Books="UserBooksState!" OnDelete="DeleteAsync" />
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string? _currentUserId;
+    private string? _error;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    [PersistentState(AllowUpdates = true)]
+    public List<Book>? UserBooksState { get; set; }
+
+    [PersistentState]
+    public string? PersistedUserId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadForCurrentUserAsync();
+    }
+
+    private async Task LoadForCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        _currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            _loading = false;
+            UserBooksState = null;
+            PersistedUserId = null;
+            return;
+        }
+
+        if (PersistedUserId == _currentUserId && UserBooksState is not null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadUserBooksAsync();
+    }
+
+    private async Task LoadUserBooksAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var res = await Books.GetAsync(new GetBooksRequest());
+            UserBooksState = res.Books;
+            PersistedUserId = _currentUserId;
+        }
+        catch
+        {
+            _error = "Your bookcase could not be loaded.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var success = await Books.DeleteAsync(new DeleteBookRequest { Id = id });
+            if (success)
+            {
+                await LoadUserBooksAsync();
+            }
+        }
+        catch
+        {
+            _error = "Book could not be deleted.";
+        }
+    }
+}

@@ -1,6 +1,7 @@
 using BlazorAutoApp.Components;
 using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Features.Login.Account.Seed;
 using BlazorAutoApp.Features.Books;
 using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -66,7 +67,7 @@ app.Use(async (ctx, next) =>
 });
 
 await app.ApplyAppMigrationsAsync();
-await app.SeedLocalBooksAsync();
+await app.SeedLocalLoginAccountsAsync();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

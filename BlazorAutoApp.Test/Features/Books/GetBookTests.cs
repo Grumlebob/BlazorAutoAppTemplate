@@ -24,6 +24,7 @@ namespace BlazorAutoApp.Test.Features.Books;
 public class GetBookTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
+    private readonly HttpClient _anonymousClient;
     private readonly Func<Task> _resetDatabase;
     private readonly BookDataGenerator _data = new();
     private readonly IServiceScope _scope;
@@ -31,10 +32,18 @@ public class GetBookTests : IAsyncLifetime, IDisposable
 
     public GetBookTests(WebAppFactory factory)
     {
-        _client = factory.HttpClient;
+        _client = factory.CreateAuthenticatedClient();
+        _anonymousClient = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
         _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    }
+
+    [Fact]
+    public async Task GetById_Anonymous_ReturnsUnauthorized()
+    {
+        var response = await _anonymousClient.GetAsync("/api/books/1");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -43,6 +52,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }
@@ -53,6 +63,23 @@ public class GetBookTests : IAsyncLifetime, IDisposable
         Assert.NotNull(payload);
         Assert.Equal(book.Id, payload!.Id);
         Assert.Equal(book.Title, payload.Title);
+    }
+
+    [Fact]
+    public async Task GetById_OtherUsersBook_Returns404()
+    {
+        var book = _data.Generator.Generate();
+        book.OwnerUserId = "other-user@example.test";
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
+            db.Books.Add(book);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/books/{book.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
     }
 
     [Fact]

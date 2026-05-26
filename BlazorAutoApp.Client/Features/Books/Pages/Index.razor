@@ -1,9 +1,6 @@
 @page "/"
 @page "/books"
 
-@inject IBooksApi Books
-@inject IJSRuntime JS
-
 <PageTitle>Books</PageTitle>
 
 <div class="mx-auto max-w-6xl">
@@ -15,212 +12,17 @@
         <RenderModeBadge Assigned="@AssignedRenderMode" ConfiguredMode="Interactive Auto" />
     </div>
 
+    <AuthorBookcase />
+
     <AuthorizeView>
         <Authorized>
-            <div class="mb-4 flex">
-                <a data-testid="add-book"
-                   class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                   href="/books/create">Add Book</a>
-            </div>
+            <UserBookcase />
         </Authorized>
+        <NotAuthorized>
+            <UserBookcaseLoginPrompt />
+        </NotAuthorized>
+        <Authorizing>
+            <p class="mt-6 text-gray-600">Checking your bookcase...</p>
+        </Authorizing>
     </AuthorizeView>
-
-    @if (_loading)
-    {
-        <p class="mt-4 text-gray-600">Loading...</p>
-    }
-    else if (_error is not null)
-    {
-        <p class="mt-4 text-red-600">@_error</p>
-    }
-    else
-    {
-        var hasBooks = BooksState is { Count: > 0 };
-        var bookcaseItems = BuildBookcaseItems();
-
-        <section class="mt-4 overflow-hidden" aria-label="Bookcase" data-testid="bookcase">
-            <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-2 pt-6 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto [&::-webkit-scrollbar]:hidden"
-                 tabindex="0"
-                 aria-label="Scrollable bookcase">
-                <div class="flex w-max gap-[0.85rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.1rem]">
-                    @for (var pass = 0; pass < 2; pass++)
-                    {
-                        var isDuplicate = pass == 1;
-                        for (var index = 0; index < bookcaseItems.Count; index++)
-                        {
-                            var book = bookcaseItems[index];
-                            var isRepeatedBook = hasBooks && BooksState is not null && index >= BooksState.Count;
-                            var isHiddenCopy = isDuplicate || isRepeatedBook;
-                            var seed = book.Id + (index * 37) + (pass * 1000);
-
-                            if (hasBooks)
-                            {
-                                <a data-testid="bookcase-book"
-                                   class="group block flex-none origin-bottom text-inherit no-underline transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none"
-                                   href="@($"/books/{book.Id}")"
-                                   aria-hidden="@(isHiddenCopy ? "true" : null)"
-                                   tabindex="@(isHiddenCopy ? "-1" : null)"
-                                   aria-label="@($"{book.Title} details")">
-                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
-                                </a>
-                            }
-                            else
-                            {
-                                <span class="group block flex-none origin-bottom" aria-hidden="true">
-                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
-                                </span>
-                            }
-                        }
-                    }
-                </div>
-            </div>
-            <div class="h-[1.35rem] bg-[linear-gradient(180deg,#6b4f35_0%,#49331f_72%,#2f2116_100%)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.22),0_0.5rem_1.25rem_rgb(17_24_39_/_0.12)] sm:h-[1.65rem]" aria-hidden="true"></div>
-        </section>
-
-        @if (!hasBooks)
-        {
-            <p data-testid="book-empty-state" class="mt-3.5 text-center text-gray-600">No books saved yet.</p>
-        }
-        <AuthorizeView>
-            <Authorized>
-                @if (hasBooks)
-                {
-                    <section class="mt-6" aria-label="Saved books">
-                        <div class="flex items-baseline justify-between gap-4 border-b border-gray-200 pb-2">
-                            <h2 class="mb-0 text-xl font-semibold text-gray-800">Saved books</h2>
-                            <span class="text-sm text-gray-500">@BooksState!.Count total</span>
-                        </div>
-
-                        <div class="mt-3 grid gap-3">
-                            @foreach (var book in BooksState!)
-                            {
-                                <article class="grid items-center gap-3 border-b border-gray-100 py-3 md:grid-cols-[minmax(0,1fr)_auto]" data-testid="@($"book-row-{book.Id}")">
-                                    <div>
-                                        <h3 class="mb-0.5 text-base font-semibold leading-snug text-gray-900">@book.Title</h3>
-                                        <p class="text-sm text-gray-600">@(string.IsNullOrWhiteSpace(book.Author) ? "Unknown author" : book.Author)</p>
-                                        @if (string.IsNullOrWhiteSpace(book.Url))
-                                        {
-                                            <span class="mt-1 inline-block text-[0.8rem] text-gray-500">No URL</span>
-                                        }
-                                        else
-                                        {
-                                            <a class="mt-1 inline-flex text-[0.8rem] font-bold text-blue-700 no-underline hover:text-blue-800 hover:underline"
-                                               href="@book.Url"
-                                               target="_blank"
-                                               rel="noopener noreferrer">Open URL</a>
-                                        }
-                                    </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        <a data-testid="book-view" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books/{book.Id}")">View</a>
-                                        <a data-testid="book-edit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books/{book.Id}/edit")">Edit</a>
-                                        <button data-testid="book-delete" class="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-red-700 hover:bg-red-50 hover:text-red-800" type="button" @onclick="() => DeleteAsync(book.Id)">Delete</button>
-                                    </div>
-                                </article>
-                            }
-                        </div>
-                    </section>
-                }
-            </Authorized>
-        </AuthorizeView>
-    }
 </div>
-
-@code {
-    private static readonly BookcaseItem[] PlaceholderBooks =
-    [
-        new(-1, "Ship", null),
-        new(-2, "TraceBack", null),
-        new(-3, "ImprovedDb", null),
-        new(-4, "KinoJoin", null),
-        new(-5, "Pride and Prejudice", null),
-        new(-6, "1984", null),
-        new(-7, "The Hobbit", null),
-        new(-8, "To Kill a Mockingbird", null),
-        new(-9, "The Great Gatsby", null),
-        new(-10, "Moby-Dick", null),
-        new(-11, "Jane Eyre", null),
-        new(-12, "Frankenstein", null),
-        new(-13, "The Odyssey", null),
-        new(-14, "Don Quixote", null)
-    ];
-
-    private bool _loading = true;
-    private string? _error;
-
-    [PersistentState(AllowUpdates = true)]
-    public List<Book>? BooksState { get; set; }
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (BooksState is not null)
-        {
-            _loading = false;
-            return;
-        }
-
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        _loading = true;
-        _error = null;
-        try
-        {
-            var res = await Books.GetAsync(new GetBooksRequest());
-            BooksState = res.Books;
-        }
-        catch
-        {
-            _error = "Books could not be loaded.";
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    private IReadOnlyList<BookcaseItem> BuildBookcaseItems()
-    {
-        if (BooksState is not { Count: > 0 })
-        {
-            return PlaceholderBooks;
-        }
-
-        var items = BooksState
-            .Select(book => new BookcaseItem(book.Id, book.Title, book.Url))
-            .ToList();
-
-        for (var i = 0; items.Count < 12; i++)
-        {
-            var source = BooksState[i % BooksState.Count];
-            items.Add(new BookcaseItem(source.Id, source.Title, source.Url));
-        }
-
-        return items;
-    }
-
-    private async Task DeleteAsync(int id)
-    {
-        try
-        {
-            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
-            if (!confirmed)
-            {
-                return;
-            }
-
-            var success = await Books.DeleteAsync(new DeleteBookRequest { Id = id });
-            if (success)
-            {
-                await LoadAsync();
-            }
-        }
-        catch
-        {
-            _error = "Book could not be deleted.";
-        }
-    }
-
-    private sealed record BookcaseItem(int Id, string Title, string? Url);
-}

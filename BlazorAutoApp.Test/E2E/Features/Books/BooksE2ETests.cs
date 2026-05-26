@@ -15,6 +15,8 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
         await RunWithFailureScreenshotAsync(async () =>
         {
             await GoHomeAndWaitForInteractivityAsync();
+            await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await Expect(Page.GetByTestId("bookcase-login-cta")).ToContainTextAsync("Create your own bookcase by logging in.");
             await Expect(Page.GetByTestId("add-book")).ToHaveCountAsync(0);
             await Expect(Page.GetByText("Saved books")).ToHaveCountAsync(0);
 
@@ -23,11 +25,19 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             var updatedTitle = $"E2E Book Updated {suffix}";
             var author = $"E2E Author {suffix}";
             var url = $"https://example.test/books/{suffix}";
+            var email = $"books-{suffix}@example.test";
 
-            await RegisterAsync($"books-{suffix}@example.test");
+            TrackCreatedUser(email);
+            TrackCreatedBook(title, url);
+            TrackCreatedBook(updatedTitle, url);
+
+            await RegisterAsync(email);
             await GoHomeAndWaitForInteractivityAsync();
+            await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await Expect(Page.GetByTestId("user-bookcase-title")).ToHaveTextAsync("Your Bookcase");
+            await Expect(Page.GetByTestId("user-book-empty-state")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("add-book")).ToBeVisibleAsync();
-            await Expect(Page.GetByText("Saved books")).ToBeVisibleAsync();
+            await Expect(Page.GetByText("Saved books")).ToHaveCountAsync(0);
 
             await Page.GetByTestId("add-book").ClickAsync();
             await Page.GetByTestId("book-title").FillAsync(title);
@@ -37,6 +47,8 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
             var row = Page.Locator("[data-testid^='book-row-']").Filter(new LocatorFilterOptions { HasTextString = title });
             await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await Expect(Page.GetByText("Saved books")).ToBeVisibleAsync();
+            await TrackCreatedBookFromRowAsync(row, title, url);
 
             await row.GetByTestId("book-view").ClickAsync();
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title }))
@@ -56,6 +68,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await Page.GetByTestId("book-save").ClickAsync();
             var updatedRow = Page.Locator("[data-testid^='book-row-']").Filter(new LocatorFilterOptions { HasTextString = updatedTitle });
             await Expect(updatedRow).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await TrackCreatedBookFromRowAsync(updatedRow, updatedTitle, url);
 
             await updatedRow.GetByTestId("book-edit").ClickAsync();
             await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(updatedTitle);
@@ -73,12 +86,10 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
     private async Task RegisterAsync(string email)
     {
-        const string password = "Passw0rd!";
-
         await GoToAsync("/Account/Register");
         await Page.Locator("#Input\\.Email").FillAsync(email);
-        await Page.Locator("#Input\\.Password").FillAsync(password);
-        await Page.Locator("#Input\\.ConfirmPassword").FillAsync(password);
+        await Page.Locator("#Input\\.Password").FillAsync(E2EPassword);
+        await Page.Locator("#Input\\.ConfirmPassword").FillAsync(E2EPassword);
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Register" }).ClickAsync();
     }
 }

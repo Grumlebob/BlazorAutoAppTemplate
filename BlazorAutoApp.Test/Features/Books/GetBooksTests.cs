@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ namespace BlazorAutoApp.Test.Features.Books;
 public class GetBooksTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
+    private readonly HttpClient _anonymousClient;
     private readonly Func<Task> _resetDatabase;
     private readonly BookDataGenerator _data = new();
     private readonly IServiceScope _scope;
@@ -29,10 +31,18 @@ public class GetBooksTests : IAsyncLifetime, IDisposable
 
     public GetBooksTests(WebAppFactory factory)
     {
-        _client = factory.HttpClient;
+        _client = factory.CreateAuthenticatedClient();
+        _anonymousClient = factory.HttpClient;
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
         _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    }
+
+    [Fact]
+    public async Task GetAll_Anonymous_ReturnsUnauthorized()
+    {
+        var response = await _anonymousClient.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -46,12 +56,20 @@ public class GetBooksTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task GetAll_WithData_ReturnsOkWithAllItems()
+    public async Task GetAll_WithData_ReturnsOkWithCurrentUsersItems()
     {
-        var books = _data.Generator.Generate(10);
+        var currentUserBooks = _data.Generator.Generate(10);
+        var otherUserBooks = _data.Generator.Generate(3);
+        foreach (var book in otherUserBooks)
+        {
+            book.OwnerUserId = "other-user@example.test";
+        }
+
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
-            await db.Books.AddRangeAsync(books);
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId, BookTestUsers.OtherUserId);
+            await db.Books.AddRangeAsync(currentUserBooks);
+            await db.Books.AddRangeAsync(otherUserBooks);
             await db.SaveChangesAsync();
         }
 
@@ -60,6 +78,7 @@ public class GetBooksTests : IAsyncLifetime, IDisposable
         var payload = await httpResponse.Content.ReadFromJsonAsync<GetBooksResponse>();
         Assert.NotNull(payload);
         Assert.Equal(10, payload!.Books.Count);
+        Assert.All(payload.Books, book => Assert.Contains(currentUserBooks, seeded => seeded.Id == book.Id));
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

@@ -24,6 +24,7 @@ namespace BlazorAutoApp.Test.Features.Books;
 public class BooksCachingTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
+    private readonly HttpClient _otherClient;
     private readonly Func<Task> _resetDatabase;
     private readonly BookDataGenerator _data = new();
     private readonly IServiceScope _scope;
@@ -32,6 +33,7 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
     public BooksCachingTests(WebAppFactory factory)
     {
         _client = factory.CreateAuthenticatedClient();
+        _otherClient = factory.CreateAuthenticatedClient("other-user@example.test");
         _resetDatabase = factory.ResetDatabaseAsync;
         _scope = factory.Services.CreateScope();
         _dbFactory = _scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
@@ -48,6 +50,25 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task GetList_Cache_IsScopedByUser()
+    {
+        var first = await (await _client.PostAsJsonAsync("/api/books", new CreateBookRequest { Title = "User A", Author = null, Url = null })).Content.ReadFromJsonAsync<CreateBookResponse>();
+        var second = await (await _otherClient.PostAsJsonAsync("/api/books", new CreateBookRequest { Title = "User B", Author = null, Url = null })).Content.ReadFromJsonAsync<CreateBookResponse>();
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+
+        var firstList = await _client.GetFromJsonAsync<GetBooksResponse>("/api/books");
+        var secondList = await _otherClient.GetFromJsonAsync<GetBooksResponse>("/api/books");
+
+        Assert.NotNull(firstList);
+        Assert.NotNull(secondList);
+        Assert.Single(firstList!.Books);
+        Assert.Single(secondList!.Books);
+        Assert.Equal(first!.Id, firstList.Books[0].Id);
+        Assert.Equal(second!.Id, secondList.Books[0].Id);
+    }
+
+    [Fact]
     public async Task GetList_IsCached_UntilInvalidatedByCreate()
     {
         // Seed two books directly (bypass API so cache must read DB)
@@ -55,6 +76,7 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         var m2 = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.AddRange(m1, m2);
             await db.SaveChangesAsync();
         }
@@ -68,6 +90,7 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         var m3 = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(m3);
             await db.SaveChangesAsync();
         }

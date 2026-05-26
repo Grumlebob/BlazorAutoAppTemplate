@@ -5,6 +5,8 @@ namespace BlazorAutoApp.Test.Features.Books.TestData;
 
 public class BookDataGenerator
 {
+    public const string DefaultOwnerUserId = BookTestUsers.DefaultUserId;
+
     public readonly Faker<Book> Generator = new(locale: "en");
 
     public BookDataGenerator()
@@ -14,5 +16,6 @@ public class BookDataGenerator
         Generator.RuleFor(m => m.Title, f => f.Lorem.Sentence(3, 2));
         Generator.RuleFor(m => m.Author, f => f.Name.FullName());
         Generator.RuleFor(m => m.Url, f => f.Internet.UrlWithPath("https"));
+        Generator.RuleFor(m => m.OwnerUserId, _ => DefaultOwnerUserId);
     }
 }

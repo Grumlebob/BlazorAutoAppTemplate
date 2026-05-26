@@ -108,6 +108,17 @@ Open:
 
 Docker publishes app, PostgreSQL, Redis, Seq, and Redis Insight ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
 
+Local login seeds:
+
+- Email: `admin@admin.com`
+- Password: `Admin123`
+- Role: `Admin`
+- Email: `user@user.com`
+- Password: `User123`
+- Role: `User`
+
+These accounts are created only in `Development` and `Docker` environments after EF migrations run. The seed writes the local password hashes directly so these short local-only passwords work without weakening the normal Identity password rules for registration and password reset flows.
+
 If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `docker compose up -d --build`. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
 
 Redis Insight can connect to:

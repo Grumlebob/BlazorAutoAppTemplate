@@ -155,7 +155,8 @@ public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnviro
         await nodeB.InitializeAsync();
 
         await nodeA.ResetDatabaseAsync();
-        return (nodeA.CreateAuthenticatedClient($"node-a-{suffix}@example.test"), nodeB.HttpClient);
+        var userName = $"node-user-{suffix}@example.test";
+        return (nodeA.CreateAuthenticatedClient(userName), nodeB.CreateAuthenticatedClient(userName));
     }
 
     private static async Task<CreateBookResponse> CreateBookAsync(HttpClient client, string title)

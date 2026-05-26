@@ -18,11 +18,13 @@ public static class BookEndpoints
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName);
 
         group.MapGet("/", ListBooksAsync)
-            .WithName("ListBooks");
+            .WithName("ListBooks")
+            .RequireAuthorization();
 
         group.MapGet("/{id:int}", GetBookAsync)
             .WithName("GetBook")
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .RequireAuthorization();
 
         group.MapPost("/", CreateBookAsync)
             .WithName("CreateBook")

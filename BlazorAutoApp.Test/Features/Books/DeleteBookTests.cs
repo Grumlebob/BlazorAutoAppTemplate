@@ -37,6 +37,7 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
             db.Books.Add(book);
             await db.SaveChangesAsync();
         }
@@ -56,6 +57,28 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
         var response = await _client.DeleteAsync("/api/books/10101010");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+    }
+
+    [Fact]
+    public async Task Delete_OtherUsersBook_Returns404AndLeavesBook()
+    {
+        var book = _data.Generator.Generate();
+        book.OwnerUserId = "other-user@example.test";
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
+            db.Books.Add(book);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.DeleteAsync($"/api/books/{book.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+
+        await using var verifyDb = await _dbFactory.CreateDbContextAsync();
+        var stillThere = await verifyDb.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == book.Id);
+        Assert.NotNull(stillThere);
+        Assert.Equal("other-user@example.test", stillThere!.OwnerUserId);
     }
 
     [Fact]
