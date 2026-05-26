@@ -1,9 +1,9 @@
 @inherits LayoutComponentBase
-<div class="relative flex flex-col md:flex-row">
-    <main class="flex-1 bg-stone-50 text-gray-900">
+<div class="relative flex min-w-0 flex-col md:flex-row">
+    <main class="min-w-0 flex-1 overflow-x-hidden bg-stone-50 text-gray-900">
         <NavMenu/>
 
-        <article class="container mx-auto mb-2 p-4 max-w-[1500px]">
+        <article class="container box-border mx-auto mb-2 w-full max-w-[1500px] overflow-x-hidden p-4">
             @Body
         </article>
     </main>

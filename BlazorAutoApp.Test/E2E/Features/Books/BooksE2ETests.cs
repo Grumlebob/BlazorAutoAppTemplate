@@ -15,6 +15,20 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
         await RunWithFailureScreenshotAsync(async () =>
         {
             await GoHomeAndWaitForInteractivityAsync();
+            await Expect(Page.GetByTestId("design-demo-link")).ToBeVisibleAsync();
+            await Page.GetByTestId("design-demo-link").ClickAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Book Design Demos" }))
+                .ToBeVisibleAsync();
+            await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Back to books" }).ClickAsync();
+            await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await Page.GetByTestId("author-bookcase-book").First.ClickAsync(new LocatorClickOptions { Force = true });
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-edit-pencil")).ToHaveCountAsync(0);
+            await Page.GetByTestId("book-back").ClickAsync();
+            await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await GoToAsync("/books/author/not-a-real-book");
+            await Expect(Page.GetByText("Book not found.")).ToBeVisibleAsync();
+            await Page.GetByTestId("book-back").ClickAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
             await Expect(Page.GetByTestId("bookcase-login-cta")).ToContainTextAsync("Create your own bookcase by logging in.");
             await Expect(Page.GetByTestId("add-book")).ToHaveCountAsync(0);
@@ -40,6 +54,10 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByText("Saved books")).ToHaveCountAsync(0);
 
             await Page.GetByTestId("add-book").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(string.Empty);
+            await Expect(Page.GetByTestId("book-author")).ToHaveValueAsync(string.Empty);
+            await Expect(Page.GetByTestId("book-url")).ToHaveValueAsync(string.Empty);
             await Page.GetByTestId("book-title").FillAsync(title);
             await Page.GetByTestId("book-author").FillAsync(author);
             await Page.GetByTestId("book-url").FillAsync(url);
@@ -47,22 +65,49 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
             var row = Page.Locator("[data-testid^='book-row-']").Filter(new LocatorFilterOptions { HasTextString = title });
             await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await Expect(Page.GetByTestId("user-book-empty-state")).ToHaveCountAsync(0);
             await Expect(Page.GetByText("Saved books")).ToBeVisibleAsync();
             await TrackCreatedBookFromRowAsync(row, title, url);
 
-            await row.GetByTestId("book-view").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title }))
-                .ToBeVisibleAsync();
-            await Page.GetByTestId("book-back").ClickAsync();
-            await Expect(row).ToBeVisibleAsync();
-
-            await row.GetByTestId("book-view").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title }))
+            await Page.GetByTestId("user-bookcase-book").First.ClickAsync(new LocatorClickOptions { Force = true });
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title }))
                 .ToBeVisibleAsync();
             await Page.GoBackAsync();
             await Expect(row).ToBeVisibleAsync();
 
+            await Page.GetByTestId("user-bookcase-book").First.ClickAsync(new LocatorClickOptions { Force = true });
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Page.GetByTestId("book-back").ClickAsync();
+            await Expect(row).ToBeVisibleAsync();
+
+            await row.GetByTestId("book-view").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title }))
+                .ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-url-link")).ToContainTextAsync("Go to site");
+            await Expect(Page.GetByTestId("book-edit-pencil")).ToBeVisibleAsync();
+            await Expect(Page.GetByText("Author:")).ToHaveCountAsync(0);
+            await Page.GetByTestId("book-back").ClickAsync();
+            await Expect(row).ToBeVisibleAsync();
+
+            await row.GetByTestId("book-view").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title }))
+                .ToBeVisibleAsync();
+            await Page.GetByTestId("book-edit-pencil").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(title);
+            await Page.GetByTestId("book-back").ClickAsync();
+            await Expect(row).ToBeVisibleAsync();
+
+            await row.GetByTestId("book-view").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title }))
+                .ToBeVisibleAsync();
+            await Page.GetByTestId("book-back").ClickAsync();
+            await Expect(row).ToBeVisibleAsync();
+
             await row.GetByTestId("book-edit").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(title);
             await Page.GetByTestId("book-title").FillAsync(updatedTitle);
             await Page.GetByTestId("book-save").ClickAsync();
@@ -72,7 +117,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
             await updatedRow.GetByTestId("book-edit").ClickAsync();
             await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(updatedTitle);
-            await Page.GetByTestId("book-cancel").ClickAsync();
+            await Page.GetByTestId("book-back").ClickAsync();
             await Expect(updatedRow).ToBeVisibleAsync();
 
             Page.Dialog += async (_, dialog) => await dialog.AcceptAsync();

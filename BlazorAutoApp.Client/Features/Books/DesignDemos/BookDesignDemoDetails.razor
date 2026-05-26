@@ -1,0 +1,84 @@
+@page "/books/design-demos/{DesignId}"
+
+@if (Design is null)
+{
+    <PageTitle>Book Design Missing</PageTitle>
+    <div class="mx-auto max-w-3xl">
+        <a class="w-fit text-sm font-bold text-blue-700 no-underline hover:underline focus-visible:underline" href="/books/design-demos">Back to demos</a>
+        <h1 class="mt-4 text-3xl font-bold leading-tight text-gray-950">Book Design Missing</h1>
+        <p class="mt-2 text-gray-600">This design could not be found.</p>
+    </div>
+}
+else
+{
+    <PageTitle>@($"{Design.Label} - Book Design Demo")</PageTitle>
+
+    <div class="mx-0 w-[min(100%,21rem)] max-w-6xl overflow-hidden sm:mx-auto sm:w-full">
+        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <a class="w-fit text-sm font-bold text-blue-700 no-underline hover:underline focus-visible:underline" href="/books/design-demos">Back to overview</a>
+                <h1 class="mt-4 mb-1 text-4xl font-bold leading-tight text-gray-950">@Design.Label</h1>
+                <p class="max-w-2xl text-[0.95rem] leading-6 text-gray-600">Standalone Blazor approval page for one bookcase SVG design.</p>
+            </div>
+            <nav class="flex flex-wrap gap-3 text-sm font-bold" aria-label="Book design navigation">
+                <a class="text-blue-700 no-underline hover:underline focus-visible:underline" href="@BookDesignDemoCatalog.DetailsUrl(PreviousDesign, Open)">Previous design</a>
+                <a class="text-blue-700 no-underline hover:underline focus-visible:underline" href="@BookDesignDemoCatalog.DetailsUrl(NextDesign, Open)">Next design</a>
+            </nav>
+        </div>
+
+        <div class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <section class="group grid min-h-[30rem] min-w-0 place-items-center overflow-hidden rounded-lg border border-gray-200 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.92),rgb(248_250_252_/_0.98)),repeating-linear-gradient(90deg,#f1f5f9_0_72px,#ffffff_72px_144px)] p-4 shadow-[0_1rem_2.4rem_rgb(15_23_42_/_0.08)] sm:min-h-[42rem] sm:p-10"
+                     tabindex="0"
+                     aria-label="@($"{Design.Label} SVG review stage. Hover or focus to preview the opening motion.")">
+                <BookDesignDemoCover Design="Design"
+                                     ForcedOpen="Open"
+                                     SvgClass="h-auto w-full max-w-[31rem] sm:max-w-[34rem]" />
+            </section>
+
+            <aside class="h-fit min-w-0 rounded-lg border border-gray-200 bg-white p-5 shadow-[0_0.6rem_1.5rem_rgb(15_23_42_/_0.06)]">
+                <p class="mb-5 text-sm leading-6 text-gray-600">@Design.Note</p>
+
+                <div class="mb-5">
+                    <p class="mb-2 text-sm font-bold text-gray-700">Design</p>
+                    <div class="grid gap-2">
+                        @foreach (var design in BookDesignDemoCatalog.All)
+                        {
+                            <a class="@DesignLinkClass(design)"
+                               href="@BookDesignDemoCatalog.DetailsUrl(design, Open)"
+                               aria-current="@(design == Design ? "page" : null)">@design.Label</a>
+                        }
+                    </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <a class="@StateLinkClass(!Open)" href="@BookDesignDemoCatalog.DetailsUrl(Design)">Normal state</a>
+                    <a class="@StateLinkClass(Open)" href="@BookDesignDemoCatalog.DetailsUrl(Design, forcedOpen: true)">Forced-open state</a>
+                </div>
+            </aside>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? DesignId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "open")]
+    public bool Open { get; set; }
+
+    private BookDesignDemo? Design => BookDesignDemoCatalog.Find(DesignId);
+
+    private BookDesignDemo PreviousDesign => BookDesignDemoCatalog.Previous(Design!);
+
+    private BookDesignDemo NextDesign => BookDesignDemoCatalog.Next(Design!);
+
+    private string DesignLinkClass(BookDesignDemo design) =>
+        design == Design
+            ? "rounded-md border border-gray-900 bg-gray-900 px-3 py-2 text-sm font-bold text-white no-underline"
+            : "rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 no-underline hover:border-blue-300 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+
+    private static string StateLinkClass(bool active) =>
+        active
+            ? "rounded-md border border-blue-700 bg-blue-700 px-3 py-2 text-sm font-bold text-white no-underline"
+            : "rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-blue-700 no-underline hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+}

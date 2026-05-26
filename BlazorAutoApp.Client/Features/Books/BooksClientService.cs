@@ -15,13 +15,17 @@ public class BooksClientService(HttpClient http) : IBooksApi
 
     public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
     {
-        var res = await _http.GetFromJsonAsync<GetBooksResponse>("api/books", cancellationToken);
+        var uri = req.ForceRefresh == true ? "api/books?forceRefresh=true" : "api/books";
+        var res = await _http.GetFromJsonAsync<GetBooksResponse>(uri, cancellationToken);
         return res ?? new GetBooksResponse { Books = [] };
     }
 
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
     {
-        using var res = await _http.GetAsync($"api/books/{req.Id}", cancellationToken);
+        var uri = req.ForceRefresh == true
+            ? $"api/books/{req.Id}?forceRefresh=true"
+            : $"api/books/{req.Id}";
+        using var res = await _http.GetAsync(uri, cancellationToken);
         if (res.StatusCode == HttpStatusCode.NotFound)
         {
             return null;

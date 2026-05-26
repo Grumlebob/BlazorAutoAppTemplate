@@ -1,0 +1,18 @@
+@page "/books/author/{Slug}"
+
+@inject NavigationManager Nav
+
+<PageTitle>Books</PageTitle>
+
+<h1 class="sr-only">Opening book</h1>
+
+@code {
+    [Parameter]
+    public string? Slug { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var slug = Uri.EscapeDataString(Slug ?? string.Empty);
+        Nav.NavigateTo($"/books?bookSource=author&bookId={slug}&bookMode=view", forceLoad: false, replace: true);
+    }
+}

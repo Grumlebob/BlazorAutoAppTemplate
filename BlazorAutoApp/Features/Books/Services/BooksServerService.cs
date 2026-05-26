@@ -30,6 +30,11 @@ internal class BooksServerService(
     public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
     {
         var userId = _currentUser.GetRequiredUserId();
+        if (req.ForceRefresh == true)
+        {
+            return await LoadBooksAsync(userId, cancellationToken);
+        }
+
         var key = BooksCacheKeys.List(userId);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetBooksResponse>(LoadBooksAsync(userId, ct)),
@@ -42,6 +47,11 @@ internal class BooksServerService(
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
     {
         var userId = _currentUser.GetRequiredUserId();
+        if (req.ForceRefresh == true)
+        {
+            return await LoadBookAsync(userId, req.Id, cancellationToken);
+        }
+
         var key = BooksCacheKeys.Item(userId, req.Id);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetBookResponse?>(LoadBookAsync(userId, req.Id, ct)),

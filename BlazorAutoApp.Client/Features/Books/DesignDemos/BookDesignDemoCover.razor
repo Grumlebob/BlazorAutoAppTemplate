@@ -1,0 +1,165 @@
+<svg class="@SvgClass"
+     viewBox="0 0 216 247"
+     role="img"
+     aria-labelledby="@TitleId">
+    <title id="@TitleId">@Design.Label</title>
+    <defs>
+        <linearGradient id="@CoverGradientId" x1="12" x2="144" y1="22" y2="195" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="@Design.CoverColors.Start" />
+            <stop offset="56%" stop-color="@Design.CoverColors.Middle" />
+            <stop offset="100%" stop-color="@Design.CoverColors.End" />
+        </linearGradient>
+        <linearGradient id="@PageGradientId" x1="120" x2="161" y1="108" y2="108" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="@Design.PageColors.Start" />
+            <stop offset="65%" stop-color="@Design.PageColors.Middle" />
+            <stop offset="100%" stop-color="@Design.PageColors.End" />
+        </linearGradient>
+        @if (Design.Artwork is BookDesignArtwork.ClothHardback)
+        {
+            <pattern id="@ClothWeaveId" width="5" height="5" patternUnits="userSpaceOnUse">
+                <path d="M0 1h5M1 0v5" stroke="#ffffff" stroke-width="0.35" opacity="0.16" />
+            </pattern>
+        }
+    </defs>
+
+    <g transform="translate(7 10) scale(1.04)">
+        <ellipse cx="91" cy="205" rx="62" ry="7" fill="#111827" opacity="0.15" />
+
+        <g class="@PagesClass">
+            <path d="@Design.PagePath" fill="url(#@PageGradientId)" />
+            @PageLines()
+            @PageTabs()
+        </g>
+
+        <g class="@CoverClass">
+            <path d="@Design.CoverPath" fill="url(#@CoverGradientId)" />
+            @if (Design.Artwork is BookDesignArtwork.ClothHardback)
+            {
+                <path d="@Design.CoverPath" fill="url(#@ClothWeaveId)" />
+            }
+
+            @CoverArtwork()
+            @TitlePlate()
+            @TitleTextMarkup
+        </g>
+    </g>
+</svg>
+
+@code {
+    private readonly string _id = Guid.NewGuid().ToString("N");
+
+    [Parameter, EditorRequired]
+    public required BookDesignDemo Design { get; set; }
+
+    [Parameter]
+    public bool ForcedOpen { get; set; }
+
+    [Parameter]
+    public string SvgClass { get; set; } = "h-auto w-full";
+
+    private string TitleId => $"book-design-demo-title-{_id}";
+
+    private string CoverGradientId => $"book-design-cover-{_id}";
+
+    private string PageGradientId => $"book-design-pages-{_id}";
+
+    private string ClothWeaveId => $"book-design-cloth-weave-{_id}";
+
+    private string PagesClass => ForcedOpen
+        ? "translate-x-px transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
+        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-focus-within:translate-x-px motion-reduce:transform-none motion-reduce:transition-none";
+
+    private string CoverClass => ForcedOpen
+        ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
+        : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
+
+    private RenderFragment PageLines() => @<path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
+                                                 stroke="@Design.LineStroke"
+                                                 stroke-width="1.2"
+                                                 stroke-linecap="round"
+                                                 opacity="0.5" />;
+
+    private RenderFragment PageTabs() => Design.Artwork switch
+    {
+        BookDesignArtwork.TechnicalManual => @<g>
+            <rect x="154" y="58" width="7" height="15" rx="2.5" fill="#14b8a6" opacity="0.72" />
+            <rect x="154" y="90" width="7" height="15" rx="2.5" fill="#bef264" opacity="0.72" />
+            <rect x="154" y="122" width="7" height="15" rx="2.5" fill="#14b8a6" opacity="0.58" />
+        </g>,
+        BookDesignArtwork.FieldNotebook => @<g>
+            <rect x="154" y="67" width="7" height="17" rx="2.5" fill="#f97316" opacity="0.58" />
+            <rect x="154" y="104" width="7" height="17" rx="2.5" fill="#5eead4" opacity="0.58" />
+        </g>,
+        _ => @<g></g>
+    };
+
+    private RenderFragment CoverArtwork() => Design.Artwork switch
+    {
+        BookDesignArtwork.ClothHardback => @<g>
+            <path d="M43 38h75M43 178h75" stroke="#e0f2fe" stroke-width="2.2" stroke-linecap="round" opacity="0.72" />
+            <path d="M47 49h67M47 167h67" stroke="#7dd3fc" stroke-width="1.35" stroke-linecap="round" opacity="0.52" />
+        </g>,
+        BookDesignArtwork.ModernPaperback => @<g>
+            <path d="M5 42c0-12 10-22 22-22h84c14 0 25 12 25 27v30H5z" fill="#fed7aa" opacity="0.9" />
+            <path d="M5 159h131v13c0 15-11 26-25 26H27c-12 0-22-10-22-22z" fill="#431407" opacity="0.34" />
+            <path d="M31 33h88M31 183h88" stroke="#fff7ed" stroke-width="1.8" stroke-linecap="round" opacity="0.64" />
+            <path d="M21 41v132" stroke="#fff7ed" stroke-width="2.4" stroke-linecap="round" opacity="0.24" />
+        </g>,
+        BookDesignArtwork.TechnicalManual => @<g>
+            <rect x="19" y="34" width="113" height="145" rx="5" fill="none" stroke="#bef264" stroke-width="1.25" opacity="0.46" />
+            <path d="M31 47h86M31 168h86M112 47h9M112 168h9" stroke="#14b8a6" stroke-width="1.55" stroke-linecap="round" opacity="0.75" />
+            <path d="M28 63h16M28 78h23M28 93h16M28 108h23M28 123h16M28 138h23" stroke="#d9f99d" stroke-width="1.1" stroke-linecap="round" opacity="0.36" />
+            <path d="M121 62v90" stroke="#14b8a6" stroke-width="1.1" stroke-linecap="round" opacity="0.38" />
+        </g>,
+        BookDesignArtwork.DecorativeHardcover => @<g>
+            <rect x="19" y="33" width="114" height="146" rx="7" fill="none" stroke="#c7d2fe" stroke-width="1.35" opacity="0.5" />
+            <path d="M32 45h78M32 168h78" stroke="#eab308" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+            <path d="M29 55l7-7 7 7-7 7zM108 55l7-7 7 7-7 7zM29 158l7-7 7 7-7 7zM108 158l7-7 7 7-7 7z" fill="#eab308" opacity="0.62" />
+            <path d="M32 68c10-6 21-6 32 0M91 68c10-6 21-6 30 0M32 147c10 6 21 6 32 0M91 147c10 6 21 6 30 0" stroke="#a5b4fc" stroke-width="1.15" stroke-linecap="round" opacity="0.48" />
+        </g>,
+        BookDesignArtwork.LibraryLedger => @<g>
+            <rect x="18" y="32" width="116" height="148" rx="7" fill="none" stroke="#fda4af" stroke-width="1.9" opacity="0.58" />
+            <rect x="25" y="42" width="102" height="128" rx="5" fill="none" stroke="#fecdd3" stroke-width="1.25" opacity="0.5" />
+            <path d="M29 52h14M29 160h14M111 52h14M111 160h14M32 52v14M32 146v14M122 52v14M122 146v14" stroke="#38bdf8" stroke-width="1.7" stroke-linecap="round" opacity="0.7" />
+            <path d="M28 70h98M28 151h98" stroke="#fecdd3" stroke-width="1.05" stroke-linecap="round" opacity="0.36" />
+        </g>,
+        BookDesignArtwork.FieldNotebook => @<g>
+            <path d="M31 44h88M31 171h88" stroke="#5eead4" stroke-width="1.8" stroke-linecap="round" opacity="0.6" />
+            <path d="M30 61h90M30 78h90M30 95h90M30 112h90M30 129h90M30 146h90" stroke="#ccfbf1" stroke-width="1.05" stroke-linecap="round" opacity="0.22" />
+            <circle cx="24" cy="57" r="2.35" fill="#ccfbf1" opacity="0.68" />
+            <circle cx="24" cy="88" r="2.35" fill="#ccfbf1" opacity="0.68" />
+            <circle cx="24" cy="119" r="2.35" fill="#ccfbf1" opacity="0.68" />
+            <circle cx="24" cy="150" r="2.35" fill="#ccfbf1" opacity="0.68" />
+        </g>,
+        _ => @<g></g>
+    };
+
+    private RenderFragment TitlePlate() => @<g>
+        <rect x="@Design.Plate.X" y="@Design.Plate.Y" width="@Design.Plate.Width" height="@Design.Plate.Height" rx="@Design.Plate.Radius" fill="@Design.Plate.Fill" opacity="0.99" />
+        <rect x="@Design.Plate.InnerX" y="@Design.Plate.InnerY" width="@Design.Plate.InnerWidth" height="@Design.Plate.InnerHeight" rx="@Design.Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
+        <rect x="@Design.Plate.X" y="@Design.Plate.Y" width="@Design.Plate.Width" height="@Design.Plate.Height" rx="@Design.Plate.Radius" fill="none" stroke="@Design.Plate.Stroke" stroke-width="1.6" opacity="0.95" />
+    </g>;
+
+    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
+
+    private string BuildTitleTextMarkup()
+    {
+        var lines = string.Concat(Design.TitleLines.Select((text, index) =>
+        {
+            var encodedText = System.Net.WebUtility.HtmlEncode(text);
+            var dy = index == 0 ? string.Empty : $" dy=\"{Design.TitleDy}\"";
+            return $"<tspan x=\"{Design.Plate.TextX}\"{dy}>{encodedText}</tspan>";
+        }));
+
+        return $"""
+            <text x="{Design.Plate.TextX}"
+                  y="{Design.TitleY}"
+                  text-anchor="middle"
+                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+                  font-size="{Design.TitleFontSize}"
+                  font-weight="800"
+                  fill="{Design.TitleFill}"
+                  letter-spacing="0">{lines}</text>
+            """;
+    }
+}

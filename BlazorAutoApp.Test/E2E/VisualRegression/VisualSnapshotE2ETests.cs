@@ -23,6 +23,10 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
 
             await GoHomeAndWaitForInteractivityAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await Page.GetByTestId("author-bookcase-book").First.ClickAsync(new LocatorClickOptions { Force = true });
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await CaptureAsync("books-author-details");
+            await Page.GetByTestId("book-back").ClickAsync();
             await Expect(Page.GetByTestId("bookcase-login-cta")).ToContainTextAsync("Create your own bookcase by logging in.");
             await CaptureAsync("home");
 
@@ -42,6 +46,7 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByTestId("user-bookcase-title")).ToHaveTextAsync("Your Bookcase");
 
             await Page.GetByTestId("add-book").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
             await CaptureAsync("books-create");
 
             await Page.GetByTestId("book-title").FillAsync(title);
@@ -53,11 +58,13 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
             await Expect(row).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
             await TrackCreatedBookFromRowAsync(row, title, url);
             await row.GetByTestId("book-view").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title })).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Expect(Page.GetByTestId("book-page-view").GetByRole(AriaRole.Heading, new LocatorGetByRoleOptions { Name = title })).ToBeVisibleAsync();
             await CaptureAsync("books-details");
 
             await Page.GetByTestId("book-back").ClickAsync();
             await row.GetByTestId("book-edit").ClickAsync();
+            await Expect(Page.GetByTestId("book-page-editor")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-title")).ToHaveValueAsync(title);
             await CaptureAsync("books-edit");
 

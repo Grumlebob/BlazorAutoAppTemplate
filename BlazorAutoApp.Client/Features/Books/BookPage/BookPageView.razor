@@ -1,0 +1,200 @@
+<div class="mx-auto w-[min(calc(100vw-2rem),35rem)] overflow-hidden" data-testid="book-page-view">
+    <h1 class="sr-only">@DisplayTitle</h1>
+    <svg class="block h-auto w-full"
+         viewBox="0 0 560 720"
+         role="img"
+         aria-labelledby="@TitleElementId @DescriptionElementId">
+        <title id="@TitleElementId">@DisplayTitle</title>
+        <desc id="@DescriptionElementId">@DescriptionText</desc>
+        <defs>
+            <linearGradient id="@PaperGradientId" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#fffaf0" />
+                <stop offset="0.54" stop-color="#fffdf7" />
+                <stop offset="1" stop-color="#f2e5cf" />
+            </linearGradient>
+            <linearGradient id="@SpineGradientId" x1="0" x2="1">
+                <stop offset="0" stop-color="#b79d75" />
+                <stop offset="0.38" stop-color="#decbaa" />
+                <stop offset="1" stop-color="#f0e2ca" />
+            </linearGradient>
+            <filter id="@PageShadowId" x="-8%" y="-6%" width="116%" height="116%">
+                <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.18" />
+            </filter>
+        </defs>
+
+        <rect width="560" height="720" fill="#f8fafc" />
+
+        <g filter="url(#@PageShadowId)">
+            <path d="M62 34h396c25 0 45 20 45 45v562c0 25-20 45-45 45H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="url(#@PaperGradientId)" />
+            <path d="M62 34h26v652H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="url(#@SpineGradientId)" opacity="0.95" />
+            <g opacity="0.32">
+                <path d="M470 52c11 9 17 22 17 38v540c0 16-6 29-17 38" fill="none" stroke="#d6c3a4" stroke-width="1.4" stroke-linecap="round" />
+                <path d="M478 58c9 8 14 19 14 33v538c0 14-5 25-14 33" fill="none" stroke="#eadbc3" stroke-width="1.1" stroke-linecap="round" />
+                <path d="M485 66c6 7 9 16 9 27v534c0 11-3 20-9 27" fill="none" stroke="#f3e7d3" stroke-width="1" stroke-linecap="round" />
+            </g>
+            <path d="M62 34h396c25 0 45 20 45 45v562c0 25-20 45-45 45H62c-25 0-45-20-45-45V79c0-25 20-45 45-45z" fill="none" stroke="#d7c3a1" stroke-width="2" />
+
+            <path d="M70 78v554" stroke="#a88e66" stroke-width="2.2" stroke-linecap="round" opacity="0.3" />
+            <path d="M81 92v526" stroke="#fff7ea" stroke-width="3.2" stroke-linecap="round" opacity="0.66" />
+            <path d="M140 126h286M140 164h300M140 202h278M140 240h300M140 278h278M140 316h300M140 354h278M140 392h300M140 430h278M140 468h300M140 506h278" stroke="#eadbc3" stroke-width="1.5" stroke-linecap="round" opacity="0.5" />
+            <path d="M141 604h286" stroke="#d6c3a4" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+
+            <a href="@CloseHref" data-testid="book-back" aria-label="Close book">
+                @CloseIcon(CloseControlX)
+            </a>
+
+            @if (!string.IsNullOrWhiteSpace(EditHref))
+            {
+                <a href="@EditHref" data-testid="book-edit-pencil" aria-label="@EditLabel">
+                    @PencilIcon()
+                </a>
+            }
+
+            <g transform="translate(108 132)">
+                <rect x="0" y="0" width="344" height="252" rx="28" fill="#fffefa" stroke="#dac5a1" stroke-width="2" />
+                <path d="M28 45h288" stroke="#efe1c9" stroke-width="2" stroke-linecap="round" />
+                @TitleTextMarkup
+                @AuthorTextMarkup
+            </g>
+
+            @if (HasUrl)
+            {
+                <a href="@Url" target="_blank" rel="noopener noreferrer" data-testid="book-url-link" aria-label="@SiteLabel">
+                    @SiteAction("Go to site", "#eff6ff", "#bfdbfe", "#dbeafe", "#1d4ed8")
+                </a>
+            }
+            else
+            {
+                <g data-testid="book-no-site">
+                    @SiteAction("No site", "#f8fafc", "#e5e7eb", "#f1f5f9", "#64748b")
+                </g>
+            }
+        </g>
+    </svg>
+</div>
+
+@code {
+    private readonly string _id = Guid.NewGuid().ToString("N");
+
+    [Parameter, EditorRequired]
+    public required string Title { get; set; }
+
+    [Parameter]
+    public string? Author { get; set; }
+
+    [Parameter]
+    public string? Url { get; set; }
+
+    [Parameter]
+    public string? EditHref { get; set; }
+
+    [Parameter]
+    public string CloseHref { get; set; } = "/books";
+
+    private string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "Untitled" : Title.Trim();
+
+    private string DisplayAuthor => BookPageTextLayout.AuthorLine(Author);
+
+    private IReadOnlyList<string> TitleLines => BookPageTextLayout.TitleLines(Title);
+
+    private bool HasUrl => !string.IsNullOrWhiteSpace(Url);
+
+    private int TitleFontSize => TitleLines.Count >= 3 ? 35 : 43;
+
+    private int TitleLineSpacing => TitleLines.Count >= 3 ? 40 : 50;
+
+    private int TitleStartY => TitleLines.Count switch
+    {
+        1 => 135,
+        2 => 112,
+        _ => 88
+    };
+
+    private int AuthorY => TitleLines.Count switch
+    {
+        1 => 196,
+        2 => 215,
+        _ => 216
+    };
+
+    private string TitleElementId => $"book-page-title-{_id}";
+
+    private string DescriptionElementId => $"book-page-desc-{_id}";
+
+    private string PaperGradientId => $"book-page-paper-{_id}";
+
+    private string SpineGradientId => $"book-page-spine-{_id}";
+
+    private string PageShadowId => $"book-page-shadow-{_id}";
+
+    private string DescriptionText => HasUrl
+        ? $"{DisplayTitle} by {DisplayAuthor}, with a site link."
+        : $"{DisplayTitle} by {DisplayAuthor}, with no site link.";
+
+    private string EditLabel => $"Edit {DisplayTitle}";
+
+    private string SiteLabel => $"Go to site for {DisplayTitle}";
+
+    private int CloseControlX => string.IsNullOrWhiteSpace(EditHref) ? 430 : 372;
+
+    private int TitleLineY(int index) => TitleStartY + (index * TitleLineSpacing);
+
+    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
+
+    private MarkupString AuthorTextMarkup => new($"""
+        <text x="172"
+              y="{AuthorY}"
+              text-anchor="middle"
+              font-family="ui-sans-serif, system-ui, sans-serif"
+              font-size="22"
+              font-weight="500"
+              fill="#475569"
+              letter-spacing="0">{System.Net.WebUtility.HtmlEncode(DisplayAuthor)}</text>
+        """);
+
+    private string BuildTitleTextMarkup()
+    {
+        return string.Concat(TitleLines.Select((text, index) => $"""
+            <text x="172"
+                  y="{TitleLineY(index)}"
+                  text-anchor="middle"
+                  font-family="Georgia, ui-serif, serif"
+                  font-size="{TitleFontSize}"
+                  font-weight="700"
+                  fill="#111827"
+                  letter-spacing="0">{System.Net.WebUtility.HtmlEncode(text)}</text>
+            """));
+    }
+
+    private static RenderFragment CloseIcon(int x) => @<g transform="@($"translate({x} 74)")" aria-hidden="true">
+        <rect x="0" y="0" width="50" height="50" rx="16" fill="#fffefa" stroke="#d7c3a1" stroke-width="2" />
+        <path d="M18 18l14 14M32 18L18 32" stroke="#334155" stroke-width="3" stroke-linecap="round" />
+    </g>;
+
+    private RenderFragment PencilIcon() => @<g transform="translate(430 74)" aria-hidden="true">
+        <rect x="0" y="0" width="50" height="50" rx="16" fill="none" stroke="#d7c3a1" stroke-width="2" />
+        <path d="M31 9l10 10-4 4-10-10z" fill="#fda4af" />
+        <path d="M27 13l10 10-3 3-10-10z" fill="#94a3b8" />
+        <path d="M14 26l10-10 10 10-10 10z" fill="#facc15" />
+        <path d="M14 26l4-4 10 10-4 4z" fill="#f59e0b" opacity="0.72" />
+        <path d="M8 42l6-16 10 10z" fill="#fde68a" />
+        <path d="M8 42l3-8 5 5z" fill="#111827" />
+        <path d="M20 20l10 10" stroke="#fef3c7" stroke-width="1.7" stroke-linecap="round" opacity="0.72" />
+    </g>;
+
+    private static RenderFragment SiteAction(string label, string fill, string stroke, string iconFill, string textFill) => @<g transform="translate(197 548)">
+        <rect x="0" y="0" width="166" height="42" rx="21" fill="@fill" stroke="@stroke" />
+        <circle cx="29" cy="21" r="12" fill="@iconFill" />
+        <path d="M24 21h16M33 14l7 7-7 7" stroke="@textFill" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        @((MarkupString)$"""
+            <text x="98"
+                  y="27"
+                  text-anchor="middle"
+                  font-family="ui-sans-serif, system-ui, sans-serif"
+                  font-size="18"
+                  font-weight="700"
+                  fill="{textFill}"
+                  letter-spacing="0">{System.Net.WebUtility.HtmlEncode(label)}</text>
+            """)
+    </g>;
+}

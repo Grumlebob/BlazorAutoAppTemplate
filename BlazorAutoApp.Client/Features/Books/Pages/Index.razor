@@ -9,14 +9,19 @@
             <h1 class="mb-1 text-3xl font-bold leading-tight tracking-normal text-gray-900">Books</h1>
             <p class="text-[0.95rem] text-gray-600">A small Blazor library running in Interactive Auto.</p>
         </div>
-        <RenderModeBadge Assigned="@AssignedRenderMode" ConfiguredMode="Interactive Auto" />
+        <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-start md:justify-end">
+            <a data-testid="design-demo-link"
+               class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 no-underline shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+               href="/books/design-demos">Design demos</a>
+            <RenderModeBadge Assigned="@AssignedRenderMode" ConfiguredMode="Interactive Auto" />
+        </div>
     </div>
 
     <AuthorBookcase />
 
     <AuthorizeView>
         <Authorized>
-            <UserBookcase />
+            <UserBookcase @ref="_userBookcase" />
         </Authorized>
         <NotAuthorized>
             <UserBookcaseLoginPrompt />
@@ -25,4 +30,26 @@
             <p class="mt-6 text-gray-600">Checking your bookcase...</p>
         </Authorizing>
     </AuthorizeView>
+
+    <BookModalHost OnBookSaved="ApplySavedBookAsync" OnBooksChanged="RefreshUserBookcaseAsync" />
 </div>
+
+@code {
+    private UserBookcase? _userBookcase;
+
+    private async Task RefreshUserBookcaseAsync()
+    {
+        if (_userBookcase is not null)
+        {
+            await _userBookcase.ReloadAsync();
+        }
+    }
+
+    private async Task ApplySavedBookAsync(Book savedBook)
+    {
+        if (_userBookcase is not null)
+        {
+            await _userBookcase.ApplySavedBookAsync(savedBook);
+        }
+    }
+}

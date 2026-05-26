@@ -1,0 +1,431 @@
+@implements IDisposable
+
+@inject IBooksApi Books
+@inject NavigationManager Nav
+
+@if (_request is not null)
+{
+    <div @ref="_dialog"
+         class="fixed inset-0 z-50 overflow-y-auto bg-transparent px-4 py-6 outline-none"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="book-modal-title"
+         tabindex="-1"
+        data-testid="book-modal"
+         @onkeydown="HandleKeyDown">
+        <div class="mx-auto flex min-h-full w-[min(calc(100vw-2rem),37rem)] flex-col items-center justify-start">
+            @if (_loading)
+            {
+                <div class="w-full rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm">
+                    Loading book...
+                </div>
+            }
+            else if (_error is not null)
+            {
+                <div class="w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
+                    <div class="mb-2 flex justify-end">
+                        <a data-testid="book-back"
+                           class="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700 no-underline shadow-sm hover:bg-red-50 hover:text-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                           href="/books">Close</a>
+                    </div>
+                    <h1 id="book-modal-title" class="mb-1 text-lg font-bold text-red-700">Book not found.</h1>
+                    <p>@_error</p>
+                </div>
+            }
+            else if (_request.Mode is BookModalMode.View && _viewModel is not null)
+            {
+                <h1 id="book-modal-title" class="sr-only">@_viewModel.Title</h1>
+                <BookPageView Title="@_viewModel.Title"
+                              Author="@_viewModel.Author"
+                              Url="@_viewModel.Url"
+                              EditHref="@UserEditHref"
+                              CloseHref="/books" />
+            }
+            else if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
+            {
+                <h1 id="book-modal-title" class="sr-only">@EditorHeading</h1>
+                <BookPageEditor Model="_editorModel"
+                                Heading="@EditorHeading"
+                                SubmitLabel="Close and save"
+                                CancelLabel="Close"
+                                CancelHref="/books"
+                                Error="@_saveError"
+                                IsBusy="@_saving"
+                                OnCancel="CloseEditor"
+                                OnValidSubmit="SaveAsync" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _dialog;
+    private BookModalRequest? _request;
+    private BookModalViewModel? _viewModel;
+    private BookPageEditorModel _editorModel = new();
+    private bool _loading;
+    private bool _saving;
+    private bool _focusPending;
+    private int _loadVersion;
+    private string? _editorModelRequestKey;
+    private string? _error;
+    private string? _saveError;
+
+    [Parameter]
+    public EventCallback OnBooksChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<Book> OnBookSaved { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    private string? UserEditHref =>
+        _request is { Source: BookModalSource.User, Mode: BookModalMode.View, UserBookId: not null }
+            ? $"/books?bookSource=user&bookId={_request.UserBookId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit"
+            : null;
+
+    private string EditorHeading => _request?.Mode is BookModalMode.Create ? "Add Book" : "Edit Book";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += HandleLocationChanged;
+        await LoadFromUriAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusPending && _request is not null)
+        {
+            _focusPending = false;
+            await _dialog.FocusAsync();
+        }
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs args) =>
+        _ = InvokeAsync(LoadFromUriAsync);
+
+    private async Task LoadFromUriAsync()
+    {
+        var version = ++_loadVersion;
+        _request = ParseRequest(Nav.Uri);
+        _viewModel = null;
+        _error = null;
+        _saveError = null;
+        _saving = false;
+
+        if (_request is null)
+        {
+            _loading = false;
+            _editorModelRequestKey = null;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        _focusPending = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
+            {
+                var authState = await AuthenticationStateTask;
+                if (authState.User.Identity?.IsAuthenticated != true)
+                {
+                    var returnUrl = Uri.EscapeDataString(Nav.Uri);
+                    Nav.NavigateTo($"Account/Login?returnUrl={returnUrl}", forceLoad: true);
+                    return;
+                }
+            }
+
+            switch (_request)
+            {
+                case { Source: BookModalSource.Author, AuthorSlug: not null }:
+                    _editorModelRequestKey = null;
+                    LoadAuthorBook(_request.AuthorSlug);
+                    break;
+                case { Source: BookModalSource.User, Mode: BookModalMode.Create }:
+                    EnsureCreateEditorModel(_request);
+                    break;
+                case { Source: BookModalSource.User, UserBookId: not null }:
+                    await LoadUserBookAsync(_request.UserBookId.Value);
+                    break;
+                default:
+                    _error = "This book link is invalid.";
+                    break;
+            }
+        }
+        catch
+        {
+            _error = "Book details could not be loaded.";
+        }
+        finally
+        {
+            if (version == _loadVersion)
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void LoadAuthorBook(string slug)
+    {
+        if (_request?.Mode is not BookModalMode.View)
+        {
+            _error = "Author books can only be viewed.";
+            return;
+        }
+
+        var book = AuthorBookcaseCatalog.FindBySlug(slug);
+        if (book is null)
+        {
+            _error = "This book could not be found.";
+            return;
+        }
+
+        _viewModel = new BookModalViewModel(book.Title, book.Author, book.Url);
+    }
+
+    private async Task LoadUserBookAsync(int id)
+    {
+        var response = await Books.GetByIdAsync(new GetBookRequest { Id = id, ForceRefresh = true });
+        if (response is null)
+        {
+            _error = "This book could not be found.";
+            return;
+        }
+
+        if (_request?.Mode is BookModalMode.Edit)
+        {
+            var key = EditorRequestKey(_request);
+            if (!string.Equals(_editorModelRequestKey, key, StringComparison.Ordinal))
+            {
+                _editorModel = new BookPageEditorModel
+                {
+                    Title = response.Title,
+                    Author = response.Author,
+                    Url = response.Url
+                };
+                _editorModelRequestKey = key;
+            }
+
+            return;
+        }
+
+        _editorModelRequestKey = null;
+        _viewModel = new BookModalViewModel(response.Title, response.Author, response.Url);
+    }
+
+    private async Task SaveAsync(BookPageEditorModel model)
+    {
+        if (_request is null)
+        {
+            return;
+        }
+
+        _saving = true;
+        _saveError = null;
+        try
+        {
+            if (_request.Mode is BookModalMode.Create)
+            {
+                var created = await Books.CreateAsync(new CreateBookRequest
+                {
+                    Title = model.Title,
+                    Author = NormalizeOptional(model.Author),
+                    Url = NormalizeOptional(model.Url)
+                });
+
+                await NotifySavedAsync(ToBook(created));
+            }
+            else if (_request is { Mode: BookModalMode.Edit, UserBookId: not null })
+            {
+                var title = model.Title.Trim();
+                var author = NormalizeOptional(model.Author);
+                var url = NormalizeOptional(model.Url);
+                var success = await Books.UpdateAsync(new UpdateBookRequest
+                {
+                    Id = _request.UserBookId.Value,
+                    Title = title,
+                    Author = author,
+                    Url = url
+                });
+
+                if (!success)
+                {
+                    _saveError = "Book not found.";
+                    return;
+                }
+
+                await NotifySavedAsync(new Book
+                {
+                    Id = _request.UserBookId.Value,
+                    Title = title,
+                    Author = author,
+                    Url = url,
+                    OwnerUserId = string.Empty
+                });
+            }
+
+            Nav.NavigateTo("/books");
+        }
+        catch
+        {
+            _saveError = "Book could not be saved.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            Nav.NavigateTo("/books");
+        }
+    }
+
+    private void CloseEditor() => Nav.NavigateTo("/books");
+
+    private void EnsureCreateEditorModel(BookModalRequest request)
+    {
+        var key = EditorRequestKey(request);
+        if (string.Equals(_editorModelRequestKey, key, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _editorModel = new BookPageEditorModel();
+        _editorModelRequestKey = key;
+    }
+
+    private static string EditorRequestKey(BookModalRequest request) =>
+        request.Mode switch
+        {
+            BookModalMode.Create => "user:create",
+            BookModalMode.Edit when request.UserBookId is { } id => $"user:edit:{id.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            _ => "none"
+        };
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static Book ToBook(CreateBookResponse response) => new()
+    {
+        Id = response.Id,
+        Title = response.Title,
+        Author = response.Author,
+        Url = response.Url,
+        OwnerUserId = string.Empty
+    };
+
+    private async Task NotifySavedAsync(Book savedBook)
+    {
+        if (OnBookSaved.HasDelegate)
+        {
+            await OnBookSaved.InvokeAsync(savedBook);
+            return;
+        }
+
+        await OnBooksChanged.InvokeAsync();
+    }
+
+    private static BookModalRequest? ParseRequest(string uri)
+    {
+        var absoluteUri = new Uri(uri);
+        var query = ParseQuery(absoluteUri.Query);
+
+        if (!query.TryGetValue("bookSource", out var sourceValue) ||
+            !query.TryGetValue("bookMode", out var modeValue))
+        {
+            return null;
+        }
+
+        if (!TryParseSource(sourceValue, out var source) || !TryParseMode(modeValue, out var mode))
+        {
+            return null;
+        }
+
+        query.TryGetValue("bookId", out var bookId);
+
+        return source switch
+        {
+            BookModalSource.Author when !string.IsNullOrWhiteSpace(bookId) => new BookModalRequest(source, mode, bookId, null),
+            BookModalSource.User when mode is BookModalMode.Create => new BookModalRequest(source, mode, null, null),
+            BookModalSource.User when int.TryParse(bookId, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id) => new BookModalRequest(source, mode, null, id),
+            _ => new BookModalRequest(source, mode, null, null)
+        };
+    }
+
+    private static Dictionary<string, string> ParseQuery(string query)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment.Split('=', 2);
+            if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
+            {
+                continue;
+            }
+
+            var key = Decode(parts[0]);
+            var value = parts.Length == 2 ? Decode(parts[1]) : string.Empty;
+            result[key] = value;
+        }
+
+        return result;
+    }
+
+    private static string Decode(string value) =>
+        Uri.UnescapeDataString(value.Replace("+", " ", StringComparison.Ordinal));
+
+    private static bool TryParseSource(string value, out BookModalSource source)
+    {
+        var normalized = value.ToLowerInvariant();
+        source = normalized switch
+        {
+            "author" => BookModalSource.Author,
+            "user" => BookModalSource.User,
+            _ => default
+        };
+
+        return normalized is "author" or "user";
+    }
+
+    private static bool TryParseMode(string value, out BookModalMode mode)
+    {
+        var normalized = value.ToLowerInvariant();
+        mode = normalized switch
+        {
+            "view" => BookModalMode.View,
+            "edit" => BookModalMode.Edit,
+            "create" => BookModalMode.Create,
+            _ => default
+        };
+
+        return normalized is "view" or "edit" or "create";
+    }
+
+    public void Dispose() => Nav.LocationChanged -= HandleLocationChanged;
+
+    private sealed record BookModalRequest(BookModalSource Source, BookModalMode Mode, string? AuthorSlug, int? UserBookId);
+
+    private sealed record BookModalViewModel(string Title, string? Author, string? Url);
+
+    private enum BookModalSource
+    {
+        Author,
+        User
+    }
+
+    private enum BookModalMode
+    {
+        View,
+        Edit,
+        Create
+    }
+}
