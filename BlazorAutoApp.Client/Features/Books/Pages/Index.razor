@@ -21,7 +21,7 @@
 
     <AuthorizeView>
         <Authorized>
-            <UserBookcase @ref="_userBookcase" />
+            <UserBookcase />
         </Authorized>
         <NotAuthorized>
             <UserBookcaseLoginPrompt />
@@ -31,25 +31,5 @@
         </Authorizing>
     </AuthorizeView>
 
-    <BookModalHost OnBookSaved="ApplySavedBookAsync" OnBooksChanged="RefreshUserBookcaseAsync" />
+    <BookModalHost />
 </div>
-
-@code {
-    private UserBookcase? _userBookcase;
-
-    private async Task RefreshUserBookcaseAsync()
-    {
-        if (_userBookcase is not null)
-        {
-            await _userBookcase.ReloadAsync();
-        }
-    }
-
-    private async Task ApplySavedBookAsync(Book savedBook)
-    {
-        if (_userBookcase is not null)
-        {
-            await _userBookcase.ApplySavedBookAsync(savedBook);
-        }
-    }
-}

@@ -97,9 +97,6 @@
     public string CancelLabel { get; set; } = "Cancel";
 
     [Parameter]
-    public EventCallback OnCancel { get; set; }
-
-    [Parameter]
     public string? Error { get; set; }
 
     [Parameter]
@@ -128,27 +125,14 @@
 
     private RenderFragment TopRightClose() => builder =>
     {
-        if (OnCancel.HasDelegate)
-        {
-            builder.OpenElement(0, "button");
-            builder.AddAttribute(1, "data-testid", "book-back");
-            builder.AddAttribute(2, "class", CloseButtonClass);
-            builder.AddAttribute(3, "type", "button");
-            builder.AddAttribute(4, "aria-label", CancelLabel);
-            builder.AddAttribute(5, "onclick", OnCancel);
-            builder.AddMarkupContent(6, CloseIconMarkup);
-            builder.CloseElement();
-            return;
-        }
-
-        builder.OpenElement(7, "a");
-        builder.AddAttribute(8, "data-testid", "book-back");
-        builder.AddAttribute(9, "class", CloseButtonClass);
-        builder.AddAttribute(10, "href", CancelHref);
-        builder.AddAttribute(11, "target", "_top");
-        builder.AddAttribute(12, "data-enhance-nav", "false");
-        builder.AddAttribute(13, "aria-label", CancelLabel);
-        builder.AddMarkupContent(14, CloseIconMarkup);
+        builder.OpenElement(0, "a");
+        builder.AddAttribute(1, "data-testid", "book-back");
+        builder.AddAttribute(2, "class", CloseButtonClass);
+        builder.AddAttribute(3, "href", CancelHref);
+        builder.AddAttribute(4, "target", "_top");
+        builder.AddAttribute(5, "data-enhance-nav", "false");
+        builder.AddAttribute(6, "aria-label", CancelLabel);
+        builder.AddMarkupContent(7, CloseIconMarkup);
         builder.CloseElement();
     };
 

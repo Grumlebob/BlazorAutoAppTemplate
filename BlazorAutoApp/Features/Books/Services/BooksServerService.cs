@@ -29,10 +29,12 @@ internal class BooksServerService(
 
     public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
     {
-        var userId = _currentUser.GetRequiredUserId();
+        var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         if (req.ForceRefresh == true)
         {
-            return await LoadBooksAsync(userId, cancellationToken);
+            var fresh = await LoadBooksAsync(userId, cancellationToken);
+            _logger.LogDebug("Force-loaded {BookCount} books for user {UserId}", fresh.Books.Count, userId);
+            return fresh;
         }
 
         var key = BooksCacheKeys.List(userId);
@@ -46,7 +48,7 @@ internal class BooksServerService(
 
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
     {
-        var userId = _currentUser.GetRequiredUserId();
+        var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         if (req.ForceRefresh == true)
         {
             return await LoadBookAsync(userId, req.Id, cancellationToken);
@@ -90,7 +92,7 @@ internal class BooksServerService(
 
     public async Task<CreateBookResponse> CreateAsync(CreateBookRequest req, CancellationToken cancellationToken = default)
     {
-        var userId = _currentUser.GetRequiredUserId();
+        var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
         var book = new Book
         {
@@ -113,7 +115,7 @@ internal class BooksServerService(
 
     public async Task<bool> UpdateAsync(UpdateBookRequest req, CancellationToken cancellationToken = default)
     {
-        var userId = _currentUser.GetRequiredUserId();
+        var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
         var book = await db.Books.FirstOrDefaultAsync(
             m => m.Id == req.Id && m.OwnerUserId == userId,
@@ -129,7 +131,7 @@ internal class BooksServerService(
 
     public async Task<bool> DeleteAsync(DeleteBookRequest req, CancellationToken cancellationToken = default)
     {
-        var userId = _currentUser.GetRequiredUserId();
+        var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
         var book = await db.Books.FirstOrDefaultAsync(
             m => m.Id == req.Id && m.OwnerUserId == userId,

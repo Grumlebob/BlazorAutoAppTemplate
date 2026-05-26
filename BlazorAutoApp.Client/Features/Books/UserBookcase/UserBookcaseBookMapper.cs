@@ -13,7 +13,7 @@ internal static class UserBookcaseBookMapper
         }
 
         return books
-            .Select(book => new BookcaseBook(book.Id, book.Title, book.Url, $"/books?bookSource=user&bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view"))
+            .Select(book => new BookcaseBook(book.Id, book.Title, book.Url, $"/books?bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view"))
             .ToList();
     }
 }

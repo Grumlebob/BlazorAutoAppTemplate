@@ -2,6 +2,7 @@
 
 @inject IBooksApi Books
 @inject NavigationManager Nav
+@inject UserBookcaseState UserBooks
 
 @if (_request is not null)
 {
@@ -51,7 +52,6 @@
                                 CancelHref="/books"
                                 Error="@_saveError"
                                 IsBusy="@_saving"
-                                OnCancel="CloseEditor"
                                 OnValidSubmit="SaveAsync" />
             }
         </div>
@@ -71,18 +71,12 @@
     private string? _error;
     private string? _saveError;
 
-    [Parameter]
-    public EventCallback OnBooksChanged { get; set; }
-
-    [Parameter]
-    public EventCallback<Book> OnBookSaved { get; set; }
-
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
     private string? UserEditHref =>
         _request is { Source: BookModalSource.User, Mode: BookModalMode.View, UserBookId: not null }
-            ? $"/books?bookSource=user&bookId={_request.UserBookId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit"
+            ? $"/books?bookId={_request.UserBookId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit"
             : null;
 
     private string EditorHeading => _request?.Mode is BookModalMode.Create ? "Add Book" : "Edit Book";
@@ -141,9 +135,9 @@
 
             switch (_request)
             {
-                case { Source: BookModalSource.Author, AuthorSlug: not null }:
+                case { Source: BookModalSource.Author, AuthorBookId: not null }:
                     _editorModelRequestKey = null;
-                    LoadAuthorBook(_request.AuthorSlug);
+                    LoadAuthorBook(_request.AuthorBookId.Value);
                     break;
                 case { Source: BookModalSource.User, Mode: BookModalMode.Create }:
                     EnsureCreateEditorModel(_request);
@@ -170,7 +164,7 @@
         }
     }
 
-    private void LoadAuthorBook(string slug)
+    private void LoadAuthorBook(int authorBookId)
     {
         if (_request?.Mode is not BookModalMode.View)
         {
@@ -178,7 +172,7 @@
             return;
         }
 
-        var book = AuthorBookcaseCatalog.FindBySlug(slug);
+        var book = AuthorBookcaseCatalog.FindById(authorBookId);
         if (book is null)
         {
             _error = "This book could not be found.";
@@ -289,8 +283,6 @@
         }
     }
 
-    private void CloseEditor() => Nav.NavigateTo("/books");
-
     private void EnsureCreateEditorModel(BookModalRequest request)
     {
         var key = EditorRequestKey(request);
@@ -325,13 +317,8 @@
 
     private async Task NotifySavedAsync(Book savedBook)
     {
-        if (OnBookSaved.HasDelegate)
-        {
-            await OnBookSaved.InvokeAsync(savedBook);
-            return;
-        }
-
-        await OnBooksChanged.InvokeAsync();
+        UserBooks.ApplySavedBook(savedBook);
+        await Task.CompletedTask;
     }
 
     private static BookModalRequest? ParseRequest(string uri)
@@ -339,26 +326,34 @@
         var absoluteUri = new Uri(uri);
         var query = ParseQuery(absoluteUri.Query);
 
-        if (!query.TryGetValue("bookSource", out var sourceValue) ||
-            !query.TryGetValue("bookMode", out var modeValue))
+        if (!query.TryGetValue("bookMode", out var modeValue))
         {
             return null;
         }
 
-        if (!TryParseSource(sourceValue, out var source) || !TryParseMode(modeValue, out var mode))
+        if (!TryParseMode(modeValue, out var mode))
         {
             return null;
         }
 
-        query.TryGetValue("bookId", out var bookId);
-
-        return source switch
+        if (mode is BookModalMode.Create)
         {
-            BookModalSource.Author when !string.IsNullOrWhiteSpace(bookId) => new BookModalRequest(source, mode, bookId, null),
-            BookModalSource.User when mode is BookModalMode.Create => new BookModalRequest(source, mode, null, null),
-            BookModalSource.User when int.TryParse(bookId, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id) => new BookModalRequest(source, mode, null, id),
-            _ => new BookModalRequest(source, mode, null, null)
-        };
+            return new BookModalRequest(BookModalSource.User, mode, null, null);
+        }
+
+        if (query.TryGetValue("authorBookId", out var authorBookId) &&
+            int.TryParse(authorBookId, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var catalogId))
+        {
+            return new BookModalRequest(BookModalSource.Author, mode, catalogId, null);
+        }
+
+        if (query.TryGetValue("bookId", out var bookId) &&
+            int.TryParse(bookId, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id))
+        {
+            return new BookModalRequest(BookModalSource.User, mode, null, id);
+        }
+
+        return new BookModalRequest(BookModalSource.User, mode, null, null);
     }
 
     private static Dictionary<string, string> ParseQuery(string query)
@@ -383,19 +378,6 @@
     private static string Decode(string value) =>
         Uri.UnescapeDataString(value.Replace("+", " ", StringComparison.Ordinal));
 
-    private static bool TryParseSource(string value, out BookModalSource source)
-    {
-        var normalized = value.ToLowerInvariant();
-        source = normalized switch
-        {
-            "author" => BookModalSource.Author,
-            "user" => BookModalSource.User,
-            _ => default
-        };
-
-        return normalized is "author" or "user";
-    }
-
     private static bool TryParseMode(string value, out BookModalMode mode)
     {
         var normalized = value.ToLowerInvariant();
@@ -412,7 +394,7 @@
 
     public void Dispose() => Nav.LocationChanged -= HandleLocationChanged;
 
-    private sealed record BookModalRequest(BookModalSource Source, BookModalMode Mode, string? AuthorSlug, int? UserBookId);
+    private sealed record BookModalRequest(BookModalSource Source, BookModalMode Mode, int? AuthorBookId, int? UserBookId);
 
     private sealed record BookModalViewModel(string Title, string? Author, string? Url);
 

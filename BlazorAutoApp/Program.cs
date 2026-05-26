@@ -1,5 +1,6 @@
 using BlazorAutoApp.Components;
 using BlazorAutoApp.Infrastructure.Hosting;
+using BlazorAutoApp.Client.Features.Books.UserBookcase;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Account.Seed;
 using BlazorAutoApp.Features.Books;
@@ -30,6 +31,7 @@ builder.Services.AddAppCachingAndDataProtection(builder.Configuration, builder.E
 builder.Services.AddAppPersistence(builder.Configuration, healthChecks);
 builder.Services.AddAppRateLimiting(builder.Configuration);
 builder.Services.AddBooksFeature(builder.Configuration);
+builder.Services.AddScoped<UserBookcaseState>();
 builder.Services.AddLoginFeature(builder.Configuration);
 
 var app = builder.Build();

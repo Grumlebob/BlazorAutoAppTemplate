@@ -12,5 +12,5 @@
     public int Id { get; set; }
 
     protected override void OnParametersSet() =>
-        Nav.NavigateTo($"/books?bookSource=user&bookId={Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view", forceLoad: false, replace: true);
+        Nav.NavigateTo($"/books?bookId={Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view", forceLoad: false, replace: true);
 }

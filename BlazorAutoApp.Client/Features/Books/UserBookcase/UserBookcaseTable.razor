@@ -24,8 +24,8 @@
                     }
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <a data-testid="book-view" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books?bookSource=user&bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view")">View</a>
-                    <a data-testid="book-edit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books?bookSource=user&bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit")">Edit</a>
+                    <a data-testid="book-view" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books?bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=view")">View</a>
+                    <a data-testid="book-edit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-gray-700 no-underline hover:bg-gray-50 hover:text-gray-900" href="@($"/books?bookId={book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit")">Edit</a>
                     <button data-testid="book-delete" class="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-2.5 py-2 text-[0.8rem] font-bold text-red-700 hover:bg-red-50 hover:text-red-800" type="button" @onclick="() => OnDelete.InvokeAsync(book.Id)">Delete</button>
                 </div>
             </article>

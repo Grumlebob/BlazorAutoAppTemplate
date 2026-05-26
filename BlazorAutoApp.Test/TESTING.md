@@ -99,6 +99,20 @@ Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
 ```
 
+For local `dotnet run` verification on `http://127.0.0.1:5099`, start the app with local-only higher rate limits before running headed E2E. This keeps the real rate limiter enabled by default while preventing visible desktop plus mobile browser passes from exhausting the template limits:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT='Development'
+$env:ASPNETCORE_URLS='http://127.0.0.1:5099'
+$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5433;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable'
+$env:Redis__Configuration='localhost:6379'
+$env:Redis__AllowMissing='true'
+$env:RateLimiting__Global__PermitLimit='10000'
+$env:RateLimiting__Api__PermitLimit='1000'
+$env:RateLimiting__Authentication__PermitLimit='1000'
+dotnet run --project .\BlazorAutoApp\BlazorAutoApp.csproj --urls http://127.0.0.1:5099
+```
+
 ## E2E Environment Variables
 
 - `RUN_E2E=1`: enables the Playwright tests.
@@ -107,6 +121,7 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 - `E2E_SLOW_MO_MS`: visible delay between browser actions. Defaults to `300`.
 - `E2E_VIEWPORT_WIDTH` and `E2E_VIEWPORT_HEIGHT`: browser viewport. Defaults to `1280x900`.
 - `E2E_HEADLESS=1`: runs without a visible browser. Use only for CI-style runs.
+- `RateLimiting__Global__PermitLimit`, `RateLimiting__Api__PermitLimit`, and `RateLimiting__Authentication__PermitLimit`: app-start variables, not test variables. Raise them only for local headed E2E runs when exercising several browser flows against one app process.
 
 Clear local E2E environment variables when done:
 

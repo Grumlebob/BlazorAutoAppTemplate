@@ -1,106 +1,45 @@
-@inject IBooksApi Books
+@implements IDisposable
+
+@inject UserBookcaseState UserBooks
 @inject IJSRuntime JS
 
-@if (_loading)
+@if (UserBooks.IsLoading)
 {
     <p class="mt-6 text-gray-600">Loading your bookcase...</p>
 }
-else if (_error is not null)
+else if (UserBooks.Error is not null)
 {
-    <p class="mt-6 text-red-600">@_error</p>
+    <p class="mt-6 text-red-600">@UserBooks.Error</p>
 }
 else
 {
-    var hasUserBooks = UserBooksState is { Count: > 0 };
+    var hasUserBooks = UserBooks.Books.Count > 0;
 
     <BookcaseShelf Title="Your Bookcase"
                    Description="Only books you have saved."
                    TestId="user-bookcase"
-                   Books="UserBookcaseBookMapper.ToBookcaseBooks(UserBooksState)"
+                   Books="UserBookcaseBookMapper.ToBookcaseBooks(UserBooks.Books)"
                    LinkBooks="true"
                    EmptyMessage="Your bookcase is empty."
                    EmptyTestId="user-book-empty-state">
         <Actions>
             <a data-testid="add-book"
                class="inline-flex items-center justify-center rounded-md border border-gray-800 bg-gray-800 px-3.5 py-2.5 text-sm font-bold leading-5 text-white no-underline transition-colors hover:bg-gray-950 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-               href="/books?bookSource=user&bookMode=create">Add Book</a>
+               href="/books?bookMode=create">Add Book</a>
         </Actions>
     </BookcaseShelf>
 
     @if (hasUserBooks)
     {
-        <UserBookcaseTable Books="UserBooksState!" OnDelete="DeleteAsync" />
+        <UserBookcaseTable Books="UserBooks.Books" OnDelete="DeleteAsync" />
     }
 }
 
 @code {
-    private bool _loading = true;
-    private string? _currentUserId;
-    private string? _error;
-
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
-
-    private List<Book>? UserBooksState { get; set; }
-
     protected override async Task OnInitializedAsync()
     {
-        await LoadForCurrentUserAsync();
-    }
-
-    public async Task ReloadAsync()
-    {
-        await LoadForCurrentUserAsync();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    public async Task ApplySavedBookAsync(Book savedBook)
-    {
-        if (UserBooksState is null)
-        {
-            UserBooksState = [];
-        }
-
-        UserBooksState.RemoveAll(book => book.Id == savedBook.Id);
-        UserBooksState.Add(savedBook);
-        UserBooksState = UserBooksState.OrderBy(book => book.Id).ToList();
-        _loading = false;
-        _error = null;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task LoadForCurrentUserAsync()
-    {
-        var authState = await AuthenticationStateTask;
-        _currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrWhiteSpace(_currentUserId))
-        {
-            _loading = false;
-            UserBooksState = null;
-            return;
-        }
-
-        await LoadUserBooksAsync();
-    }
-
-    private async Task LoadUserBooksAsync()
-    {
-        _loading = true;
-        _error = null;
-        try
-        {
-            var res = await Books.GetAsync(new GetBooksRequest { ForceRefresh = true });
-            UserBooksState = res.Books;
-        }
-        catch
-        {
-            _error = "Your bookcase could not be loaded.";
-        }
-        finally
-        {
-            _loading = false;
-        }
+        UserBooks.Changed += HandleBooksChanged;
+        await UserBooks.LoadForCurrentUserAsync(forceRefresh: true);
     }
 
     private async Task DeleteAsync(int id)
@@ -113,16 +52,15 @@ else
                 return;
             }
 
-            var success = await Books.DeleteAsync(new DeleteBookRequest { Id = id });
-            if (success)
-            {
-                await LoadUserBooksAsync();
-                await InvokeAsync(StateHasChanged);
-            }
+            await UserBooks.DeleteAsync(id);
         }
         catch
         {
-            _error = "Book could not be deleted.";
+            await InvokeAsync(StateHasChanged);
         }
     }
+
+    private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => UserBooks.Changed -= HandleBooksChanged;
 }

@@ -64,6 +64,38 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task Create_Valid_IsReturnedByForceRefreshListForSameUser()
+    {
+        var create = new CreateBookRequest
+        {
+            Title = "Persisted Reload Book",
+            Author = "Integration Test",
+            Url = "https://example.test/books/persisted-reload"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/books", create);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateBookResponse>();
+        Assert.NotNull(created);
+
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            var persisted = await db.Books.AsNoTracking().SingleOrDefaultAsync(book => book.Id == created!.Id);
+            Assert.NotNull(persisted);
+            Assert.Equal(BookDataGenerator.DefaultOwnerUserId, persisted!.OwnerUserId);
+        }
+
+        var listResponse = await _client.GetAsync("/api/books?forceRefresh=true");
+        listResponse.EnsureSuccessStatusCode();
+        var list = await listResponse.Content.ReadFromJsonAsync<GetBooksResponse>();
+        Assert.NotNull(list);
+        var reloaded = Assert.Single(list!.Books, book => book.Id == created!.Id);
+        Assert.Equal(create.Title, reloaded.Title);
+        Assert.Equal(create.Author, reloaded.Author);
+        Assert.Equal(create.Url, reloaded.Url);
+    }
+
+    [Fact]
     public async Task Create_Anonymous_ReturnsUnauthorized()
     {
         var create = new CreateBookRequest

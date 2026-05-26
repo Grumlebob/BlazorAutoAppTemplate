@@ -49,6 +49,21 @@ public abstract class BlazorE2ETestBase : PageTest
     {
         await GoToAsync("/");
 
+        await WaitForInteractivityAsync();
+    }
+
+    protected async Task ReloadAndWaitForInteractivityAsync()
+    {
+        await Page.ReloadAsync(new PageReloadOptions
+        {
+            WaitUntil = WaitUntilState.DOMContentLoaded
+        });
+
+        await WaitForInteractivityAsync();
+    }
+
+    private async Task WaitForInteractivityAsync()
+    {
         await Expect(Page.GetByTestId("configured-render-mode"))
             .ToContainTextAsync("Interactive Auto");
         await Expect(Page.GetByTestId("is-interactive"))

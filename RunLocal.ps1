@@ -68,6 +68,18 @@ function Invoke-HealthCheck {
   }
 }
 
+function Get-ListeningProcessIds {
+  param([int]$Port)
+
+  try {
+    return @(Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $Port -State Listen -ErrorAction Stop |
+      Select-Object -ExpandProperty OwningProcess -Unique)
+  }
+  catch {
+    return @()
+  }
+}
+
 function Get-ComposeServiceState {
   param([string]$Service)
 
@@ -136,6 +148,10 @@ try {
   }
 
   $healthUrl = "$($appUrl.TrimEnd('/'))/health/ready"
+  $dotnetDevPids = Get-ListeningProcessIds -Port 5099
+  if ($dotnetDevPids.Count -gt 0) {
+    throw "A local dotnet app is already listening on 127.0.0.1:5099 (PID(s): $($dotnetDevPids -join ', ')). Stop it before starting the Docker web runtime, or use that local app URL intentionally."
+  }
 
   if ($ResetDatabase) {
     Write-Host "Resetting local Docker database and service volumes..."
@@ -189,6 +205,7 @@ try {
 
   Write-Host ""
   Write-Host "Local stack is ready."
+  Write-Host "Runtime:      Docker Compose web container"
   Write-Host "App:          $appUrl"
   Write-Host "Health:       $healthUrl"
   Write-Host "Seq:          http://localhost:$($envValues['SEQ_UI_HOST_PORT'] ?? '8081')"

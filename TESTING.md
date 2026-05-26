@@ -23,6 +23,15 @@ Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
 ```
 
+When testing a local `dotnet run` app on `http://127.0.0.1:5099`, start that app with higher local-only rate limits so headed desktop and mobile runs do not trip the template limiter:
+
+```powershell
+$env:RateLimiting__Global__PermitLimit='10000'
+$env:RateLimiting__Api__PermitLimit='1000'
+$env:RateLimiting__Authentication__PermitLimit='1000'
+$env:E2E_BASE_URL='http://127.0.0.1:5099'
+```
+
 For a mobile viewport pass, set:
 
 ```powershell
