@@ -3,6 +3,7 @@
 @inject IBooksApi Books
 @inject NavigationManager Nav
 @inject UserBookcaseState UserBooks
+@inject IJSRuntime JS
 
 @if (_request is not null)
 {
@@ -40,7 +41,9 @@
                               Author="@_viewModel.Author"
                               Url="@_viewModel.Url"
                               EditHref="@UserEditHref"
-                              CloseHref="/books" />
+                              CloseHref="/books"
+                              CanDelete="@CanDelete"
+                              OnDelete="DeleteAsync" />
             }
             else if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
@@ -80,6 +83,8 @@
             : null;
 
     private string EditorHeading => _request?.Mode is BookModalMode.Create ? "Add Book" : "Edit Book";
+
+    private bool CanDelete => _request is { Source: BookModalSource.User, UserBookId: not null };
 
     protected override async Task OnInitializedAsync()
     {
@@ -273,6 +278,29 @@
         {
             _saving = false;
         }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_request is not { Source: BookModalSource.User, UserBookId: not null })
+        {
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var deleted = await UserBooks.DeleteAsync(_request.UserBookId.Value);
+        if (deleted)
+        {
+            Nav.NavigateTo("/books");
+            return;
+        }
+
+        _error = "Book could not be deleted.";
     }
 
     private void HandleKeyDown(KeyboardEventArgs args)

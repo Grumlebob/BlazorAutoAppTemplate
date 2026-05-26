@@ -43,6 +43,18 @@
                 @CloseIcon(CloseControlX)
             </a>
 
+            @if (CanDelete)
+            {
+                <g role="button"
+                   tabindex="0"
+                   data-testid="book-delete"
+                   aria-label="@DeleteLabel"
+                   @onclick="OnDelete"
+                   @onkeydown="HandleDeleteKeyDown">
+                    @TrashIcon(DeleteControlX)
+                </g>
+            }
+
             @if (!string.IsNullOrWhiteSpace(EditHref))
             {
                 <a href="@EditHref" data-testid="book-edit-pencil" aria-label="@EditLabel">
@@ -91,6 +103,12 @@
     [Parameter]
     public string CloseHref { get; set; } = "/books";
 
+    [Parameter]
+    public bool CanDelete { get; set; }
+
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
     private string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "Untitled" : Title.Trim();
 
     private string DisplayAuthor => BookPageTextLayout.AuthorLine(Author);
@@ -133,9 +151,15 @@
 
     private string EditLabel => $"Edit {DisplayTitle}";
 
+    private string DeleteLabel => $"Delete {DisplayTitle}";
+
     private string SiteLabel => $"Go to site for {DisplayTitle}";
 
-    private int CloseControlX => string.IsNullOrWhiteSpace(EditHref) ? 430 : 372;
+    private int CloseControlX => CanDelete && !string.IsNullOrWhiteSpace(EditHref)
+        ? 314
+        : string.IsNullOrWhiteSpace(EditHref) ? 430 : 372;
+
+    private int DeleteControlX => string.IsNullOrWhiteSpace(EditHref) ? 372 : 372;
 
     private int TitleLineY(int index) => TitleStartY + (index * TitleLineSpacing);
 
@@ -171,6 +195,14 @@
         <path d="M18 18l14 14M32 18L18 32" stroke="#334155" stroke-width="3" stroke-linecap="round" />
     </g>;
 
+    private static RenderFragment TrashIcon(int x) => @<g transform="@($"translate({x} 74)")" aria-hidden="true">
+        <rect x="0" y="0" width="50" height="50" rx="16" fill="#fffefa" stroke="#fecaca" stroke-width="2" />
+        <path d="M17 20h16" stroke="#b91c1c" stroke-width="2.4" stroke-linecap="round" />
+        <path d="M22 18h6l1.4 2h-8.8z" fill="#fecaca" stroke="#b91c1c" stroke-width="1.6" stroke-linejoin="round" />
+        <path d="M19 23l1.4 15h9.2L31 23z" fill="#fee2e2" stroke="#b91c1c" stroke-width="2" stroke-linejoin="round" />
+        <path d="M23 27v7M27 27v7" stroke="#b91c1c" stroke-width="1.8" stroke-linecap="round" />
+    </g>;
+
     private RenderFragment PencilIcon() => @<g transform="translate(430 74)" aria-hidden="true">
         <rect x="0" y="0" width="50" height="50" rx="16" fill="none" stroke="#d7c3a1" stroke-width="2" />
         <path d="M31 9l10 10-4 4-10-10z" fill="#fda4af" />
@@ -181,6 +213,14 @@
         <path d="M8 42l3-8 5 5z" fill="#111827" />
         <path d="M20 20l10 10" stroke="#fef3c7" stroke-width="1.7" stroke-linecap="round" opacity="0.72" />
     </g>;
+
+    private async Task HandleDeleteKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await OnDelete.InvokeAsync();
+        }
+    }
 
     private static RenderFragment SiteAction(string label, string fill, string stroke, string iconFill, string textFill) => @<g transform="translate(197 548)">
         <rect x="0" y="0" width="166" height="42" rx="21" fill="@fill" stroke="@stroke" />

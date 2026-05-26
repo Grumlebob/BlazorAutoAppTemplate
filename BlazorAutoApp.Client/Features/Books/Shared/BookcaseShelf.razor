@@ -29,7 +29,7 @@
             <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-2 pt-6 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto [&::-webkit-scrollbar]:hidden"
                  tabindex="0"
                  aria-label="@($"{Title} scrollable shelf")">
-                <div class="flex w-max gap-[0.85rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.1rem]">
+                <div class="@ShelfTrackClass">
                     @for (var pass = 0; pass < 2; pass++)
                     {
                         var isDuplicate = pass == 1;
@@ -40,12 +40,14 @@
                             var isHiddenCopy = isDuplicate || isRepeatedBook;
                             var seed = BuildBookSeed(book, index, pass);
 
-                            if (LinkBooks && !isHiddenCopy && !string.IsNullOrWhiteSpace(book.Href))
+                            if (LinkBooks && !string.IsNullOrWhiteSpace(book.Href))
                             {
                                 <a data-testid="@($"{TestId}-book")"
                                    class="@BookFrameClass"
                                    href="@book.Href"
-                                   aria-label="@($"{book.Title} details")">
+                                   aria-label="@(isHiddenCopy ? null : $"{book.Title} details")"
+                                   aria-hidden="@(isHiddenCopy ? "true" : null)"
+                                   tabindex="@(isHiddenCopy ? "-1" : null)">
                                     <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
                                 </a>
                             }
@@ -85,6 +87,9 @@
     public bool LinkBooks { get; set; }
 
     [Parameter]
+    public bool AutoScroll { get; set; } = true;
+
+    [Parameter]
     public string EmptyMessage { get; set; } = "No books saved yet.";
 
     [Parameter]
@@ -95,6 +100,10 @@
 
     [Parameter]
     public RenderFragment? Actions { get; set; }
+
+    private string ShelfTrackClass => AutoScroll
+        ? "flex w-max gap-[0.85rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.1rem]"
+        : "flex w-max gap-[0.85rem] sm:gap-[1.1rem]";
 
     private IReadOnlyList<BookcaseBook> BuildShelfItems()
     {

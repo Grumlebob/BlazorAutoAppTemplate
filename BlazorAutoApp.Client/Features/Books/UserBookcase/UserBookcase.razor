@@ -1,7 +1,6 @@
 @implements IDisposable
 
 @inject UserBookcaseState UserBooks
-@inject IJSRuntime JS
 
 @if (UserBooks.IsLoading)
 {
@@ -13,13 +12,12 @@ else if (UserBooks.Error is not null)
 }
 else
 {
-    var hasUserBooks = UserBooks.Books.Count > 0;
-
     <BookcaseShelf Title="Your Bookcase"
                    Description="Only books you have saved."
                    TestId="user-bookcase"
                    Books="UserBookcaseBookMapper.ToBookcaseBooks(UserBooks.Books)"
                    LinkBooks="true"
+                   AutoScroll="false"
                    EmptyMessage="Your bookcase is empty."
                    EmptyTestId="user-book-empty-state">
         <Actions>
@@ -28,11 +26,6 @@ else
                href="/books?bookMode=create">Add Book</a>
         </Actions>
     </BookcaseShelf>
-
-    @if (hasUserBooks)
-    {
-        <UserBookcaseTable Books="UserBooks.Books" OnDelete="DeleteAsync" />
-    }
 }
 
 @code {
@@ -40,24 +33,6 @@ else
     {
         UserBooks.Changed += HandleBooksChanged;
         await UserBooks.LoadForCurrentUserAsync(forceRefresh: true);
-    }
-
-    private async Task DeleteAsync(int id)
-    {
-        try
-        {
-            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
-            if (!confirmed)
-            {
-                return;
-            }
-
-            await UserBooks.DeleteAsync(id);
-        }
-        catch
-        {
-            await InvokeAsync(StateHasChanged);
-        }
     }
 
     private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
