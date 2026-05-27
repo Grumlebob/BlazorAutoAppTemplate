@@ -4,10 +4,12 @@
   },
   "scripts": {
     "css:build": "tailwindcss -i ./Styles/input.css -o ../BlazorAutoApp/wwwroot/tailwind.css",
-    "css:watch": "tailwindcss -i ./Styles/input.css -o ../BlazorAutoApp/wwwroot/tailwind.css --watch"
+    "css:watch": "tailwindcss -i ./Styles/input.css -o ../BlazorAutoApp/wwwroot/tailwind.css --watch",
+    "lighthouse": "lighthouse"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.0",
+    "lighthouse": "^13.3.0",
     "tailwindcss": "^4.3.0"
   }
 }

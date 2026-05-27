@@ -100,12 +100,11 @@ customElements.define('passkey-submit', class extends HTMLElement {
                 // The user explicitly canceled the operation - return without error.
                 return;
             }
-            console.error(error);
             if (useConditionalMediation) {
-                // An error occurred during conditional mediation, which is not user-initiated.
-                // We log the error in the console but do not relay it to the user.
+                // Conditional mediation is browser/domain dependent and not user-initiated.
                 return;
             }
+            console.error(error);
             const errorMessage = error.name === 'NotAllowedError'
                 ? 'No passkey was provided by the authenticator.'
                 : error.message;

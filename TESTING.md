@@ -23,6 +23,25 @@ Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
 ```
 
+## Lighthouse Performance
+
+Lighthouse is pinned in the client npm toolchain and writes generated reports under `TestResults/Lighthouse`.
+
+Run local mobile and desktop reports against the Docker app:
+
+```powershell
+.\RunLocal.ps1 -NoBrowser
+.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/", "/books/design-demos", "/Account/Login" -Profile both -IgnoreCertificateErrors
+```
+
+Run an authenticated local home-page report with the seeded Docker/Development user:
+
+```powershell
+.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/" -Profile both -IgnoreCertificateErrors -AuthenticatedLocalUser
+```
+
+For production, omit `-IgnoreCertificateErrors` and point `-BaseUrl` at the deployed domain.
+
 When testing a local `dotnet run` app on `http://127.0.0.1:5099`, start that app with higher local-only rate limits so headed desktop and mobile runs do not trip the template limiter:
 
 ```powershell

@@ -961,6 +961,12 @@
   .\[-ms-overflow-style\:none\] {
     -ms-overflow-style: none;
   }
+  .\[contain-intrinsic-size\:17\.25rem_19\.7rem\] {
+    contain-intrinsic-size: 17.25rem 19.7rem;
+  }
+  .\[content-visibility\:auto\] {
+    content-visibility: auto;
+  }
   .\[transform-box\:fill-box\] {
     transform-box: fill-box;
   }
@@ -1398,6 +1404,11 @@
   .sm\:pt-10 {
     @media (width >= 40rem) {
       padding-top: calc(var(--spacing) * 10);
+    }
+  }
+  .sm\:\[contain-intrinsic-size\:20\.65rem_23\.625rem\] {
+    @media (width >= 40rem) {
+      contain-intrinsic-size: 20.65rem 23.625rem;
     }
   }
   .md\:flex {

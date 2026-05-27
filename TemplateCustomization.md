@@ -21,6 +21,11 @@ Use this checklist when forking the template.
 - Keep client routable components under `BlazorAutoApp.Client/Features/{Feature}/Routes`.
 - Books create/update/delete are authenticated actions; anonymous users only see the public author bookcase.
 
+## WebAssembly Payload
+
+- The client project uses invariant globalization to avoid shipping ICU data in the WebAssembly payload.
+- Remove `InvariantGlobalization` from `BlazorAutoApp.Client/BlazorAutoApp.Client.csproj` if your fork needs culture-specific formatting, parsing, sorting, or localization in the hydrated client.
+
 ## Identity
 
 - Account UI and server Identity code live under `BlazorAutoApp/Features/Login/Account`.

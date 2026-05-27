@@ -72,7 +72,7 @@
 </section>
 
 @code {
-    private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none";
+    private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline [content-visibility:auto] [contain-intrinsic-size:17.25rem_19.7rem] transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none sm:[contain-intrinsic-size:20.65rem_23.625rem]";
     private IReadOnlyList<BookcaseBook>? _cachedBooksSource;
     private IReadOnlyList<BookcaseBook> _cachedShelfItems = [];
     private bool _cachedAutoScroll;
