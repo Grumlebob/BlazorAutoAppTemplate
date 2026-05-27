@@ -304,6 +304,26 @@ for line_number, line in enumerate(guide.splitlines(), start=1):
 
 
 tracked = tracked_files()
+text_suffixes = {".cs", ".csproj", ".props", ".targets", ".json", ".yml", ".yaml", ".md", ".ps1", ".cmd", ".sh"}
+text_names = {"Dockerfile", "docker-compose.yml", ".env.example", "global.json"}
+for path in sorted(tracked):
+    if path.startswith("docs/plans/archive/") or path == "CarefulUpgradeReview.md":
+        continue
+    file_path = Path(path)
+    if file_path.suffix not in text_suffixes and file_path.name not in text_names:
+        continue
+    text = read(path)
+    for stale in [
+        "postgres:16" + ".14-alpine3.23",
+        "redis:7" + ".4.9-alpine3.21",
+        "testcontainers/ryuk:0" + ".12.0",
+        "actions/download-artifact@" + "v4",
+        "rhysd/actionlint:1" + ".7.7",
+        "docker/dockerfile:1" + ".7-labs",
+    ]:
+        if stale in text:
+            fail(f"{path}: stale runtime/tooling pin remains: {stale}")
+
 for path in [
     ".env",
     "secrets.env",
@@ -610,9 +630,16 @@ for service, image in [("PostgreSQL", "postgres"), ("Redis", "redis")]:
     tag = image_match.group(1)
     if not re.match(r"^\d+(?:\.\d+){1,2}-alpine\d+\.\d+$", tag):
         fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: {service} image tag must pin an exact version and Alpine release")
-for moving_image in ["postgres:16-alpine", "redis:7-alpine", "postgres:latest", "redis:latest"]:
+for moving_image in ["postgres:18-alpine", "redis:8-alpine", "postgres:latest", "redis:latest"]:
     if moving_image in node_db_compose:
         fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: use exact image tags, not {moving_image}")
+for needle, why in [
+    ("postgres:18.4-alpine3.23", "PostgreSQL 18 pinned image"),
+    ("redis:8.8.0-alpine3.23", "Redis 8 pinned image"),
+    ("postgres_data:/var/lib/postgresql", "PostgreSQL 18 volume root mount"),
+]:
+    if needle not in node_db_compose:
+        fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: missing {why}")
 
 
 for path, needle, why in [
@@ -693,6 +720,8 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
     ("python -m pip install --upgrade yamllint", "deployment lint tool install"),
     ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
+    ("rhysd/actionlint:1.7.12", "current actionlint container"),
+    ("node-version: 24", "current Node.js LTS setup"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image", "deployment image setting"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name", "migration bundle setting"),
     ("dotnet restore", "restore step"),
@@ -700,6 +729,9 @@ for needle, why in [
     ("dotnet test --configuration Release --no-build", "test step"),
     ("dotnet ef migrations bundle", "migration bundle build"),
     ("docker build", "Docker image build"),
+    ("--pull", "Docker build base image freshness"),
+    ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
+    ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
     ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
@@ -748,10 +780,13 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/find-successful-ci-run.sh", "successful CI gate"),
     ("CI_RUN_ID=", "CI run id export"),
     ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
-    ("uses: actions/download-artifact@v4", "CI migration artifact download"),
+    ("uses: actions/download-artifact@v8", "CI migration artifact download"),
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
+    ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
+    ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation"),
+    ("postgres18-redis8-reset", "explicit PostgreSQL 18 and Redis 8 reset token"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("source_repo_url=${SOURCE_REPO_URL}", "source repository marker metadata"),
@@ -885,6 +920,8 @@ for path, checks in {
         ("backup-db.sh", "backup helper copy"),
         ("reset-db.sh", "reset helper copy"),
         ("restore-db.sh", "restore helper copy"),
+        ("reset_node_db_volumes_confirmation == app_name ~ '/postgres18-redis8-reset'", "guarded destructive node-db reset confirmation"),
+        ("docker compose down -v", "destructive node-db volume reset command"),
         ("docker compose up -d --pull always", "pull and start pinned database images"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
@@ -970,6 +1007,8 @@ for path, checks in {
         ("--services --filter status=running", "running compose service checks"),
         ("pg_isready", "PostgreSQL health check"),
         ("redis-cli", "Redis health check"),
+        ("PostgreSQL 18", "PostgreSQL 18 version check"),
+        ("v=8", "Redis 8 version check"),
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
         ("sport = :${REDIS_PORT}", "Redis port check"),
         ("backup directory", "backup directory check"),
@@ -1089,6 +1128,13 @@ require_contains(
     "Component/with-node-main-deploy-lock.sh",
     "manual deploy node-main lock wrapper",
 )
+for needle, why in [
+    ("--reset-node-db-volumes", "destructive node-db reset CLI option"),
+    ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
+    ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation forwarding"),
+    ("--reset-node-db-volumes replaces --reset-db", "mutually exclusive reset modes"),
+]:
+    require_contains("Deployment/LocalCluster/Scripts/deploy.sh", needle, why)
 
 for path in [
     "Deployment/LocalCluster/Scripts/Component/ping-fresh-machines.sh",

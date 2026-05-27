@@ -169,7 +169,7 @@ try {
 
   if ($ResetDatabase) {
     Write-Host "Resetting local Docker database and service volumes..."
-    docker compose down --volumes
+    docker compose down --volumes --remove-orphans
   }
 
   $composeArgs = @('compose', 'up', '-d')

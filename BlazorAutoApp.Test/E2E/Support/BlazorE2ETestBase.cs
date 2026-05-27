@@ -74,6 +74,9 @@ public abstract class BlazorE2ETestBase : PageTest
     {
         var artifactDirectory = GetPlaywrightArtifactPath();
         Directory.CreateDirectory(artifactDirectory);
+        Page.SetDefaultNavigationTimeout(GetTimeoutMilliseconds("E2E_NAVIGATION_TIMEOUT_MS", 90_000));
+        Page.SetDefaultTimeout(GetTimeoutMilliseconds("E2E_ACTION_TIMEOUT_MS", 45_000));
+
         await Context.Tracing.StartAsync(new TracingStartOptions
         {
             Screenshots = true,
@@ -152,6 +155,17 @@ public abstract class BlazorE2ETestBase : PageTest
         }
 
         return 300;
+    }
+
+    private static float GetTimeoutMilliseconds(string variableName, float defaultValue)
+    {
+        var configured = Environment.GetEnvironmentVariable(variableName);
+        if (float.TryParse(configured, out var timeout) && timeout > 0)
+        {
+            return timeout;
+        }
+
+        return defaultValue;
     }
 
     private static int GetViewportDimension(string variableName, int defaultValue)

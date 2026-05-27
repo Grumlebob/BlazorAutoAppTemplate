@@ -8,7 +8,9 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `Component/node-db/` contains maintenance scripts copied onto the database node by Ansible.
 
-`deploy.sh <git-sha> --migrate <bundle> --reset-db <app-name>/<database-name>` performs a guarded disposable database reset before running the migration bundle. Use it only when the target database is intentionally throwaway.
+`deploy.sh <git-sha> --migrate <bundle> --reset-db <app-name>/<database-name>` performs a guarded disposable schema reset before running the migration bundle. Use it only when the target database is intentionally throwaway.
+
+`deploy.sh <git-sha> --migrate <bundle> --reset-node-db-volumes <app-name>/postgres18-redis8-reset` performs a guarded destructive PostgreSQL and Redis Docker volume reset before starting the upgraded node-db stack and running the migration bundle. Use it only for approved disposable-data runtime upgrades.
 
 `summary.sh` prints the concrete deployment target without contacting remote nodes.
 

@@ -17,7 +17,7 @@ dotnet build .\BlazorAutoApp.sln --no-restore
 dotnet test .\BlazorAutoApp.sln --no-build
 ```
 
-Integration tests use Testcontainers and PostgreSQL, so Docker must be running.
+Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
 ## Cross-Node Cache Invalidation Tests
 
@@ -120,6 +120,8 @@ dotnet run --project .\BlazorAutoApp\BlazorAutoApp.csproj --urls http://127.0.0.
 - `E2E_BASE_URL`: target app URL. Defaults to `https://localhost:7186`.
 - `E2E_CLEANUP_CONNECTION_STRING`: optional PostgreSQL connection string used only for E2E cleanup fallback. When omitted, cleanup uses `ConnectionStrings__DefaultConnection` or local `.env` PostgreSQL values.
 - `E2E_SLOW_MO_MS`: visible delay between browser actions. Defaults to `300`.
+- `E2E_NAVIGATION_TIMEOUT_MS`: page navigation timeout. Defaults to `90000` for visible Docker runs.
+- `E2E_ACTION_TIMEOUT_MS`: Playwright action timeout. Defaults to `45000`.
 - `E2E_VIEWPORT_WIDTH` and `E2E_VIEWPORT_HEIGHT`: browser viewport. Defaults to `1280x900`.
 - `E2E_HEADLESS=1`: runs without a visible browser. Use only for CI-style runs.
 - `RateLimiting__Global__PermitLimit`, `RateLimiting__Api__PermitLimit`, and `RateLimiting__Authentication__PermitLimit`: app-start variables, not test variables. Raise them only for local headed E2E runs when exercising several browser flows against one app process.
@@ -191,7 +193,7 @@ Run these before changing LocalCluster deployment files:
 bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 python -m yamllint .github Deployment/LocalCluster
-docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7
+docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
 docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
 ```
 

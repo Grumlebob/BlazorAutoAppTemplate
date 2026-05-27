@@ -26,7 +26,7 @@ jobs:
           find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 
       - name: GitHub Actions workflow lint
-        run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7
+        run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
 
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
@@ -47,7 +47,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: BlazorAutoApp.Client/package-lock.json
 
@@ -69,7 +69,8 @@ jobs:
       - name: Docker preflight for integration tests
         run: |
           docker info
-          docker pull postgres:16.14-alpine3.23
+          docker pull postgres:18.4-alpine3.23
+          docker pull redis:8.8.0-alpine3.23
 
       - name: Test
         env:
@@ -123,6 +124,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
+            --pull \
             -f BlazorAutoApp/Dockerfile \
             -t "${APP_IMAGE}:${{ github.sha }}" \
             .

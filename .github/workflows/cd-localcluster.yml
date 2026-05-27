@@ -16,6 +16,11 @@ on:
         required: false
         default: ""
         type: string
+      reset_node_db_volumes_confirmation:
+        description: "Optional destructive PostgreSQL/Redis volume reset token: <app-name>/postgres18-redis8-reset"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -71,6 +76,21 @@ jobs:
           echo "reset_database_confirmation can only be used when run_migrations is true." >&2
           exit 1
 
+      - name: Validate node-db volume reset input
+        if: inputs.reset_node_db_volumes_confirmation != ''
+        env:
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+          RESET_DATABASE_CONFIRMATION: ${{ inputs.reset_database_confirmation }}
+        run: |
+          if [ "${RUN_MIGRATIONS}" != "true" ]; then
+            echo "reset_node_db_volumes_confirmation can only be used when run_migrations is true." >&2
+            exit 1
+          fi
+          if [ -n "${RESET_DATABASE_CONFIRMATION}" ]; then
+            echo "reset_node_db_volumes_confirmation replaces reset_database_confirmation; use only one reset mode." >&2
+            exit 1
+          fi
+
       - name: Require successful CI for this commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -91,7 +111,7 @@ jobs:
 
       - name: Download migration bundle from CI
         if: inputs.run_migrations == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.APP_NAME }}-migrate-linux-x64
           path: artifacts/migrations
@@ -122,12 +142,19 @@ jobs:
         working-directory: Deployment/LocalCluster/ansible
         env:
           RESET_DATABASE_CONFIRMATION: ${{ inputs.reset_database_confirmation }}
+          RESET_NODE_DB_VOLUMES_CONFIRMATION: ${{ inputs.reset_node_db_volumes_confirmation }}
         run: |
           RESET_ARGS=()
           if [ -n "${RESET_DATABASE_CONFIRMATION}" ]; then
             RESET_ARGS=(
               -e reset_database=true
               -e "reset_database_confirmation=${RESET_DATABASE_CONFIRMATION}"
+            )
+          fi
+          if [ -n "${RESET_NODE_DB_VOLUMES_CONFIRMATION}" ]; then
+            RESET_ARGS=(
+              -e reset_node_db_volumes=true
+              -e "reset_node_db_volumes_confirmation=${RESET_NODE_DB_VOLUMES_CONFIRMATION}"
             )
           fi
 

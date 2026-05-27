@@ -12,10 +12,10 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
     private const int RedisPort = 6379;
     private const string RedisPassword = "redis-test-password";
 
-    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("postgres:16.14-alpine3.23")
+    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
         .Build();
 
-    private readonly IContainer _redisContainer = new ContainerBuilder("redis:7.4.9-alpine3.21")
+    private readonly IContainer _redisContainer = new ContainerBuilder(TestContainerImages.Redis)
         .WithPortBinding(RedisPort, true)
         .WithCommand("redis-server", "--requirepass", RedisPassword, "--save", "", "--appendonly", "no")
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "-a", RedisPassword, "ping"))

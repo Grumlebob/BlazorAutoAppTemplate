@@ -6,5 +6,5 @@ redis_port: 6379
 public_hostname: shipinspection.jacobgrum.com
 deploy_root: /opt/ship
 cloudflare_tunnel_name: ship-prod
-cloudflared_version: 2026.5.0
+cloudflared_version: 2026.5.2
 migration_bundle_name: ship-migrate

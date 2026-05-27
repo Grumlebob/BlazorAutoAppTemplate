@@ -179,6 +179,39 @@ def check_dotnet_sdk_version() -> None:
     ok(f"dotnet SDK {actual_version} satisfies global.json {required_version}")
 
 
+def check_node_version() -> None:
+    executable = shutil.which("node")
+    if executable is None:
+        fail("Node.js missing")
+        return
+
+    try:
+        version = subprocess.run(
+            [executable, "--version"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip().splitlines()[0]
+    except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
+        fail("Node.js version check failed")
+        return
+
+    major_text = version.removeprefix("v").split(".", 1)[0]
+    try:
+        major = int(major_text)
+    except ValueError:
+        warn(f"Node.js available but version could not be parsed: {version}")
+        return
+
+    if major < 20:
+        fail(f"Node.js {version} is too old; use Node.js 20 or newer")
+    elif major < 24:
+        warn(f"Node.js available: {version}; CI uses Node.js 24 LTS")
+    else:
+        ok(f"Node.js available: {version}")
+
+
 def main() -> int:
     print("local development status")
     print()
@@ -225,7 +258,7 @@ def main() -> int:
     else:
         fail("dotnet command missing")
 
-    check_command_version("node", ["--version"], "Node.js")
+    check_node_version()
     check_command_version("npm", ["--version"], "npm")
     check_ports(values)
 

@@ -122,7 +122,15 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     app_compose = tmp_path / "app-compose.yml"
     db_compose = tmp_path / "db-compose.yml"
     app_compose.write_text(render_compose(ROOT / "Deployment/LocalCluster/compose/app-server/docker-compose.yml", compose_env), encoding="utf-8")
-    db_compose.write_text(render_compose(ROOT / "Deployment/LocalCluster/compose/node-db/docker-compose.yml", compose_env), encoding="utf-8")
+    db_compose_text = render_compose(ROOT / "Deployment/LocalCluster/compose/node-db/docker-compose.yml", compose_env)
+    db_compose.write_text(db_compose_text, encoding="utf-8")
+    for required in [
+        "postgres:18.4-alpine3.23",
+        "postgres_data:/var/lib/postgresql",
+        "redis:8.8.0-alpine3.23",
+    ]:
+        if required not in db_compose_text:
+            fail(f"rendered node-db compose is missing {required}")
 
     docker_compose_available = shutil.which("docker") and subprocess.run(
         ["docker", "compose", "version"],

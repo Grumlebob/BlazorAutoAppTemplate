@@ -6,7 +6,7 @@ Use Docker Compose for normal local development. It runs the app, PostgreSQL, Re
 
 - Docker Desktop running.
 - .NET SDK 10 matching `global.json`.
-- Node.js 20 or newer if you rebuild Tailwind CSS.
+- Node.js 20 or newer if you rebuild Tailwind CSS. Node.js 24 LTS is recommended because CI uses it.
 - PowerShell.
 - Python available as `python` for the local status helper.
 
@@ -87,6 +87,8 @@ Reset the local Docker database and service volumes before starting:
 .\RunLocal.ps1 -ResetDatabase
 ```
 
+Use that reset path after major local PostgreSQL or Redis image upgrades. PostgreSQL 18 uses a version-specific data directory under the Docker volume, so stale PostgreSQL 16 volumes should be discarded instead of reused.
+
 Start without opening the browser:
 
 ```powershell
@@ -142,7 +144,7 @@ The `./data/storage:/app/Storage` mount is local runtime storage for fallback Da
 The Docker profile applies EF migrations on startup. If you reset the local database, recreate the stack with volumes removed:
 
 ```powershell
-docker compose down --volumes
+docker compose down --volumes --remove-orphans
 docker compose up -d --build web
 ```
 
@@ -233,7 +235,7 @@ Deployment validation without deploying:
 bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 python -m yamllint .github Deployment/LocalCluster
-docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7
+docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
 docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
 ```
 
@@ -268,7 +270,7 @@ docker compose down
 Stop containers and delete local Docker volumes:
 
 ```powershell
-docker compose down --volumes
+docker compose down --volumes --remove-orphans
 ```
 
 If the app exits while applying a fresh initial migration and the logs mention an existing table such as `AspNetRoles`, the local Docker database volume is from an older template version. Reset the local Docker volumes:

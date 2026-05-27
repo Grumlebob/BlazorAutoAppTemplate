@@ -22,7 +22,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const int MaxWaitTimeMinutes = 5;
     private const string RyukImageEnvironmentVariable = "TESTCONTAINERS_RYUK_CONTAINER_IMAGE";
-    private const string RyukImage = "testcontainers/ryuk:0.12.0";
     private const string ConnectionStringEnvironmentVariable = "ConnectionStrings__DefaultConnection";
     private const string RedisConfigurationEnvironmentVariable = "Redis__Configuration";
     private const string RedisAllowMissingEnvironmentVariable = "Redis__AllowMissing";
@@ -42,7 +41,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RyukImageEnvironmentVariable)))
         {
-            Environment.SetEnvironmentVariable(RyukImageEnvironmentVariable, RyukImage);
+            Environment.SetEnvironmentVariable(RyukImageEnvironmentVariable, TestContainerImages.Ryuk);
         }
     }
 
@@ -65,7 +64,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         _options = options;
         if (string.IsNullOrWhiteSpace(options.PostgresConnectionString))
         {
-            _dbContainer = new PostgreSqlBuilder("postgres:16.14-alpine3.23")
+            _dbContainer = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
                 .Build();
         }
     }

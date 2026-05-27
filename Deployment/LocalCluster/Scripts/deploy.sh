@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-migration-bundle>] [--reset-db <app-name>/<database-name>]" >&2
+  echo "usage: $0 <git-sha-image-tag> [--migrate <path-to-migration-bundle>] [--reset-db <app-name>/<database-name>] [--reset-node-db-volumes <app-name>/postgres18-redis8-reset]" >&2
   exit 1
 }
 
@@ -14,6 +14,7 @@ shift
 EXTRA_ARGS=(-e "app_version=$APP_VERSION")
 RUN_MIGRATIONS=false
 RESET_DATABASE=false
+RESET_NODE_DB_VOLUMES=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +36,16 @@ while [[ $# -gt 0 ]]; do
       RESET_DATABASE=true
       shift 2
       ;;
+    --reset-node-db-volumes)
+      [[ $# -ge 2 ]] || usage
+      RESET_NODE_DB_VOLUMES_CONFIRMATION="$2"
+      EXTRA_ARGS+=(
+        -e "reset_node_db_volumes=true"
+        -e "reset_node_db_volumes_confirmation=$RESET_NODE_DB_VOLUMES_CONFIRMATION"
+      )
+      RESET_NODE_DB_VOLUMES=true
+      shift 2
+      ;;
     *)
       usage
       ;;
@@ -43,6 +54,16 @@ done
 
 if [[ "$RESET_DATABASE" == true && "$RUN_MIGRATIONS" != true ]]; then
   echo "--reset-db must be used with --migrate so the fresh database is immediately migrated" >&2
+  exit 1
+fi
+
+if [[ "$RESET_NODE_DB_VOLUMES" == true && "$RUN_MIGRATIONS" != true ]]; then
+  echo "--reset-node-db-volumes must be used with --migrate so the fresh database is immediately migrated" >&2
+  exit 1
+fi
+
+if [[ "$RESET_NODE_DB_VOLUMES" == true && "$RESET_DATABASE" == true ]]; then
+  echo "--reset-node-db-volumes replaces --reset-db; use only one reset mode" >&2
   exit 1
 fi
 

@@ -289,7 +289,7 @@ git diff --exit-code -- BlazorAutoApp/wwwroot/tailwind.css BlazorAutoApp.Client/
 
 ## Phase 8: Production-Domain Pass After Deploy
 
-Status: pending.
+Status: done; Cloudflare JavaScript Detections follow-up remains external.
 
 Prerequisite:
 
@@ -310,6 +310,53 @@ Acceptance:
 - Production Lighthouse report is saved and summarized.
 - Any local-vs-production gap is classified as app, deployment, network, proxy, or expected variance.
 - Follow-up deployment fixes are planned separately if needed.
+
+Execution notes:
+
+- Production URL tested: `https://shipinspection.jacobgrum.com`.
+- Production health passed at `/health/ready`.
+- Cold-ish reports: `TestResults/Lighthouse/production-cold-20260527-143917`.
+- Warm repeat reports: `TestResults/Lighthouse/production-warm-20260527-144147`.
+- Controlled Cloudflare-script-blocked sample: `TestResults/Lighthouse/production-cloudflare-blocked-20260527-145000`.
+- Authenticated production Lighthouse was not run because no safe production test account was provided.
+
+Cold-ish production summary:
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 61 | 100 | 77 | 100 | 2,563 KiB |
+| `/` | desktop | 99 | 100 | 81 | 100 | 2,564 KiB |
+| `/books/design-demos` | mobile | 63 | 100 | 81 | 100 | 2,566 KiB |
+| `/books/design-demos` | desktop | 100 | 100 | 81 | 100 | 2,566 KiB |
+| `/books/author/ship` | mobile | 72 | 100 | 81 | 100 | 2,564 KiB |
+| `/books/author/ship` | desktop | 99 | 100 | 81 | 100 | 2,563 KiB |
+| `/Account/Login` | mobile | 97 | 100 | 81 | 100 | 82 KiB |
+| `/Account/Login` | desktop | 100 | 100 | 81 | 100 | 82 KiB |
+
+Warm production summary:
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 57 | 100 | 81 | 100 | 2,562 KiB |
+| `/` | desktop | 100 | 100 | 77 | 100 | 2,562 KiB |
+| `/books/design-demos` | mobile | 83 | 100 | 81 | 100 | 2,566 KiB |
+| `/books/design-demos` | desktop | 88 | 100 | 77 | 100 | 2,565 KiB |
+| `/books/author/ship` | mobile | 61 | 100 | 81 | 100 | 2,566 KiB |
+| `/books/author/ship` | desktop | 99 | 100 | 81 | 100 | 2,563 KiB |
+| `/Account/Login` | mobile | 91 | 100 | 81 | 100 | 81 KiB |
+| `/Account/Login` | desktop | 100 | 100 | 81 | 100 | 82 KiB |
+
+Production findings:
+
+- The app-side local fixes are present in production: SEO is 100, login best practices are no longer affected by passkey console errors, and payload is about 2.56 MiB after the invariant globalization change.
+- Cloudflare injects `/cdn-cgi/challenge-platform/scripts/jsd/main.js` into HTML. Lighthouse attributes three deprecated-API warnings and a small cache-lifetime finding to that Cloudflare challenge script.
+- A controlled run blocking `*/cdn-cgi/challenge-platform/*` produced home mobile scores of Performance 62, Accessibility 100, Best Practices 100, SEO 100. This proves the persistent best-practices drop is Cloudflare challenge script behavior, not app code.
+- Lighthouse still reports missing source maps for .NET runtime/WASM assets, but that audit has weight 0 in the best-practices score and is not user-facing performance.
+
+External follow-up:
+
+- If the goal is a clean Lighthouse best-practices score on the public domain, disable Cloudflare JavaScript Detections/Bot Fight Mode for this hostname or route, or move to a Cloudflare plan/settings combination where JavaScript Detections can be disabled for this app.
+- If keeping Cloudflare JavaScript Detections is more important than Lighthouse best-practices purity, accept the 77-81 best-practices score as an external security-product artifact.
 
 Candidate commands:
 
@@ -367,7 +414,7 @@ Execution notes:
 
 ## Done Criteria
 
-Status: local pass done; production pending.
+Status: done; optional Cloudflare setting remains external.
 
 - Local Lighthouse reports exist for mobile and desktop.
 - Authenticated and anonymous performance are both understood.
@@ -379,4 +426,5 @@ Execution notes:
 
 - Local Lighthouse reports exist for anonymous, authenticated, mobile, and desktop paths.
 - Valid local findings were fixed or documented.
-- The remaining work is the production-domain pass after deployment.
+- Production Lighthouse reports exist for anonymous mobile and desktop paths.
+- The remaining optional work is a Cloudflare dashboard/API setting to remove the injected challenge script from this app if Lighthouse best-practices score purity is preferred.
