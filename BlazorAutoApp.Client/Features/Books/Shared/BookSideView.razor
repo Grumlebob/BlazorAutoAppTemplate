@@ -1,4 +1,4 @@
-<svg class="h-[11.25rem] w-[9.85rem] overflow-visible sm:h-[13.5rem] sm:w-[11.8rem]"
+<svg class="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]"
      viewBox="0 0 216 247"
      role="img"
      aria-labelledby="@TitleId">
@@ -73,7 +73,7 @@
     private uint StableTitleSeed => ComputeStableTitleSeed(DisplayTitle);
 
     private BookCoverDesignDefinition Design =>
-        BookCoverDesignCatalog.All[(int)((StableTitleSeed + StableSeed) % (uint)BookCoverDesignCatalog.All.Count)];
+        BookCoverDesignCatalog.All[(int)(MixDesignSeed(unchecked(StableTitleSeed + StableSeed)) % (uint)BookCoverDesignCatalog.All.Count)];
 
     private BookCoverPalette Palette => Palettes[(int)(StableSeed % (uint)Palettes.Length)];
 
@@ -163,6 +163,19 @@
             }
 
             return hash;
+        }
+    }
+
+    private static uint MixDesignSeed(uint value)
+    {
+        unchecked
+        {
+            value ^= value >> 16;
+            value *= 2246822519u;
+            value ^= value >> 13;
+            value *= 3266489917u;
+            value ^= value >> 16;
+            return value;
         }
     }
 

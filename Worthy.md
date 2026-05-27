@@ -30,13 +30,14 @@ Important current constraints:
 - The cover is rendered as inline SVG through shared Books-slice components.
 - The demo page and live bookcase share `BookCoverArtwork`.
 - The cover uses the same title plate system as the other books.
+- The live bookcase must keep its existing deterministic RNG cover palettes; Decorative Hardcover must not force one static live color.
 - The book viewBox is `0 0 216 247`.
 - The cover drawing itself is inside a translated/scaled group.
 - The cover face safe area should avoid crowding the right page gutter.
 
 ## New Design Direction
 
-Status: pending
+Status: done
 
 Replace Decorative Hardcover with a new concept:
 
@@ -44,7 +45,8 @@ Replace Decorative Hardcover with a new concept:
 
 Design characteristics:
 
-- deep ink-violet or midnight-indigo hardcover,
+- deep ink-violet or midnight-indigo reference hardcover in the demo page,
+- palette-tolerant artwork in the live bookcase, where book colors still vary through the existing deterministic RNG,
 - warm foil accents, closer to antique brass than bright orange,
 - fine constellation dots and connecting strokes,
 - a large off-center orbital arc system that moves around the title plate without crossing it,
@@ -56,9 +58,11 @@ Design characteristics:
 
 The purpose is to make the cover feel like a premium archival/science-fantasy hardcover while still being simple enough for a small SVG on mobile.
 
+Implemented as the **Celestial Archive Hardcover**. The demo uses the deep violet reference cover, while the live bookcase keeps the existing deterministic palette variation.
+
 ## Geometry
 
-Status: pending
+Status: done
 
 Keep the shared book dimensions and animation behavior.
 
@@ -72,6 +76,7 @@ Use these decorative-cover layout rules:
 - major arcs should pass above, below, or around the title plate, never through title text,
 - constellation dots should be small enough not to look like noise in the shelf size,
 - the open-book hover state must not cause the arcs or dots to look clipped.
+- the live bookcase must keep `BookSideView` palette selection based on `StableSeed`.
 
 Expected visual hierarchy:
 
@@ -80,13 +85,15 @@ Expected visual hierarchy:
 3. constellation dots and small ticks,
 4. subtle cover depth.
 
+Verified in `TestResults/Worthy/Pass02` and `TestResults/Worthy/Pass03`.
+
 ## Implementation Plan
 
-Status: pending
+Status: done
 
 ### Phase 1: First Premium Direction
 
-Status: pending
+Status: done
 
 Update only the Decorative Hardcover branch in `BookCoverArtwork.razor`.
 
@@ -100,9 +107,11 @@ Replace the current diamonds and curve strokes with a new SVG group:
 
 Keep the branch small enough to read. If the SVG becomes hard to understand, split the branch into a private Razor fragment helper inside the same component or add a purpose-specific shared component under `Features/Books/Shared`.
 
+Implemented in the Decorative Hardcover branch of `BookCoverArtwork.razor`.
+
 ### Phase 2: Catalog Tone
 
-Status: pending
+Status: done
 
 Update Decorative Hardcover metadata in `BookCoverDesignCatalog.cs`:
 
@@ -113,9 +122,11 @@ Update Decorative Hardcover metadata in `BookCoverDesignCatalog.cs`:
 
 Do not add a new route or extra variant unless the first implementation proves the old name is misleading. The current variant slot should evolve rather than expanding the design count.
 
+Updated catalog note, demo reference colors, and title plate stroke while keeping `decorative-hardcover` stable.
+
 ### Phase 3: Screenshot Pass 01
 
-Status: pending
+Status: done
 
 Build and run the app locally, then capture:
 
@@ -135,14 +146,23 @@ Pass01 is acceptable only if:
 - no ornament touches the page gutter,
 - the live bookcase still feels coherent with the other covers.
 
+Pass01 review result:
+
+- The new direction is clearly different from the old diamond cover.
+- The large forced-open demo reads well.
+- The live shelf was incorrectly forced into one static decorative palette, which violates the RNG requirement.
+- Continue with Pass02 after restoring live palette RNG.
+
 ### Phase 4: Iteration Pass 02
 
-Status: pending
+Status: done
 
 Expect at least one adjustment pass.
 
 Possible refinements:
 
+- restore live RNG palette behavior for Decorative Hardcover,
+- verify the celestial artwork remains readable on randomly colored live covers,
 - increase or reduce foil opacity,
 - move arcs further from the title plate,
 - simplify dots if the mobile overview gets noisy,
@@ -156,9 +176,16 @@ Capture screenshots into:
 
 Do not mark this done until Pass02 is visually better than Pass01.
 
+Pass02 review result:
+
+- Live Decorative Hardcover palette RNG was restored.
+- The same celestial artwork rendered acceptably on teal and red live shelf variants.
+- The desktop and mobile live shelf remained coherent.
+- Captured in `TestResults/Worthy/Pass02`.
+
 ### Phase 5: Iteration Pass 03
 
-Status: pending
+Status: done
 
 Do a final senior-quality polish pass after comparing Pass01 and Pass02.
 
@@ -175,14 +202,22 @@ Capture screenshots into:
 
 If Pass02 already looks excellent, Pass03 can be a no-code verification pass with fresh screenshots. If Pass02 exposes a real issue, Pass03 must include a code adjustment.
 
+Pass03 review result:
+
+- No further code change was needed after Pass02.
+- The large forced-open demo remained clean and readable.
+- The live RNG shelf remained varied and legible on desktop and mobile.
+- Captured in `TestResults/Worthy/Pass03`.
+
 ## Acceptance Criteria
 
-Status: pending
+Status: done
 
 The final Decorative Hardcover must satisfy all of these:
 
 - looks like a new design direction, not a cleaned-up version of the old one,
 - works as a small book on the live shelf,
+- keeps the existing deterministic live color RNG,
 - works as a large forced-open demo,
 - has no square border,
 - has no straight orange bars,
@@ -201,7 +236,7 @@ Showcase bar:
 
 ## Tests And Verification
 
-Status: pending
+Status: done
 
 Run after the final visual pass:
 
@@ -216,9 +251,23 @@ Run after the final visual pass:
 
 Keep the app running locally at the end so the final design can be reviewed in the browser.
 
+Completed:
+
+- `npm run css:build`
+- `dotnet build .\BlazorAutoApp.sln`
+- `dotnet test .\BlazorAutoApp.sln --no-build`
+- headed visual snapshot E2E
+- headed Books E2E desktop
+- headed Books E2E mobile `390 x 844`
+- `dotnet format --verify-no-changes --verbosity minimal --no-restore`
+- `git diff --check`
+- E2E cleanup query returned `0 rows`
+
+The app is running at `http://127.0.0.1:5099`.
+
 ## Non-Goals
 
-Status: pending
+Status: done
 
 - Do not add bitmap images.
 - Do not add a new design demo framework.

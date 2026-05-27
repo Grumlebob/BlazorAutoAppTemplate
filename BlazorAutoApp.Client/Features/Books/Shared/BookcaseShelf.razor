@@ -26,7 +26,7 @@
         var shelfItems = BuildShelfItems();
 
         <div class="overflow-hidden">
-            <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-2 pt-6 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto [&::-webkit-scrollbar]:hidden"
+            <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-3 pt-8 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto sm:pt-10 [&::-webkit-scrollbar]:hidden"
                  tabindex="0"
                  aria-label="@($"{Title} scrollable shelf")">
                 <div class="@ShelfTrackClass">
@@ -102,8 +102,8 @@
     public RenderFragment? Actions { get; set; }
 
     private string ShelfTrackClass => AutoScroll
-        ? "flex w-max gap-[0.85rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.1rem]"
-        : "flex w-max gap-[0.85rem] sm:gap-[1.1rem]";
+        ? "flex w-max gap-[1.5rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.9rem]"
+        : "flex w-max gap-[1.5rem] sm:gap-[1.9rem]";
 
     private IReadOnlyList<BookcaseBook> BuildShelfItems()
     {
