@@ -80,7 +80,7 @@
   changed_when: false
 
 - name: Wait for Redis to become ready
-  ansible.builtin.command: docker compose exec -T redis redis-cli -a {{ vault_redis_password }} ping
+  ansible.builtin.command: docker compose exec -T redis redis-cli --no-auth-warning -a {{ vault_redis_password }} ping
   args:
     chdir: "{{ deploy_root }}"
   become: true

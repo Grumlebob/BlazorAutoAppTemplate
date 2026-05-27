@@ -40,7 +40,7 @@ ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROO
 
 echo "checking database node"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
-ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && set -a && . ./.env && set +a && docker compose ps --services --filter status=running | grep -qx postgres && docker compose ps --services --filter status=running | grep -qx redis && docker compose exec -T postgres pg_isready -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" && docker compose exec -T redis redis-cli -a \"\$REDIS_PASSWORD\" ping | grep -qx PONG"
+ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && set -a && . ./.env && set +a && docker compose ps --services --filter status=running | grep -qx postgres && docker compose ps --services --filter status=running | grep -qx redis && docker compose exec -T postgres pg_isready -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" && docker compose exec -T redis redis-cli --no-auth-warning -a \"\$REDIS_PASSWORD\" ping | grep -qx PONG"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose exec -T postgres postgres --version | grep -q 'PostgreSQL 18\\.4' && docker compose exec -T redis redis-server --version | grep -q 'v=8\\.8\\.0'"
 
 echo "checking load balancer for ${PUBLIC_HOSTNAME}"

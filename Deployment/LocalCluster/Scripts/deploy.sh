@@ -15,6 +15,8 @@ EXTRA_ARGS=(-e "app_version=$APP_VERSION")
 RUN_MIGRATIONS=false
 RESET_DATABASE=false
 RESET_NODE_DB_VOLUMES=false
+RESET_CONFIRMATION=""
+RESET_NODE_DB_VOLUMES_CONFIRMATION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,17 +34,12 @@ while [[ $# -gt 0 ]]; do
     --reset-db)
       [[ $# -ge 2 ]] || usage
       RESET_CONFIRMATION="$2"
-      EXTRA_ARGS+=(-e "reset_database=true" -e "reset_database_confirmation=$RESET_CONFIRMATION")
       RESET_DATABASE=true
       shift 2
       ;;
     --reset-node-db-volumes)
       [[ $# -ge 2 ]] || usage
       RESET_NODE_DB_VOLUMES_CONFIRMATION="$2"
-      EXTRA_ARGS+=(
-        -e "reset_node_db_volumes=true"
-        -e "reset_node_db_volumes_confirmation=$RESET_NODE_DB_VOLUMES_CONFIRMATION"
-      )
       RESET_NODE_DB_VOLUMES=true
       shift 2
       ;;
@@ -62,9 +59,16 @@ if [[ "$RESET_NODE_DB_VOLUMES" == true && "$RUN_MIGRATIONS" != true ]]; then
   exit 1
 fi
 
-if [[ "$RESET_NODE_DB_VOLUMES" == true && "$RESET_DATABASE" == true ]]; then
-  echo "--reset-node-db-volumes replaces --reset-db; use only one reset mode" >&2
-  exit 1
+if [[ "$RESET_NODE_DB_VOLUMES" == true ]]; then
+  if [[ "$RESET_DATABASE" == true ]]; then
+    echo "--reset-node-db-volumes is set; --reset-db will be ignored." >&2
+  fi
+  EXTRA_ARGS+=(
+    -e "reset_node_db_volumes=true"
+    -e "reset_node_db_volumes_confirmation=$RESET_NODE_DB_VOLUMES_CONFIRMATION"
+  )
+elif [[ "$RESET_DATABASE" == true ]]; then
+  EXTRA_ARGS+=(-e "reset_database=true" -e "reset_database_confirmation=$RESET_CONFIRMATION")
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

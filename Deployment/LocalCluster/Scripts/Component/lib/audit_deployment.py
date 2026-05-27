@@ -784,6 +784,9 @@ for needle, why in [
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
+    ("schema_only_reset_confirmation", "clear schema-only reset workflow input"),
+    ("postgres18_redis8_volume_reset_confirmation", "clear PostgreSQL 18 and Redis 8 reset workflow input"),
+    ("Leave empty for PostgreSQL/Redis 18/8 volume reset", "schema-only reset helper text"),
     ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
     ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation"),
     ("postgres18-redis8-reset", "explicit PostgreSQL 18 and Redis 8 reset token"),
@@ -923,6 +926,7 @@ for path, checks in {
         ("reset_node_db_volumes_confirmation == app_name ~ '/postgres18-redis8-reset'", "guarded destructive node-db reset confirmation"),
         ("docker compose down -v", "destructive node-db volume reset command"),
         ("docker compose up -d --pull always", "pull and start pinned database images"),
+        ("redis-cli --no-auth-warning -a", "Redis readiness auth warning suppression"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
         ("http://{{ public_hostname }}", "hostname-based Caddy listener for side-by-side apps"),
@@ -1007,6 +1011,7 @@ for path, checks in {
         ("--services --filter status=running", "running compose service checks"),
         ("pg_isready", "PostgreSQL health check"),
         ("redis-cli", "Redis health check"),
+        ("--no-auth-warning", "Redis auth warning suppression"),
         ("PostgreSQL 18", "PostgreSQL 18 version check"),
         ("v=8", "Redis 8 version check"),
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
@@ -1132,7 +1137,7 @@ for needle, why in [
     ("--reset-node-db-volumes", "destructive node-db reset CLI option"),
     ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
     ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation forwarding"),
-    ("--reset-node-db-volumes replaces --reset-db", "mutually exclusive reset modes"),
+    ("--reset-node-db-volumes is set; --reset-db will be ignored.", "node-db volume reset precedence"),
 ]:
     require_contains("Deployment/LocalCluster/Scripts/deploy.sh", needle, why)
 

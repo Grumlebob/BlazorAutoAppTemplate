@@ -11,13 +11,13 @@ on:
         options:
           - "true"
           - "false"
-      reset_database_confirmation:
-        description: "Optional disposable DB reset confirmation token: <app-name>/<database-name>"
+      schema_only_reset_confirmation:
+        description: "Optional schema-only DB reset. Leave empty for PostgreSQL/Redis 18/8 volume reset."
         required: false
         default: ""
         type: string
-      reset_node_db_volumes_confirmation:
-        description: "Optional destructive PostgreSQL/Redis volume reset token: <app-name>/postgres18-redis8-reset"
+      postgres18_redis8_volume_reset_confirmation:
+        description: "Use for destructive PostgreSQL 18 + Redis 8 volume reset. Example: ship/postgres18-redis8-reset"
         required: false
         default: ""
         type: string
@@ -71,24 +71,23 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate database reset input
-        if: inputs.reset_database_confirmation != '' && inputs.run_migrations != 'true'
+        if: inputs.schema_only_reset_confirmation != '' && inputs.run_migrations != 'true'
         run: |
-          echo "reset_database_confirmation can only be used when run_migrations is true." >&2
+          echo "schema_only_reset_confirmation can only be used when run_migrations is true." >&2
           exit 1
 
       - name: Validate node-db volume reset input
-        if: inputs.reset_node_db_volumes_confirmation != ''
+        if: inputs.postgres18_redis8_volume_reset_confirmation != ''
         env:
           RUN_MIGRATIONS: ${{ inputs.run_migrations }}
-          RESET_DATABASE_CONFIRMATION: ${{ inputs.reset_database_confirmation }}
+          SCHEMA_ONLY_RESET_CONFIRMATION: ${{ inputs.schema_only_reset_confirmation }}
         run: |
           if [ "${RUN_MIGRATIONS}" != "true" ]; then
-            echo "reset_node_db_volumes_confirmation can only be used when run_migrations is true." >&2
+            echo "postgres18_redis8_volume_reset_confirmation can only be used when run_migrations is true." >&2
             exit 1
           fi
-          if [ -n "${RESET_DATABASE_CONFIRMATION}" ]; then
-            echo "reset_node_db_volumes_confirmation replaces reset_database_confirmation; use only one reset mode." >&2
-            exit 1
+          if [ -n "${SCHEMA_ONLY_RESET_CONFIRMATION}" ]; then
+            echo "postgres18_redis8_volume_reset_confirmation is set; schema_only_reset_confirmation will be ignored."
           fi
 
       - name: Require successful CI for this commit
@@ -141,20 +140,20 @@ jobs:
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
         env:
-          RESET_DATABASE_CONFIRMATION: ${{ inputs.reset_database_confirmation }}
-          RESET_NODE_DB_VOLUMES_CONFIRMATION: ${{ inputs.reset_node_db_volumes_confirmation }}
+          SCHEMA_ONLY_RESET_CONFIRMATION: ${{ inputs.schema_only_reset_confirmation }}
+          POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION: ${{ inputs.postgres18_redis8_volume_reset_confirmation }}
         run: |
           RESET_ARGS=()
-          if [ -n "${RESET_DATABASE_CONFIRMATION}" ]; then
+          if [ -n "${SCHEMA_ONLY_RESET_CONFIRMATION}" ]; then
             RESET_ARGS=(
               -e reset_database=true
-              -e "reset_database_confirmation=${RESET_DATABASE_CONFIRMATION}"
+              -e "reset_database_confirmation=${SCHEMA_ONLY_RESET_CONFIRMATION}"
             )
           fi
-          if [ -n "${RESET_NODE_DB_VOLUMES_CONFIRMATION}" ]; then
+          if [ -n "${POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION}" ]; then
             RESET_ARGS=(
               -e reset_node_db_volumes=true
-              -e "reset_node_db_volumes_confirmation=${RESET_NODE_DB_VOLUMES_CONFIRMATION}"
+              -e "reset_node_db_volumes_confirmation=${POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION}"
             )
           fi
 
