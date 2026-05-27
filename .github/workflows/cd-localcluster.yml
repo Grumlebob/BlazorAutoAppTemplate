@@ -11,16 +11,6 @@ on:
         options:
           - "true"
           - "false"
-      schema_only_reset_confirmation:
-        description: "Optional schema-only DB reset token: <app-name>/<postgres-database-name>. Example: ship/ship. Leave empty for PostgreSQL/Redis 18/8 volume reset."
-        required: false
-        default: ""
-        type: string
-      postgres18_redis8_volume_reset_confirmation:
-        description: "Use for destructive PostgreSQL 18 + Redis 8 volume reset. Example: ship/postgres18-redis8-reset"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   actions: read
@@ -69,26 +59,6 @@ jobs:
             echo "Expected app runner label:"
             bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Validate database reset input
-        if: inputs.schema_only_reset_confirmation != '' && inputs.run_migrations != 'true'
-        run: |
-          echo "schema_only_reset_confirmation can only be used when run_migrations is true." >&2
-          exit 1
-
-      - name: Validate node-db volume reset input
-        if: inputs.postgres18_redis8_volume_reset_confirmation != ''
-        env:
-          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
-          SCHEMA_ONLY_RESET_CONFIRMATION: ${{ inputs.schema_only_reset_confirmation }}
-        run: |
-          if [ "${RUN_MIGRATIONS}" != "true" ]; then
-            echo "postgres18_redis8_volume_reset_confirmation can only be used when run_migrations is true." >&2
-            exit 1
-          fi
-          if [ -n "${SCHEMA_ONLY_RESET_CONFIRMATION}" ]; then
-            echo "postgres18_redis8_volume_reset_confirmation is set; schema_only_reset_confirmation will be ignored."
-          fi
 
       - name: Require successful CI for this commit
         env:
@@ -139,32 +109,14 @@ jobs:
       - name: Deploy with migrations
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
-        env:
-          SCHEMA_ONLY_RESET_CONFIRMATION: ${{ inputs.schema_only_reset_confirmation }}
-          POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION: ${{ inputs.postgres18_redis8_volume_reset_confirmation }}
         run: |
-          RESET_ARGS=()
-          if [ -n "${SCHEMA_ONLY_RESET_CONFIRMATION}" ]; then
-            RESET_ARGS=(
-              -e reset_database=true
-              -e "reset_database_confirmation=${SCHEMA_ONLY_RESET_CONFIRMATION}"
-            )
-          fi
-          if [ -n "${POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION}" ]; then
-            RESET_ARGS=(
-              -e reset_node_db_volumes=true
-              -e "reset_node_db_volumes_confirmation=${POSTGRES18_REDIS8_VOLUME_RESET_CONFIRMATION}"
-            )
-          fi
-
           bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
-            -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}" \
-            "${RESET_ARGS[@]}"
+            -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Deploy without migrations
         if: inputs.run_migrations == 'false'

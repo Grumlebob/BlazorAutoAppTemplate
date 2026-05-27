@@ -1118,13 +1118,9 @@ Inputs:
 
 ```text
 run_migrations: true
-schema_only_reset_confirmation: leave empty, or use <app_name>/<postgres_database_name> for a disposable schema reset, for example ship/ship
-postgres18_redis8_volume_reset_confirmation: leave empty, or use <app_name>/postgres18-redis8-reset for an approved destructive PostgreSQL/Redis volume reset
 ```
 
 Use `run_migrations: true` for the first deployment and for commits that include EF migrations. Use `false` only when the database schema is already current for the selected image.
-
-Use only one reset input at a time. For the current template app, a schema-only reset token is typically `ship/ship` when `app_name` is `ship` and `vault_postgres_db` is `ship`. The PostgreSQL/Redis volume reset token is different: `ship/postgres18-redis8-reset`.
 
 Leave the branch selector on `main`. The workflow rejects non-main refs, checks that CI passed for the selected commit, verifies that `<app_image>:<selected-commit-sha>` exists, downloads the migration bundle from that CI run when migrations are enabled, and deploys that image.
 
@@ -1238,7 +1234,7 @@ The production deployment order is:
 ```text
 1. Build and push the app image.
 2. Apply this app's firewall rules.
-3. Stop both app containers when migrations or stateful reset work is enabled.
+3. Stop both app containers when migrations are enabled.
 4. Render and start PostgreSQL and Redis.
 5. Deploy Caddy and cloudflared.
 6. Create and verify a database backup when migrations are enabled.
@@ -1260,29 +1256,7 @@ set +a
 ./migrations/<migration_bundle_name> --connection "Host=localhost;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 ```
 
-If a template database is disposable and a squashed fresh initial migration fails with an error such as `42P07: relation "AspNetRoles" already exists`, reset that database before rerunning the bundle. This is only for a throwaway database with no real data.
-
-From a control machine or runner with Ansible, vault access, and the deploy key:
-
-```bash
-bash Deployment/LocalCluster/Scripts/deploy.sh <git-sha> \
-  --migrate artifacts/migrations/<migration_bundle_name> \
-  --reset-db <app_name>/<postgres_database_name>
-```
-
-The reset command stops app containers first, creates a backup, refuses to run unless the confirmation token matches the deployed app/database, recreates the database, and immediately runs the migration bundle.
-
-For an approved disposable PostgreSQL/Redis major runtime upgrade, reset the whole node-db Compose project instead of only recreating the database. This destroys the PostgreSQL and Redis Docker volumes, so all database rows, Redis cache entries, Redis-backed Data Protection keys, and existing login cookies are discarded.
-
-Use only the explicit major-upgrade token:
-
-```bash
-bash Deployment/LocalCluster/Scripts/deploy.sh <git-sha> \
-  --migrate artifacts/migrations/<migration_bundle_name> \
-  --reset-node-db-volumes <app_name>/postgres18-redis8-reset
-```
-
-The node-db volume reset path stops app containers first, refuses to run unless the confirmation token matches the deployed app, runs `docker compose down -v` for the node-db project, starts fresh PostgreSQL 18 and Redis 8 containers, runs the migration bundle, then starts the app nodes.
+Deployment does not expose database reset controls. If you intentionally need to discard production database or Redis state, do that as a separate, explicit infrastructure maintenance task outside the normal app deployment workflow.
 
 ## Reference: Optional Cloudflare API Helper
 

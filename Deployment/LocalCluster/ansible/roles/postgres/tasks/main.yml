@@ -32,29 +32,7 @@
     mode: "0750"
   loop:
     - backup-db.sh
-    - reset-db.sh
     - restore-db.sh
-
-- name: Require destructive node-db volume reset confirmation
-  ansible.builtin.assert:
-    that:
-      - reset_node_db_volumes_confirmation is defined
-      - reset_node_db_volumes_confirmation == app_name ~ '/postgres18-redis8-reset'
-    fail_msg: "Pass -e reset_node_db_volumes=true -e reset_node_db_volumes_confirmation={{ app_name }}/postgres18-redis8-reset to discard PostgreSQL and Redis volumes."
-  when: reset_node_db_volumes | default(false) | bool
-
-- name: Reset PostgreSQL and Redis Docker volumes for approved major upgrade
-  ansible.builtin.command: docker compose down -v
-  args:
-    chdir: "{{ deploy_root }}"
-  become: true
-  become_user: deploy
-  register: postgres_node_db_volume_reset
-  changed_when: >-
-    postgres_node_db_volume_reset.rc == 0
-    and ((postgres_node_db_volume_reset.stdout ~ postgres_node_db_volume_reset.stderr)
-    is search("(?i)(removed|volume|container|network)"))
-  when: reset_node_db_volumes | default(false) | bool
 
 - name: Start PostgreSQL and Redis
   ansible.builtin.command: docker compose up -d --pull always

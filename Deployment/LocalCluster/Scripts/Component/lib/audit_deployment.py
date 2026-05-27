@@ -53,7 +53,12 @@ def tracked_files() -> set[str]:
     except (OSError, subprocess.CalledProcessError) as exc:
         fail(f"unable to inspect tracked files with git ls-files: {exc}")
         return set()
-    return {line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()}
+    paths: set[str] = set()
+    for line in result.stdout.splitlines():
+        path = line.strip().replace("\\", "/")
+        if path and (ROOT / path).exists():
+            paths.add(path)
+    return paths
 
 
 def deployment_text_files() -> list[Path]:
@@ -126,7 +131,6 @@ required_files = [
     "Deployment/LocalCluster/Scripts/Component/lib/validate-deploy-settings.py",
     "Deployment/LocalCluster/Scripts/Component/lib/validate-vault.py",
     "Deployment/LocalCluster/Scripts/Component/node-db/backup-db.sh",
-    "Deployment/LocalCluster/Scripts/Component/node-db/reset-db.sh",
     "Deployment/LocalCluster/Scripts/Component/node-db/restore-db.sh",
     "Deployment/LocalCluster/Scripts/preflight.sh",
     "Deployment/LocalCluster/Scripts/prepare-existing-localcluster-app.sh",
@@ -785,13 +789,6 @@ for needle, why in [
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
-    ("schema_only_reset_confirmation", "clear schema-only reset workflow input"),
-    ("postgres18_redis8_volume_reset_confirmation", "clear PostgreSQL 18 and Redis 8 reset workflow input"),
-    ("Example: ship/ship", "schema-only reset example"),
-    ("Leave empty for PostgreSQL/Redis 18/8 volume reset", "schema-only reset helper text"),
-    ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
-    ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation"),
-    ("postgres18-redis8-reset", "explicit PostgreSQL 18 and Redis 8 reset token"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("app_version=${APP_VERSION}", "selected-ref image deployment"),
     ("source_repo_url=${SOURCE_REPO_URL}", "source repository marker metadata"),
@@ -923,10 +920,7 @@ for path, checks in {
         ("compose/node-db/docker-compose.yml", "node-db compose source"),
         ("node-db.env.j2", "node-db env template"),
         ("backup-db.sh", "backup helper copy"),
-        ("reset-db.sh", "reset helper copy"),
         ("restore-db.sh", "restore helper copy"),
-        ("reset_node_db_volumes_confirmation == app_name ~ '/postgres18-redis8-reset'", "guarded destructive node-db reset confirmation"),
-        ("docker compose down -v", "destructive node-db volume reset command"),
         ("docker compose up -d --pull always", "pull and start pinned database images"),
         ("-e REDISCLI_AUTH redis redis-cli ping", "Redis readiness forwards environment authentication"),
         ("REDISCLI_AUTH: \"{{ vault_redis_password }}\"", "Redis readiness receives password through environment"),
@@ -1090,14 +1084,6 @@ for path, checks in {
         ("backup path:", "backup path output"),
         ("backup verification ok", "backup verification success line"),
     ],
-    "Deployment/LocalCluster/Scripts/Component/node-db/reset-db.sh": [
-        ("--confirm", "explicit reset confirmation argument"),
-        ("${APP_NAME}/${POSTGRES_DB}", "app/database confirmation token"),
-        ("./backup-db.sh", "backup before reset"),
-        ("DROP DATABASE IF EXISTS", "database drop"),
-        ("CREATE DATABASE", "database recreate"),
-        ("database reset complete", "reset completion line"),
-    ],
     "Deployment/LocalCluster/Scripts/Component/node-db/restore-db.sh": [
         ("--confirm", "explicit restore confirmation argument"),
         ("${APP_NAME}/${POSTGRES_DB}", "app/database confirmation token"),
@@ -1153,10 +1139,9 @@ require_contains(
     "manual deploy node-main lock wrapper",
 )
 for needle, why in [
-    ("--reset-node-db-volumes", "destructive node-db reset CLI option"),
-    ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
-    ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation forwarding"),
-    ("--reset-node-db-volumes is set; --reset-db will be ignored.", "node-db volume reset precedence"),
+    ("--migrate", "migration bundle CLI option"),
+    ("run_migrations=true", "migration Ansible switch"),
+    ("migration_bundle_local_path", "migration bundle forwarding"),
 ]:
     require_contains("Deployment/LocalCluster/Scripts/deploy.sh", needle, why)
 

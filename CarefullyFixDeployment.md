@@ -119,15 +119,13 @@ Status: Completed
 
 - After pushing the fix and waiting for CI, rerun CD from `main`.
 - Use `run_migrations: false` if the previous deployment already ran migrations and only acceptance failed.
-- Leave both reset inputs empty unless a fresh database reset is intentionally required.
-- If using the schema-only reset later, use `ship/ship`.
-- If using the destructive PostgreSQL/Redis reset later, use `ship/postgres18-redis8-reset`.
+- Leave reset inputs empty. The CD workflow no longer exposes database reset controls after the PostgreSQL/Redis 18 upgrade cleanup.
 - Confirm the acceptance log reaches:
 
   ```text
   acceptance check ok
   ```
-- Result: retry guidance is recorded. Since the previous CD already got through app/database startup and failed only in acceptance, prefer `run_migrations: false` and leave reset inputs empty for the next retry unless a new migration or intentional reset is needed.
+- Result: retry guidance is recorded. Since the previous CD already got through app/database startup and failed only in acceptance, prefer `run_migrations: false` for the next retry unless a new migration is needed.
 
 ## Phase 7 - Follow-Up Cleanup
 

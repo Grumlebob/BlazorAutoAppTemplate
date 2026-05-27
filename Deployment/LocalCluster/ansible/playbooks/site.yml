@@ -5,7 +5,7 @@
   roles:
     - firewall
 
-- name: Stop app containers before migration or stateful reset
+- name: Stop app containers before migration
   hosts: app_servers
   become: true
   tasks:
@@ -26,10 +26,7 @@
         and ((site_app_stack_down.stdout ~ site_app_stack_down.stderr)
         is search("(?i)(removed|stopped)"))
       when:
-        - >-
-          (run_migrations | default(false) | bool)
-          or (reset_database | default(false) | bool)
-          or (reset_node_db_volumes | default(false) | bool)
+        - run_migrations | default(false) | bool
         - site_app_compose_file.stat.exists
 
 - name: Deploy PostgreSQL and Redis
@@ -64,14 +61,6 @@
         fail_msg: "Pass -e run_migrations=true -e migration_bundle_local_path=<local path to migration bundle>."
       when: run_migrations | default(false) | bool
 
-    - name: Require database reset confirmation when reset is enabled
-      ansible.builtin.assert:
-        that:
-          - reset_database_confirmation is defined
-          - reset_database_confirmation | length > 0
-        fail_msg: "Pass -e reset_database=true -e reset_database_confirmation=<app-name>/<database-name>."
-      when: reset_database | default(false) | bool
-
     - name: Ensure migration directory exists
       ansible.builtin.file:
         path: "{{ deploy_root }}/migrations"
@@ -105,21 +94,7 @@
         chdir: "{{ deploy_root }}"
       become: true
       become_user: deploy
-      when: >-
-        (run_migrations | default(false) | bool)
-        or (reset_database | default(false) | bool)
-
-    - name: Reset disposable database before migration
-      ansible.builtin.command:
-        argv:
-          - ./reset-db.sh
-          - --skip-backup
-          - --confirm
-          - "{{ reset_database_confirmation }}"
-        chdir: "{{ deploy_root }}"
-      become: true
-      become_user: deploy
-      when: reset_database | default(false) | bool
+      when: run_migrations | default(false) | bool
 
     - name: Run migration bundle
       ansible.builtin.shell: |
