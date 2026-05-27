@@ -13,7 +13,7 @@ public class BooksClientService(HttpClient http) : IBooksApi
 {
     private readonly HttpClient _http = http;
 
-    public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
+    public async Task<GetBooksResponse> GetAsync(CancellationToken cancellationToken = default)
     {
         var res = await _http.GetFromJsonAsync<GetBooksResponse>("api/books", cancellationToken);
         return res ?? new GetBooksResponse { Books = [] };
@@ -33,14 +33,14 @@ public class BooksClientService(HttpClient http) : IBooksApi
 
     public async Task<CreateBookResponse> CreateAsync(CreateBookRequest req, CancellationToken cancellationToken = default)
     {
-        var res = await _http.PostAsJsonAsync("api/books", req, cancellationToken);
+        using var res = await _http.PostAsJsonAsync("api/books", req, cancellationToken);
         res.EnsureSuccessStatusCode();
         return (await res.Content.ReadFromJsonAsync<CreateBookResponse>(cancellationToken))!;
     }
 
     public async Task<bool> UpdateAsync(UpdateBookRequest req, CancellationToken cancellationToken = default)
     {
-        var res = await _http.PutAsJsonAsync($"api/books/{req.Id}", req, cancellationToken);
+        using var res = await _http.PutAsJsonAsync($"api/books/{req.Id}", req, cancellationToken);
         if (res.StatusCode == HttpStatusCode.NoContent) return true;
         if (res.StatusCode == HttpStatusCode.NotFound) return false;
         res.EnsureSuccessStatusCode();
@@ -49,7 +49,7 @@ public class BooksClientService(HttpClient http) : IBooksApi
 
     public async Task<bool> DeleteAsync(DeleteBookRequest req, CancellationToken cancellationToken = default)
     {
-        var res = await _http.DeleteAsync($"api/books/{req.Id}", cancellationToken);
+        using var res = await _http.DeleteAsync($"api/books/{req.Id}", cancellationToken);
         if (res.StatusCode == HttpStatusCode.NoContent) return true;
         if (res.StatusCode == HttpStatusCode.NotFound) return false;
         res.EnsureSuccessStatusCode();

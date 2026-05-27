@@ -27,7 +27,7 @@ internal class BooksServerService(
     private readonly ICurrentUserAccessor _currentUser = currentUser;
     private readonly ILogger<BooksServerService> _logger = logger;
 
-    public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
+    public async Task<GetBooksResponse> GetAsync(CancellationToken cancellationToken = default)
     {
         var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         var key = BooksCacheKeys.List(userId);

@@ -47,13 +47,12 @@ public static class BookEndpoints
     }
 
     private static async Task<Ok<GetBooksResponse>> ListBooksAsync(
-        [AsParameters] GetBooksRequest req,
         IBooksApi books,
         ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         log.LogDebug("Listing books");
-        var result = await books.GetAsync(req, cancellationToken);
+        var result = await books.GetAsync(cancellationToken);
         return TypedResults.Ok(result);
     }
 

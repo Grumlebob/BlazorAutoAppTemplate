@@ -2,7 +2,6 @@ using System.Security.Claims;
 using BlazorAutoApp.Features.Login.Account;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BlazorAutoApp.Features.Books.Services;
 
@@ -13,9 +12,11 @@ internal interface ICurrentUserAccessor
 
 internal sealed class CurrentUserAccessor(
     IHttpContextAccessor httpContextAccessor,
-    IServiceProvider serviceProvider,
+    IEnumerable<AuthenticationStateProvider> authenticationStateProviders,
     UserManager<ApplicationUser> userManager) : ICurrentUserAccessor
 {
+    private readonly AuthenticationStateProvider? _authenticationStateProvider = authenticationStateProviders.FirstOrDefault();
+
     public async ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default)
     {
         var principal = httpContextAccessor.HttpContext?.User;
@@ -23,10 +24,9 @@ internal sealed class CurrentUserAccessor(
         if (string.IsNullOrWhiteSpace(userId))
         {
             // Interactive component calls may not have a useful HttpContext principal.
-            var authenticationStateProvider = serviceProvider.GetService<AuthenticationStateProvider>();
-            if (authenticationStateProvider is not null)
+            if (_authenticationStateProvider is not null)
             {
-                var authenticationState = await authenticationStateProvider.GetAuthenticationStateAsync();
+                var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
                 principal = authenticationState.User;
                 userId = GetUserId(principal);
             }

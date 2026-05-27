@@ -8,7 +8,7 @@ namespace BlazorAutoApp.Core.Features.Books.Contracts;
 
 public interface IBooksApi
 {
-    Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default);
+    Task<GetBooksResponse> GetAsync(CancellationToken cancellationToken = default);
     Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default);
     Task<CreateBookResponse> CreateAsync(CreateBookRequest req, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(UpdateBookRequest req, CancellationToken cancellationToken = default);

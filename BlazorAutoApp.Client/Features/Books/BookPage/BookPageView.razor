@@ -13,7 +13,7 @@
                tabindex="0"
                data-testid="book-delete"
                aria-label="@DeleteLabel"
-               @onclick="OnDelete"
+               @onclick="OnDeleteRequest"
                @onkeydown="HandleDeleteKeyDown">
                 @TrashIcon(DeleteControlX)
             </g>
@@ -35,7 +35,32 @@
         </g>
     </MainContent>
     <LowerContent>
-        @if (HasUrl)
+        @if (IsDeleteConfirming)
+        {
+            <foreignObject x="127" y="524" width="306" height="88">
+                <div xmlns="http://www.w3.org/1999/xhtml"
+                     class="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-4 text-center shadow-sm">
+                    <div class="text-[0.82rem] font-semibold leading-tight text-red-700">Delete this book?</div>
+                    <div class="flex gap-2">
+                        <button data-testid="book-delete-confirm"
+                                class="inline-flex h-8 items-center rounded-full border border-red-200 bg-red-50/95 px-4 text-sm font-bold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                type="button"
+                                disabled="@IsDeleteBusy"
+                                @onclick="OnDeleteConfirm">
+                            @(IsDeleteBusy ? "Deleting" : "Confirm")
+                        </button>
+                        <button data-testid="book-delete-cancel"
+                                class="inline-flex h-8 items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                type="button"
+                                disabled="@IsDeleteBusy"
+                                @onclick="OnDeleteCancel">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </foreignObject>
+        }
+        else if (HasUrl)
         {
             <a href="@Url" target="_blank" rel="noopener noreferrer" data-testid="book-url-link" aria-label="@SiteLabel">
                 @SiteAction("Go to site", "#eff6ff", "#bfdbfe", "#dbeafe", "#1d4ed8")
@@ -70,7 +95,19 @@
     public bool CanDelete { get; set; }
 
     [Parameter]
-    public EventCallback OnDelete { get; set; }
+    public bool IsDeleteConfirming { get; set; }
+
+    [Parameter]
+    public bool IsDeleteBusy { get; set; }
+
+    [Parameter]
+    public EventCallback OnDeleteRequest { get; set; }
+
+    [Parameter]
+    public EventCallback OnDeleteConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnDeleteCancel { get; set; }
 
     private string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "Untitled" : Title.Trim();
 
@@ -166,7 +203,7 @@
     {
         if (args.Key is "Enter" or " ")
         {
-            await OnDelete.InvokeAsync();
+            await OnDeleteRequest.InvokeAsync();
         }
     }
 

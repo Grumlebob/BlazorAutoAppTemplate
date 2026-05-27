@@ -3,7 +3,7 @@
 @inject IBooksApi Books
 @inject NavigationManager Nav
 @inject UserBookcaseState UserBooks
-@inject IJSRuntime JS
+@inject Microsoft.Extensions.Logging.ILogger<BookModalHost> Logger
 
 @if (_request is not null)
 {
@@ -13,7 +13,7 @@
          aria-modal="true"
          aria-labelledby="book-modal-title"
          tabindex="-1"
-        data-testid="book-modal"
+         data-testid="book-modal"
          @onkeydown="HandleKeyDown">
         <div class="mx-auto flex min-h-full w-[min(calc(100vw-2rem),37rem)] flex-col items-center justify-start">
             @if (_loading)
@@ -43,7 +43,11 @@
                               EditHref="@UserEditHref"
                               CloseHref="/books"
                               CanDelete="@CanDelete"
-                              OnDelete="DeleteAsync" />
+                              IsDeleteConfirming="@_confirmingDelete"
+                              IsDeleteBusy="@_deleting"
+                              OnDeleteRequest="RequestDelete"
+                              OnDeleteConfirm="DeleteAsync"
+                              OnDeleteCancel="CancelDelete" />
             }
             else if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
@@ -68,8 +72,12 @@
     private BookPageEditorModel _editorModel = new();
     private bool _loading;
     private bool _saving;
+    private bool _deleting;
     private bool _focusPending;
+    private bool _confirmingDelete;
     private int _loadVersion;
+    private CancellationTokenSource? _loadCancellation;
+    private CancellationTokenSource? _operationCancellation;
     private string? _editorModelRequestKey;
     private string? _error;
     private string? _saveError;
@@ -106,18 +114,24 @@
 
     private async Task LoadFromUriAsync()
     {
-        var version = ++_loadVersion;
-        _request = BookModalRouteState.Parse(Nav.Uri);
+        var loadCancellation = StartLoad(out var version);
+        CancelActiveOperation();
+        var cancellationToken = loadCancellation.Token;
+        var request = BookModalRouteState.Parse(Nav.Uri);
+        _request = request;
         _viewModel = null;
         _error = null;
         _saveError = null;
         _saving = false;
+        _deleting = false;
+        _confirmingDelete = false;
 
-        if (_request is null)
+        if (request is null)
         {
             _loading = false;
             _editorModelRequestKey = null;
             StateHasChanged();
+            CompleteLoad(loadCancellation);
             return;
         }
 
@@ -127,9 +141,14 @@
 
         try
         {
-            if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
+            if (request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
                 var authState = await AuthenticationStateTask;
+                if (!IsCurrentLoad(version, cancellationToken))
+                {
+                    return;
+                }
+
                 if (authState.User.Identity?.IsAuthenticated != true)
                 {
                     var returnUrl = Uri.EscapeDataString(Nav.Uri);
@@ -138,34 +157,43 @@
                 }
             }
 
-            switch (_request)
+            switch (request)
             {
                 case { Source: BookModalSource.Author, AuthorBookId: not null }:
                     _editorModelRequestKey = null;
-                    LoadAuthorBook(_request.AuthorBookId.Value);
+                    LoadAuthorBook(request.AuthorBookId.Value);
                     break;
                 case { Source: BookModalSource.User, Mode: BookModalMode.Create }:
-                    EnsureCreateEditorModel(_request);
+                    EnsureCreateEditorModel(request);
                     break;
                 case { Source: BookModalSource.User, UserBookId: not null }:
-                    await LoadUserBookAsync(_request.UserBookId.Value);
+                    await LoadUserBookAsync(request.UserBookId.Value, request, version, cancellationToken);
                     break;
                 default:
                     _error = "This book link is invalid.";
                     break;
             }
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _error = "Book details could not be loaded.";
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrentLoad(version, cancellationToken))
+            {
+                Logger.LogWarning(ex, "Book modal load failed for {BookModalUri}", Nav.Uri);
+                _error = "Book details could not be loaded.";
+            }
         }
         finally
         {
-            if (version == _loadVersion)
+            if (IsCurrentLoad(version, cancellationToken))
             {
                 _loading = false;
                 StateHasChanged();
             }
+
+            CompleteLoad(loadCancellation);
         }
     }
 
@@ -187,18 +215,27 @@
         _viewModel = new BookModalViewModel(book.Title, book.Author, book.Url);
     }
 
-    private async Task LoadUserBookAsync(int id)
+    private async Task LoadUserBookAsync(
+        int id,
+        BookModalRouteState request,
+        int version,
+        CancellationToken cancellationToken)
     {
-        var response = await Books.GetByIdAsync(new GetBookRequest { Id = id });
+        var response = await Books.GetByIdAsync(new GetBookRequest { Id = id }, cancellationToken);
+        if (!IsCurrentLoad(version, cancellationToken))
+        {
+            return;
+        }
+
         if (response is null)
         {
             _error = "This book could not be found.";
             return;
         }
 
-        if (_request?.Mode is BookModalMode.Edit)
+        if (request.Mode is BookModalMode.Edit)
         {
-            var key = _request.EditorRequestKey;
+            var key = request.EditorRequestKey;
             if (!string.Equals(_editorModelRequestKey, key, StringComparison.Ordinal))
             {
                 _editorModel = new BookPageEditorModel
@@ -219,38 +256,56 @@
 
     private async Task SaveAsync(BookPageEditorModel model)
     {
-        if (_request is null)
+        if (_saving)
         {
             return;
         }
 
+        var request = _request;
+        if (request is null)
+        {
+            return;
+        }
+
+        var operation = StartOperation();
+        var cancellationToken = operation.Token;
         _saving = true;
         _saveError = null;
+        StateHasChanged();
+
         try
         {
-            if (_request.Mode is BookModalMode.Create)
+            if (request.Mode is BookModalMode.Create)
             {
                 var created = await Books.CreateAsync(new CreateBookRequest
                 {
                     Title = model.Title,
                     Author = NormalizeOptional(model.Author),
                     Url = NormalizeOptional(model.Url)
-                });
+                }, cancellationToken);
+                if (!IsCurrentOperation(operation))
+                {
+                    return;
+                }
 
                 UserBooks.ApplySavedBook(ToBookListItem(created));
             }
-            else if (_request is { Mode: BookModalMode.Edit, UserBookId: not null })
+            else if (request is { Mode: BookModalMode.Edit, UserBookId: not null })
             {
                 var title = model.Title.Trim();
                 var author = NormalizeOptional(model.Author);
                 var url = NormalizeOptional(model.Url);
                 var success = await Books.UpdateAsync(new UpdateBookRequest
                 {
-                    Id = _request.UserBookId.Value,
+                    Id = request.UserBookId.Value,
                     Title = title,
                     Author = author,
                     Url = url
-                });
+                }, cancellationToken);
+                if (!IsCurrentOperation(operation))
+                {
+                    return;
+                }
 
                 if (!success)
                 {
@@ -260,7 +315,7 @@
 
                 UserBooks.ApplySavedBook(new BookListItemResponse
                 {
-                    Id = _request.UserBookId.Value,
+                    Id = request.UserBookId.Value,
                     Title = title,
                     Author = author,
                     Url = url
@@ -269,37 +324,93 @@
 
             Nav.NavigateTo("/books");
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _saveError = "Book could not be saved.";
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrentOperation(operation))
+            {
+                Logger.LogWarning(ex, "Book save failed for {BookModalUri}", Nav.Uri);
+                _saveError = "Book could not be saved.";
+            }
         }
         finally
         {
-            _saving = false;
+            if (IsCurrentOperation(operation))
+            {
+                _saving = false;
+            }
+
+            CompleteOperation(operation);
         }
     }
 
+    private void RequestDelete()
+    {
+        if (CanDelete)
+        {
+            _confirmingDelete = true;
+        }
+    }
+
+    private void CancelDelete() => _confirmingDelete = false;
+
     private async Task DeleteAsync()
     {
-        if (_request is not { Source: BookModalSource.User, UserBookId: not null })
+        if (_deleting)
         {
             return;
         }
 
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this book?");
-        if (!confirmed)
+        var request = _request;
+        if (request is not { Source: BookModalSource.User, UserBookId: not null })
         {
             return;
         }
 
-        var deleted = await UserBooks.DeleteAsync(_request.UserBookId.Value);
-        if (deleted)
-        {
-            Nav.NavigateTo("/books");
-            return;
-        }
+        var operation = StartOperation();
+        var cancellationToken = operation.Token;
+        _deleting = true;
+        _error = null;
+        StateHasChanged();
 
-        _error = "Book could not be deleted.";
+        try
+        {
+            var deleted = await UserBooks.DeleteAsync(request.UserBookId.Value, cancellationToken);
+            if (!IsCurrentOperation(operation))
+            {
+                return;
+            }
+
+            if (deleted)
+            {
+                Nav.NavigateTo("/books");
+                return;
+            }
+
+            _error = "Book could not be deleted.";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrentOperation(operation))
+            {
+                Logger.LogWarning(ex, "Book delete failed for {BookModalUri}", Nav.Uri);
+                _error = "Book could not be deleted.";
+            }
+        }
+        finally
+        {
+            if (IsCurrentOperation(operation))
+            {
+                _deleting = false;
+            }
+
+            CompleteOperation(operation);
+        }
     }
 
     private void HandleKeyDown(KeyboardEventArgs args)
@@ -333,7 +444,79 @@
         Url = response.Url
     };
 
-    public void Dispose() => Nav.LocationChanged -= HandleLocationChanged;
+    private CancellationTokenSource StartLoad(out int version)
+    {
+        CancelActiveLoad();
+        var cancellation = new CancellationTokenSource();
+        _loadCancellation = cancellation;
+        version = Interlocked.Increment(ref _loadVersion);
+        return cancellation;
+    }
+
+    private bool IsCurrentLoad(int version, CancellationToken cancellationToken) =>
+        !cancellationToken.IsCancellationRequested && version == Volatile.Read(ref _loadVersion);
+
+    private void CompleteLoad(CancellationTokenSource loadCancellation)
+    {
+        if (ReferenceEquals(_loadCancellation, loadCancellation))
+        {
+            _loadCancellation = null;
+        }
+
+        loadCancellation.Dispose();
+    }
+
+    private void CancelActiveLoad()
+    {
+        var cancellation = _loadCancellation;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        _loadCancellation = null;
+        cancellation.Cancel();
+    }
+
+    private CancellationTokenSource StartOperation()
+    {
+        CancelActiveOperation();
+        var cancellation = new CancellationTokenSource();
+        _operationCancellation = cancellation;
+        return cancellation;
+    }
+
+    private bool IsCurrentOperation(CancellationTokenSource operation) =>
+        !operation.IsCancellationRequested && ReferenceEquals(_operationCancellation, operation);
+
+    private void CompleteOperation(CancellationTokenSource operation)
+    {
+        if (ReferenceEquals(_operationCancellation, operation))
+        {
+            _operationCancellation = null;
+        }
+
+        operation.Dispose();
+    }
+
+    private void CancelActiveOperation()
+    {
+        var cancellation = _operationCancellation;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        _operationCancellation = null;
+        cancellation.Cancel();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= HandleLocationChanged;
+        CancelActiveLoad();
+        CancelActiveOperation();
+    }
 
     private sealed record BookModalViewModel(string Title, string? Author, string? Url);
 }

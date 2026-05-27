@@ -54,7 +54,10 @@ internal static class AppCachingExtensions
         if (redis is not null)
         {
             services.AddSingleton(redis);
-            services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redis);
+            });
             healthChecks.AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
         }
         else

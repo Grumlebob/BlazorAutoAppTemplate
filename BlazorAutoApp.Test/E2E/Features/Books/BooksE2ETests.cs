@@ -136,8 +136,9 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await updatedBookLink.ClickAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
 
-            Page.Dialog += async (_, dialog) => await dialog.AcceptAsync();
             await Page.GetByTestId("book-delete").ClickAsync();
+            await Expect(Page.GetByTestId("book-delete-confirm")).ToBeVisibleAsync();
+            await Page.GetByTestId("book-delete-confirm").ClickAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });
             await ReloadAndWaitForBooksDocumentAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });
@@ -208,8 +209,9 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await updatedBookLink.ClickAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
 
-            Page.Dialog += async (_, dialog) => await dialog.AcceptAsync();
             await Page.GetByTestId("book-delete").ClickAsync();
+            await Expect(Page.GetByTestId("book-delete-confirm")).ToBeVisibleAsync();
+            await Page.GetByTestId("book-delete-confirm").ClickAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });
             await ReloadAndWaitForBooksDocumentAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });

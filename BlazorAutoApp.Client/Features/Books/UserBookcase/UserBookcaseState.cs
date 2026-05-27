@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BlazorAutoApp.Client.Features.Books.Shared;
 using BlazorAutoApp.Core.Features.Books.Contracts;
 using BlazorAutoApp.Core.Features.Books.UseCases.DeleteBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
@@ -27,6 +28,8 @@ public sealed class UserBookcaseState(
 
     public IReadOnlyList<BookListItemResponse> Books { get; private set; } = [];
 
+    public IReadOnlyList<BookcaseBook> ShelfBooks { get; private set; } = [];
+
     public async Task LoadForCurrentUserAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref _version);
@@ -44,7 +47,7 @@ public sealed class UserBookcaseState(
 
         try
         {
-            var response = await _books.GetAsync(new GetBooksRequest(), cancellationToken);
+            var response = await _books.GetAsync(cancellationToken);
             ApplyLoadResult(version, userId, response.Books);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -74,7 +77,7 @@ public sealed class UserBookcaseState(
             .OrderBy(book => book.Id)
             .ToList();
 
-        Books = next;
+        ApplyBooks(next);
         IsLoading = false;
         Error = null;
         NotifyChanged();
@@ -93,7 +96,7 @@ public sealed class UserBookcaseState(
 
             if (version == Volatile.Read(ref _version))
             {
-                Books = Books.Where(book => book.Id != id).ToList();
+                ApplyBooks(Books.Where(book => book.Id != id).ToList());
                 IsLoading = false;
                 Error = null;
                 NotifyChanged();
@@ -127,10 +130,16 @@ public sealed class UserBookcaseState(
         }
 
         CurrentUserId = userId;
-        Books = books.OrderBy(book => book.Id).ToList();
+        ApplyBooks(books.OrderBy(book => book.Id).ToList());
         Error = null;
         IsLoading = false;
         NotifyChanged();
+    }
+
+    private void ApplyBooks(IReadOnlyList<BookListItemResponse> books)
+    {
+        Books = books;
+        ShelfBooks = UserBookcaseBookMapper.ToBookcaseBooks(books);
     }
 
     private void NotifyChanged() => Changed?.Invoke();

@@ -24,6 +24,7 @@
     else
     {
         var shelfItems = BuildShelfItems();
+        var visibleItemCount = GetVisibleItemCount();
 
         <div class="overflow-hidden">
             <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-3 pt-8 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto sm:pt-10 [&::-webkit-scrollbar]:hidden"
@@ -36,7 +37,7 @@
                         for (var index = 0; index < shelfItems.Count; index++)
                         {
                             var book = shelfItems[index];
-                            var isRepeatedBook = index >= Books.Count;
+                            var isRepeatedBook = index >= visibleItemCount;
                             var isHiddenCopy = isDuplicate || isRepeatedBook;
                             var seed = BuildBookSeed(book, index, pass);
 
@@ -75,6 +76,8 @@
     private IReadOnlyList<BookcaseBook>? _cachedBooksSource;
     private IReadOnlyList<BookcaseBook> _cachedShelfItems = [];
     private bool _cachedAutoScroll;
+    private int _cachedAutoScrollMinItems;
+    private int _cachedAutoScrollMaxUniqueItems;
 
     [Parameter, EditorRequired]
     public required string Title { get; set; }
@@ -95,6 +98,12 @@
     public bool AutoScroll { get; set; } = true;
 
     [Parameter]
+    public int AutoScrollMinItems { get; set; } = BookcaseShelfItems.DefaultAutoScrollMinItems;
+
+    [Parameter]
+    public int AutoScrollMaxUniqueItems { get; set; } = BookcaseShelfItems.DefaultAutoScrollMaxUniqueItems;
+
+    [Parameter]
     public string EmptyMessage { get; set; } = "No books saved yet.";
 
     [Parameter]
@@ -112,6 +121,9 @@
 
     private int ShelfPassCount => AutoScroll ? 2 : 1;
 
+    private int GetVisibleItemCount() =>
+        BookcaseShelfItems.GetVisibleItemCount(Books.Count, AutoScroll, AutoScrollMaxUniqueItems);
+
     private IReadOnlyList<BookcaseBook> BuildShelfItems()
     {
         if (Books.Count == 0)
@@ -121,22 +133,23 @@
             return [];
         }
 
-        if (ReferenceEquals(_cachedBooksSource, Books) && _cachedAutoScroll == AutoScroll)
+        var minItems = BookcaseShelfItems.NormalizeItemCount(AutoScrollMinItems);
+        var maxUniqueItems = BookcaseShelfItems.NormalizeItemCount(AutoScrollMaxUniqueItems);
+
+        if (ReferenceEquals(_cachedBooksSource, Books) &&
+            _cachedAutoScroll == AutoScroll &&
+            _cachedAutoScrollMinItems == minItems &&
+            _cachedAutoScrollMaxUniqueItems == maxUniqueItems)
         {
             return _cachedShelfItems;
         }
 
-        var items = Books.ToList();
-        if (AutoScroll)
-        {
-            for (var i = 0; items.Count < 12; i++)
-            {
-                items.Add(Books[i % Books.Count]);
-            }
-        }
+        var items = BookcaseShelfItems.Build(Books, AutoScroll, minItems, maxUniqueItems);
 
         _cachedBooksSource = Books;
         _cachedAutoScroll = AutoScroll;
+        _cachedAutoScrollMinItems = minItems;
+        _cachedAutoScrollMaxUniqueItems = maxUniqueItems;
         _cachedShelfItems = items;
         return _cachedShelfItems;
     }
