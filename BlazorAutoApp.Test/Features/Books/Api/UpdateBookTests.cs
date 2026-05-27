@@ -18,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using BlazorAutoApp.Test.Features.Books.TestData;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Api;
 
 [Collection("IntegrationTestCollection")]
 public class UpdateBookTests : IAsyncLifetime, IDisposable

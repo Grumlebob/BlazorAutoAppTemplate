@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Api;
 
 internal static class ProblemDetailsAssert
 {

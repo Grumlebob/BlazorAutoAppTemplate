@@ -1,59 +1,13 @@
-<svg class="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]"
-     viewBox="0 0 216 247"
-     role="img"
-     aria-labelledby="@TitleId">
-    <title id="@TitleId">@DisplayTitle</title>
-    <defs>
-        <linearGradient id="@CoverGradientId" x1="12" x2="144" y1="22" y2="195" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="@Palette.Start" />
-            <stop offset="56%" stop-color="@Palette.Middle" />
-            <stop offset="100%" stop-color="@Palette.End" />
-        </linearGradient>
-        <linearGradient id="@PageGradientId" x1="105" x2="158" y1="108" y2="108" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="@Palette.PageStart" />
-            <stop offset="65%" stop-color="@Palette.PageMiddle" />
-            <stop offset="100%" stop-color="@Palette.PageEnd" />
-        </linearGradient>
-        @if (Design.Kind is BookCoverDesignKind.ClothHardback)
-        {
-            <pattern id="@ClothWeaveId" width="5" height="5" patternUnits="userSpaceOnUse">
-                <path d="M0 1h5M1 0v5" stroke="#ffffff" stroke-width="0.35" opacity="0.16" />
-            </pattern>
-        }
-    </defs>
-
-    <g transform="translate(7 10) scale(1.04)">
-        <ellipse cx="91" cy="205" rx="62" ry="7" fill="#111827" opacity="0.15" />
-
-        <g class="@PagesClass">
-            <g transform="@PageGeometryTransform">
-                <path d="@PagePath" fill="url(#@PageGradientId)" />
-                <path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
-                      stroke="@Palette.PageLine"
-                      stroke-width="1.2"
-                      stroke-linecap="round"
-                      opacity="0.5" />
-                <BookCoverPageTabs Kind="@Design.Kind" />
-            </g>
-        </g>
-
-        <g class="@CoverClass">
-            <path d="@CoverPath" fill="url(#@CoverGradientId)" />
-            @if (Design.Kind is BookCoverDesignKind.ClothHardback)
-            {
-                <path d="@CoverPath" fill="url(#@ClothWeaveId)" />
-            }
-
-            <BookCoverArtwork Kind="@Design.Kind" />
-            @TitlePlate()
-            @TitleTextMarkup
-        </g>
-    </g>
-</svg>
+<BookCoverRenderer Design="@Design"
+                   Theme="@Theme"
+                   TitleLines="@TitleLines"
+                   TitleY="@TitleY"
+                   TitleFontSize="@TitleFontSize"
+                   AccessibleTitle="@DisplayTitle"
+                   SvgClass="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]"
+                   ForcedOpen="@ForcedOpen" />
 
 @code {
-    private readonly string _id = Guid.NewGuid().ToString("N");
-
     [Parameter]
     public int Seed { get; set; }
 
@@ -75,11 +29,9 @@
     private BookCoverDesignDefinition Design =>
         BookCoverDesignCatalog.All[(int)(MixDesignSeed(unchecked(StableTitleSeed + StableSeed)) % (uint)BookCoverDesignCatalog.All.Count)];
 
-    private BookCoverPalette Palette => Palettes[(int)(StableSeed % (uint)Palettes.Length)];
+    private BookCoverTheme Theme => Themes[(int)(StableSeed % (uint)Themes.Length)];
 
     private IReadOnlyList<string> TitleLines => BookCoverTextLayout.TitleLines(DisplayTitle);
-
-    private BookCoverTitlePlate Plate => Design.Plate;
 
     private int TitleY => TitleLines.Count switch
     {
@@ -90,29 +42,7 @@
 
     private string TitleFontSize => TitleLines.Count >= 3 ? "10.5" : "11.5";
 
-    private string TitleId => $"book-cover-title-{_id}";
-
-    private string CoverGradientId => $"book-cover-gradient-{_id}";
-
-    private string PageGradientId => $"book-cover-pages-{_id}";
-
-    private string ClothWeaveId => $"book-cover-cloth-{_id}";
-
-    private const string PageGeometryTransform = "translate(-3 0)";
-
-    private string CoverPath => Design.CoverPath;
-
-    private string PagePath => Design.PagePath;
-
-    private string PagesClass => ForcedOpen
-        ? "translate-x-px -translate-y-[2px] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-visible:translate-x-px group-focus-visible:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
-
-    private string CoverClass => ForcedOpen
-        ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-visible:-translate-x-[1.5px] group-focus-visible:-translate-y-px group-focus-visible:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
-
-    private static readonly BookCoverPalette[] Palettes =
+    private static readonly BookCoverTheme[] Themes =
     [
         new("#2f6f82", "#1f4e5f", "#123342", "#f8fafc", "#e0f2fe", "#111827", "#fff9ed", "#f1e3cf", "#d6c8b8", "#a99f91", "#e0f2fe"),
         new("#f59e0b", "#9a3412", "#431407", "#fff7ed", "#fed7aa", "#1c1917", "#fff7ed", "#f0dfc7", "#d7cabc", "#a99f91", "#fed7aa"),
@@ -121,35 +51,6 @@
         new("#be123c", "#9f1239", "#4c0519", "#fff1f2", "#fecdd3", "#111827", "#fefce8", "#eee8c9", "#cfc7b8", "#9b958c", "#fecdd3"),
         new("#0f766e", "#0f766e", "#134e4a", "#f0fdfa", "#ccfbf1", "#111827", "#fff9ed", "#f4ead9", "#d8d0c4", "#a8a29e", "#ccfbf1")
     ];
-
-    private RenderFragment TitlePlate() => @<g>
-        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="@Palette.Panel" opacity="0.99" />
-        <rect x="@Plate.InnerX" y="@Plate.InnerY" width="@Plate.InnerWidth" height="@Plate.InnerHeight" rx="@Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
-        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="none" stroke="@Palette.PanelStroke" stroke-width="1.6" opacity="0.95" />
-    </g>;
-
-    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
-
-    private string BuildTitleTextMarkup()
-    {
-        var lines = string.Concat(TitleLines.Select((text, index) =>
-        {
-            var encodedText = System.Net.WebUtility.HtmlEncode(text);
-            var dy = index == 0 ? string.Empty : " dy=\"1.2em\"";
-            return $"<tspan x=\"{Plate.TextX}\"{dy}>{encodedText}</tspan>";
-        }));
-
-        return $"""
-            <text x="{Plate.TextX}"
-                  y="{TitleY}"
-                  text-anchor="middle"
-                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-                  font-size="{TitleFontSize}"
-                  font-weight="800"
-                  fill="{Palette.Ink}"
-                  letter-spacing="0">{lines}</text>
-            """;
-    }
 
     private static uint ComputeStableTitleSeed(string value)
     {
@@ -178,18 +79,4 @@
             return value;
         }
     }
-
-    private sealed record BookCoverPalette(
-        string Start,
-        string Middle,
-        string End,
-        string Panel,
-        string PanelStroke,
-        string Ink,
-        string PageStart,
-        string PageMiddle,
-        string PageEnd,
-        string PageLine,
-        string Accent);
-
 }

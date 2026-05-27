@@ -17,7 +17,7 @@ using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Api;
 
 [Collection("IntegrationTestCollection")]
 public class CreateBookTests : IAsyncLifetime, IDisposable
@@ -64,7 +64,7 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task Create_Valid_IsReturnedByForceRefreshListForSameUser()
+    public async Task Create_Valid_IsReturnedByNormalListForSameUser()
     {
         var create = new CreateBookRequest
         {
@@ -85,7 +85,7 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
             Assert.Equal(BookDataGenerator.DefaultOwnerUserId, persisted!.OwnerUserId);
         }
 
-        var listResponse = await _client.GetAsync("/api/books?forceRefresh=true");
+        var listResponse = await _client.GetAsync("/api/books");
         listResponse.EnsureSuccessStatusCode();
         var list = await listResponse.Content.ReadFromJsonAsync<GetBooksResponse>();
         Assert.NotNull(list);

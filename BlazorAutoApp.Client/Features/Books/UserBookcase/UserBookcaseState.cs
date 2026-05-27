@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using BlazorAutoApp.Core.Features.Books.Contracts;
-using BlazorAutoApp.Core.Features.Books.Domain;
 using BlazorAutoApp.Core.Features.Books.UseCases.DeleteBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -26,9 +25,9 @@ public sealed class UserBookcaseState(
 
     public string? CurrentUserId { get; private set; }
 
-    public IReadOnlyList<Book> Books { get; private set; } = [];
+    public IReadOnlyList<BookListItemResponse> Books { get; private set; } = [];
 
-    public async Task LoadForCurrentUserAsync(bool forceRefresh = true, CancellationToken cancellationToken = default)
+    public async Task LoadForCurrentUserAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref _version);
         IsLoading = true;
@@ -45,8 +44,11 @@ public sealed class UserBookcaseState(
 
         try
         {
-            var response = await _books.GetAsync(new GetBooksRequest { ForceRefresh = forceRefresh }, cancellationToken);
+            var response = await _books.GetAsync(new GetBooksRequest(), cancellationToken);
             ApplyLoadResult(version, userId, response.Books);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -63,7 +65,7 @@ public sealed class UserBookcaseState(
         }
     }
 
-    public void ApplySavedBook(Book savedBook)
+    public void ApplySavedBook(BookListItemResponse savedBook)
     {
         Interlocked.Increment(ref _version);
         var next = Books
@@ -99,6 +101,10 @@ public sealed class UserBookcaseState(
 
             return true;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
         catch (Exception ex)
         {
             if (version == Volatile.Read(ref _version))
@@ -113,7 +119,7 @@ public sealed class UserBookcaseState(
         }
     }
 
-    private void ApplyLoadResult(int version, string? userId, IReadOnlyList<Book> books)
+    private void ApplyLoadResult(int version, string? userId, IReadOnlyList<BookListItemResponse> books)
     {
         if (version != Volatile.Read(ref _version))
         {

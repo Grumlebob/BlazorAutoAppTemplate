@@ -17,7 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Xunit;
 using BlazorAutoApp.Test.Features.Books.TestData;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Api;
 
 [Collection("IntegrationTestCollection")]
 public class GetBooksTests : IAsyncLifetime, IDisposable
@@ -75,7 +75,11 @@ public class GetBooksTests : IAsyncLifetime, IDisposable
 
         var httpResponse = await _client.GetAsync("/api/books");
         httpResponse.EnsureSuccessStatusCode();
-        var payload = await httpResponse.Content.ReadFromJsonAsync<GetBooksResponse>();
+        var json = await httpResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("ownerUserId", json, StringComparison.OrdinalIgnoreCase);
+        var payload = System.Text.Json.JsonSerializer.Deserialize<GetBooksResponse>(
+            json,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         Assert.NotNull(payload);
         Assert.Equal(10, payload!.Books.Count);
         Assert.All(payload.Books, book => Assert.Contains(currentUserBooks, seeded => seeded.Id == book.Id));

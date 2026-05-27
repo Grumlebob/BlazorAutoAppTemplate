@@ -1,3 +1,4 @@
+using BlazorAutoApp.Core.Features.Books.Contracts;
 using BlazorAutoApp.Core.Features.Books.Domain;
 using BlazorAutoApp.Features.Login.Account;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,10 @@ public class BookEntityTypeConfiguration : IEntityTypeConfiguration<Book>
     {
         entity.HasKey(m => m.Id);
         entity.Property(m => m.Id).ValueGeneratedOnAdd();
-        entity.Property(m => m.Title).IsRequired().HasMaxLength(200);
-        entity.Property(m => m.Author).HasMaxLength(200);
-        entity.Property(m => m.Url).HasMaxLength(2048);
-        entity.Property(m => m.OwnerUserId).IsRequired().HasMaxLength(450);
+        entity.Property(m => m.Title).IsRequired().HasMaxLength(BookRules.TitleMaxLength);
+        entity.Property(m => m.Author).HasMaxLength(BookRules.AuthorMaxLength);
+        entity.Property(m => m.Url).HasMaxLength(BookRules.UrlMaxLength);
+        entity.Property(m => m.OwnerUserId).IsRequired().HasMaxLength(BookRules.OwnerUserIdMaxLength);
         entity.HasIndex(m => m.OwnerUserId);
         entity
             .HasOne<ApplicationUser>()

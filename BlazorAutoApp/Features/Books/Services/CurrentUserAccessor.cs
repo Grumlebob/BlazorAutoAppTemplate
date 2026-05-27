@@ -22,6 +22,7 @@ internal sealed class CurrentUserAccessor(
         var userId = GetUserId(principal);
         if (string.IsNullOrWhiteSpace(userId))
         {
+            // Interactive component calls may not have a useful HttpContext principal.
             var authenticationStateProvider = serviceProvider.GetService<AuthenticationStateProvider>();
             if (authenticationStateProvider is not null)
             {

@@ -1,11 +1,11 @@
 using BlazorAutoApp.Client.Features.Books.Shared;
-using BlazorAutoApp.Core.Features.Books.Domain;
+using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 
 namespace BlazorAutoApp.Client.Features.Books.UserBookcase;
 
 internal static class UserBookcaseBookMapper
 {
-    public static IReadOnlyList<BookcaseBook> ToBookcaseBooks(IReadOnlyList<Book>? books)
+    public static IReadOnlyList<BookcaseBook> ToBookcaseBooks(IReadOnlyList<BookListItemResponse>? books)
     {
         if (books is not { Count: > 0 })
         {

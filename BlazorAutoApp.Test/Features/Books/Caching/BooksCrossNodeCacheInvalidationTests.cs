@@ -11,7 +11,7 @@ using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Xunit;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Caching;
 
 public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnvironment environment)
     : IClassFixture<SharedIntegrationEnvironment>, IAsyncLifetime

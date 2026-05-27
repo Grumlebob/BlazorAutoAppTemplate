@@ -85,7 +85,7 @@ Target:
 - Both `http://127.0.0.1:5099` and Docker `https://localhost:7186` are currently listening locally. This creates a real risk of testing a stale container or a different app instance than the one just built.
 - The UI currently mixes direct child component state updates (`@ref` into `UserBookcase`) with route navigation (`Nav.NavigateTo("/books")`) and async reloads. That is fragile in Interactive Auto because prerender, Server interactivity, and WebAssembly interactivity can run different service implementations.
 - `UserBookcase` catches all load exceptions and only shows a generic error. The current bug needs richer temporary diagnostics while fixing.
-- The current `forceRefresh` API option bypasses `HybridCache`, but the UI can still race:
+- The earlier cache-bypass API option could skip `HybridCache`, but the UI could still race:
   - save applies the saved book to local component state,
   - navigation closes the modal,
   - another lifecycle load can replace local state with an empty list if auth/user/context is not what we think it is.
@@ -240,7 +240,7 @@ Tasks:
   - `UserBookcase` renders from state and exposes events, not imperative `@ref` methods.
   - `BookModalHost` updates the same state after save/delete.
 - Ensure state has explicit operations:
-  - `LoadForCurrentUserAsync(forceRefresh: true)`
+  - `LoadForCurrentUserAsync()`
   - `ApplySavedBook(Book book)`
   - `RemoveDeletedBook(int id)`
   - `ClearForAnonymousUser()`
@@ -269,18 +269,17 @@ Tested: [x]
 
 Tasks:
 
-- Review whether the Books UI should use cached reads at all. For a personal editable shelf, fresh reads are likely more important than cached reads.
-- Keep caching for API scalability if useful, but make the UI's post-mutation and page-load reads strongly consistent.
-- Verify `forceRefresh=true` works for:
-  - `/api/books?forceRefresh=true`
-  - `/api/books/{id}?forceRefresh=true`
+- Review whether the Books UI should use cached reads at all. For a personal editable shelf, correctness matters more than cache shortcuts.
+- Keep caching for API scalability, but make post-mutation and page-load reads correct through invalidation.
+- Verify normal reads work without a cache-bypass query parameter:
+  - `/api/books`
+  - `/api/books/{id}`
 - Add response/log information during tests:
   - user id
   - book id
-  - force refresh flag
-  - result count
+- result count
 - If `HybridCache` remains in the normal API path, keep cross-node invalidation tests.
-- If the UI always uses force-refresh, add tests proving cached stale data cannot affect the UI after create/update/delete.
+- Add tests proving cached stale data cannot affect the UI after create/update/delete.
 
 Acceptance:
 
@@ -290,10 +289,10 @@ Acceptance:
 
 Result:
 
-- User-bookcase loads request `forceRefresh=true`.
-- Detail modal reads request `forceRefresh=true`.
+- User-bookcase loads use normal API reads and rely on cache invalidation.
+- Detail modal reads use normal API reads and rely on cache invalidation.
 - Existing cache tests still pass.
-- Added a create/persistence/force-refresh integration assertion so a saved row must come back through `/api/books?forceRefresh=true`.
+- Added a create/persistence integration assertion so a saved row must come back through `/api/books`.
 
 ## Phase 5: Authentication/User Id Review
 
@@ -339,7 +338,7 @@ Tasks:
   - creates a book through the API,
   - reads the book directly from Postgres by integer id,
   - confirms `OwnerUserId`, title, author, and url,
-  - calls `/api/books?forceRefresh=true`,
+  - calls `/api/books`,
   - confirms the same id is returned.
 - Add a browser/E2E cleanup helper that records ids immediately from create response or DOM.
 - Add a temporary/manual local check script or documented command to inspect `Books` rows by owner email if useful during debugging.
@@ -351,7 +350,7 @@ Acceptance:
 
 Result:
 
-- `Create_Valid_IsReturnedByForceRefreshListForSameUser` creates through the API, verifies the row directly in Postgres, then verifies the same id is returned through the force-refresh list endpoint.
+- `Create_Valid_IsReturnedByNormalListForSameUser` creates through the API, verifies the row directly in Postgres, then verifies the same id is returned through the normal list endpoint.
 - E2E cleanup tracks ids from DOM row test ids and verified local E2E-created rows are removed.
 
 ## Phase 7: Browser Flow Tests That Match The Reported Bug

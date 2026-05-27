@@ -49,7 +49,7 @@ public static class BookEndpoints
     private static async Task<Ok<GetBooksResponse>> ListBooksAsync(
         [AsParameters] GetBooksRequest req,
         IBooksApi books,
-        ILogger<Program> log,
+        ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         log.LogDebug("Listing books");
@@ -60,7 +60,7 @@ public static class BookEndpoints
     private static async Task<Results<Ok<GetBookResponse>, ProblemHttpResult>> GetBookAsync(
         [AsParameters] GetBookRequest req,
         IBooksApi books,
-        ILogger<Program> log,
+        ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         var result = await books.GetByIdAsync(req, cancellationToken);
@@ -77,7 +77,7 @@ public static class BookEndpoints
     private static async Task<Created<CreateBookResponse>> CreateBookAsync(
         IBooksApi books,
         CreateBookRequest dto,
-        ILogger<Program> log,
+        ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         var response = await books.CreateAsync(dto, cancellationToken);
@@ -89,7 +89,7 @@ public static class BookEndpoints
         int id,
         UpdateBookRequest req,
         IBooksApi books,
-        ILogger<Program> log,
+        ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         if (id != req.Id)
@@ -115,7 +115,7 @@ public static class BookEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteBookAsync(
         [AsParameters] DeleteBookRequest req,
         IBooksApi books,
-        ILogger<Program> log,
+        ILogger<BooksEndpointLogCategory> log,
         CancellationToken cancellationToken)
     {
         var success = await books.DeleteAsync(req, cancellationToken);
@@ -135,3 +135,5 @@ public static class BookEndpoints
             title: "Book not found",
             detail: $"Book {id} was not found.");
 }
+
+internal sealed class BooksEndpointLogCategory;

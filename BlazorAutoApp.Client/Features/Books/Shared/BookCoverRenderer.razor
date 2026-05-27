@@ -1,0 +1,130 @@
+<svg class="@SvgClass"
+     viewBox="0 0 216 247"
+     role="img"
+     aria-labelledby="@TitleId">
+    <title id="@TitleId">@AccessibleTitle</title>
+    <defs>
+        <linearGradient id="@CoverGradientId" x1="12" x2="144" y1="22" y2="195" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="@Theme.Start" />
+            <stop offset="56%" stop-color="@Theme.Middle" />
+            <stop offset="100%" stop-color="@Theme.End" />
+        </linearGradient>
+        <linearGradient id="@PageGradientId" x1="105" x2="158" y1="108" y2="108" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="@Theme.PageStart" />
+            <stop offset="65%" stop-color="@Theme.PageMiddle" />
+            <stop offset="100%" stop-color="@Theme.PageEnd" />
+        </linearGradient>
+        @if (Design.Kind is BookCoverDesignKind.ClothHardback)
+        {
+            <pattern id="@ClothWeaveId" width="5" height="5" patternUnits="userSpaceOnUse">
+                <path d="M0 1h5M1 0v5" stroke="#ffffff" stroke-width="0.35" opacity="0.16" />
+            </pattern>
+        }
+    </defs>
+
+    <g transform="translate(7 10) scale(1.04)">
+        <ellipse cx="91" cy="205" rx="62" ry="7" fill="#111827" opacity="0.15" />
+
+        <g class="@PagesClass">
+            <g transform="translate(-3 0)">
+                <path d="@Design.PagePath" fill="url(#@PageGradientId)" />
+                <path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
+                      stroke="@Theme.PageLine"
+                      stroke-width="1.2"
+                      stroke-linecap="round"
+                      opacity="0.5" />
+                <BookCoverPageTabs Kind="@Design.Kind" />
+            </g>
+        </g>
+
+        <g class="@CoverClass">
+            <path d="@Design.CoverPath" fill="url(#@CoverGradientId)" />
+            @if (Design.Kind is BookCoverDesignKind.ClothHardback)
+            {
+                <path d="@Design.CoverPath" fill="url(#@ClothWeaveId)" />
+            }
+
+            <BookCoverArtwork Kind="@Design.Kind" />
+            @TitlePlate()
+            @TitleTextMarkup
+        </g>
+    </g>
+</svg>
+
+@code {
+    private readonly string _id = Guid.NewGuid().ToString("N");
+
+    [Parameter, EditorRequired]
+    public required BookCoverDesignDefinition Design { get; set; }
+
+    [Parameter, EditorRequired]
+    public required BookCoverTheme Theme { get; set; }
+
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<string> TitleLines { get; set; }
+
+    [Parameter, EditorRequired]
+    public required int TitleY { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string TitleFontSize { get; set; }
+
+    [Parameter]
+    public string TitleDy { get; set; } = "1.2em";
+
+    [Parameter]
+    public string AccessibleTitle { get; set; } = "Book";
+
+    [Parameter]
+    public string SvgClass { get; set; } = "h-auto w-full";
+
+    [Parameter]
+    public bool ForcedOpen { get; set; }
+
+    private BookCoverTitlePlate Plate => Design.Plate;
+
+    private string TitleId => $"book-cover-title-{_id}";
+
+    private string CoverGradientId => $"book-cover-gradient-{_id}";
+
+    private string PageGradientId => $"book-cover-pages-{_id}";
+
+    private string ClothWeaveId => $"book-cover-cloth-{_id}";
+
+    private string PagesClass => ForcedOpen
+        ? "translate-x-px -translate-y-[2px] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
+        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-visible:translate-x-px group-focus-visible:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
+
+    private string CoverClass => ForcedOpen
+        ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
+        : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-visible:-translate-x-[1.5px] group-focus-visible:-translate-y-px group-focus-visible:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
+
+    private RenderFragment TitlePlate() => @<g>
+        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="@Theme.Panel" opacity="0.99" />
+        <rect x="@Plate.InnerX" y="@Plate.InnerY" width="@Plate.InnerWidth" height="@Plate.InnerHeight" rx="@Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
+        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="none" stroke="@Theme.PanelStroke" stroke-width="1.6" opacity="0.95" />
+    </g>;
+
+    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
+
+    private string BuildTitleTextMarkup()
+    {
+        var lines = string.Concat(TitleLines.Select((text, index) =>
+        {
+            var encodedText = System.Net.WebUtility.HtmlEncode(text);
+            var dy = index == 0 ? string.Empty : $" dy=\"{TitleDy}\"";
+            return $"<tspan x=\"{Plate.TextX}\"{dy}>{encodedText}</tspan>";
+        }));
+
+        return $"""
+            <text x="{Plate.TextX}"
+                  y="{TitleY}"
+                  text-anchor="middle"
+                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+                  font-size="{TitleFontSize}"
+                  font-weight="800"
+                  fill="{Theme.Ink}"
+                  letter-spacing="0">{lines}</text>
+            """;
+    }
+}

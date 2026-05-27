@@ -29,13 +29,20 @@ else
 }
 
 @code {
+    private readonly CancellationTokenSource _loadCancellation = new();
+
     protected override async Task OnInitializedAsync()
     {
         UserBooks.Changed += HandleBooksChanged;
-        await UserBooks.LoadForCurrentUserAsync(forceRefresh: true);
+        await UserBooks.LoadForCurrentUserAsync(_loadCancellation.Token);
     }
 
     private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
 
-    public void Dispose() => UserBooks.Changed -= HandleBooksChanged;
+    public void Dispose()
+    {
+        UserBooks.Changed -= HandleBooksChanged;
+        _loadCancellation.Cancel();
+        _loadCancellation.Dispose();
+    }
 }

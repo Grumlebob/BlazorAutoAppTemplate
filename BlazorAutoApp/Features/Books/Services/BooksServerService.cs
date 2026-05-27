@@ -30,13 +30,6 @@ internal class BooksServerService(
     public async Task<GetBooksResponse> GetAsync(GetBooksRequest req, CancellationToken cancellationToken = default)
     {
         var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
-        if (req.ForceRefresh == true)
-        {
-            var fresh = await LoadBooksAsync(userId, cancellationToken);
-            _logger.LogDebug("Force-loaded {BookCount} books for user {UserId}", fresh.Books.Count, userId);
-            return fresh;
-        }
-
         var key = BooksCacheKeys.List(userId);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetBooksResponse>(LoadBooksAsync(userId, ct)),
@@ -49,11 +42,6 @@ internal class BooksServerService(
     public async Task<GetBookResponse?> GetByIdAsync(GetBookRequest req, CancellationToken cancellationToken = default)
     {
         var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
-        if (req.ForceRefresh == true)
-        {
-            return await LoadBookAsync(userId, req.Id, cancellationToken);
-        }
-
         var key = BooksCacheKeys.Item(userId, req.Id);
         var result = await _cache.GetOrCreateAsync(key,
             ct => new ValueTask<GetBookResponse?>(LoadBookAsync(userId, req.Id, ct)),
@@ -70,6 +58,13 @@ internal class BooksServerService(
             .AsNoTracking()
             .Where(book => book.OwnerUserId == userId)
             .OrderBy(book => book.Id)
+            .Select(book => new BookListItemResponse
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Url = book.Url
+            })
             .ToListAsync(ct);
         return new GetBooksResponse { Books = items };
     }

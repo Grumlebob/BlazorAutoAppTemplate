@@ -1,27 +1,19 @@
 using System;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Threading.Tasks;
-using BlazorAutoApp.Core.Features.Books.Contracts;
-using BlazorAutoApp.Core.Features.Books.Domain;
-using BlazorAutoApp.Core.Features.Books.UseCases.CreateBook;
-using BlazorAutoApp.Core.Features.Books.UseCases.DeleteBook;
-using BlazorAutoApp.Core.Features.Books.UseCases.GetBook;
-using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
-using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using BlazorAutoApp.Test.Features.Books.TestData;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Api;
 
 [Collection("IntegrationTestCollection")]
-public class GetBookTests : IAsyncLifetime, IDisposable
+public class DeleteBookTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;
     private readonly HttpClient _anonymousClient;
@@ -30,7 +22,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
     private readonly IServiceScope _scope;
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
 
-    public GetBookTests(WebAppFactory factory)
+    public DeleteBookTests(WebAppFactory factory)
     {
         _client = factory.CreateAuthenticatedClient();
         _anonymousClient = factory.HttpClient;
@@ -40,14 +32,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task GetById_Anonymous_ReturnsUnauthorized()
-    {
-        var response = await _anonymousClient.GetAsync("/api/books/1");
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetById_Found_ReturnsOk()
+    public async Task Delete_Existing_ReturnsNoContent()
     {
         var book = _data.Generator.Generate();
         await using (var db = await _dbFactory.CreateDbContextAsync())
@@ -57,16 +42,25 @@ public class GetBookTests : IAsyncLifetime, IDisposable
             await db.SaveChangesAsync();
         }
 
-        var response = await _client.GetAsync($"/api/books/{book.Id}");
-        response.EnsureSuccessStatusCode();
-        var payload = await response.Content.ReadFromJsonAsync<GetBookResponse>();
-        Assert.NotNull(payload);
-        Assert.Equal(book.Id, payload!.Id);
-        Assert.Equal(book.Title, payload.Title);
+        var response = await _client.DeleteAsync($"/api/books/{book.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        await using var verifyDb = await _dbFactory.CreateDbContextAsync();
+        verifyDb.ChangeTracker.Clear();
+        var stillThere = await verifyDb.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == book.Id);
+        Assert.Null(stillThere);
     }
 
     [Fact]
-    public async Task GetById_OtherUsersBook_Returns404()
+    public async Task Delete_NotFound_Returns404()
+    {
+        var response = await _client.DeleteAsync("/api/books/10101010");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+    }
+
+    [Fact]
+    public async Task Delete_OtherUsersBook_Returns404AndLeavesBook()
     {
         var book = _data.Generator.Generate();
         book.OwnerUserId = "other-user@example.test";
@@ -77,17 +71,21 @@ public class GetBookTests : IAsyncLifetime, IDisposable
             await db.SaveChangesAsync();
         }
 
-        var response = await _client.GetAsync($"/api/books/{book.Id}");
+        var response = await _client.DeleteAsync($"/api/books/{book.Id}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+
+        await using var verifyDb = await _dbFactory.CreateDbContextAsync();
+        var stillThere = await verifyDb.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == book.Id);
+        Assert.NotNull(stillThere);
+        Assert.Equal("other-user@example.test", stillThere!.OwnerUserId);
     }
 
     [Fact]
-    public async Task GetById_NotFound_Returns404()
+    public async Task Delete_Anonymous_ReturnsUnauthorized()
     {
-        var response = await _client.GetAsync("/api/books/999999");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        var response = await _anonymousClient.DeleteAsync("/api/books/10101010");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

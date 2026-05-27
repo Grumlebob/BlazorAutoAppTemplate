@@ -1,55 +1,14 @@
-<svg class="@SvgClass"
-     viewBox="0 0 216 247"
-     role="img"
-     aria-labelledby="@TitleId">
-    <title id="@TitleId">@Design.Label</title>
-    <defs>
-        <linearGradient id="@CoverGradientId" x1="12" x2="144" y1="22" y2="195" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="@Design.CoverColors.Start" />
-            <stop offset="56%" stop-color="@Design.CoverColors.Middle" />
-            <stop offset="100%" stop-color="@Design.CoverColors.End" />
-        </linearGradient>
-        <linearGradient id="@PageGradientId" x1="117" x2="158" y1="108" y2="108" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="@Design.PageColors.Start" />
-            <stop offset="65%" stop-color="@Design.PageColors.Middle" />
-            <stop offset="100%" stop-color="@Design.PageColors.End" />
-        </linearGradient>
-        @if (Design.Kind is BookCoverDesignKind.ClothHardback)
-        {
-            <pattern id="@ClothWeaveId" width="5" height="5" patternUnits="userSpaceOnUse">
-                <path d="M0 1h5M1 0v5" stroke="#ffffff" stroke-width="0.35" opacity="0.16" />
-            </pattern>
-        }
-    </defs>
-
-    <g transform="translate(7 10) scale(1.04)">
-        <ellipse cx="91" cy="205" rx="62" ry="7" fill="#111827" opacity="0.15" />
-
-        <g class="@PagesClass">
-            <g transform="@PageGeometryTransform">
-                <path d="@Design.PagePath" fill="url(#@PageGradientId)" />
-            @PageLines()
-            <BookCoverPageTabs Kind="@Design.Kind" />
-            </g>
-        </g>
-
-        <g class="@CoverClass">
-            <path d="@Design.CoverPath" fill="url(#@CoverGradientId)" />
-            @if (Design.Kind is BookCoverDesignKind.ClothHardback)
-            {
-                <path d="@Design.CoverPath" fill="url(#@ClothWeaveId)" />
-            }
-
-            <BookCoverArtwork Kind="@Design.Kind" />
-            @TitlePlate()
-            @TitleTextMarkup
-        </g>
-    </g>
-</svg>
+<BookCoverRenderer Design="@Design.Definition"
+                   Theme="@Theme"
+                   TitleLines="@Design.TitleLines"
+                   TitleY="@Design.TitleY"
+                   TitleFontSize="@Design.TitleFontSize"
+                   TitleDy="@Design.TitleDy"
+                   AccessibleTitle="@Design.Label"
+                   SvgClass="@SvgClass"
+                   ForcedOpen="@ForcedOpen" />
 
 @code {
-    private readonly string _id = Guid.NewGuid().ToString("N");
-
     [Parameter, EditorRequired]
     public required BookDesignDemo Design { get; set; }
 
@@ -59,56 +18,16 @@
     [Parameter]
     public string SvgClass { get; set; } = "h-auto w-full";
 
-    private string TitleId => $"book-design-demo-title-{_id}";
-
-    private string CoverGradientId => $"book-design-cover-{_id}";
-
-    private string PageGradientId => $"book-design-pages-{_id}";
-
-    private string ClothWeaveId => $"book-design-cloth-weave-{_id}";
-
-    private const string PageGeometryTransform = "translate(-3 0)";
-
-    private string PagesClass => ForcedOpen
-        ? "translate-x-px -translate-y-[2px] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
-
-    private string CoverClass => ForcedOpen
-        ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
-
-    private RenderFragment PageLines() => @<path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
-                                                 stroke="@Design.LineStroke"
-                                                 stroke-width="1.2"
-                                                 stroke-linecap="round"
-                                                 opacity="0.5" />;
-
-    private RenderFragment TitlePlate() => @<g>
-        <rect x="@Design.Plate.X" y="@Design.Plate.Y" width="@Design.Plate.Width" height="@Design.Plate.Height" rx="@Design.Plate.Radius" fill="@Design.Plate.Fill" opacity="0.99" />
-        <rect x="@Design.Plate.InnerX" y="@Design.Plate.InnerY" width="@Design.Plate.InnerWidth" height="@Design.Plate.InnerHeight" rx="@Design.Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
-        <rect x="@Design.Plate.X" y="@Design.Plate.Y" width="@Design.Plate.Width" height="@Design.Plate.Height" rx="@Design.Plate.Radius" fill="none" stroke="@Design.Plate.Stroke" stroke-width="1.6" opacity="0.95" />
-    </g>;
-
-    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
-
-    private string BuildTitleTextMarkup()
-    {
-        var lines = string.Concat(Design.TitleLines.Select((text, index) =>
-        {
-            var encodedText = System.Net.WebUtility.HtmlEncode(text);
-            var dy = index == 0 ? string.Empty : $" dy=\"{Design.TitleDy}\"";
-            return $"<tspan x=\"{Design.Plate.TextX}\"{dy}>{encodedText}</tspan>";
-        }));
-
-        return $"""
-            <text x="{Design.Plate.TextX}"
-                  y="{Design.TitleY}"
-                  text-anchor="middle"
-                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-                  font-size="{Design.TitleFontSize}"
-                  font-weight="800"
-                  fill="{Design.TitleFill}"
-                  letter-spacing="0">{lines}</text>
-            """;
-    }
+    private BookCoverTheme Theme => new(
+        Design.CoverColors.Start,
+        Design.CoverColors.Middle,
+        Design.CoverColors.End,
+        Design.Plate.Fill,
+        Design.Plate.Stroke,
+        Design.TitleFill,
+        Design.PageColors.Start,
+        Design.PageColors.Middle,
+        Design.PageColors.End,
+        Design.LineStroke,
+        Design.Plate.Stroke);
 }

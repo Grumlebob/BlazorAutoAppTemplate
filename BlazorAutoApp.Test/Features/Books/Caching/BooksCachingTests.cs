@@ -18,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using BlazorAutoApp.Test.Features.Books.TestData;
 
-namespace BlazorAutoApp.Test.Features.Books;
+namespace BlazorAutoApp.Test.Features.Books.Caching;
 
 [Collection("IntegrationTestCollection")]
 public class BooksCachingTests : IAsyncLifetime, IDisposable
@@ -99,10 +99,6 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         Assert.NotNull(list2);
         Assert.Equal(2, list2!.Books.Count); // still cached
 
-        var refreshedList = await _client.GetFromJsonAsync<GetBooksResponse>("/api/books?forceRefresh=true");
-        Assert.NotNull(refreshedList);
-        Assert.Equal(3, refreshedList!.Books.Count);
-
         // Create via API (should invalidate list cache)
         var create = new CreateBookRequest { Title = "Cache Bust", Author = null, Url = null };
         var created = await (await _client.PostAsJsonAsync("/api/books", create)).Content.ReadFromJsonAsync<CreateBookResponse>();
@@ -123,10 +119,14 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         Assert.NotNull(created);
         var id = created!.Id;
 
-        // Warm item cache
+        // Warm item and list caches
         var item1 = await _client.GetFromJsonAsync<GetBookResponse>($"/api/books/{id}");
         Assert.NotNull(item1);
         Assert.Equal("Original", item1!.Title);
+        var list1 = await _client.GetFromJsonAsync<GetBooksResponse>("/api/books");
+        Assert.NotNull(list1);
+        Assert.Single(list1!.Books);
+        Assert.Equal("Original", list1.Books[0].Title);
 
         // Change DB underneath (bypass API)
         await using (var db = await _dbFactory.CreateDbContextAsync())
@@ -141,10 +141,6 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         Assert.NotNull(item2);
         Assert.Equal("Original", item2!.Title);
 
-        var refreshedItem = await _client.GetFromJsonAsync<GetBookResponse>($"/api/books/{id}?forceRefresh=true");
-        Assert.NotNull(refreshedItem);
-        Assert.Equal("DB Changed", refreshedItem!.Title);
-
         // Update via API (invalidates item + list)
         var update = new UpdateBookRequest { Id = id, Title = "Updated", Author = created.Author, Url = created.Url };
         var res = await _client.PutAsJsonAsync($"/api/books/{id}", update);
@@ -154,6 +150,11 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         var item3 = await _client.GetFromJsonAsync<GetBookResponse>($"/api/books/{id}");
         Assert.NotNull(item3);
         Assert.Equal("Updated", item3!.Title);
+
+        var list3 = await _client.GetFromJsonAsync<GetBooksResponse>("/api/books");
+        Assert.NotNull(list3);
+        Assert.Single(list3!.Books);
+        Assert.Equal("Updated", list3.Books[0].Title);
     }
 
     [Fact]

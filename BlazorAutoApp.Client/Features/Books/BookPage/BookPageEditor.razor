@@ -12,7 +12,7 @@
                            ContainerClass="mx-auto w-[min(calc(100vw-2rem),35rem)] overflow-visible">
                 <TopControls>
                     <a href="@CancelHref" data-testid="book-back" aria-label="@CancelLabel">
-                        @CloseIcon(430)
+                        <BookPageCloseControl X="430" />
                     </a>
                 </TopControls>
                 <MainContent>
@@ -129,11 +129,6 @@
             _editContextModel = Model;
         }
     }
-
-    private static RenderFragment CloseIcon(int x) => @<g transform="@($"translate({x} 74)")" aria-hidden="true">
-        <rect x="0" y="0" width="50" height="50" rx="16" fill="#fffefa" stroke="#d7c3a1" stroke-width="2" />
-        <path d="M18 18l14 14M32 18L18 32" stroke="#334155" stroke-width="3" stroke-linecap="round" />
-    </g>;
 
     private void HandleTitleInput(ChangeEventArgs args)
     {

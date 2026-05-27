@@ -38,7 +38,7 @@ Every Core feature slice should have a matching test slice with a one-to-one nam
 Layout:
 
 - Core slice: `BlazorAutoApp.Core/Features/{Feature}/{Slice}Request.cs`
-- Test slice: `BlazorAutoApp.Test/Features/{Feature}/{Slice}Tests.cs`
+- Test slice: `BlazorAutoApp.Test/Features/{Feature}/{Concern}/{Slice}Tests.cs`
 - Feature test data: `BlazorAutoApp.Test/Features/{Feature}/TestData/*`
 - Test integration support: `BlazorAutoApp.Test/TestSupport/Integration/*`
 - Architecture checks: `BlazorAutoApp.Test/Architecture/{Concern}/*`
@@ -47,10 +47,11 @@ Layout:
 
 Conventions:
 
-- Test namespace: `BlazorAutoApp.Test.Features.{Feature}`
+- Test namespace: `BlazorAutoApp.Test.Features.{Feature}` or a concern subnamespace such as `.Api`, `.Caching`, or `.Client`.
 - Test class name: `{Slice}Tests`
 - Each feature test class must contain at least one `[Fact]` or `[Theory]`.
 - HTTP/API integration tests should use `[Collection("IntegrationTestCollection")]` and `WebAppFactory`.
+- For Books, API tests live under `Features/Books/Api`, cache tests under `Features/Books/Caching`, client-only logic tests under `Features/Books/Client`, and shared test data under `Features/Books/TestData`.
 
 ## Architecture Enforcement
 

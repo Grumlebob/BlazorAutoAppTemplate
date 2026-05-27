@@ -30,7 +30,7 @@
                  tabindex="0"
                  aria-label="@($"{Title} scrollable shelf")">
                 <div class="@ShelfTrackClass">
-                    @for (var pass = 0; pass < 2; pass++)
+                    @for (var pass = 0; pass < ShelfPassCount; pass++)
                     {
                         var isDuplicate = pass == 1;
                         for (var index = 0; index < shelfItems.Count; index++)
@@ -43,6 +43,7 @@
                             if (LinkBooks && !string.IsNullOrWhiteSpace(book.Href))
                             {
                                 <a data-testid="@($"{TestId}-book")"
+                                   @key="BuildBookKey(book, index, pass)"
                                    class="@BookFrameClass"
                                    href="@book.Href"
                                    aria-label="@(isHiddenCopy ? null : $"{book.Title} details")"
@@ -54,6 +55,7 @@
                             else
                             {
                                 <span data-testid="@($"{TestId}-book")"
+                                      @key="BuildBookKey(book, index, pass)"
                                       class="@BookFrameClass"
                                       aria-hidden="@(isHiddenCopy ? "true" : null)">
                                     <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
@@ -70,6 +72,9 @@
 
 @code {
     private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none";
+    private IReadOnlyList<BookcaseBook>? _cachedBooksSource;
+    private IReadOnlyList<BookcaseBook> _cachedShelfItems = [];
+    private bool _cachedAutoScroll;
 
     [Parameter, EditorRequired]
     public required string Title { get; set; }
@@ -105,20 +110,35 @@
         ? "flex w-max gap-[1.5rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.9rem]"
         : "flex w-max gap-[1.5rem] sm:gap-[1.9rem]";
 
+    private int ShelfPassCount => AutoScroll ? 2 : 1;
+
     private IReadOnlyList<BookcaseBook> BuildShelfItems()
     {
         if (Books.Count == 0)
         {
+            _cachedBooksSource = Books;
+            _cachedShelfItems = [];
             return [];
         }
 
-        var items = Books.ToList();
-        for (var i = 0; items.Count < 12; i++)
+        if (ReferenceEquals(_cachedBooksSource, Books) && _cachedAutoScroll == AutoScroll)
         {
-            items.Add(Books[i % Books.Count]);
+            return _cachedShelfItems;
         }
 
-        return items;
+        var items = Books.ToList();
+        if (AutoScroll)
+        {
+            for (var i = 0; items.Count < 12; i++)
+            {
+                items.Add(Books[i % Books.Count]);
+            }
+        }
+
+        _cachedBooksSource = Books;
+        _cachedAutoScroll = AutoScroll;
+        _cachedShelfItems = items;
+        return _cachedShelfItems;
     }
 
     private int BuildBookSeed(BookcaseBook book, int index, int pass)
@@ -134,6 +154,13 @@
             return (int)hash;
         }
     }
+
+    private static string BuildBookKey(BookcaseBook book, int index, int pass) =>
+        string.Join(':',
+            pass.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            book.Title);
 
     private static uint AddHash(uint hash, int value)
     {

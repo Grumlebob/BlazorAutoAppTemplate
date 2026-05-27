@@ -7,6 +7,8 @@
 
 <h1 class="sr-only">Opening add book</h1>
 
+@* Compatibility route: the actual add flow is the modal on /books. *@
+
 @code {
     protected override void OnInitialized() =>
         Nav.NavigateTo("/books?bookMode=create", forceLoad: false, replace: true);
