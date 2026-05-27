@@ -62,6 +62,7 @@ public sealed class ForwardedHeadersTests
         {
             ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable",
             ["Database:RunMigrationsAtStartup"] = "false",
+            ["LocalAccounts:Enabled"] = "false",
             ["Redis:Configuration"] = "CHANGE_ME",
             ["Redis:AllowMissing"] = "true"
         };
@@ -74,6 +75,7 @@ public sealed class ForwardedHeadersTests
         return new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
                 builder.ConfigureAppConfiguration((_, configuration) =>
                 {
                     configuration.AddInMemoryCollection(testConfiguration);
