@@ -637,6 +637,7 @@ for needle, why in [
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 pinned image"),
     ("redis:8.8.0-alpine3.23", "Redis 8 pinned image"),
     ("postgres_data:/var/lib/postgresql", "PostgreSQL 18 volume root mount"),
+    ("REDISCLI_AUTH=${REDIS_PASSWORD}", "Redis health check uses environment authentication"),
 ]:
     if needle not in node_db_compose:
         fail(f"Deployment/LocalCluster/compose/node-db/docker-compose.yml: missing {why}")
@@ -926,7 +927,8 @@ for path, checks in {
         ("reset_node_db_volumes_confirmation == app_name ~ '/postgres18-redis8-reset'", "guarded destructive node-db reset confirmation"),
         ("docker compose down -v", "destructive node-db volume reset command"),
         ("docker compose up -d --pull always", "pull and start pinned database images"),
-        ("redis-cli --no-auth-warning -a", "Redis readiness auth warning suppression"),
+        ("-e REDISCLI_AUTH redis redis-cli ping", "Redis readiness forwards environment authentication"),
+        ("REDISCLI_AUTH: \"{{ vault_redis_password }}\"", "Redis readiness receives password through environment"),
     ],
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2": [
         ("http://{{ public_hostname }}", "hostname-based Caddy listener for side-by-side apps"),
@@ -1011,7 +1013,8 @@ for path, checks in {
         ("--services --filter status=running", "running compose service checks"),
         ("pg_isready", "PostgreSQL health check"),
         ("redis-cli", "Redis health check"),
-        ("--no-auth-warning", "Redis auth warning suppression"),
+        ("REDISCLI_AUTH", "Redis auth environment"),
+        ("grep -Fx PONG", "strict Redis PONG check"),
         ("PostgreSQL 18", "PostgreSQL 18 version check"),
         ("v=8", "Redis 8 version check"),
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
