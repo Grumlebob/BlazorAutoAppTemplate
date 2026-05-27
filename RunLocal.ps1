@@ -4,6 +4,7 @@ param(
   [switch]$ResetDatabase,
   [switch]$SkipCertificate,
   [switch]$FollowLogs,
+  [switch]$StatusOnly,
   [int]$TimeoutSeconds = 180
 )
 
@@ -124,6 +125,19 @@ function Write-StartupFailureHelp {
 
 Push-Location $repoRoot
 try {
+  if ($StatusOnly) {
+    Write-Host "Preparing and checking local Docker setup..."
+    $statusSetupArgs = @('-File', './docker/setup-local.ps1')
+    if ($SkipCertificate) {
+      $statusSetupArgs += '-SkipCertificate'
+    }
+    & pwsh @statusSetupArgs
+    if ($LASTEXITCODE -ne 0) {
+      throw "Local setup status failed."
+    }
+    return
+  }
+
   Wait-Docker
 
   Write-Host "Preparing local Docker setup..."
@@ -150,7 +164,7 @@ try {
   $healthUrl = "$($appUrl.TrimEnd('/'))/health/ready"
   $dotnetDevPids = Get-ListeningProcessIds -Port 5099
   if ($dotnetDevPids.Count -gt 0) {
-    throw "A local dotnet app is already listening on 127.0.0.1:5099 (PID(s): $($dotnetDevPids -join ', ')). Stop it before starting the Docker web runtime, or use that local app URL intentionally."
+    Write-Warning "A local dotnet app is already listening on 127.0.0.1:5099 (PID(s): $($dotnetDevPids -join ', ')). The Docker stack can still start on its configured app port; use E2E_BASE_URL intentionally when testing."
   }
 
   if ($ResetDatabase) {

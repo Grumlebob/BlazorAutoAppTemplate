@@ -200,7 +200,7 @@ Generated output is committed at `BlazorAutoApp/wwwroot/tailwind.css`.
 Add a migration:
 
 ```powershell
-dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Data\Migrations
+dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Infrastructure\Persistence\Migrations
 ```
 
 Apply migrations:

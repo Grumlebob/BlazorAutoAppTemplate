@@ -56,6 +56,9 @@ __pycache__/
 # Local app runtime data
 /data/storage/
 
+# Local planning scratch space. Use docs/plans for retained plans.
+/Plans/
+
 # LocalCluster generated local inventory
 /Deployment/LocalCluster/machines.yml
 /Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml

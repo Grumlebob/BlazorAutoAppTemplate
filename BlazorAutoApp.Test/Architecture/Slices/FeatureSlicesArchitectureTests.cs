@@ -81,13 +81,19 @@ public class FeatureSlicesArchitectureTests
     }
 
     [Fact]
-    public void ClientPages_LiveInside_FeatureSlices()
+    public void ClientRouteComponents_LiveInside_FeatureRouteSlices()
     {
         var root = SourceSearch.GetRepoRoot();
         var rootPagesFolder = Path.Combine(root, "BlazorAutoApp.Client", "Pages");
+        var featurePagesFolders = Directory
+            .EnumerateDirectories(Path.Combine(root, "BlazorAutoApp.Client", "Features"), "Pages", SearchOption.AllDirectories)
+            .OrderBy(path => path)
+            .ToList();
 
         Assert.False(Directory.Exists(rootPagesFolder),
-            "Client pages must live under BlazorAutoApp.Client/Features/{Feature}/Pages, not BlazorAutoApp.Client/Pages.");
+            "Client routable components must live under feature Routes folders, not a root Pages folder.");
+        Assert.True(featurePagesFolders.Count == 0,
+            "Client route folders should be named Routes, not Pages:\n" + string.Join("\n", featurePagesFolders));
     }
 
     [Fact]

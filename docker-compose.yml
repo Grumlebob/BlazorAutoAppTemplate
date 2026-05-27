@@ -36,7 +36,7 @@ services:
       - "127.0.0.1:${APP_HTTPS_HOST_PORT:-7186}:7186"
     volumes:
       - ./docker/https:/https:ro
-      # Persist application storage such as DataProtection keys
+      # Persist runtime storage such as DataProtection keys. This is not upload/media storage.
       - ./data/storage:/app/Storage
 
   seq:

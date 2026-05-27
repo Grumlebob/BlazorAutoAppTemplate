@@ -18,8 +18,8 @@ Use this checklist when forking the template.
 - The current sample domain is Books with `Title`, optional `Author`, and optional `Url`.
 - Replace or extend it under `Features/{Feature}` slices.
 - Keep shared request/response contracts in `BlazorAutoApp.Core`.
-- Keep client pages under `BlazorAutoApp.Client/Features/{Feature}/Pages`.
-- Books create/update/delete are authenticated management actions; list/details remain public for the template bookcase.
+- Keep client routable components under `BlazorAutoApp.Client/Features/{Feature}/Routes`.
+- Books create/update/delete are authenticated actions; anonymous users only see the public author bookcase.
 
 ## Identity
 
@@ -30,5 +30,6 @@ Use this checklist when forking the template.
 ## Deployment
 
 - Update `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` for `app_name`, `app_image`, `public_hostname`, ports, `deploy_root`, `cloudflare_tunnel_name`, and `migration_bundle_name`.
+- Treat `Deployment/LocalCluster/inventory/prod/*` as the active LocalCluster instance configuration in this repository, not generic template defaults. Start new deployments from the documented examples and change values deliberately.
 - Update GitHub repository variables if you use a custom LocalCluster runner label or environment name.
 - Keep secrets in Ansible Vault or GitHub Secrets, never plaintext tracked files.

@@ -82,7 +82,7 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             }
 
             await OpenMobileNavigationMenuAsync();
-            await Task.Delay(250);
+            await WaitForNextAnimationFrameAsync();
         }
 
         await Expect(locator.First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
@@ -112,4 +112,7 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             await mobileMenu.EvaluateAsync("element => element.setAttribute('open', '')");
         }
     }
+
+    private Task WaitForNextAnimationFrameAsync() =>
+        Page.EvaluateAsync("() => new Promise(resolve => requestAnimationFrame(resolve))");
 }

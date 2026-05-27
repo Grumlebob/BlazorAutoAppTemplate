@@ -19,11 +19,11 @@ public class EndpointSurfaceTests(WebAppFactory factory)
     {
         var endpoints = RouteEndpoints();
 
-        Assert.True(Has(endpoints, "GET", "/api/books/", "/api/books"));
-        Assert.True(Has(endpoints, "GET", "/api/books/{id:int}"));
-        Assert.True(Has(endpoints, "POST", "/api/books/", "/api/books"));
-        Assert.True(Has(endpoints, "PUT", "/api/books/{id:int}"));
-        Assert.True(Has(endpoints, "DELETE", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "GET", "ListBooks", "/api/books/", "/api/books"));
+        Assert.True(Has(endpoints, "GET", "GetBook", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "POST", "CreateBook", "/api/books/", "/api/books"));
+        Assert.True(Has(endpoints, "PUT", "UpdateBook", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "DELETE", "DeleteBook", "/api/books/{id:int}"));
     }
 
     private List<RouteEndpoint> RouteEndpoints()
@@ -32,12 +32,14 @@ public class EndpointSurfaceTests(WebAppFactory factory)
         return dataSource.Endpoints.OfType<RouteEndpoint>().ToList();
     }
 
-    private static bool Has(List<RouteEndpoint> endpoints, string method, params string[] patterns)
+    private static bool Has(List<RouteEndpoint> endpoints, string method, string endpointName, params string[] patterns)
     {
         return endpoints.Any(e =>
         {
             var httpMethods = e.Metadata.OfType<HttpMethodMetadata>().FirstOrDefault()?.HttpMethods;
             if (httpMethods is null || !httpMethods.Contains(method, StringComparer.OrdinalIgnoreCase)) return false;
+            var name = e.Metadata.OfType<IEndpointNameMetadata>().FirstOrDefault()?.EndpointName;
+            if (!string.Equals(name, endpointName, StringComparison.Ordinal)) return false;
             var raw = Normalize(e.RoutePattern.RawText ?? string.Empty);
             return patterns.Any(p => string.Equals(raw, Normalize(p), StringComparison.Ordinal));
         });

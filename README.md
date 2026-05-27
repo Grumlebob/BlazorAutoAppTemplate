@@ -100,7 +100,7 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 ## Current Behavior
 
-The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG bookcase; logged-in users also see `Add Book` and the `Saved books` management list. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
+The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG author bookcase; logged-in users also see `Add Book` and their own editable SVG bookcase. View, edit, add, and delete all happen through the book modal flow. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
 
 Local development seeds fixed template books (`Ship`, `TraceBack`, `ImprovedDb`, `KinoJoin`) plus common classics after startup migrations when `Books:SeedLocalDefaults=true`. The seed is disabled in base configuration and enabled for Development/Docker local runs.
 
