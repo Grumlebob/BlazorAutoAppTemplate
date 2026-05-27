@@ -787,6 +787,7 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
     ("schema_only_reset_confirmation", "clear schema-only reset workflow input"),
     ("postgres18_redis8_volume_reset_confirmation", "clear PostgreSQL 18 and Redis 8 reset workflow input"),
+    ("Example: ship/ship", "schema-only reset example"),
     ("Leave empty for PostgreSQL/Redis 18/8 volume reset", "schema-only reset helper text"),
     ("reset_node_db_volumes=true", "destructive node-db reset Ansible switch"),
     ("reset_node_db_volumes_confirmation", "destructive node-db reset confirmation"),
@@ -947,6 +948,16 @@ if "90-{{ app_name }}-deploy" in read("Deployment/LocalCluster/ansible/roles/min
     fail("Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml: sudoers file must be cluster-neutral, not app-named")
 if "iptables -F DOCKER-USER" in read("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"):
     fail("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2: must not flush shared DOCKER-USER chain")
+require_not_contains(
+    "Deployment/LocalCluster/Scripts/acceptance-check.sh",
+    'case "$postgres_version"',
+    "fragile PostgreSQL version shell pattern",
+)
+require_not_contains(
+    "Deployment/LocalCluster/Scripts/acceptance-check.sh",
+    'case "$redis_version"',
+    "fragile Redis version shell pattern",
+)
 
 
 preflight = read("Deployment/LocalCluster/Scripts/preflight.sh")
@@ -1011,12 +1022,17 @@ for path, checks in {
         ("local Caddy health still failed after 120 seconds", "local Caddy retry diagnostics"),
         ("wait_for_public_health", "public health retry"),
         ("--services --filter status=running", "running compose service checks"),
+        ("grep -Fx web", "visible app service check"),
         ("pg_isready", "PostgreSQL health check"),
         ("redis-cli", "Redis health check"),
         ("REDISCLI_AUTH", "Redis auth environment"),
         ("grep -Fx PONG", "strict Redis PONG check"),
         ("PostgreSQL 18", "PostgreSQL 18 version check"),
         ("v=8", "Redis 8 version check"),
+        ("grep -Fq '(PostgreSQL) 18.4'", "fixed-string PostgreSQL version check"),
+        ("grep -Fq 'v=8.8.0'", "fixed-string Redis version check"),
+        ("expected PostgreSQL 18.4, got:", "diagnostic PostgreSQL version mismatch"),
+        ("expected Redis 8.8.0, got:", "diagnostic Redis version mismatch"),
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
         ("sport = :${REDIS_PORT}", "Redis port check"),
         ("backup directory", "backup directory check"),

@@ -12,7 +12,7 @@ on:
           - "true"
           - "false"
       schema_only_reset_confirmation:
-        description: "Optional schema-only DB reset. Leave empty for PostgreSQL/Redis 18/8 volume reset."
+        description: "Optional schema-only DB reset token: <app-name>/<postgres-database-name>. Example: ship/ship. Leave empty for PostgreSQL/Redis 18/8 volume reset."
         required: false
         default: ""
         type: string

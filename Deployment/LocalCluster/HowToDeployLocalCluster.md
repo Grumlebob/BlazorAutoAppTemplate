@@ -1118,9 +1118,13 @@ Inputs:
 
 ```text
 run_migrations: true
+schema_only_reset_confirmation: leave empty, or use <app_name>/<postgres_database_name> for a disposable schema reset, for example ship/ship
+postgres18_redis8_volume_reset_confirmation: leave empty, or use <app_name>/postgres18-redis8-reset for an approved destructive PostgreSQL/Redis volume reset
 ```
 
 Use `run_migrations: true` for the first deployment and for commits that include EF migrations. Use `false` only when the database schema is already current for the selected image.
+
+Use only one reset input at a time. For the current template app, a schema-only reset token is typically `ship/ship` when `app_name` is `ship` and `vault_postgres_db` is `ship`. The PostgreSQL/Redis volume reset token is different: `ship/postgres18-redis8-reset`.
 
 Leave the branch selector on `main`. The workflow rejects non-main refs, checks that CI passed for the selected commit, verifies that `<app_image>:<selected-commit-sha>` exists, downloads the migration bundle from that CI run when migrations are enabled, and deploys that image.
 
