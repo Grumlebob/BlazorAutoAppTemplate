@@ -1,6 +1,7 @@
 @implements IDisposable
 
 @inject AuthorBookcaseState AuthorBooks
+@inject PersistentComponentState PersistentState
 
 @if (AuthorBooks.IsLoading)
 {
@@ -18,25 +19,63 @@ else
                    Books="AuthorBooks.ShelfBooks"
                    LinkBooks="true"
                    LimitItems="false"
+                   AutoScroll="@_autoScrollReady"
                    EmptyMessage="The authors bookcase is empty."
                    EmptyTestId="author-book-empty-state"
                    SectionClass="mt-4" />
 }
 
 @code {
+    private const string PersistedStateKey = "author-bookcase-books";
+
     private readonly CancellationTokenSource _loadCancellation = new();
+    private PersistingComponentStateSubscription _persistingSubscription;
+    private bool _autoScrollReady;
 
     protected override async Task OnInitializedAsync()
     {
         AuthorBooks.Changed += HandleBooksChanged;
-        await AuthorBooks.LoadAsync(_loadCancellation.Token);
+
+        if (PersistentState.TryTakeFromJson<List<AuthorBookListItemResponse>>(PersistedStateKey, out var persistedBooks) &&
+            persistedBooks is { Count: > 0 })
+        {
+            AuthorBooks.ApplyLoadedBooks(persistedBooks);
+        }
+        else
+        {
+            await AuthorBooks.LoadAsync(_loadCancellation.Token);
+        }
+
+        _persistingSubscription = PersistentState.RegisterOnPersisting(PersistAuthorBooks);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _autoScrollReady = true;
+        StateHasChanged();
     }
 
     private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
 
+    private Task PersistAuthorBooks()
+    {
+        if (!AuthorBooks.IsLoading && AuthorBooks.Error is null && AuthorBooks.Books.Count > 0)
+        {
+            PersistentState.PersistAsJson(PersistedStateKey, AuthorBooks.Books);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public void Dispose()
     {
         AuthorBooks.Changed -= HandleBooksChanged;
+        _persistingSubscription.Dispose();
         _loadCancellation.Cancel();
         _loadCancellation.Dispose();
     }

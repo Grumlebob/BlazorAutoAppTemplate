@@ -24,12 +24,15 @@
     else
     {
         var shelfItems = BuildShelfItems();
+        var useAutoScroll = AutoScroll && shelfItems.Count > 1;
+        var viewportClass = useAutoScroll ? $"{ShelfViewportClass} bookcase-auto-scroll" : ShelfViewportClass;
+        var trackClass = useAutoScroll ? $"{ShelfTrackClass} bookcase-track-auto" : ShelfTrackClass;
 
         <div class="overflow-hidden">
-            <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-3 pt-8 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto sm:pt-10 [&::-webkit-scrollbar]:hidden"
+            <div class="@viewportClass"
                  tabindex="0"
                  aria-label="@($"{Title} scrollable shelf")">
-                <div class="@ShelfTrackClass">
+                <div class="@trackClass">
                     @for (var index = 0; index < shelfItems.Count; index++)
                     {
                         var book = shelfItems[index];
@@ -63,6 +66,7 @@
 
 @code {
     private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline [content-visibility:auto] [contain-intrinsic-size:17.25rem_19.7rem] transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none sm:[contain-intrinsic-size:20.65rem_23.625rem]";
+    private const string ShelfViewportClass = "group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-3 pt-8 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto sm:pt-10 [&::-webkit-scrollbar]:hidden";
     private IReadOnlyList<BookcaseBook>? _cachedBooksSource;
     private IReadOnlyList<BookcaseBook> _cachedShelfItems = [];
     private bool _cachedLimitItems;
@@ -88,6 +92,9 @@
 
     [Parameter]
     public int MaxItems { get; set; } = BookcaseShelfItems.DefaultMaxItems;
+
+    [Parameter]
+    public bool AutoScroll { get; set; }
 
     [Parameter]
     public string EmptyMessage { get; set; } = "No books saved yet.";

@@ -336,6 +336,35 @@ textarea.valid {
     content: "An error has occurred.";
 }
 
+.bookcase-track-auto {
+    --bookcase-scroll-visible-width: min(72rem, calc(100vw - 2rem));
+    animation: bookcase-self-scroll 26s linear 0.2s infinite alternate;
+    will-change: transform;
+}
+
+.bookcase-auto-scroll:hover .bookcase-track-auto,
+.bookcase-auto-scroll:focus-within .bookcase-track-auto {
+    animation-play-state: paused;
+}
+
+@keyframes bookcase-self-scroll {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translate3d(min(0rem, calc(var(--bookcase-scroll-visible-width) - 100%)), 0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bookcase-track-auto {
+        animation: none;
+        transform: none;
+        will-change: auto;
+    }
+}
+
 @media (min-width: 768px) {
     .account-grid {
         grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.65fr);

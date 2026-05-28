@@ -23,6 +23,15 @@ public sealed class AuthorBookcaseState(
 
     public IReadOnlyList<BookcaseBook> ShelfBooks { get; private set; } = [];
 
+    public void ApplyLoadedBooks(IReadOnlyList<AuthorBookListItemResponse> books)
+    {
+        Interlocked.Increment(ref _version);
+        ApplyBooks(books.OrderBy(book => book.Id).ToList());
+        Error = null;
+        IsLoading = false;
+        NotifyChanged();
+    }
+
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref _version);
@@ -38,9 +47,7 @@ public sealed class AuthorBookcaseState(
                 return;
             }
 
-            ApplyBooks(response.Books.OrderBy(book => book.Id).ToList());
-            IsLoading = false;
-            NotifyChanged();
+            ApplyLoadedBooks(response.Books);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
