@@ -1,6 +1,43 @@
-<BookcaseShelf Title="The Authors Bookcase"
-               Description="A fixed shelf of template and classic books."
-               TestId="author-bookcase"
-               Books="AuthorBookcaseCatalog.Books"
-               LinkBooks="true"
-               SectionClass="mt-4" />
+@implements IDisposable
+
+@inject AuthorBookcaseState AuthorBooks
+
+@if (AuthorBooks.IsLoading)
+{
+    <p class="mt-4 text-gray-600">Loading the authors bookcase...</p>
+}
+else if (AuthorBooks.Error is not null)
+{
+    <p class="mt-4 text-red-600">@AuthorBooks.Error</p>
+}
+else
+{
+    <BookcaseShelf Title="The Authors Bookcase"
+                   Description="A fixed shelf of template and classic books."
+                   TestId="author-bookcase"
+                   Books="AuthorBooks.ShelfBooks"
+                   LinkBooks="true"
+                   LimitItems="false"
+                   EmptyMessage="The authors bookcase is empty."
+                   EmptyTestId="author-book-empty-state"
+                   SectionClass="mt-4" />
+}
+
+@code {
+    private readonly CancellationTokenSource _loadCancellation = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthorBooks.Changed += HandleBooksChanged;
+        await AuthorBooks.LoadAsync(_loadCancellation.Token);
+    }
+
+    private void HandleBooksChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        AuthorBooks.Changed -= HandleBooksChanged;
+        _loadCancellation.Cancel();
+        _loadCancellation.Dispose();
+    }
+}

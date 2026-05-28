@@ -4,6 +4,7 @@ using BlazorAutoApp.Client.Features.Books.UserBookcase;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Account.Seed;
 using BlazorAutoApp.Features.Books;
+using BlazorAutoApp.Features.Books.AuthorBookcase.Seed;
 using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using ClientImports = BlazorAutoApp.Client._Imports;
@@ -69,6 +70,7 @@ app.Use(async (ctx, next) =>
 });
 
 await app.ApplyAppMigrationsAsync();
+await app.SeedAuthorBooksAsync();
 await app.SeedLocalLoginAccountsAsync();
 
 app.MapStaticAssets();

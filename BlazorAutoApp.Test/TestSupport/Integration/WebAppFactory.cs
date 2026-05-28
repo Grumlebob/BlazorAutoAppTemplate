@@ -37,6 +37,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string ApiRateLimitEnvironmentVariable = "RateLimiting__Api__PermitLimit";
     private const string AuthenticationRateLimitEnvironmentVariable = "RateLimiting__Authentication__PermitLimit";
     private const string LocalAccountsEnabledEnvironmentVariable = "LocalAccounts__Enabled";
+    private const string AuthorBooksSeedAtStartupEnvironmentVariable = "AuthorBooks__SeedAtStartup";
     static WebAppFactory()
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RyukImageEnvironmentVariable)))
@@ -53,6 +54,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private Respawner _respawner = default!;
     private EnvironmentVariableScope? _environmentOverrides;
     public HttpClient HttpClient { get; private set; } = default!;
+    internal string ConnectionString => _connectionString;
 
     public WebAppFactory()
         : this(new WebAppFactoryOptions())
@@ -85,7 +87,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["ConnectionStrings:DefaultConnection"] = _connectionString,
                 ["Redis:Configuration"] = _redisConnectionString,
                 ["Redis:AllowMissing"] = redisAllowMissing.ToString(),
-                ["Database:RunMigrationsAtStartup"] = "false",
+                ["Database:RunMigrationsAtStartup"] = _options.RunStartupMigrations.ToString(),
+                ["AuthorBooks:SeedAtStartup"] = _options.AuthorBooksSeedAtStartup.ToString(),
                 ["LocalAccounts:Enabled"] = "false",
                 ["ForwardedHeaders:KnownNetworks:0"] = "0.0.0.0/0",
                 ["ForwardedHeaders:KnownNetworks:1"] = "::/0",
@@ -141,6 +144,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         if (cache is not null)
         {
             try { await cache.RemoveByTagAsync(BooksCacheKeys.AllTag); } catch { }
+            try { await cache.RemoveByTagAsync(AuthorBooksCacheKeys.AllTag); } catch { }
         }
     }
 
@@ -185,7 +189,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [CacheBooksLocalListTtlEnvironmentVariable] = _options.LocalListTtlSeconds?.ToString(),
                 [CacheBooksLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
                 [CacheBooksDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
-                [StartupMigrationsEnvironmentVariable] = "false",
+                [StartupMigrationsEnvironmentVariable] = _options.RunStartupMigrations.ToString(),
+                [AuthorBooksSeedAtStartupEnvironmentVariable] = _options.AuthorBooksSeedAtStartup.ToString(),
                 [LocalAccountsEnabledEnvironmentVariable] = "false",
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
                 [ForwardedHeaderKnownNetworkV6EnvironmentVariable] = "::/0",
@@ -200,7 +205,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         using var scope = Services.CreateScope();
         var services = scope.ServiceProvider;
         var dbFactory = services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        if (_options.RunMigrations)
+        if (_options.RunMigrations && !_options.RunStartupMigrations)
         {
             await using var context = await dbFactory.CreateDbContextAsync();
             await context.Database.MigrateAsync();

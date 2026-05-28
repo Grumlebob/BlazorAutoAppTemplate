@@ -20,11 +20,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         IdentityUserPasskey<string>>(options)
 {
     public DbSet<Book> Books => Set<Book>();
+    public DbSet<UserBook> UserBooks => Set<UserBook>();
+    public DbSet<AuthorBook> AuthorBooks => Set<AuthorBook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new BookEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new UserBookEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new AuthorBookEntityTypeConfiguration());
     }
 }

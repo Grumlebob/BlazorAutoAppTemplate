@@ -16,6 +16,10 @@ public sealed class WebAppFactoryOptions
 
     public bool RunMigrations { get; init; } = true;
 
+    public bool RunStartupMigrations { get; init; }
+
+    public bool AuthorBooksSeedAtStartup { get; init; }
+
     public bool UseProcessEnvironmentOverrides { get; init; } = true;
 
     public int? LocalListTtlSeconds { get; init; }

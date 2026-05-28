@@ -46,7 +46,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 
@@ -77,7 +77,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 
@@ -114,11 +114,10 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
     public async Task Update_OtherUsersBook_Returns404AndDoesNotPersist()
     {
         var book = _data.Generator.Generate();
-        book.OwnerUserId = "other-user@example.test";
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book, BookTestUsers.OtherUserId));
             await db.SaveChangesAsync();
         }
 
@@ -137,7 +136,8 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         await using var verifyDb = await _dbFactory.CreateDbContextAsync();
         var refreshed = await verifyDb.Books.AsNoTracking().FirstAsync(m => m.Id == book.Id);
         Assert.Equal(book.Title, refreshed.Title);
-        Assert.Equal("other-user@example.test", refreshed.OwnerUserId);
+        var ownerLink = await verifyDb.UserBooks.AsNoTracking().SingleAsync(userBook => userBook.BookId == book.Id);
+        Assert.Equal(BookTestUsers.OtherUserId, ownerLink.OwnerUserId);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 
@@ -173,7 +173,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 

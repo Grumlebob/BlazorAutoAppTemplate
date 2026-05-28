@@ -77,7 +77,9 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.AddRange(m1, m2);
+            db.UserBooks.AddRange(
+                BookDataGenerator.AsUserBook(m1),
+                BookDataGenerator.AsUserBook(m2));
             await db.SaveChangesAsync();
         }
 
@@ -91,7 +93,7 @@ public class BooksCachingTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(m3);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(m3));
             await db.SaveChangesAsync();
         }
 

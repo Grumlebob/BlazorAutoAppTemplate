@@ -53,7 +53,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 
@@ -69,11 +69,10 @@ public class GetBookTests : IAsyncLifetime, IDisposable
     public async Task GetById_OtherUsersBook_Returns404()
     {
         var book = _data.Generator.Generate();
-        book.OwnerUserId = "other-user@example.test";
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book, BookTestUsers.OtherUserId));
             await db.SaveChangesAsync();
         }
 

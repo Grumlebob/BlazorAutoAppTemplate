@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using BlazorAutoApp.Client.Features.Books;
+using BlazorAutoApp.Client.Features.Books.AuthorBookcase;
 using BlazorAutoApp.Client.Features.Books.UserBookcase;
 using BlazorAutoApp.Core.Features.Books.Contracts;
 
@@ -16,6 +17,8 @@ builder.Services.AddScoped(sp => new HttpClient
 
 // Books service for WASM after hydration
 builder.Services.AddScoped<IBooksApi, BooksClientService>();
+builder.Services.AddScoped<IAuthorBooksApi, AuthorBooksClientService>();
+builder.Services.AddScoped<AuthorBookcaseState>();
 builder.Services.AddScoped<UserBookcaseState>();
 
 await builder.Build().RunAsync();

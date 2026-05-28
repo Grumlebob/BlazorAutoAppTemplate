@@ -54,16 +54,16 @@ internal class BooksServerService(
     private async Task<GetBooksResponse> LoadBooksAsync(string userId, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        var items = await db.Books
+        var items = await db.UserBooks
             .AsNoTracking()
-            .Where(book => book.OwnerUserId == userId)
-            .OrderBy(book => book.Id)
-            .Select(book => new BookListItemResponse
+            .Where(userBook => userBook.OwnerUserId == userId)
+            .OrderBy(userBook => userBook.BookId)
+            .Select(userBook => new BookListItemResponse
             {
-                Id = book.Id,
-                Title = book.Title,
-                Author = book.Author,
-                Url = book.Url
+                Id = userBook.Book.Id,
+                Title = userBook.Book.Title,
+                Author = userBook.Book.Author,
+                Url = userBook.Book.Url
             })
             .ToListAsync(ct);
         return new GetBooksResponse { Books = items };
@@ -72,10 +72,16 @@ internal class BooksServerService(
     private async Task<GetBookResponse?> LoadBookAsync(string userId, int id, CancellationToken ct)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
-        var book = await db.Books
+        var book = await db.UserBooks
             .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.Id == id && m.OwnerUserId == userId, ct);
-        if (book is null) return null;
+            .Where(m => m.BookId == id && m.OwnerUserId == userId)
+            .Select(m => m.Book)
+            .FirstOrDefaultAsync(ct);
+        if (book is null)
+        {
+            return null;
+        }
+
         return new GetBookResponse
         {
             Id = book.Id,
@@ -93,10 +99,15 @@ internal class BooksServerService(
         {
             Title = req.Title,
             Author = req.Author,
-            Url = NormalizeUrl(req.Url),
+            Url = NormalizeUrl(req.Url)
+        };
+        var userBook = new UserBook
+        {
+            Book = book,
             OwnerUserId = userId
         };
         db.Books.Add(book);
+        db.UserBooks.Add(userBook);
         await db.SaveChangesAsync(cancellationToken);
         await InvalidateAsync(userId, book.Id);
         return new CreateBookResponse
@@ -112,9 +123,12 @@ internal class BooksServerService(
     {
         var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var book = await db.Books.FirstOrDefaultAsync(
-            m => m.Id == req.Id && m.OwnerUserId == userId,
+        var userBook = await db.UserBooks
+            .Include(m => m.Book)
+            .FirstOrDefaultAsync(
+            m => m.BookId == req.Id && m.OwnerUserId == userId,
             cancellationToken);
+        var book = userBook?.Book;
         if (book is null) return false;
         book.Title = req.Title;
         book.Author = req.Author;
@@ -128,9 +142,12 @@ internal class BooksServerService(
     {
         var userId = await _currentUser.GetRequiredUserIdAsync(cancellationToken);
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var book = await db.Books.FirstOrDefaultAsync(
-            m => m.Id == req.Id && m.OwnerUserId == userId,
+        var userBook = await db.UserBooks
+            .Include(m => m.Book)
+            .FirstOrDefaultAsync(
+            m => m.BookId == req.Id && m.OwnerUserId == userId,
             cancellationToken);
+        var book = userBook?.Book;
         if (book is null) return false;
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);

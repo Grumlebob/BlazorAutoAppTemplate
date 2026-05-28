@@ -16,6 +16,11 @@ public class BookDataGenerator
         Generator.RuleFor(m => m.Title, f => f.Lorem.Sentence(3, 2));
         Generator.RuleFor(m => m.Author, f => f.Name.FullName());
         Generator.RuleFor(m => m.Url, f => f.Internet.UrlWithPath("https"));
-        Generator.RuleFor(m => m.OwnerUserId, _ => DefaultOwnerUserId);
     }
+
+    public static UserBook AsUserBook(Book book, string ownerUserId = DefaultOwnerUserId) => new()
+    {
+        Book = book,
+        OwnerUserId = ownerUserId
+    };
 }

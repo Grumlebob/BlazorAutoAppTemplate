@@ -19,6 +19,7 @@ public sealed class ForwardedHeadersTests
         using var environment = new EnvironmentVariableScope(new Dictionary<string, string?>
         {
             ["Database__RunMigrationsAtStartup"] = "false",
+            ["AuthorBooks__SeedAtStartup"] = "false",
             ["Redis__Configuration"] = "CHANGE_ME",
             ["Redis__AllowMissing"] = "true",
             ["ForwardedHeaders__KnownNetworks__0"] = null,
@@ -43,6 +44,7 @@ public sealed class ForwardedHeadersTests
         using var environment = new EnvironmentVariableScope(new Dictionary<string, string?>
         {
             ["Database__RunMigrationsAtStartup"] = "false",
+            ["AuthorBooks__SeedAtStartup"] = "false",
             ["Redis__Configuration"] = "CHANGE_ME",
             ["Redis__AllowMissing"] = "true",
             ["ForwardedHeaders__KnownNetworks__0"] = "10.0.0.0/8",
@@ -62,6 +64,7 @@ public sealed class ForwardedHeadersTests
         {
             ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable",
             ["Database:RunMigrationsAtStartup"] = "false",
+            ["AuthorBooks:SeedAtStartup"] = "false",
             ["LocalAccounts:Enabled"] = "false",
             ["Redis:Configuration"] = "CHANGE_ME",
             ["Redis:AllowMissing"] = "true"

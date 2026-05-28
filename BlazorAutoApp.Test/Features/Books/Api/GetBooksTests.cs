@@ -60,16 +60,12 @@ public class GetBooksTests : IAsyncLifetime, IDisposable
     {
         var currentUserBooks = _data.Generator.Generate(10);
         var otherUserBooks = _data.Generator.Generate(3);
-        foreach (var book in otherUserBooks)
-        {
-            book.OwnerUserId = "other-user@example.test";
-        }
 
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId, BookTestUsers.OtherUserId);
-            await db.Books.AddRangeAsync(currentUserBooks);
-            await db.Books.AddRangeAsync(otherUserBooks);
+            await db.UserBooks.AddRangeAsync(currentUserBooks.Select(book => BookDataGenerator.AsUserBook(book)));
+            await db.UserBooks.AddRangeAsync(otherUserBooks.Select(book => BookDataGenerator.AsUserBook(book, BookTestUsers.OtherUserId)));
             await db.SaveChangesAsync();
         }
 

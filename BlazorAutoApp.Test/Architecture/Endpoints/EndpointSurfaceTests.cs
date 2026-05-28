@@ -24,6 +24,8 @@ public class EndpointSurfaceTests(WebAppFactory factory)
         Assert.True(Has(endpoints, "POST", "CreateBook", "/api/books/", "/api/books"));
         Assert.True(Has(endpoints, "PUT", "UpdateBook", "/api/books/{id:int}"));
         Assert.True(Has(endpoints, "DELETE", "DeleteBook", "/api/books/{id:int}"));
+        Assert.True(Has(endpoints, "GET", "ListAuthorBooks", "/api/author-books/", "/api/author-books"));
+        Assert.True(Has(endpoints, "GET", "GetAuthorBook", "/api/author-books/{id:int}"));
     }
 
     private List<RouteEndpoint> RouteEndpoints()

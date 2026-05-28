@@ -17,8 +17,4 @@ public class Book
 
     [MaxLength(BookRules.UrlMaxLength)]
     public string? Url { get; set; }
-
-    [Required]
-    [MaxLength(BookRules.OwnerUserIdMaxLength)]
-    public required string OwnerUserId { get; set; }
 }

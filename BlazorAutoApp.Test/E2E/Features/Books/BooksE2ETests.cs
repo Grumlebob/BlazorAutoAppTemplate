@@ -26,7 +26,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByTestId("book-edit-pencil")).ToHaveCountAsync(0);
             await Page.GetByTestId("book-back").ClickAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
-            await GoToAsync("/books/author/not-a-real-book");
+            await GoToAsync("/books?authorBookId=99999999&bookMode=view");
             await Expect(Page.GetByText("Book not found.")).ToBeVisibleAsync();
             await Page.GetByTestId("book-back").ClickAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");

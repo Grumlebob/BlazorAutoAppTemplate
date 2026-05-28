@@ -1,6 +1,7 @@
 @implements IDisposable
 
 @inject IBooksApi Books
+@inject IAuthorBooksApi AuthorBooks
 @inject NavigationManager Nav
 @inject UserBookcaseState UserBooks
 @inject Microsoft.Extensions.Logging.ILogger<BookModalHost> Logger
@@ -161,7 +162,7 @@
             {
                 case { Source: BookModalSource.Author, AuthorBookId: not null }:
                     _editorModelRequestKey = null;
-                    LoadAuthorBook(request.AuthorBookId.Value);
+                    await LoadAuthorBookAsync(request.AuthorBookId.Value, version, cancellationToken);
                     break;
                 case { Source: BookModalSource.User, Mode: BookModalMode.Create }:
                     EnsureCreateEditorModel(request);
@@ -197,7 +198,7 @@
         }
     }
 
-    private void LoadAuthorBook(int authorBookId)
+    private async Task LoadAuthorBookAsync(int authorBookId, int version, CancellationToken cancellationToken)
     {
         if (_request?.Mode is not BookModalMode.View)
         {
@@ -205,7 +206,12 @@
             return;
         }
 
-        var book = AuthorBookcaseCatalog.FindById(authorBookId);
+        var book = await AuthorBooks.GetByIdAsync(new GetAuthorBookRequest { Id = authorBookId }, cancellationToken);
+        if (!IsCurrentLoad(version, cancellationToken))
+        {
+            return;
+        }
+
         if (book is null)
         {
             _error = "This book could not be found.";

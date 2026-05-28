@@ -38,7 +38,7 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.DefaultUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book));
             await db.SaveChangesAsync();
         }
 
@@ -63,11 +63,10 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
     public async Task Delete_OtherUsersBook_Returns404AndLeavesBook()
     {
         var book = _data.Generator.Generate();
-        book.OwnerUserId = "other-user@example.test";
         await using (var db = await _dbFactory.CreateDbContextAsync())
         {
             await BookTestUsers.EnsureAsync(db, BookTestUsers.OtherUserId);
-            db.Books.Add(book);
+            db.UserBooks.Add(BookDataGenerator.AsUserBook(book, BookTestUsers.OtherUserId));
             await db.SaveChangesAsync();
         }
 
@@ -78,7 +77,9 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
         await using var verifyDb = await _dbFactory.CreateDbContextAsync();
         var stillThere = await verifyDb.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == book.Id);
         Assert.NotNull(stillThere);
-        Assert.Equal("other-user@example.test", stillThere!.OwnerUserId);
+        var ownerLink = await verifyDb.UserBooks.AsNoTracking().SingleOrDefaultAsync(userBook => userBook.BookId == book.Id);
+        Assert.NotNull(ownerLink);
+        Assert.Equal(BookTestUsers.OtherUserId, ownerLink!.OwnerUserId);
     }
 
     [Fact]

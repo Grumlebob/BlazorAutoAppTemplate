@@ -60,7 +60,9 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
         Assert.NotNull(persisted);
         Assert.Equal(create.Title, persisted!.Title);
         Assert.Equal(create.Url, persisted.Url);
-        Assert.Equal(BookDataGenerator.DefaultOwnerUserId, persisted.OwnerUserId);
+        var userBook = await db.UserBooks.AsNoTracking().SingleOrDefaultAsync(book => book.BookId == payload.Id);
+        Assert.NotNull(userBook);
+        Assert.Equal(BookDataGenerator.DefaultOwnerUserId, userBook!.OwnerUserId);
     }
 
     [Fact]
@@ -82,7 +84,9 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
         {
             var persisted = await db.Books.AsNoTracking().SingleOrDefaultAsync(book => book.Id == created!.Id);
             Assert.NotNull(persisted);
-            Assert.Equal(BookDataGenerator.DefaultOwnerUserId, persisted!.OwnerUserId);
+            var userBook = await db.UserBooks.AsNoTracking().SingleOrDefaultAsync(book => book.BookId == created!.Id);
+            Assert.NotNull(userBook);
+            Assert.Equal(BookDataGenerator.DefaultOwnerUserId, userBook!.OwnerUserId);
         }
 
         var listResponse = await _client.GetAsync("/api/books");
