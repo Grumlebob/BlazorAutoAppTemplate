@@ -17,10 +17,12 @@
 
 <body>
     <Routes @rendermode="PageRenderMode" />
-    <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="@Assets["Features/AppShell/Layout/ReconnectModal.razor.js"]" type="module"></script>
-    <script src="@Assets["Features/Login/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
+    @if (LoadsInteractiveRouting)
+    {
+        <ReconnectModal />
+        <script src="@Assets["_framework/blazor.web.js"]" defer></script>
+        <script src="@Assets["Features/AppShell/Layout/ReconnectModal.razor.js"]" type="module"></script>
+    }
 </body>
 
 </html>
@@ -31,4 +33,6 @@
 
     private IComponentRenderMode? PageRenderMode =>
         HttpContext.AcceptsInteractiveRouting() ? InteractiveAuto : null;
+
+    private bool LoadsInteractiveRouting => PageRenderMode is not null;
 }

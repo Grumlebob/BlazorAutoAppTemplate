@@ -39,7 +39,7 @@ async function requestCredential(email, mediation, headers, signal) {
     return await navigator.credentials.get({ publicKey: options, mediation, signal });
 }
 
-customElements.define('passkey-submit', class extends HTMLElement {
+class PasskeySubmitElement extends HTMLElement {
     static formAssociated = true;
 
     connectedCallback() {
@@ -119,4 +119,8 @@ customElements.define('passkey-submit', class extends HTMLElement {
             await this.obtainAndSubmitCredential(/* useConditionalMediation */ true);
         }
     }
-});
+}
+
+if (!customElements.get('passkey-submit')) {
+    customElements.define('passkey-submit', PasskeySubmitElement);
+}

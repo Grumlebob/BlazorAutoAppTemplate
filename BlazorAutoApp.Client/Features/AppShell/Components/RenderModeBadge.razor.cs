@@ -13,7 +13,7 @@ public partial class RenderModeBadge
     private string AssignedModeName => FormatRenderMode(Assigned ?? AssignedRenderMode) ?? "Static";
 
     private string CurrentRendererName =>
-        RendererInfo.Name == "Static" && ConfiguredMode != "Static"
+        RendererInfo.Name == "Static" && !ConfiguredMode.StartsWith("Static", StringComparison.OrdinalIgnoreCase)
             ? "Static prerender"
             : RendererInfo.Name;
 
