@@ -4,6 +4,8 @@ public class AuthorBookListItemResponse
 {
     public int Id { get; init; }
 
+    public required string SeedKey { get; init; }
+
     public required string Title { get; init; }
 
     public string? Author { get; init; }

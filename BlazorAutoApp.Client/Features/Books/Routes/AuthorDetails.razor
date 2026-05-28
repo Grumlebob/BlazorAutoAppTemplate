@@ -1,0 +1,45 @@
+@page "/books/author/{SeedKey}"
+
+@inject IAuthorBooksApi AuthorBooks
+@inject NavigationManager Nav
+
+<PageTitle>Author Book</PageTitle>
+
+<h1 class="sr-only">Opening author book</h1>
+
+@if (_notFound)
+{
+    <p class="mt-6 text-gray-600">Author book not found.</p>
+}
+
+@* Compatibility route: author seed-key URLs open the current modal flow on /books. *@
+
+@code {
+    [Parameter]
+    public string SeedKey { get; set; } = string.Empty;
+
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var normalizedSeedKey = SeedKey.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedSeedKey))
+        {
+            _notFound = true;
+            return;
+        }
+
+        var response = await AuthorBooks.GetAsync();
+        var book = response.Books.FirstOrDefault(candidate =>
+            string.Equals(candidate.SeedKey, normalizedSeedKey, StringComparison.OrdinalIgnoreCase));
+
+        if (book is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        var authorBookId = book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Nav.NavigateTo($"/books?authorBookId={authorBookId}&bookMode=view", forceLoad: false, replace: true);
+    }
+}

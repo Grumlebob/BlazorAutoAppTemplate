@@ -1,6 +1,6 @@
 {
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19"
   },
   "scripts": {
     "css:build": "tailwindcss -i ./Styles/input.css -o ../BlazorAutoApp/wwwroot/tailwind.css",

@@ -47,6 +47,7 @@ public class GetAuthorBookTests : IAsyncLifetime, IDisposable
         var payload = await response.Content.ReadFromJsonAsync<GetAuthorBookResponse>();
         Assert.NotNull(payload);
         Assert.Equal(authorBook.BookId, payload!.Id);
+        Assert.Equal("gatsby", payload.SeedKey);
         Assert.Equal("The Great Gatsby", payload.Title);
         Assert.Equal("F. Scott Fitzgerald", payload.Author);
         Assert.Equal("https://example.test/gatsby", payload.Url);

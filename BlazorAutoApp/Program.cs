@@ -74,6 +74,7 @@ await app.SeedAuthorBooksAsync();
 await app.SeedLocalLoginAccountsAsync();
 
 app.MapStaticAssets();
+app.MapPublicPageHeadRequests();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()

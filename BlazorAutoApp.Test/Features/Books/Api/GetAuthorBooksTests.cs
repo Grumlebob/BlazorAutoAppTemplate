@@ -51,8 +51,31 @@ public class GetAuthorBooksTests : IAsyncLifetime, IDisposable
         Assert.Equal(2, payload!.Books.Count);
         Assert.Collection(
             payload.Books,
-            first => Assert.Equal("The Great Gatsby", first.Title),
-            second => Assert.Equal("Ship", second.Title));
+            first =>
+            {
+                Assert.Equal("gatsby", first.SeedKey);
+                Assert.Equal("The Great Gatsby", first.Title);
+            },
+            second =>
+            {
+                Assert.Equal("ship", second.SeedKey);
+                Assert.Equal("Ship", second.Title);
+            });
+    }
+
+    [Fact]
+    public async Task AuthorSeedKeyRoute_IsACompatibilityRoute()
+    {
+        var authorBook = CreateAuthorBook("ship", "Ship", "Jacob Grum");
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            db.AuthorBooks.Add(authorBook);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/books/author/ship");
+
+        Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

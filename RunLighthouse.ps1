@@ -17,7 +17,8 @@ $clientRoot = Join-Path $repoRoot "BlazorAutoApp.Client"
 $outputRootPath = Join-Path $repoRoot $OutputRoot
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runDirectory = Join-Path $outputRootPath "$Label-$timestamp"
-$npmCommand = if ($IsWindows) { "npm.cmd" } else { "npm" }
+$nodeCommand = "node"
+$lighthouseCli = Join-Path $clientRoot "node_modules/lighthouse/cli/index.js"
 
 function Join-AppUrl([string]$Base, [string]$Path) {
   if ([string]::IsNullOrWhiteSpace($Path) -or $Path -eq "/") {
@@ -107,6 +108,10 @@ function Get-ReportJsonPath([string]$OutputBase) {
 
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 
+if (-not (Test-Path -LiteralPath $lighthouseCli)) {
+  throw "Lighthouse CLI was not found at $lighthouseCli. Run npm install in $clientRoot first."
+}
+
 $profiles = if ($Profile -eq "both") { @("mobile", "desktop") } else { @($Profile) }
 $extraHeadersPath = $null
 if ($AuthenticatedLocalUser) {
@@ -123,9 +128,7 @@ foreach ($path in $Paths) {
     $safePath = ConvertTo-SafeName $path
     $outputBase = Join-Path $runDirectory "$safePath-$currentProfile"
     $arguments = @(
-      "--prefix", $clientRoot,
-      "exec", "--",
-      "lighthouse",
+      $lighthouseCli,
       $url,
       "--output=html",
       "--output=json",
@@ -146,7 +149,7 @@ foreach ($path in $Paths) {
     }
 
     Write-Host "Running Lighthouse $currentProfile for $url"
-    & $npmCommand @arguments
+    & $nodeCommand @arguments
     if ($LASTEXITCODE -ne 0) {
       throw "Lighthouse failed for $url ($currentProfile)."
     }

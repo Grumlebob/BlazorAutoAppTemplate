@@ -54,6 +54,7 @@ internal class AuthorBooksServerService(
             .Select(authorBook => new AuthorBookListItemResponse
             {
                 Id = authorBook.Book.Id,
+                SeedKey = authorBook.SeedKey,
                 Title = authorBook.Book.Title,
                 Author = authorBook.Book.Author,
                 Url = authorBook.Book.Url
@@ -72,6 +73,7 @@ internal class AuthorBooksServerService(
             .Select(authorBook => new GetAuthorBookResponse
             {
                 Id = authorBook.Book.Id,
+                SeedKey = authorBook.SeedKey,
                 Title = authorBook.Book.Title,
                 Author = authorBook.Book.Author,
                 Url = authorBook.Book.Url

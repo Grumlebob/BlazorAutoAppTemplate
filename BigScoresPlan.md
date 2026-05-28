@@ -1,6 +1,6 @@
 # Big Scores Plan
 
-Status: Pending
+Status: In progress; first measurement and direct-failure fix pass completed
 
 Date: 2026-05-28
 
@@ -54,7 +54,7 @@ Status: Pending
 
 | Tool | Use | What to capture | Decision rule |
 | --- | --- | --- | --- |
-| Repo Lighthouse CLI through `RunLighthouse.ps1` | Repeatable baseline and before/after comparison | Mobile and desktop HTML/JSON reports for `/`, `/books/design-demos`, `/books/design-demos/cloth-hardback`, `/books/author/ship`, `/Account/Login` | Primary local regression signal |
+| Repo Lighthouse CLI through `RunLighthouse.ps1` | Repeatable baseline and before/after comparison | Mobile and desktop HTML/JSON reports for `/`, `/books/design-demos`, `/books/design-demos/cloth-hardback`, `/books?authorBookId=2&bookMode=view`, `/Account/Login` | Primary local regression signal |
 | PageSpeed Insights | Public Google view of the deployed URL | Lab scores, field data if available, diagnostics | Use as the easy external validation link |
 | Chrome UX Report | Real-user Core Web Vitals | P75 LCP, INP, CLS by origin or URL if available | Use only when traffic is enough for meaningful data |
 | WebPageTest / Catchpoint | Deep production diagnosis | First view, repeat view, waterfall, filmstrip, video, CPU, request timings, bytes by resource type | Use for LCP, TTFB, cache, CDN, and visual progress debugging |
@@ -75,6 +75,345 @@ Sources:
 - DebugBear: `https://www.debugbear.com/`
 - SpeedCurve: `https://www.speedcurve.com/`
 
+## Execution Log - 2026-05-28
+
+Status: Completed for first pass; production verification after deploy remains pending.
+
+### Direct Failures Fixed
+
+Status: Implemented locally
+
+1. `RunLighthouse.ps1` could not audit URLs containing `&`.
+   - Symptom: `/books?authorBookId=2&bookMode=view` was split by Windows command handling, and `bookMode` was executed as a command.
+   - Fix: the runner now calls the local Lighthouse CLI through `node` instead of `npm exec`.
+   - Verification: `production-big-scores-query-smoke-20260528-230647` completed successfully for `/books?authorBookId=2&bookMode=view`.
+
+2. `/books/author/ship` returned `404` in production.
+   - Cause: the old pretty author URL was still used in plans, but the current app uses the query-modal route.
+   - Fix: added `/books/author/{SeedKey}` as a compatibility route that resolves the author seed key and redirects into `/books?authorBookId=<id>&bookMode=view`.
+   - Supporting fix: author-book API DTOs now expose `seedKey`.
+   - Verification: focused tests passed, and local `HEAD /books/author/ship` returned `200` after rebuild.
+
+3. Public page `HEAD` requests returned `404`.
+   - Symptom: `curl -I https://shipinspection.jacobgrum.com/` returned `404` even though `GET /` returned `200`.
+   - Fix: mapped explicit `HEAD` responses for the public benchmark pages.
+   - Verification: local `HEAD /` and `HEAD /books/author/ship` returned `200`.
+   - Production verification: pending deploy.
+
+4. Client Node engine did not match the pinned Lighthouse requirement.
+   - Symptom: `package.json` allowed Node `>=20`, but Lighthouse 13.3 requires Node `>=22.19`.
+   - Fix: updated `BlazorAutoApp.Client/package.json` and `package-lock.json` to require Node `>=22.19`.
+   - Verification: `npm --prefix .\BlazorAutoApp.Client install --package-lock-only` passed with 0 vulnerabilities.
+
+Focused test command:
+
+```powershell
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj -c Release --filter "FullyQualifiedName~HeadRequestTests|FullyQualifiedName~GetAuthorBook"
+```
+
+Result:
+
+```text
+Passed: 6, Failed: 0, Skipped: 0
+```
+
+### Corrected Production Lighthouse Baseline
+
+Status: Completed
+
+Report folder:
+
+```text
+TestResults/Lighthouse/production-big-scores-corrected-baseline-20260528-230715
+```
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | FCP | LCP | TBT | CLS | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 72 | 100 | 81 | 100 | 2.0s | 12.5s | 50ms | 0 | 2,554 KiB |
+| `/` | desktop | 100 | 100 | 81 | 100 | 0.5s | 0.6s | 0ms | 0 | 2,552 KiB |
+| `/books/design-demos` | mobile | 100 | 100 | 81 | 100 | 1.3s | 1.6s | 10ms | 0 | 36 KiB |
+| `/books/design-demos` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.5s | 0ms | 0 | 36 KiB |
+| `/books/design-demos/cloth-hardback` | mobile | 99 | 100 | 81 | 100 | 1.3s | 1.6s | 0ms | 0 | 32 KiB |
+| `/books/design-demos/cloth-hardback` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.5s | 0ms | 0 | 31 KiB |
+| `/books?authorBookId=2&bookMode=view` | mobile | 72 | 100 | 77 | 100 | 2.0s | 12.4s | 50ms | 0 | 2,553 KiB |
+| `/books?authorBookId=2&bookMode=view` | desktop | 99 | 100 | 81 | 100 | 0.5s | 0.7s | 0ms | 0 | 2,553 KiB |
+| `/Account/Login` | mobile | 100 | 100 | 81 | 100 | 1.3s | 1.6s | 0ms | 0 | 33 KiB |
+| `/Account/Login` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.6s | 0ms | 0 | 33 KiB |
+
+Interpretation:
+
+- Static SSR pages and login are already effectively solved for performance.
+- The only meaningful Lighthouse performance target is the Interactive Auto home/detail experience.
+- Mobile home/detail are limited by Lighthouse LCP/TTI around 12.4-12.5s, while TBT is only about 50ms and CLS is 0.
+- Desktop is already 99-100.
+- Best Practices 77-81 is not app-owned in production; it is caused by Cloudflare challenge-platform scripts.
+
+### Local Fixed Smoke
+
+Status: Completed
+
+Report folder:
+
+```text
+TestResults/Lighthouse/local-big-scores-fixed-smoke-20260528-231426
+```
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | FCP | LCP | TBT | CLS | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 75 | 100 | 100 | 100 | 1.5s | 11.6s | 60ms | 0 | 2,543 KiB |
+| `/books/author/ship` | mobile | 75 | 100 | 100 | 100 | 1.5s | 13.7s | 60ms | 0 | 2,549 KiB |
+| `/books?authorBookId=23&bookMode=view` | mobile | 75 | 100 | 100 | 100 | 1.5s | 13.7s | 50ms | 0 | 2,549 KiB |
+
+Interpretation:
+
+- Local app-owned Best Practices is 100, which confirms the production score loss is external.
+- The compatibility route behaves like the canonical route.
+- The Interactive Auto score cap appears before Cloudflare, so the next optimization work should focus on Blazor startup/LCP classification, not Cloudflare.
+
+### Publish Asset Findings
+
+Status: Completed
+
+Publish folder:
+
+```text
+artifacts/publish-big-scores
+```
+
+Largest framework assets:
+
+| Asset | Uncompressed | Brotli |
+| --- | ---: | ---: |
+| `dotnet.native.*.wasm` | 2,932 KiB | 954 KiB |
+| `System.Private.CoreLib.*.wasm` | 1,612 KiB | 501 KiB |
+| `System.Text.Json.*.wasm` | 401 KiB | 129 KiB |
+| `System.Linq.Expressions.*.wasm` | 349 KiB | 111 KiB |
+| `Microsoft.AspNetCore.Components.*.wasm` | 256 KiB | 92 KiB |
+| `BlazorAutoApp.Client.*.wasm` | 202 KiB | about 60-70 KiB compressed |
+
+Static asset summary:
+
+- `.wasm`: about 7,062 KiB uncompressed.
+- `.br`: about 2,602 KiB.
+- `.gz`: about 3,159 KiB.
+- CSS: about 50 KiB uncompressed total.
+
+Interpretation:
+
+- The interactive-page payload is mostly standard .NET WebAssembly runtime/framework cost.
+- App-owned client assembly size is not the dominant transfer cost.
+- Any large payload improvement must come from a clean assembly/lazy-loading split or from changing when WebAssembly is fetched, while still preserving Interactive Auto.
+
+### Live Header Findings
+
+Status: Completed
+
+Production GET `/`:
+
+- `200 OK`.
+- `Content-Encoding: br`.
+- `Cache-Control: no-cache, no-store, max-age=0`.
+- Antiforgery cookie is emitted.
+- `content-security-policy: frame-ancestors 'self'`.
+- `x-frame-options: SAMEORIGIN`.
+- `strict-transport-security: max-age=2592000`.
+
+Production framework asset:
+
+- `dotnet.native.*.wasm` returns `200 OK`.
+- `Content-Encoding: br`.
+- `Cache-Control: max-age=31536000, immutable`.
+- `cf-cache-status: DYNAMIC` in this sample.
+
+Production CSS asset:
+
+- Fingerprinted `tailwind.*.css` returns `200 OK`.
+- `Content-Encoding: br`.
+- `Cache-Control: max-age=31536000, immutable`.
+- `cf-cache-status: HIT`.
+
+Interpretation:
+
+- Compression and immutable cache headers are correct for app-owned static assets.
+- HTML no-store and antiforgery cookie behavior should be investigated for anonymous public pages because Lighthouse reports bfcache failures tied to `no-store`; do not change this until Identity, antiforgery, and forms are checked.
+
+### External Tool Attempts
+
+Status: Partially blocked
+
+PageSpeed Insights API:
+
+- Attempted with `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`.
+- Result: blocked by Google quota for the unauthenticated/shared caller, with daily quota `0`.
+- Follow-up: use the browser UI at `https://pagespeed.web.dev/` manually or add a project API key before automating.
+
+WebPageTest:
+
+- Attempted unauthenticated API call to `https://www.webpagetest.org/runtest.php`.
+- Result: `403 Forbidden` from WebPageTest/Cloudflare.
+- Follow-up: run manually in WebPageTest/Catchpoint UI, or configure an API key/account path that is allowed from this environment.
+
+CrUX:
+
+- Not available from this run.
+- Follow-up: check through PageSpeed Insights UI/API with a key. Treat it as absent unless Google reports field data for the origin or URL.
+
+## Measurement-Backed Follow-Up Backlog
+
+Status: Pending
+
+### P0 - Deploy And Verify The Direct Fixes
+
+Work:
+
+- Deploy the current branch.
+- Verify production:
+
+  ```powershell
+  curl.exe -I https://shipinspection.jacobgrum.com/
+  curl.exe -I https://shipinspection.jacobgrum.com/books/author/ship
+  ```
+
+- Re-run:
+
+  ```powershell
+  .\RunLighthouse.ps1 `
+    -BaseUrl https://shipinspection.jacobgrum.com `
+    -Paths "/", "/books/author/ship", "/books?authorBookId=2&bookMode=view" `
+    -Profile mobile `
+    -Label production-big-scores-direct-fixes-after-deploy
+  ```
+
+Acceptance:
+
+- `HEAD /` is no longer `404`.
+- `/books/author/ship` is no longer `404`.
+- Query-string Lighthouse runs stay reliable.
+
+### P1 - Investigate Anonymous HTML No-Store And Antiforgery Cookie
+
+Why:
+
+- Production GET `/` emits `Cache-Control: no-cache, no-store, max-age=0` and an antiforgery cookie.
+- Lighthouse reports bfcache failures partly because the main resource has `no-store`.
+- The home page has no obvious anonymous form submission, but Identity and modal flows must not be weakened.
+
+Work:
+
+- Identify exactly which component or middleware causes antiforgery token generation on `/`.
+- Check whether public anonymous pages can avoid antiforgery cookie creation without breaking account pages, forms, or authenticated book mutations.
+- If safe, scope antiforgery/no-store behavior to endpoints/components that need it.
+- If not safe, document the bfcache limitation as an accepted security/framework cost.
+
+Acceptance:
+
+- Anonymous home either stops emitting unnecessary antiforgery/no-store headers, or the reason is documented with tests.
+- Account/login/passkey and authenticated CRUD still pass.
+
+Expected score impact:
+
+- Potentially small to medium for Best Practices/bfcache and repeat visits.
+- Do not expect this alone to solve the 12s Lighthouse LCP/TTI issue.
+
+### P1 - Trace The Interactive Auto LCP/TTI Plateau
+
+Why:
+
+- Mobile home/detail LCP and TTI are both around 12.4-12.5s.
+- TBT is only about 50ms and CLS is 0.
+- Lighthouse LCP breakdown points to visible text/SVG rendering much earlier than the final LCP number, so this needs a trace-level explanation before code changes.
+
+Work:
+
+- Open the Lighthouse trace for `home-mobile.report.json`.
+- Compare screenshot filmstrip, LCP event, TTI, and WebAssembly fetch/compile/initialize timing.
+- Use Chrome DevTools Performance against local `/`.
+- Confirm whether Lighthouse is effectively waiting on Blazor Auto/WebAssembly readiness rather than actual visual completeness.
+- If visual completion is early, use WebPageTest filmstrip after manual/account access to validate real user perception.
+
+Acceptance:
+
+- We know whether the 12s metric is a true visual LCP problem or a Blazor Auto startup/accounting problem.
+- Any optimization has a specific trace target.
+
+Expected score impact:
+
+- High if a real delayed LCP element is found.
+- Limited if this is mostly expected Interactive Auto WebAssembly startup under Lighthouse throttling.
+
+### P1 - WebAssembly Payload Dependency Review
+
+Why:
+
+- Interactive pages transfer about 2.55 MiB.
+- Largest payload is standard runtime/framework, but `System.Linq.Expressions`, `System.ComponentModel.TypeConverter`, and similar assemblies should be checked for avoidable roots.
+
+Work:
+
+- Inspect app-owned client assembly dependencies.
+- Identify whether validation, reflection, JSON options, or editor code roots large assemblies on home.
+- Evaluate clean .NET-supported lazy loading only if rarely used book editor/modal code can be split without framework fighting.
+- Avoid brittle linker descriptor tricks.
+
+Acceptance:
+
+- Either reduce app-owned/client-rooted payload measurably, or document why the remaining payload is expected.
+
+Expected score impact:
+
+- Medium only if a clean dependency split exists.
+
+### P2 - Render-Blocking CSS Cleanup
+
+Why:
+
+- Lighthouse estimates about 450ms render-blocking savings on interactive pages.
+- CSS bytes are small, so the risk of overengineering is real.
+
+Work:
+
+- Check whether the four CSS files can be naturally reduced or reordered.
+- Remove stale scoped CSS if any exists.
+- Avoid manual critical CSS unless trace data shows a real LCP win.
+
+Acceptance:
+
+- CSS remains maintainable.
+- Any change is backed by Lighthouse before/after.
+
+Expected score impact:
+
+- Small.
+
+### P2 - Cloudflare Best Practices Decision
+
+Why:
+
+- Production Best Practices is 77-81 due to `/cdn-cgi/challenge-platform/scripts/jsd/main.js`.
+- Local Best Practices is 100.
+
+Work:
+
+- Decide whether score purity is worth changing Cloudflare JavaScript Detections/Bot Fight/challenge settings.
+- If security settings stay as-is, record the score loss as an accepted external artifact.
+
+Acceptance:
+
+- The plan does not keep chasing app code for a Cloudflare-owned warning.
+
+### P2 - Add Optional External Tool Automation
+
+Work:
+
+- Add optional `RunPageSpeed.ps1` only if an API key is available.
+- Add optional WebPageTest/Catchpoint runner only if an API key/account path is available.
+- Keep API keys out of git.
+
+Acceptance:
+
+- Manual runs remain documented.
+- Automated runs are repeatable when credentials exist.
+
 ## Baseline Pass
 
 Status: Pending
@@ -88,7 +427,7 @@ Local command:
 ```powershell
 .\RunLighthouse.ps1 `
   -BaseUrl https://127.0.0.1:7186 `
-  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books/author/ship", "/Account/Login" `
+  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books?authorBookId=23&bookMode=view", "/Account/Login" `
   -Profile both `
   -Label local-big-scores-baseline `
   -IgnoreCertificateErrors
@@ -99,7 +438,7 @@ Production command:
 ```powershell
 .\RunLighthouse.ps1 `
   -BaseUrl https://shipinspection.jacobgrum.com `
-  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books/author/ship", "/Account/Login" `
+  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books?authorBookId=2&bookMode=view", "/Account/Login" `
   -Profile both `
   -Label production-big-scores-baseline
 ```
@@ -365,7 +704,8 @@ Pages:
 - `/`
 - `/books/design-demos`
 - `/books/design-demos/cloth-hardback`
-- `/books/author/ship`
+- `/books?authorBookId=2&bookMode=view`
+- `/books/author/ship` as a compatibility-route smoke check after deploy
 - `/Account/Login`
 
 Test matrix:
@@ -500,7 +840,7 @@ Run after deploy:
 ```powershell
 .\RunLighthouse.ps1 `
   -BaseUrl https://shipinspection.jacobgrum.com `
-  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books/author/ship", "/Account/Login" `
+  -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books?authorBookId=2&bookMode=view", "/Account/Login" `
   -Profile both `
   -Label production-big-scores-after-deploy
 ```
