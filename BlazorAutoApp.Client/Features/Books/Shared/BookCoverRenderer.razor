@@ -27,8 +27,8 @@
 
         <g class="@PagesClass">
             <g transform="translate(-3 0)">
-                <path d="@Design.PagePath" fill="url(#@PageGradientId)" />
-                <path d="M112 44h38M112 59h36M112 74h39M112 89h37M112 104h39M112 119h36M112 134h38M112 149h36M112 164h39M112 178h37M112 188h34"
+                <path d="@BookCoverGeometry.PagePath" fill="url(#@PageGradientId)" />
+                <path d="@BookCoverGeometry.PageLinesPath"
                       stroke="@Theme.PageLine"
                       stroke-width="1.2"
                       stroke-linecap="round"
@@ -38,10 +38,10 @@
         </g>
 
         <g class="@CoverClass">
-            <path d="@Design.CoverPath" fill="url(#@CoverGradientId)" />
+            <path d="@BookCoverGeometry.CoverPath" fill="url(#@CoverGradientId)" />
             @if (Design.Kind is BookCoverDesignKind.ClothHardback)
             {
-                <path d="@Design.CoverPath" fill="url(#@ClothWeaveId)" />
+                <path d="@BookCoverGeometry.CoverPath" fill="url(#@ClothWeaveId)" />
             }
 
             <BookCoverArtwork Kind="@Design.Kind" />

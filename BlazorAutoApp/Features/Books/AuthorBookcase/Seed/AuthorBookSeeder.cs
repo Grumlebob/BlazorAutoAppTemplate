@@ -19,10 +19,12 @@ internal sealed class AuthorBookSeeder(
     private static readonly AuthorBookSeedItem[] SeedItems =
     [
         new("the-great-gatsby", "The Great Gatsby", "F. Scott Fitzgerald", "https://www.gutenberg.org/ebooks/64317"),
-        new("ship", "Ship", "Jacob Grum", null),
+        new("ship", "Ship Inspections", "Jacob Grum", null),
         new("traceback", "TraceBack", "Jacob Grum", null),
         new("improveddb", "ImprovedDb", "Jacob Grum", null),
-        new("kinojoin", "KinoJoin", "Jacob Grum", null)
+        new("kinojoin", "KinoJoin", "Jacob Grum", null),
+        new("unlost", "Unlost", "Jacob Grum", null),
+        new("geckobot", "GeckoBot", "Jacob Grum", null),
     ];
 
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
@@ -49,6 +51,7 @@ internal sealed class AuthorBookSeeder(
                 .ToDictionaryAsync(authorBook => authorBook.SeedKey, StringComparer.Ordinal, cancellationToken);
 
             var hasChanges = false;
+            var missingItems = new List<AuthorBookSeedItem>();
             foreach (var item in SeedItems)
             {
                 if (existing.TryGetValue(item.SeedKey, out var authorBook))
@@ -57,22 +60,34 @@ internal sealed class AuthorBookSeeder(
                     continue;
                 }
 
-                db.AuthorBooks.Add(new AuthorBook
-                {
-                    SeedKey = item.SeedKey,
-                    Book = new Book
-                    {
-                        Title = item.Title,
-                        Author = item.Author,
-                        Url = item.Url
-                    }
-                });
-                hasChanges = true;
+                missingItems.Add(item);
             }
 
             if (hasChanges)
             {
                 await db.SaveChangesAsync(cancellationToken);
+            }
+
+            foreach (var item in missingItems)
+            {
+                var book = new Book
+                {
+                    Title = item.Title,
+                    Author = item.Author,
+                    Url = item.Url
+                };
+
+                db.Books.Add(book);
+                await db.SaveChangesAsync(cancellationToken);
+
+                db.AuthorBooks.Add(new AuthorBook
+                {
+                    SeedKey = item.SeedKey,
+                    BookId = book.Id
+                });
+                await db.SaveChangesAsync(cancellationToken);
+
+                hasChanges = true;
             }
 
             await transaction.CommitAsync(cancellationToken);

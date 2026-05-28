@@ -17,7 +17,17 @@ public sealed class AuthorBookSeedTests
         try
         {
             var originalIds = await ReadAuthorBookIdsAsync(firstFactory);
-            Assert.Equal(5, originalIds.Count);
+            Assert.Equal(
+                [
+                    "geckobot",
+                    "improveddb",
+                    "kinojoin",
+                    "ship",
+                    "the-great-gatsby",
+                    "traceback",
+                    "unlost"
+                ],
+                originalIds.Keys);
             Assert.All(originalIds.Values, id => Assert.True(id > 0));
 
             await RenameSeededBookAsync(firstFactory, "ship", "Changed Ship");
@@ -38,7 +48,7 @@ public sealed class AuthorBookSeedTests
                     .Include(authorBook => authorBook.Book)
                     .SingleAsync(authorBook => authorBook.SeedKey == "ship");
 
-                Assert.Equal("Ship", ship.Book.Title);
+                Assert.Equal("Ship Inspections", ship.Book.Title);
                 Assert.Equal("Jacob Grum", ship.Book.Author);
             }
             finally

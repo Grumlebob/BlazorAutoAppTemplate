@@ -61,10 +61,6 @@ public sealed record BookDesignDemo(BookCoverDesignDefinition Definition)
 
     public BookCoverDesignColors PageColors => Definition.PageColors;
 
-    public string CoverPath => Definition.CoverPath;
-
-    public string PagePath => Definition.PagePath;
-
     public string LineStroke => Definition.LineStroke;
 
     public BookCoverTitlePlate Plate => Definition.Plate;
