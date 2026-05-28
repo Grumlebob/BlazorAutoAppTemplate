@@ -24,44 +24,34 @@
     else
     {
         var shelfItems = BuildShelfItems();
-        var visibleItemCount = GetVisibleItemCount();
 
         <div class="overflow-hidden">
             <div class="group/bookcase overflow-x-hidden overflow-y-hidden overscroll-x-contain border-y border-t-gray-200 border-b-gray-300 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.88),rgb(249_250_251_/_0.98)),repeating-linear-gradient(90deg,#f3f4f6_0_72px,#ffffff_72px_144px)] px-3 pt-8 [scrollbar-width:none] [-ms-overflow-style:none] hover:overflow-x-auto focus:overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 focus-within:overflow-x-auto sm:pt-10 [&::-webkit-scrollbar]:hidden"
                  tabindex="0"
                  aria-label="@($"{Title} scrollable shelf")">
                 <div class="@ShelfTrackClass">
-                    @for (var pass = 0; pass < ShelfPassCount; pass++)
+                    @for (var index = 0; index < shelfItems.Count; index++)
                     {
-                        var isDuplicate = pass == 1;
-                        for (var index = 0; index < shelfItems.Count; index++)
-                        {
-                            var book = shelfItems[index];
-                            var isRepeatedBook = index >= visibleItemCount;
-                            var isHiddenCopy = isDuplicate || isRepeatedBook;
-                            var seed = BuildBookSeed(book, index, pass);
+                        var book = shelfItems[index];
+                        var seed = BuildBookSeed(book, index);
 
-                            if (LinkBooks && !string.IsNullOrWhiteSpace(book.Href))
-                            {
-                                <a data-testid="@($"{TestId}-book")"
-                                   @key="BuildBookKey(book, index, pass)"
-                                   class="@BookFrameClass"
-                                   href="@book.Href"
-                                   aria-label="@(isHiddenCopy ? null : $"{book.Title} details")"
-                                   aria-hidden="@(isHiddenCopy ? "true" : null)"
-                                   tabindex="@(isHiddenCopy ? "-1" : null)">
-                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
-                                </a>
-                            }
-                            else
-                            {
-                                <span data-testid="@($"{TestId}-book")"
-                                      @key="BuildBookKey(book, index, pass)"
-                                      class="@BookFrameClass"
-                                      aria-hidden="@(isHiddenCopy ? "true" : null)">
-                                    <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
-                                </span>
-                            }
+                        if (LinkBooks && !string.IsNullOrWhiteSpace(book.Href))
+                        {
+                            <a data-testid="@($"{TestId}-book")"
+                               @key="BuildBookKey(book, index)"
+                               class="@BookFrameClass"
+                               href="@book.Href"
+                               aria-label="@($"{book.Title} details")">
+                                <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                            </a>
+                        }
+                        else
+                        {
+                            <span data-testid="@($"{TestId}-book")"
+                                  @key="BuildBookKey(book, index)"
+                                  class="@BookFrameClass">
+                                <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                            </span>
                         }
                     }
                 </div>
@@ -75,9 +65,8 @@
     private const string BookFrameClass = "group block flex-none origin-bottom text-inherit no-underline [content-visibility:auto] [contain-intrinsic-size:17.25rem_19.7rem] transition-[transform,filter] duration-200 ease-out hover:-translate-y-1 hover:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:-translate-y-1 focus-visible:drop-shadow-[0_0.8rem_0.7rem_rgb(17_24_39_/_0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 motion-reduce:transition-none sm:[contain-intrinsic-size:20.65rem_23.625rem]";
     private IReadOnlyList<BookcaseBook>? _cachedBooksSource;
     private IReadOnlyList<BookcaseBook> _cachedShelfItems = [];
-    private bool _cachedAutoScroll;
-    private int _cachedAutoScrollMinItems;
-    private int _cachedAutoScrollMaxUniqueItems;
+    private bool _cachedLimitItems;
+    private int _cachedMaxItems;
 
     [Parameter, EditorRequired]
     public required string Title { get; set; }
@@ -95,13 +84,10 @@
     public bool LinkBooks { get; set; }
 
     [Parameter]
-    public bool AutoScroll { get; set; } = true;
+    public bool LimitItems { get; set; } = true;
 
     [Parameter]
-    public int AutoScrollMinItems { get; set; } = BookcaseShelfItems.DefaultAutoScrollMinItems;
-
-    [Parameter]
-    public int AutoScrollMaxUniqueItems { get; set; } = BookcaseShelfItems.DefaultAutoScrollMaxUniqueItems;
+    public int MaxItems { get; set; } = BookcaseShelfItems.DefaultMaxItems;
 
     [Parameter]
     public string EmptyMessage { get; set; } = "No books saved yet.";
@@ -115,14 +101,7 @@
     [Parameter]
     public RenderFragment? Actions { get; set; }
 
-    private string ShelfTrackClass => AutoScroll
-        ? "flex w-max gap-[1.5rem] motion-safe:animate-bookcase-scroll group-hover/bookcase:[animation-play-state:paused] group-focus/bookcase:[animation-play-state:paused] group-focus-within/bookcase:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:flex-wrap motion-reduce:animate-none sm:gap-[1.9rem]"
-        : "flex w-max gap-[1.5rem] sm:gap-[1.9rem]";
-
-    private int ShelfPassCount => AutoScroll ? 2 : 1;
-
-    private int GetVisibleItemCount() =>
-        BookcaseShelfItems.GetVisibleItemCount(Books.Count, AutoScroll, AutoScrollMaxUniqueItems);
+    private const string ShelfTrackClass = "flex w-max gap-[1.5rem] sm:gap-[1.9rem]";
 
     private IReadOnlyList<BookcaseBook> BuildShelfItems()
     {
@@ -133,28 +112,25 @@
             return [];
         }
 
-        var minItems = BookcaseShelfItems.NormalizeItemCount(AutoScrollMinItems);
-        var maxUniqueItems = BookcaseShelfItems.NormalizeItemCount(AutoScrollMaxUniqueItems);
+        var maxItems = BookcaseShelfItems.NormalizeItemCount(MaxItems);
 
         if (ReferenceEquals(_cachedBooksSource, Books) &&
-            _cachedAutoScroll == AutoScroll &&
-            _cachedAutoScrollMinItems == minItems &&
-            _cachedAutoScrollMaxUniqueItems == maxUniqueItems)
+            _cachedLimitItems == LimitItems &&
+            _cachedMaxItems == maxItems)
         {
             return _cachedShelfItems;
         }
 
-        var items = BookcaseShelfItems.Build(Books, AutoScroll, minItems, maxUniqueItems);
+        var items = BookcaseShelfItems.Build(Books, LimitItems, maxItems);
 
         _cachedBooksSource = Books;
-        _cachedAutoScroll = AutoScroll;
-        _cachedAutoScrollMinItems = minItems;
-        _cachedAutoScrollMaxUniqueItems = maxUniqueItems;
+        _cachedLimitItems = LimitItems;
+        _cachedMaxItems = maxItems;
         _cachedShelfItems = items;
         return _cachedShelfItems;
     }
 
-    private int BuildBookSeed(BookcaseBook book, int index, int pass)
+    private int BuildBookSeed(BookcaseBook book, int index)
     {
         unchecked
         {
@@ -163,14 +139,12 @@
             hash = AddHash(hash, book.Id);
             hash = AddHash(hash, book.Title);
             hash = AddHash(hash, index);
-            hash = AddHash(hash, pass);
             return (int)hash;
         }
     }
 
-    private static string BuildBookKey(BookcaseBook book, int index, int pass) =>
+    private static string BuildBookKey(BookcaseBook book, int index) =>
         string.Join(':',
-            pass.ToString(System.Globalization.CultureInfo.InvariantCulture),
             index.ToString(System.Globalization.CultureInfo.InvariantCulture),
             book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             book.Title);

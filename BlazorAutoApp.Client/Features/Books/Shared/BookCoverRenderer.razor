@@ -45,8 +45,31 @@
             }
 
             <BookCoverArtwork Kind="@Design.Kind" />
-            @TitlePlate()
-            @TitleTextMarkup
+            <g>
+                <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="@Theme.Panel" opacity="0.99" />
+                <rect x="@Plate.InnerX" y="@Plate.InnerY" width="@Plate.InnerWidth" height="@Plate.InnerHeight" rx="@Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
+                <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="none" stroke="@Theme.PanelStroke" stroke-width="1.6" opacity="0.95" />
+            </g>
+            <text x="@Plate.TextX"
+                  y="@TitleY"
+                  text-anchor="middle"
+                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+                  font-size="@TitleFontSize"
+                  font-weight="800"
+                  fill="@Theme.Ink"
+                  letter-spacing="0">
+                @for (var index = 0; index < TitleLines.Count; index++)
+                {
+                    if (index == 0)
+                    {
+                        <tspan x="@Plate.TextX">@TitleLines[index]</tspan>
+                    }
+                    else
+                    {
+                        <tspan x="@Plate.TextX" dy="@TitleDy">@TitleLines[index]</tspan>
+                    }
+                }
+            </text>
         </g>
     </g>
 </svg>
@@ -98,33 +121,4 @@
     private string CoverClass => ForcedOpen
         ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
         : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-visible:-translate-x-[1.5px] group-focus-visible:-translate-y-px group-focus-visible:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
-
-    private RenderFragment TitlePlate() => @<g>
-        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="@Theme.Panel" opacity="0.99" />
-        <rect x="@Plate.InnerX" y="@Plate.InnerY" width="@Plate.InnerWidth" height="@Plate.InnerHeight" rx="@Plate.InnerRadius" fill="#ffffff" opacity="0.22" />
-        <rect x="@Plate.X" y="@Plate.Y" width="@Plate.Width" height="@Plate.Height" rx="@Plate.Radius" fill="none" stroke="@Theme.PanelStroke" stroke-width="1.6" opacity="0.95" />
-    </g>;
-
-    private MarkupString TitleTextMarkup => new(BuildTitleTextMarkup());
-
-    private string BuildTitleTextMarkup()
-    {
-        var lines = string.Concat(TitleLines.Select((text, index) =>
-        {
-            var encodedText = System.Net.WebUtility.HtmlEncode(text);
-            var dy = index == 0 ? string.Empty : $" dy=\"{TitleDy}\"";
-            return $"<tspan x=\"{Plate.TextX}\"{dy}>{encodedText}</tspan>";
-        }));
-
-        return $"""
-            <text x="{Plate.TextX}"
-                  y="{TitleY}"
-                  text-anchor="middle"
-                  font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-                  font-size="{TitleFontSize}"
-                  font-weight="800"
-                  fill="{Theme.Ink}"
-                  letter-spacing="0">{lines}</text>
-            """;
-    }
 }

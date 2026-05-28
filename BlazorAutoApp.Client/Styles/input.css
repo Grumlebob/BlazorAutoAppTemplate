@@ -1,15 +1,1 @@
 @import "tailwindcss";
-
-@theme {
-    --animate-bookcase-scroll: bookcase-scroll 92s linear infinite;
-
-    @keyframes bookcase-scroll {
-        from {
-            transform: translateX(0);
-        }
-
-        to {
-            transform: translateX(-50%);
-        }
-    }
-}

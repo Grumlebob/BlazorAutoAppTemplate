@@ -69,7 +69,6 @@
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
-    --animate-bookcase-scroll: bookcase-scroll 92s linear infinite;
   }
 }
 @layer base {
@@ -964,6 +963,9 @@
   .\[contain-intrinsic-size\:17\.25rem_19\.7rem\] {
     contain-intrinsic-size: 17.25rem 19.7rem;
   }
+  .\[contain-intrinsic-size\:21rem_34rem\] {
+    contain-intrinsic-size: 21rem 34rem;
+  }
   .\[content-visibility\:auto\] {
     content-visibility: auto;
   }
@@ -997,11 +999,6 @@
   .group-focus-within\:-rotate-\[0\.45deg\] {
     &:is(:where(.group):focus-within *) {
       rotate: calc(0.45deg * -1);
-    }
-  }
-  .group-focus-within\/bookcase\:\[animation-play-state\:paused\] {
-    &:is(:where(.group\/bookcase):focus-within *) {
-      animation-play-state: paused;
     }
   }
   .group-hover\:-translate-x-\[1\.5px\] {
@@ -1041,18 +1038,6 @@
       @media (hover: hover) {
         rotate: calc(0.45deg * -1);
       }
-    }
-  }
-  .group-hover\/bookcase\:\[animation-play-state\:paused\] {
-    &:is(:where(.group\/bookcase):hover *) {
-      @media (hover: hover) {
-        animation-play-state: paused;
-      }
-    }
-  }
-  .group-focus\/bookcase\:\[animation-play-state\:paused\] {
-    &:is(:where(.group\/bookcase):focus *) {
-      animation-play-state: paused;
     }
   }
   .group-focus-visible\:-translate-x-\[1\.5px\] {
@@ -1281,29 +1266,9 @@
       opacity: 60%;
     }
   }
-  .motion-safe\:animate-bookcase-scroll {
-    @media (prefers-reduced-motion: no-preference) {
-      animation: var(--animate-bookcase-scroll);
-    }
-  }
-  .motion-reduce\:w-auto {
-    @media (prefers-reduced-motion: reduce) {
-      width: auto;
-    }
-  }
   .motion-reduce\:transform-none {
     @media (prefers-reduced-motion: reduce) {
       transform: none;
-    }
-  }
-  .motion-reduce\:animate-none {
-    @media (prefers-reduced-motion: reduce) {
-      animation: none;
-    }
-  }
-  .motion-reduce\:flex-wrap {
-    @media (prefers-reduced-motion: reduce) {
-      flex-wrap: wrap;
     }
   }
   .motion-reduce\:transition-none {
@@ -1409,6 +1374,11 @@
   .sm\:\[contain-intrinsic-size\:20\.65rem_23\.625rem\] {
     @media (width >= 40rem) {
       contain-intrinsic-size: 20.65rem 23.625rem;
+    }
+  }
+  .sm\:\[contain-intrinsic-size\:24rem_38rem\] {
+    @media (width >= 40rem) {
+      contain-intrinsic-size: 24rem 38rem;
     }
   }
   .md\:flex {
@@ -1654,14 +1624,6 @@
   syntax: "*";
   inherits: false;
   initial-value: solid;
-}
-@keyframes bookcase-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
 }
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {

@@ -14,7 +14,7 @@
     <div class="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         @foreach (var design in BookDesignDemoCatalog.All)
         {
-            <article class="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-[0_0.6rem_1.5rem_rgb(15_23_42_/_0.06)]">
+            <article class="min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-4 shadow-[0_0.6rem_1.5rem_rgb(15_23_42_/_0.06)] [content-visibility:auto] [contain-intrinsic-size:21rem_34rem] sm:[contain-intrinsic-size:24rem_38rem]">
                 <div class="mb-3 flex items-baseline justify-between gap-3">
                     <h2 class="mb-0 min-w-0 text-base font-bold leading-snug text-gray-950">@design.Label</h2>
                     <span class="text-xs font-bold text-gray-500">@((BookDesignDemoCatalog.IndexOf(design) + 1).ToString("00", System.Globalization.CultureInfo.InvariantCulture))</span>

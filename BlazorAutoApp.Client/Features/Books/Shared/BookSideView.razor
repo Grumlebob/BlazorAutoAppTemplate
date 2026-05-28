@@ -1,13 +1,15 @@
-<BookCoverRenderer Design="@Design"
-                   Theme="@Theme"
-                   TitleLines="@TitleLines"
-                   TitleY="@TitleY"
-                   TitleFontSize="@TitleFontSize"
-                   AccessibleTitle="@DisplayTitle"
+<BookCoverRenderer Design="@_renderModel.Design"
+                   Theme="@_renderModel.Theme"
+                   TitleLines="@_renderModel.TitleLines"
+                   TitleY="@_renderModel.TitleY"
+                   TitleFontSize="@_renderModel.TitleFontSize"
+                   AccessibleTitle="@_renderModel.DisplayTitle"
                    SvgClass="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]"
                    ForcedOpen="@ForcedOpen" />
 
 @code {
+    private BookSideViewRenderModel _renderModel = BuildRenderModel(0, string.Empty);
+
     [Parameter]
     public int Seed { get; set; }
 
@@ -20,27 +22,10 @@
     [Parameter]
     public bool ForcedOpen { get; set; }
 
-    private string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? "Untitled" : Title.Trim();
-
-    private uint StableSeed => unchecked((uint)Seed);
-
-    private uint StableTitleSeed => ComputeStableTitleSeed(DisplayTitle);
-
-    private BookCoverDesignDefinition Design =>
-        BookCoverDesignCatalog.All[(int)(MixDesignSeed(unchecked(StableTitleSeed + StableSeed)) % (uint)BookCoverDesignCatalog.All.Count)];
-
-    private BookCoverTheme Theme => Themes[(int)(StableSeed % (uint)Themes.Length)];
-
-    private IReadOnlyList<string> TitleLines => BookCoverTextLayout.TitleLines(DisplayTitle);
-
-    private int TitleY => TitleLines.Count switch
+    protected override void OnParametersSet()
     {
-        1 => Design.Kind is BookCoverDesignKind.ClothHardback ? 111 : 114,
-        2 => Design.Kind is BookCoverDesignKind.ClothHardback ? 98 : 103,
-        _ => 94
-    };
-
-    private string TitleFontSize => TitleLines.Count >= 3 ? "10.5" : "11.5";
+        _renderModel = BuildRenderModel(Seed, Title);
+    }
 
     private static readonly BookCoverTheme[] Themes =
     [
@@ -51,6 +36,31 @@
         new("#be123c", "#9f1239", "#4c0519", "#fff1f2", "#fecdd3", "#111827", "#fefce8", "#eee8c9", "#cfc7b8", "#9b958c", "#fecdd3"),
         new("#0f766e", "#0f766e", "#134e4a", "#f0fdfa", "#ccfbf1", "#111827", "#fff9ed", "#f4ead9", "#d8d0c4", "#a8a29e", "#ccfbf1")
     ];
+
+    private static BookSideViewRenderModel BuildRenderModel(int seed, string title)
+    {
+        var displayTitle = string.IsNullOrWhiteSpace(title) ? "Untitled" : title.Trim();
+        var stableSeed = unchecked((uint)seed);
+        var stableTitleSeed = ComputeStableTitleSeed(displayTitle);
+        var design = BookCoverDesignCatalog.All[(int)(MixDesignSeed(unchecked(stableTitleSeed + stableSeed)) % (uint)BookCoverDesignCatalog.All.Count)];
+        var theme = Themes[(int)(stableSeed % (uint)Themes.Length)];
+        var titleLines = BookCoverTextLayout.TitleLines(displayTitle);
+        var titleY = titleLines.Count switch
+        {
+            1 => design.Kind is BookCoverDesignKind.ClothHardback ? 111 : 114,
+            2 => design.Kind is BookCoverDesignKind.ClothHardback ? 98 : 103,
+            _ => 94
+        };
+        var titleFontSize = titleLines.Count >= 3 ? "10.5" : "11.5";
+
+        return new BookSideViewRenderModel(
+            displayTitle,
+            design,
+            theme,
+            titleLines,
+            titleY,
+            titleFontSize);
+    }
 
     private static uint ComputeStableTitleSeed(string value)
     {
@@ -79,4 +89,12 @@
             return value;
         }
     }
+
+    private sealed record BookSideViewRenderModel(
+        string DisplayTitle,
+        BookCoverDesignDefinition Design,
+        BookCoverTheme Theme,
+        IReadOnlyList<string> TitleLines,
+        int TitleY,
+        string TitleFontSize);
 }
