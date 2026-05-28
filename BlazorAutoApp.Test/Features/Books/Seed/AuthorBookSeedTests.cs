@@ -23,7 +23,6 @@ public sealed class AuthorBookSeedTests
                     "improveddb",
                     "kinojoin",
                     "ship",
-                    "the-great-gatsby",
                     "traceback",
                     "unlost"
                 ],

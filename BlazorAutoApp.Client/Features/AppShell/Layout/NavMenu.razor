@@ -19,6 +19,9 @@
                 <li>
                     <NavLink class="block py-2" href="/" Match="NavLinkMatch.All">Books</NavLink>
                 </li>
+                <li>
+                    <NavLink class="block py-2" href="/books/design-demos" data-testid="design-demo-menu-link">Design demos</NavLink>
+                </li>
                 <AuthorizeView>
                     <Authorized>
                         <li class="py-2">
@@ -46,6 +49,7 @@
 
         <div class="hidden md:flex items-center space-x-4">
             <NavLink class="md:px-4" href="/" Match="NavLinkMatch.All">Books</NavLink>
+            <NavLink class="md:px-4" href="/books/design-demos" data-testid="design-demo-link">Design demos</NavLink>
             <AuthorizeView>
                 <Authorized>
                     <a class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" href="Account/Manage">@context.User.Identity?.Name</a>

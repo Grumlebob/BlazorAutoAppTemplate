@@ -18,13 +18,14 @@ internal sealed class AuthorBookSeeder(
 
     private static readonly AuthorBookSeedItem[] SeedItems =
     [
-        new("the-great-gatsby", "The Great Gatsby", "F. Scott Fitzgerald", "https://www.gutenberg.org/ebooks/64317"),
+        new("traceback", "TraceBack", "Jacob Grum", null),
         new("ship", "Ship Inspections", "Jacob Grum", null),
         new("traceback", "TraceBack", "Jacob Grum", null),
         new("improveddb", "ImprovedDb", "Jacob Grum", null),
         new("kinojoin", "KinoJoin", "Jacob Grum", null),
         new("unlost", "Unlost", "Jacob Grum", null),
         new("geckobot", "GeckoBot", "Jacob Grum", null),
+        new("geckobot", "Grumlebob", "Jacob Grum", null),
     ];
 
     private readonly IDbContextFactory<AppDbContext> _dbFactory = dbFactory;
