@@ -890,10 +890,6 @@
   .no-underline {
     text-decoration-line: none;
   }
-  .shadow {
-    --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-  }
   .shadow-\[0_-1px_2px_rgba\(0\,0\,0\,0\.2\)\] {
     --tw-shadow: 0 -1px 2px var(--tw-shadow-color, rgba(0,0,0,0.2));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -1155,13 +1151,6 @@
       }
     }
   }
-  .hover\:text-gray-950 {
-    &:hover {
-      @media (hover: hover) {
-        color: var(--color-gray-950);
-      }
-    }
-  }
   .hover\:text-red-800 {
     &:hover {
       @media (hover: hover) {
@@ -1404,11 +1393,6 @@
   .md\:justify-between {
     @media (width >= 48rem) {
       justify-content: space-between;
-    }
-  }
-  .md\:justify-end {
-    @media (width >= 48rem) {
-      justify-content: flex-end;
     }
   }
   .md\:px-4 {
