@@ -862,12 +862,18 @@ Acceptance must verify:
 - Caddy can route locally on `cloud-main`.
 - both app nodes pass direct private-network readiness checks, and Caddy routes through the app pool.
 - cloudflared service is active on `cloud-main`.
-- public `https://bookscloud.jacobgrum.com/health/ready` works.
-- app home page returns success.
+- public `https://bookscloud.jacobgrum.com/health/ready` works, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
+- app home page returns success, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
 - public PostgreSQL and Redis are not reachable.
 - public app port `8080` is not reachable on app nodes.
 - app port, PostgreSQL, and Redis reject unauthorized private-network sources.
 - backup directory exists on `cloud-db`.
+
+If Cloudflare security settings challenge GitHub Actions, the acceptance script prints that as a Cloudflare policy result and continues. To make public edge checks strict, run:
+
+```bash
+CLOUD_ACCEPT_CLOUDFLARE_CHALLENGE=false bash ./Deployment/Cloud/Scripts/acceptance-check.sh
+```
 
 ## 14. Backup And Restore
 
