@@ -6,8 +6,8 @@ if ! command -v apt-get >/dev/null 2>&1; then
   exit 1
 fi
 
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip pipx sshpass
+sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates openssh-client python3 python3-venv python3-pip sshpass
 
 PYTHON_MINOR="$(python3 - <<'PY'
 import sys
@@ -29,19 +29,24 @@ else
   esac
 fi
 
-python3 -m pipx ensurepath
-export PATH="$HOME/.local/bin:$PATH"
+INSTALL_ROOT="${ANSIBLE_INSTALL_ROOT:-$HOME/.local/share/books-ansible}"
+BIN_DIR="${ANSIBLE_BIN_DIR:-$HOME/.local/bin}"
+VENV_DIR="$INSTALL_ROOT/ansible-core-$VERSION"
 
-if [[ -x "$HOME/.local/bin/ansible-playbook" ]] && "$HOME/.local/bin/ansible-playbook" --version 2>/dev/null | grep -q "\\[core $VERSION\\]"; then
-  echo "ansible-core $VERSION already installed"
+mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
+
+if [[ -x "$VENV_DIR/bin/ansible-playbook" ]] && "$VENV_DIR/bin/ansible-playbook" --version 2>/dev/null | grep -q "\\[core $VERSION\\]"; then
+  echo "ansible-core $VERSION already installed in $VENV_DIR"
 else
-  pipx install --include-deps --force "ansible-core==$VERSION"
+  rm -rf "$VENV_DIR"
+  python3 -m venv "$VENV_DIR"
+  "$VENV_DIR/bin/python" -m pip install --upgrade pip
+  "$VENV_DIR/bin/python" -m pip install "ansible-core==$VERSION"
 fi
 
 for exe in ansible ansible-config ansible-galaxy ansible-inventory ansible-playbook ansible-vault; do
-  if [[ -x "$HOME/.local/bin/$exe" ]]; then
-    sudo ln -sf "$HOME/.local/bin/$exe" "/usr/local/bin/$exe"
-  fi
+  ln -sf "$VENV_DIR/bin/$exe" "$BIN_DIR/$exe"
+  sudo ln -sf "$VENV_DIR/bin/$exe" "/usr/local/bin/$exe"
 done
 
 ansible-playbook --version
