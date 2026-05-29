@@ -67,7 +67,7 @@ def query(expr: str) -> list[dict]:
     return payload[\"data\"][\"result\"]
 
 def require_up(job: str, expected: int) -> None:
-    series = query(f'up{{job=\"{job}\"}}')
+    series = query('up{' + f'job=\"{job}\"' + '}')
     up = [item for item in series if item.get(\"value\", [None, \"0\"])[1] == \"1\"]
     if len(up) < expected:
         raise SystemExit(f\"job {job} has {len(up)}/{expected} targets up\")
@@ -104,7 +104,7 @@ if [ -z \"\$ids\" ]; then
   echo \"no observability containers found\" >&2
   exit 1
 fi
-docker inspect --format \"{{.Name}} {{.State.OOMKilled}}\" \$ids | tee /tmp/${APP_NAME}-observability-oom.txt
+docker inspect --format \"{{ '{{' }}.Name{{ '}}' }} {{ '{{' }}.State.OOMKilled{{ '}}' }}\" \$ids | tee /tmp/${APP_NAME}-observability-oom.txt
 if grep -q \" true$\" /tmp/${APP_NAME}-observability-oom.txt; then
   exit 1
 fi
