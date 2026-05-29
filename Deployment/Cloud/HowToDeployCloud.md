@@ -12,17 +12,31 @@ https://bookscloud.jacobgrum.com
 
 The Cloud deployment is not live yet.
 
-Current implementation state:
+Current runnable range:
+
+- Steps 0, 1, 1.1, 2, 4, and 5 can be followed now.
+- Step 3 is an implementation checklist for Codex.
+- Stop before Step 6 until the OpenTofu module has been implemented.
+- Do not create Hetzner servers manually.
+- No cloud server commands are needed yet because the cloud servers do not exist yet.
+
+Implemented:
 
 - Cloud runbook exists.
 - Cloud folder skeleton exists.
 - Cloud committed settings and examples exist.
-- Cloud settings validation, setting reader, summary, and CurrentPC tool checks exist.
-- OpenTofu module is still to be implemented.
-- Inventory renderer is still to be implemented.
-- Cloud Ansible playbooks and roles are still to be implemented.
-- Cloud CD workflow is still to be implemented.
-- Acceptance and backup scripts are still to be implemented.
+- Cloud settings validation, setting reader, summary, and CurrentPC tool setup/checks exist.
+
+Pending implementation:
+
+- OpenTofu module.
+- OpenTofu inventory outputs.
+- inventory renderer.
+- Cloud Compose files.
+- Caddy config.
+- Cloud Ansible playbooks and roles.
+- Cloud CD workflow.
+- acceptance, backup, and restore scripts.
 
 Do not run commands for missing scripts or workflows. When this guide reaches a missing implementation item, Codex should implement it, we validate it, and then you continue from the next runbook step.
 
@@ -95,14 +109,20 @@ Security posture:
 ## Location Labels
 
 ```text
-[CurrentPC]   run on this developer machine from the repository root
-[GitHub]      do this in GitHub
-[Cloudflare]  do this in the Cloudflare dashboard
-[Hetzner]     do this in the Hetzner Cloud dashboard
-[CloudVPS]    run on one cloud server over SSH only when instructed
+[CurrentPC]       run on this developer machine from the repository root
+[GitHub]          do this in GitHub
+[Cloudflare]      do this in the Cloudflare dashboard
+[Hetzner]         do this in the Hetzner Cloud dashboard
+[each cloud node] run separately on cloud-main, cloud-app1, cloud-app2, and cloud-db
+[cloud-main]      run on cloud-main only
+[cloud-app1]      run on cloud-app1 only
+[cloud-app2]      run on cloud-app2 only
+[cloud-db]        run on cloud-db only
 ```
 
 `[ControlPC]` is not used for Cloud. The local cluster has a control machine; the cloud target uses `[CurrentPC]` for OpenTofu bring-up and GitHub-hosted runners for app deployment.
+
+`cloud-main` is a bastion and ingress node, not a control machine. Do not run commands on cloud servers unless a step is explicitly labeled `[cloud-main]`, `[cloud-db]`, `[cloud-app1]`, `[cloud-app2]`, or `[each cloud node]`.
 
 If your editor runs markdown commands from the markdown file folder, run this first:
 
@@ -171,6 +191,8 @@ Use WSL Ubuntu or another Linux shell for the command blocks in this guide.
 Required tools:
 
 ```text
+ansible
+ansible-playbook
 bash
 curl
 git
@@ -178,31 +200,34 @@ gh
 jq
 openssl
 python3
+shellcheck
 ssh
 ssh-keygen
 tofu
+yamllint
 ```
 
-Check tools:
+Install and verify the CurrentPC toolchain:
+
+```bash
+bash ./Deployment/Cloud/Scripts/setup-currentpc-tools.sh
+```
+
+This script is idempotent on apt-based Linux shells such as Ubuntu, Debian, or WSL Ubuntu. It installs:
+
+- base packages from apt.
+- GitHub CLI from the official GitHub CLI apt repository.
+- OpenTofu from the official OpenTofu installer.
+- pinned Ansible from `Deployment/Common/Scripts/install-ansible.sh`.
+- validation tools `shellcheck` and `yamllint`.
+
+If you only want to verify without installing, run:
 
 ```bash
 bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh
 ```
 
-Stop if `tofu` is not installed. Install OpenTofu from the official installation docs, then rerun the tool checks.
-
-If the Linux shell is missing base packages, install them there. Do not rely on tools installed only in Windows PowerShell when following bash command blocks:
-
-```bash
-sudo apt update
-sudo apt install -y bash curl git jq openssl openssh-client python3 ca-certificates
-```
-
-Install `gh` and `tofu` in the same Linux shell from their official install docs, then rerun:
-
-```bash
-bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh
-```
+Do not rely on tools installed only in Windows PowerShell when following bash command blocks. They must be available in the Linux shell where this guide runs.
 
 ## 1.1. Confirm Cost Target
 
@@ -322,6 +347,9 @@ Each implementation pass must end with:
 git diff --check
 bash ./Deployment/Common/Scripts/validate-common-release.sh
 bash ./Deployment/Cloud/Scripts/validate-cloud-settings.sh
+bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh
+shellcheck Deployment/Cloud/Scripts/*.sh Deployment/Common/Scripts/*.sh
+yamllint Deployment/Cloud Deployment/Common
 ```
 
 If `Deployment/Common` or `Deployment/LocalCluster` changed in that pass, also run the LocalCluster validation gate.
@@ -705,7 +733,7 @@ Acceptance must verify:
 
 ## 14. Backup And Restore
 
-[GitHub] or [CloudVPS]
+[GitHub] or [cloud-db]
 
 Minimum backup posture after first deployment:
 
@@ -751,7 +779,7 @@ Do not manually patch cloud servers outside the guide unless the guide is update
 - Hetzner Object Storage overview: `https://docs.hetzner.com/storage/object-storage/overview/`
 - Cloudflare Tunnel docs: `https://developers.cloudflare.com/tunnel/`
 - Cloudflare Tunnel configuration docs: `https://developers.cloudflare.com/tunnel/configuration/`
-- OpenTofu install docs: `https://opentofu.org/docs/intro/install/standalone/`
+- OpenTofu Debian/Ubuntu install docs: `https://opentofu.org/docs/intro/install/deb/`
 - GitHub CLI install docs: `https://github.com/cli/cli/blob/trunk/docs/install_linux.md`
 - OpenTofu S3 backend docs: `https://opentofu.org/docs/language/settings/backends/s3/`
 - OpenTofu sensitive state docs: `https://opentofu.org/docs/language/state/sensitive-data/`

@@ -6,6 +6,7 @@ Planned scripts:
 
 Implemented local scripts:
 
+- `setup-currentpc-tools.sh` installs the CurrentPC toolchain on apt-based Linux shells.
 - `check-currentpc-tools.sh` verifies local tool prerequisites.
 - `read-cloud-setting.sh` reads one committed Cloud setting.
 - `validate-cloud-settings.sh` validates committed Cloud settings.
