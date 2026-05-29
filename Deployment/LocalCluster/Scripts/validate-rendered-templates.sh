@@ -26,6 +26,13 @@ ROOT = Path(sys.argv[1])
 JINJA = Environment(undefined=StrictUndefined, trim_blocks=True, lstrip_blocks=True)
 
 
+def ansible_bool(value: object) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+JINJA.filters["bool"] = ansible_bool
+
+
 def fail(message: str) -> None:
     raise SystemExit(f"rendered template validation failed: {message}")
 
@@ -292,6 +299,25 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         fail("app-node Alloy config does not forward metrics to node-main Prometheus")
     if "http://prometheus:9090/api/v1/write" not in main_agent_config:
         fail("node-main Alloy config does not use the local backend network")
+
+    firewall_template = ROOT / "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"
+    for host in groups["all"]:
+        firewall_context = {
+            **observability_context,
+            "inventory_hostname": host,
+            "observability_enabled": True,
+            "app_port": "8080",
+            "postgres_port": "5432",
+            "redis_port": "6379",
+        }
+        rendered_firewall = render_jinja(firewall_template, firewall_context)
+        expected_origin_dst = f"--ctorigdst {hostvars[host]['ansible_host']}"
+        if expected_origin_dst not in rendered_firewall:
+            fail(f"rendered Docker published-port firewall for {host} is not scoped to its local node IP")
+        firewall_script = tmp_path / f"{host}-docker-user-firewall.sh"
+        firewall_script.write_text(rendered_firewall, encoding="utf-8")
+        if command_available("bash"):
+            subprocess.run(["bash", "-n", str(firewall_script)], check=True)
 
     if docker_compose_available:
         subprocess.run(["docker", "compose", "-f", str(backend_root / "docker-compose.yml"), "config"], check=True, stdout=subprocess.DEVNULL)

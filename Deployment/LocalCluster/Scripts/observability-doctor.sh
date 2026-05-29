@@ -53,6 +53,7 @@ run_check "Prometheus target health" \
     "PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -66,17 +67,44 @@ def query(expr: str) -> list[dict]:
         raise SystemExit(f\"Prometheus query failed: {expr}\")
     return payload[\"data\"][\"result\"]
 
-def require_up(job: str, expected: int) -> None:
+def target_diagnostics() -> str:
+    with urllib.request.urlopen(base + \"/api/v1/targets\", timeout=10) as response:
+        payload = json.load(response)
+    lines = []
+    for target in payload.get(\"data\", {}).get(\"activeTargets\", []):
+        labels = target.get(\"labels\", {})
+        job = labels.get(\"job\", \"unknown\")
+        instance = labels.get(\"instance\", \"unknown\")
+        health = target.get(\"health\", \"unknown\")
+        error = target.get(\"lastError\", \"\")
+        lines.append(f\"{job} {instance} health={health} error={error}\")
+    return \"\n\".join(sorted(lines))
+
+def count_up(job: str) -> int:
     series = query('up{' + f'job=\"{job}\"' + '}')
     up = [item for item in series if item.get(\"value\", [None, \"0\"])[1] == \"1\"]
-    if len(up) < expected:
-        raise SystemExit(f\"job {job} has {len(up)}/{expected} targets up\")
-    print(f\"OK    {job}: {len(up)} target(s) up\")
+    return len(up)
 
-require_up(\"node-exporter\", 4)
-require_up(\"alloy\", 4)
-require_up(\"postgres-exporter\", 1)
-require_up(\"redis-exporter\", 1)
+expected = {
+    \"node-exporter\": 4,
+    \"alloy\": 4,
+    \"postgres-exporter\": 1,
+    \"redis-exporter\": 1,
+}
+
+deadline = time.monotonic() + 120
+while True:
+    observed = {job: count_up(job) for job in expected}
+    missing = [f\"{job} {observed[job]}/{want}\" for job, want in expected.items() if observed[job] < want]
+    if not missing:
+        for job, count in observed.items():
+            print(f\"OK    {job}: {count} target(s) up\")
+        break
+    if time.monotonic() >= deadline:
+        print(target_diagnostics(), file=sys.stderr)
+        raise SystemExit(\"Prometheus targets not healthy: \" + \", \".join(missing))
+    print(\"WAIT  Prometheus targets warming up: \" + \", \".join(missing))
+    time.sleep(5)
 PY"
 
 run_check "Grafana dashboard provisioning" \
