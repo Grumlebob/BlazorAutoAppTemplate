@@ -108,6 +108,40 @@ Once the updated repo is on the control machine, most command-line work is scrip
 - Running acceptance checks after CD.
 - Removing old `/opt/ship` runtime files, old Caddy site, old marker, and old firewall service after verification.
 
+This repo now includes a reusable helper for the control-machine cutover:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh --old-app-name ship
+```
+
+That command is a dry run: it validates the renamed settings and prints the current/old app names without touching the cluster.
+
+For the current state, after the new deploy key and runner are already configured, the actual pre-CD cutover command is:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --stop-old-runtime \
+  --remove-old-marker \
+  --preflight \
+  --confirm-cutover
+```
+
+For a future rename where the new deploy key and runner have not yet been prepared, the same helper can run the fuller control-machine sequence:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --setup-control-machine \
+  --install-new-key \
+  --existing-key ~/.ssh/ship_deploy \
+  --configure-runner \
+  --stop-old-runtime \
+  --remove-old-marker \
+  --preflight \
+  --confirm-cutover
+```
+
 Manual or semi-manual control-machine/GitHub steps still remain:
 
 - Pull the updated repository on the control machine.
