@@ -19,6 +19,8 @@
     - loki
     - tempo
     - grafana
+    - grafana/provisioning/plugins
+    - grafana/provisioning/alerting
 
 - name: Ensure shared observability Docker network exists
   ansible.builtin.command: "docker network create {{ observability_docker_network }}"

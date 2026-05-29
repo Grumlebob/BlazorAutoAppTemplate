@@ -18,7 +18,7 @@ scrape_configs:
     static_configs:
 {% for host in groups['all'] %}
       - targets:
-          - {% if host == groups['load_balancer'][0] %}alloy:{{ observability_alloy_http_port }}{% else %}{{ hostvars[host].ansible_host }}:{{ observability_alloy_http_port }}{% endif %}
+          - {{ ('alloy:' ~ observability_alloy_http_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_alloy_http_port) }}
         labels:
           deployment_target: localcluster
           node: {{ host }}
@@ -28,7 +28,7 @@ scrape_configs:
     static_configs:
 {% for host in groups['all'] %}
       - targets:
-          - {% if host == groups['load_balancer'][0] %}node-exporter:{{ observability_node_exporter_port }}{% else %}{{ hostvars[host].ansible_host }}:{{ observability_node_exporter_port }}{% endif %}
+          - {{ ('node-exporter:' ~ observability_node_exporter_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_node_exporter_port) }}
         labels:
           deployment_target: localcluster
           node: {{ host }}

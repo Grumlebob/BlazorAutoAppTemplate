@@ -80,6 +80,60 @@ def render_jinja(path: Path, context: dict[str, object]) -> str:
     return rendered
 
 
+def command_available(command: str) -> bool:
+    return shutil.which(command) is not None
+
+
+def command_succeeds(command: list[str]) -> bool:
+    return subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+
+
+def check_prometheus_config(config_path: Path) -> None:
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        pass
+    else:
+        try:
+            yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            fail(f"rendered Prometheus config is not valid YAML: {exc}")
+
+    if command_available("promtool"):
+        subprocess.run(
+            ["promtool", "check", "config", str(config_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        return
+
+    if docker_available:
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--entrypoint",
+                "promtool",
+                "-v",
+                f"{config_path.parent}:/etc/prometheus:ro",
+                "prom/prometheus:v3.4.1",
+                "check",
+                "config",
+                "/etc/prometheus/prometheus.yml",
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+
+docker_available = command_available("docker") and command_succeeds(["docker", "version"])
+
 apps = [
     {"app_name": "notes", "public_hostname": "notes.example.com", "app_port": "8080", "postgres_port": "5432", "redis_port": "6379"},
     {"app_name": "secondnotes", "public_hostname": "secondnotes.example.com", "app_port": "8081", "postgres_port": "5433", "redis_port": "6380"},
@@ -166,12 +220,7 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         if required not in db_compose_text:
             fail(f"rendered node-db compose is missing {required}")
 
-    docker_compose_available = shutil.which("docker") and subprocess.run(
-        ["docker", "compose", "version"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
+    docker_compose_available = docker_available and command_succeeds(["docker", "compose", "version"])
     if docker_compose_available:
         subprocess.run(["docker", "compose", "-f", str(app_compose), "config"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["docker", "compose", "-f", str(db_compose), "config"], check=True, stdout=subprocess.DEVNULL)
@@ -226,9 +275,13 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
 
     backend_template_root = ROOT / "Deployment/LocalCluster/ansible/roles/observability_backend/templates"
     agent_template_root = ROOT / "Deployment/LocalCluster/ansible/roles/observability_agent/templates"
+    for rule_file in (ROOT / "Deployment/Common/observability/prometheus/rules").glob("*.yml"):
+        shutil.copy2(rule_file, backend_root / "prometheus" / "rules" / rule_file.name)
     (backend_root / ".env").write_text(render_jinja(backend_template_root / "backend.env.j2", backend_context), encoding="utf-8")
     (backend_root / "docker-compose.yml").write_text(render_jinja(backend_template_root / "docker-compose.yml.j2", backend_context), encoding="utf-8")
-    (backend_root / "prometheus" / "prometheus.yml").write_text(render_jinja(backend_template_root / "prometheus.yml.j2", backend_context), encoding="utf-8")
+    prometheus_config = backend_root / "prometheus" / "prometheus.yml"
+    prometheus_config.write_text(render_jinja(backend_template_root / "prometheus.yml.j2", backend_context), encoding="utf-8")
+    check_prometheus_config(prometheus_config)
     (backend_root / "loki" / "loki.yml").write_text(render_jinja(backend_template_root / "loki.yml.j2", backend_context), encoding="utf-8")
     (backend_root / "tempo" / "tempo.yml").write_text(render_jinja(backend_template_root / "tempo.yml.j2", backend_context), encoding="utf-8")
     (agent_root / ".env").write_text(render_jinja(agent_template_root / "agent.env.j2", agent_context), encoding="utf-8")
