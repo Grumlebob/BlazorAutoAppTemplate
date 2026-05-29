@@ -110,6 +110,36 @@ Once the updated repo is on the control machine, most command-line work is scrip
 
 This repo now includes a reusable helper for the control-machine cutover:
 
+Current `ship` to `books` cutover block for this deployment:
+
+```bash
+# [ControlPC] Run from the repository root after pulling the latest main.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "Dry run: verify current app is books and old app is ship."
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship
+
+echo "Cutover: stop old ship runtime, remove old ship marker, then run books preflight."
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --stop-old-runtime \
+  --remove-old-marker \
+  --preflight \
+  --confirm-cutover
+```
+
+Expected final lines include:
+
+```text
+preflight ok (deploy)
+renamed app preparation complete
+```
+
+General dry run:
+
 ```bash
 bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh --old-app-name ship
 ```

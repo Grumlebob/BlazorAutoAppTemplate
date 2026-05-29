@@ -221,6 +221,45 @@ If another LocalCluster app already runs on these nodes, stop here and choose un
 
 If you are only renaming the public domain for the same app, change only `public_hostname`. Keep `app_name`, `deploy_root`, ports, runner values, `cloudflare_tunnel_name`, and the Cloudflare tunnel token unchanged. Then add the new hostname to the same Cloudflare tunnel and run CD again so Caddy and the app ownership marker are rewritten with the new hostname.
 
+### Optional: Rename An Existing App Identity
+
+Use this only when you intentionally want to rename an already-deployed app identity, for example from `ship` to `books`, while reusing the same four nodes. This is different from a domain-only rename. It creates a new deploy key, runner, deploy root, Caddy site, Docker Compose project, and app marker for the new app name.
+
+If the old database and Redis data must be preserved, stop and design a data migration first. If the old runtime data is disposable, this helper prepares the renamed app and leaves final old-runtime deletion for after the new deployment is verified.
+
+Example `ship` to `books` control-machine block:
+
+```bash
+# [ControlPC] Run after the renamed all.yml and hosts.yml are committed and pushed.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+git pull --ff-only
+
+echo "Dry run: verify current app settings are books and the old app is ship."
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship
+
+echo "Prepare books, stop old ship runtime, remove the old ship marker, and run deploy preflight."
+bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --setup-control-machine \
+  --install-new-key \
+  --existing-key ~/.ssh/ship_deploy \
+  --configure-runner \
+  --stop-old-runtime \
+  --remove-old-marker \
+  --preflight \
+  --confirm-cutover
+```
+
+Expected final lines include:
+
+```text
+preflight ok (deploy)
+renamed app preparation complete
+```
+
 ### Optional: Second Fork On The Same Nodes
 
 Skip this subsection if this is the only app on the four nodes.
