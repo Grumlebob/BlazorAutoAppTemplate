@@ -36,13 +36,15 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `validate-rendered-templates.sh` renders representative deployment templates and runs optional local validators when available.
 
-`install-ansible.sh` installs the Ansible tooling used by control-machine setup and CI/CD runners.
+`install-ansible.sh` wraps the shared installer in `Deployment/Common/Scripts/install-ansible.sh`.
 
 `with-deploy-lock.sh` is the workflow-facing wrapper for serialized node-main deploys.
 
 `audit-deployment.sh` runs the static deployment consistency audit used by CI.
 
-`read-deploy-setting.sh`, `validate-deploy-settings.sh`, and `find-successful-ci-run.sh` are thin wrappers around internal Python helpers.
+`read-deploy-setting.sh` and `validate-deploy-settings.sh` are thin wrappers around internal Python helpers.
+
+`find-successful-ci-run.sh` wraps the shared GitHub Actions helper in `Deployment/Common`.
 
 `Component/with-deploy-lock.sh` serializes deploys that run on the same `node-main` runner host.
 

@@ -2,5 +2,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
-bash "${SCRIPT_DIR}/Component/install-ansible.sh" "$@"
+bash "$REPO_ROOT/Deployment/Common/Scripts/install-ansible.sh" "$@"

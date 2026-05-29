@@ -77,6 +77,8 @@ def deployment_text_files() -> list[Path]:
 required_files = [
     "Deployment/Common/README.md",
     "Deployment/Common/release.yml",
+    "Deployment/Common/Scripts/install-ansible.sh",
+    "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
     "Deployment/Common/Scripts/read-release-setting.sh",
     "Deployment/Common/Scripts/validate-common-release.sh",
     "Deployment/Common/Scripts/Component/lib/read-release-setting.py",
@@ -133,7 +135,6 @@ required_files = [
     "Deployment/LocalCluster/Scripts/read-deploy-setting.sh",
     "Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py",
     "Deployment/LocalCluster/Scripts/Component/lib/deploy_settings.py",
-    "Deployment/LocalCluster/Scripts/Component/lib/find-successful-ci-run.py",
     "Deployment/LocalCluster/Scripts/Component/lib/generate-inventory.py",
     "Deployment/LocalCluster/Scripts/Component/lib/read-deploy-setting.py",
     "Deployment/LocalCluster/Scripts/Component/lib/validate-deploy-settings.py",
@@ -148,7 +149,6 @@ required_files = [
     "Deployment/LocalCluster/Scripts/setup-cloudflare-tunnel.sh",
     "Deployment/LocalCluster/Scripts/setup-control-machine.sh",
     "Deployment/LocalCluster/Scripts/setup-secrets.sh",
-    "Deployment/LocalCluster/Scripts/Component/install-ansible.sh",
     "Deployment/LocalCluster/Scripts/Component/ping-fresh-machines.sh",
     "Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh",
     "Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh",
@@ -715,14 +715,19 @@ require_contains(
 )
 
 require_contains(
-    "Deployment/LocalCluster/Scripts/Component/install-ansible.sh",
+    "Deployment/Common/Scripts/install-ansible.sh",
     "sshpass",
     "sshpass for Ansible password bootstrap",
 )
 require_contains(
-    "Deployment/LocalCluster/Scripts/Component/install-ansible.sh",
+    "Deployment/Common/Scripts/install-ansible.sh",
     "already installed",
     "idempotent Ansible install skip",
+)
+require_contains(
+    "Deployment/LocalCluster/Scripts/install-ansible.sh",
+    "Deployment/Common/Scripts/install-ansible.sh",
+    "LocalCluster Ansible installer wrapper points to Common",
 )
 require_contains(
     "Deployment/LocalCluster/Scripts/setup-control-machine.sh",
@@ -852,7 +857,7 @@ if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
 if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan or "dotnet tool restore" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
 
-find_ci = read("Deployment/LocalCluster/Scripts/Component/lib/find-successful-ci-run.py")
+find_ci = read("Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py")
 for needle, why in [
     ("GITHUB_REPOSITORY", "repository input"),
     ("GITHUB_SHA", "commit input"),
@@ -862,7 +867,12 @@ for needle, why in [
     ("event\") != \"pull_request\"", "pull request run exclusion"),
 ]:
     if needle not in find_ci:
-        fail(f"Deployment/LocalCluster/Scripts/Component/lib/find-successful-ci-run.py: missing {why}")
+        fail(f"Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py: missing {why}")
+require_contains(
+    "Deployment/LocalCluster/Scripts/find-successful-ci-run.sh",
+    "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
+    "LocalCluster successful-CI wrapper points to Common",
+)
 
 
 prepare = read("Deployment/LocalCluster/ansible/playbooks/PrepareFreshLinuxMachine.yml")

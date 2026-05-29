@@ -63,6 +63,17 @@ __pycache__/
 /Deployment/LocalCluster/machines.yml
 /Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml
 
+# Cloud generated inventory, secrets, and OpenTofu local state
+/Deployment/Cloud/inventory/prod/hosts.yml
+/Deployment/Cloud/inventory/prod/vault.yml
+/Deployment/Cloud/infra/opentofu/.terraform/
+/Deployment/Cloud/infra/opentofu/*.tfstate
+/Deployment/Cloud/infra/opentofu/*.tfstate.*
+/Deployment/Cloud/infra/opentofu/*.tfplan
+/Deployment/Cloud/infra/opentofu/*.plan
+/Deployment/Cloud/infra/opentofu/*.tfvars
+!/Deployment/Cloud/infra/opentofu/*.tfvars.example
+
 # OS files
 .DS_Store
 Thumbs.db

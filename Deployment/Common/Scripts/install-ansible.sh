@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if ! command -v apt-get >/dev/null 2>&1; then
-  echo "This installer expects a Debian/Ubuntu/Linux Mint control machine with apt-get." >&2
+  echo "This installer expects a Debian, Ubuntu, or Linux Mint machine with apt-get." >&2
   exit 1
 fi
 
@@ -23,7 +23,7 @@ else
     3.11) VERSION="2.19.4" ;;
     3.10) VERSION="2.17.14" ;;
     *)
-      echo "Python $PYTHON_MINOR is too old for the pinned Ansible versions. Use Linux Mint 21 or newer." >&2
+      echo "Python $PYTHON_MINOR is too old for the pinned Ansible versions. Use Debian 12, Ubuntu 22.04, Linux Mint 21, or newer." >&2
       exit 1
       ;;
   esac
