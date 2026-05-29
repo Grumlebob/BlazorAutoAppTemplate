@@ -23,6 +23,8 @@ Implemented local scripts:
 - `configure-github-environment.sh` creates the GitHub environment and sets Cloud secrets.
 - `check-github-environment.sh` verifies required Cloud GitHub secrets exist.
 - `set-temporary-ssh-firewall.sh` updates the dedicated Hetzner temporary SSH firewall.
+- `quick-destroy-cloud.sh` destroys the OpenTofu-owned Hetzner Cloud stack to stop billing.
+- `quick-recreate-cloud-after-destruction.sh` recreates the Hetzner Cloud stack, refreshes generated configuration, provisions, and dispatches Cloud CD.
 - `preflight.sh` validates local deploy prerequisites.
 - `provision.sh` runs Cloud host provisioning.
 - `deploy.sh` deploys the app and optionally runs migrations.

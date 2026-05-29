@@ -232,6 +232,64 @@ For Hetzner Germany/Finland, `cx23` is the current cheapest x86_64 shared-resour
 
 Do not switch to ARM/CAX only to chase a lower sticker price. That would require deliberate multi-arch Docker images, `linux-arm64` migration bundles, and separate validation. It also is not currently cheaper than `cx23` in the referenced Germany/Finland price table.
 
+## Quick Destroy And Recreate
+
+Powering off Hetzner Cloud servers does not stop billing. To stop Cloud costs, destroy the OpenTofu-owned Cloud stack.
+
+[CurrentPC]
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+export HCLOUD_TOKEN="paste-hetzner-api-token"
+bash ./Deployment/Cloud/Scripts/quick-destroy-cloud.sh
+```
+
+The script first creates a destroy plan and then asks you to type:
+
+```text
+destroy bookscloud
+```
+
+For a non-interactive run after reviewing the plan:
+
+```bash
+bash ./Deployment/Cloud/Scripts/quick-destroy-cloud.sh --confirm "destroy bookscloud"
+```
+
+To recreate the Cloud stack later:
+
+[CurrentPC]
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+export HCLOUD_TOKEN="paste-hetzner-api-token"
+bash ./Deployment/Cloud/Scripts/quick-recreate-cloud-after-destruction.sh
+```
+
+The recreate script asks you to type:
+
+```text
+recreate bookscloud
+```
+
+It then creates the Hetzner resources, renders inventory, refreshes GitHub environment secrets that depend on new server IPs, provisions the nodes, and dispatches `CD - Cloud` with migrations enabled.
+
+For a non-interactive run after reviewing the plan:
+
+```bash
+bash ./Deployment/Cloud/Scripts/quick-recreate-cloud-after-destruction.sh --confirm "recreate bookscloud"
+```
+
+Useful safe variants:
+
+```bash
+bash ./Deployment/Cloud/Scripts/quick-destroy-cloud.sh --plan-only
+bash ./Deployment/Cloud/Scripts/quick-recreate-cloud-after-destruction.sh --plan-only
+bash ./Deployment/Cloud/Scripts/quick-recreate-cloud-after-destruction.sh --skip-cd
+```
+
+LocalCluster is unaffected by these scripts.
+
 ## 2. Confirm Cloud Settings Examples
 
 [CurrentPC]
