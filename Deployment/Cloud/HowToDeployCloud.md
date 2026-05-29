@@ -10,9 +10,9 @@ https://bookscloud.jacobgrum.com
 
 ## Current Status
 
-The Cloud deployment is not live yet.
+The Cloud deployment has been brought live at `https://bookscloud.jacobgrum.com`.
 
-The repo-side deployment implementation is present. Follow this guide from top to bottom; stop only when a command fails or when a labeled external dashboard step requires your action.
+This guide remains the source of truth for rebuilding, repairing, or repeating the Cloud deployment. Follow it from top to bottom for a fresh deployment; for an existing deployment, run the doctor script first and continue from the first `ACTION` or `BLOCKER`.
 
 Do not create Hetzner servers manually. OpenTofu owns them.
 
@@ -147,7 +147,7 @@ bash ./Deployment/Common/Scripts/validate-common-release.sh
 Show the current guide readiness:
 
 ```bash
-bash ./Deployment/Cloud/Scripts/status-guide.sh
+bash ./Deployment/Cloud/Scripts/doctor.sh
 ```
 
 Review:
@@ -648,6 +648,18 @@ bookscloud.jacobgrum.com
 
 Save the public hostname.
 
+[CurrentPC]
+
+Verify public health from your current machine:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+curl -fsS https://bookscloud.jacobgrum.com/health/ready
+bash ./Deployment/Cloud/Scripts/doctor.sh
+```
+
+No Cloudflare API token is required by this guide. If GitHub Actions later receives a Cloudflare managed challenge while your browser and `doctor.sh` can reach the site, the Cloud deployment acceptance script treats that as Cloudflare edge policy after all origin checks have passed.
+
 ## 10. Configure GitHub Environment
 
 [CurrentPC]
@@ -869,7 +881,7 @@ Acceptance must verify:
 - app port, PostgreSQL, and Redis reject unauthorized private-network sources.
 - backup directory exists on `cloud-db`.
 
-If Cloudflare security settings challenge GitHub Actions, the acceptance script prints that as a Cloudflare policy result and continues. To make public edge checks strict, run:
+The acceptance script is challenge-tolerant by default only for Cloudflare managed challenges from the public edge. It remains strict for SSH, Docker, PostgreSQL, Redis, Caddy local routing, app-node health, and firewall checks. To force strict public edge checks, run:
 
 ```bash
 CLOUD_ACCEPT_CLOUDFLARE_CHALLENGE=false bash ./Deployment/Cloud/Scripts/acceptance-check.sh

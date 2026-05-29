@@ -10,7 +10,8 @@ Implemented local scripts:
 - `read-cloud-setting.sh` reads one committed Cloud setting.
 - `validate-cloud-settings.sh` validates committed Cloud settings.
 - `summary.sh` prints shared release and Cloud deployment settings.
-- `status-guide.sh` reports which guide steps are ready, manual, or blocked.
+- `doctor.sh` reports local Cloud deployment state, GitHub CI/CD state, and public health.
+- `status-guide.sh` is a backwards-compatible wrapper around `doctor.sh`.
 - `prepare-opentofu-tfvars.sh` creates and updates local OpenTofu variables.
 - `plan-replace-cloud-servers.sh` creates an explicit OpenTofu server replacement plan for private-network attachment recovery.
 - `render-inventory-from-tofu.sh` renders `inventory/prod/hosts.yml` from OpenTofu outputs.

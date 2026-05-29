@@ -46,12 +46,11 @@ wait_for_public_url() {
   local body_file
   local http_code
   local curl_rc
-  local attempt
 
   headers_file="$(mktemp)"
   body_file="$(mktemp)"
 
-  for attempt in {1..60}; do
+  for _attempt in {1..60}; do
     : >"$headers_file"
     : >"$body_file"
 
