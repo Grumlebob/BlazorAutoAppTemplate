@@ -1,6 +1,6 @@
 # Big Scores Plan
 
-Status: In progress; first measurement and direct-failure fix pass completed
+Status: In progress; deployed P0 verification completed, first optimization patch implemented locally
 
 Date: 2026-05-28
 
@@ -284,6 +284,45 @@ Status: Pending
 
 ### P0 - Deploy And Verify The Direct Fixes
 
+Status: Completed on 2026-05-29.
+
+Result:
+
+- `HEAD /` now returns `200 OK`.
+- `HEAD /books/author/ship` now returns `200 OK`.
+- `GET /books/author/ship` returns `302 Found` to `/books?authorBookId=2&bookMode=view`.
+- Production query-string Lighthouse runs complete successfully.
+
+Report folder:
+
+```text
+TestResults/Lighthouse/production-big-scores-direct-fixes-after-deploy-20260529-085906
+```
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `/` | mobile | 70 | 100 | 81 | 100 |
+| `/books/author/ship` | mobile | 91 | 100 | 81 | 100 |
+| `/books?authorBookId=2&bookMode=view` | mobile | 92 | 100 | 81 | 100 |
+
+Read-only production mobile E2E:
+
+```powershell
+$env:RUN_E2E='1'
+$env:E2E_BASE_URL='https://shipinspection.jacobgrum.com'
+$env:E2E_HEADLESS='1'
+$env:E2E_SLOW_MO_MS='0'
+$env:E2E_NAVIGATION_TIMEOUT_MS='60000'
+$env:E2E_ACTION_TIMEOUT_MS='30000'
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj -c Release --filter "FullyQualifiedName~AuthorBookcase_AllAuthorBooksCanOpenOnMobile"
+```
+
+Result:
+
+```text
+Passed: 1, Failed: 0, Skipped: 0
+```
+
 Work:
 
 - Deploy the current branch.
@@ -312,6 +351,16 @@ Acceptance:
 
 ### P1 - Investigate Anonymous HTML No-Store And Antiforgery Cookie
 
+Status: Investigated; no code change yet.
+
+2026-05-29 findings:
+
+- Production anonymous `/`, `/books/design-demos`, and `/Account/Login` all emit the app antiforgery cookie and `Cache-Control: no-store` style headers.
+- Static design-demo pages still pass Lighthouse bfcache, because they do not load the interactive Blazor runtime or open the Blazor WebSocket.
+- Interactive Auto pages fail bfcache for the expected combination of WebSocket plus main-resource `no-store`.
+- Account/login bfcache remains constrained by account-page security behavior and WebAuthentication/passkey support.
+- Do not remove or globally weaken antiforgery until a narrower framework-supported option is proven safe for Identity, passkeys, and authenticated book mutations.
+
 Why:
 
 - Production GET `/` emits `Cache-Control: no-cache, no-store, max-age=0` and an antiforgery cookie.
@@ -336,6 +385,17 @@ Expected score impact:
 - Do not expect this alone to solve the 12s Lighthouse LCP/TTI issue.
 
 ### P1 - Trace The Interactive Auto LCP/TTI Plateau
+
+Status: Investigated with Lighthouse JSON; DevTools/WebPageTest filmstrip still pending.
+
+2026-05-29 findings from `production-big-scores-after-deploy-full-baseline-20260529-090002`:
+
+- Home mobile simulated Lighthouse LCP/TTI: about `12.7s`.
+- Home observed trace LCP: about `1.6s`.
+- Home observed last visual change: about `1.8s`.
+- Detail mobile shows the same pattern: simulated LCP/TTI about `12.5s`, observed LCP about `1.6s`.
+- TBT is only about `50ms`, CLS is `0`, and server response is fast.
+- Current interpretation: the poor mobile performance score is mostly Lighthouse Lantern modeling the Interactive Auto WebAssembly dependency path, not the first viewport being visually blank for 12 seconds.
 
 Why:
 
@@ -363,6 +423,31 @@ Expected score impact:
 
 ### P1 - WebAssembly Payload Dependency Review
 
+Status: In progress; publish asset review refreshed after CSS cleanup.
+
+2026-05-29 publish folder:
+
+```text
+artifacts/publish-big-scores-after-css-cleanup
+```
+
+Largest WebAssembly assets remain framework/runtime dominated:
+
+| Asset | Uncompressed |
+| --- | ---: |
+| `dotnet.native.*.wasm` | 2,932 KiB |
+| `System.Private.CoreLib.*.wasm` | 1,612 KiB |
+| `System.Text.Json.*.wasm` | 401 KiB |
+| `System.Linq.Expressions.*.wasm` | 349 KiB |
+| `Microsoft.AspNetCore.Components.*.wasm` | 256 KiB |
+| `BlazorAutoApp.Client.*.wasm` | 201 KiB |
+
+Current conclusion:
+
+- App-owned client payload is not the dominant transfer cost.
+- A meaningful payload win probably requires a clean lazy-loading split or a framework-supported change to when Auto downloads WebAssembly.
+- Do not chase small app-code edits expecting them to move the 2.5 MiB Interactive Auto transfer meaningfully.
+
 Why:
 
 - Interactive pages transfer about 2.55 MiB.
@@ -384,6 +469,36 @@ Expected score impact:
 - Medium only if a clean dependency split exists.
 
 ### P2 - Render-Blocking CSS Cleanup
+
+Status: Implemented locally; pending deploy and production re-measure.
+
+2026-05-29 change:
+
+- Moved reconnect modal behavior styles from scoped CSS into `BlazorAutoApp.Client/Styles/input.css` under a Tailwind component layer.
+- Moved reconnect modal visual primitives into Tailwind utility classes in `ReconnectModal.razor`.
+- Removed the `BlazorAutoApp.styles.css` link from the document shell.
+- Deleted `ReconnectModal.razor.css`.
+- Added integration tests that static/account pages do not load `blazor.web.js`, the home page still loads Interactive Auto, and public pages no longer reference the removed scoped CSS bundle.
+
+Local Lighthouse after change:
+
+```text
+TestResults/Lighthouse/local-big-scores-tailwind-css-cleanup-20260529-091905
+```
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | Render-blocking CSS |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `/` | mobile | 75 | 100 | 100 | 100 | `app.css`, `tailwind.css` |
+| `/books/design-demos` | mobile | 100 | 100 | 100 | 100 | `app.css`, `tailwind.css` |
+| `/books?authorBookId=2&bookMode=view` | mobile | 75 | 100 | 100 | 100 | `app.css`, `tailwind.css` |
+
+Validation:
+
+- `npm --prefix .\BlazorAutoApp.Client run css:build` passed.
+- `dotnet build .\BlazorAutoApp.sln -c Release --no-restore` passed.
+- `dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj -c Release --no-build --filter "FullyQualifiedName~RenderModeHtmlTests|FullyQualifiedName~HeadRequestTests"` passed: `8` tests.
+- Local headless fast E2E passed: `6` tests.
+- Release test suite passed: `94` passed, `6` skipped, `100` total.
 
 Why:
 
@@ -423,6 +538,15 @@ Acceptance:
 
 ### P2 - Add Optional External Tool Automation
 
+Status: Blocked until credentials/account path are available.
+
+2026-05-29 external tool attempts:
+
+- PageSpeed Insights API returned `429 Too Many Requests` with default unauthenticated quota `0`.
+- Chrome UX Report API returned `403 Permission Denied` because it requires an API key or other caller identity.
+- WebPageTest API returned `403 Forbidden` from Cloudflare for this IP/session.
+- Manual browser UI runs or configured API keys are required before these can become repeatable automated artifacts.
+
 Work:
 
 - Add optional `RunPageSpeed.ps1` only if an API key is available.
@@ -436,7 +560,26 @@ Acceptance:
 
 ## Baseline Pass
 
-Status: Pending
+Status: Completed for Lighthouse production after deploy; PSI/WebPageTest still blocked or manual.
+
+Production Lighthouse folder:
+
+```text
+TestResults/Lighthouse/production-big-scores-after-deploy-full-baseline-20260529-090002
+```
+
+| Page | Profile | Performance | Accessibility | Best Practices | SEO | FCP | LCP | TBT | CLS | Payload |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/` | mobile | 72 | 100 | 81 | 100 | 2.0s | 12.7s | 50ms | 0 | 2,553 KiB |
+| `/` | desktop | 99 | 100 | 81 | 100 | 0.3s | 0.4s | 0ms | 0 | 2,553 KiB |
+| `/books/design-demos` | mobile | 100 | 100 | 81 | 100 | 1.3s | 1.6s | 20ms | 0 | 36 KiB |
+| `/books/design-demos` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.5s | 0ms | 0 | 36 KiB |
+| `/books/design-demos/cloth-hardback` | mobile | 99 | 100 | 77 | 100 | 1.3s | 1.6s | 10ms | 0 | 32 KiB |
+| `/books/design-demos/cloth-hardback` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.5s | 0ms | 0 | 31 KiB |
+| `/books?authorBookId=2&bookMode=view` | mobile | 72 | 100 | 81 | 100 | 2.0s | 12.5s | 50ms | 0 | 2,554 KiB |
+| `/books?authorBookId=2&bookMode=view` | desktop | 99 | 100 | 81 | 100 | 0.6s | 0.8s | 0ms | 0 | 2,554 KiB |
+| `/Account/Login` | mobile | 99 | 100 | 81 | 100 | 1.4s | 1.8s | 0ms | 0 | 33 KiB |
+| `/Account/Login` | desktop | 100 | 100 | 81 | 100 | 0.4s | 0.6s | 0ms | 0 | 33 KiB |
 
 Purpose:
 

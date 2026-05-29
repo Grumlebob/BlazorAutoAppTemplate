@@ -33,6 +33,7 @@
     --color-gray-900: oklch(21% 0.034 264.665);
     --color-gray-950: oklch(13% 0.028 261.692);
     --color-stone-50: oklch(98.5% 0.001 106.423);
+    --color-black: #000;
     --color-white: #fff;
     --spacing: 0.25rem;
     --container-2xl: 42rem;
@@ -291,6 +292,9 @@
       max-width: 96rem;
     }
   }
+  .m-0 {
+    margin: calc(var(--spacing) * 0);
+  }
   .mx-0 {
     margin-inline: calc(var(--spacing) * 0);
   }
@@ -311,6 +315,9 @@
   }
   .mt-6 {
     margin-top: calc(var(--spacing) * 6);
+  }
+  .mt-\[20vh\] {
+    margin-top: 20vh;
   }
   .mb-0 {
     margin-bottom: calc(var(--spacing) * 0);
@@ -360,6 +367,9 @@
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
+  .h-20 {
+    height: calc(var(--spacing) * 20);
+  }
   .h-\[1\.35rem\] {
     height: 1.35rem;
   }
@@ -395,6 +405,12 @@
   }
   .w-8 {
     width: calc(var(--spacing) * 8);
+  }
+  .w-20 {
+    width: calc(var(--spacing) * 20);
+  }
+  .w-80 {
+    width: calc(var(--spacing) * 80);
   }
   .w-\[17\.25rem\] {
     width: 17.25rem;
@@ -595,6 +611,10 @@
     border-style: var(--tw-border-style);
     border-width: 0px;
   }
+  .border-\[3px\] {
+    border-style: var(--tw-border-style);
+    border-width: 3px;
+  }
   .border-y {
     border-block-style: var(--tw-border-style);
     border-block-width: 1px;
@@ -606,6 +626,9 @@
   .border-b {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
+  }
+  .border-\[\#0087ff\] {
+    border-color: #0087ff;
   }
   .border-\[\#dac5a1\] {
     border-color: #dac5a1;
@@ -642,6 +665,9 @@
   }
   .border-b-gray-300 {
     border-bottom-color: var(--color-gray-300);
+  }
+  .bg-\[\#6b9ed2\] {
+    background-color: #6b9ed2;
   }
   .bg-\[\#fffefa\] {
     background-color: #fffefa;
@@ -700,6 +726,9 @@
   .p-5 {
     padding: calc(var(--spacing) * 5);
   }
+  .p-8 {
+    padding: calc(var(--spacing) * 8);
+  }
   .p-\[0\.6rem_1\.25rem_0\.7rem_1\.25rem\] {
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;
   }
@@ -720,6 +749,9 @@
   }
   .px-5 {
     padding-inline: calc(var(--spacing) * 5);
+  }
+  .px-6 {
+    padding-inline: calc(var(--spacing) * 6);
   }
   .px-7 {
     padding-inline: calc(var(--spacing) * 7);
@@ -890,6 +922,12 @@
   .no-underline {
     text-decoration-line: none;
   }
+  .opacity-0 {
+    opacity: 0%;
+  }
+  .opacity-100 {
+    opacity: 100%;
+  }
   .shadow-\[0_-1px_2px_rgba\(0\,0\,0\,0\.2\)\] {
     --tw-shadow: 0 -1px 2px var(--tw-shadow-color, rgba(0,0,0,0.2));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
@@ -900,6 +938,10 @@
   }
   .shadow-\[0_1rem_2\.4rem_rgb\(15_23_42_\/_0\.08\)\] {
     --tw-shadow: 0 1rem 2.4rem var(--tw-shadow-color, rgb(15 23 42 / 0.08));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_3px_6px_2px_rgb\(0_0_0_\/_0\.3\)\] {
+    --tw-shadow: 0 3px 6px 2px var(--tw-shadow-color, rgb(0 0 0 / 0.3));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-\[inset_0_1px_0_rgb\(255_255_255_\/_0\.22\)\,0_0\.5rem_1\.25rem_rgb\(17_24_39_\/_0\.12\)\] {
@@ -1087,6 +1129,13 @@
       }
     }
   }
+  .hover\:bg-\[\#3b6ea2\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: #3b6ea2;
+      }
+    }
+  }
   .hover\:bg-gray-50 {
     &:hover {
       @media (hover: hover) {
@@ -1223,6 +1272,11 @@
       --tw-drop-shadow-size: drop-shadow(0 0.8rem 0.7rem var(--tw-drop-shadow-color, rgb(17 24 39 / 0.18)));
       --tw-drop-shadow: var(--tw-drop-shadow-size);
       filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+    }
+  }
+  .active\:bg-\[\#6b9ed2\] {
+    &:active {
+      background-color: #6b9ed2;
     }
   }
   .disabled\:cursor-not-allowed {
@@ -1394,6 +1448,90 @@
     @media (width >= 80rem) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+  }
+}
+@layer components {
+  .components-reconnect-first-attempt-visible, .components-reconnect-repeated-attempt-visible, .components-reconnect-failed-visible, .components-pause-visible, .components-resume-failed-visible, .components-rejoining-animation {
+    display: none;
+  }
+  #components-reconnect-modal.components-reconnect-show .components-reconnect-first-attempt-visible, #components-reconnect-modal.components-reconnect-show .components-rejoining-animation, #components-reconnect-modal.components-reconnect-paused .components-pause-visible, #components-reconnect-modal.components-reconnect-resume-failed .components-resume-failed-visible, #components-reconnect-modal.components-reconnect-retrying, #components-reconnect-modal.components-reconnect-retrying .components-reconnect-repeated-attempt-visible, #components-reconnect-modal.components-reconnect-retrying .components-rejoining-animation, #components-reconnect-modal.components-reconnect-failed, #components-reconnect-modal.components-reconnect-failed .components-reconnect-failed-visible {
+    display: block;
+  }
+  #components-reconnect-modal {
+    animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
+    transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
+  }
+  #components-reconnect-modal[open] {
+    animation: components-reconnect-modal-slideUp 1.5s cubic-bezier(0.05, 0.89, 0.25, 1.02) 0.3s, components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
+    animation-fill-mode: both;
+  }
+  #components-reconnect-modal::backdrop {
+    background-color: color-mix(in srgb, #000 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-black) 40%, transparent);
+    }
+    opacity: 100%;
+    animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
+  }
+  .components-rejoining-animation div {
+    animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  }
+  .components-rejoining-animation div:nth-child(2) {
+    animation-delay: -0.5s;
+  }
+}
+@keyframes components-reconnect-modal-slideUp {
+  0% {
+    transform: translateY(30px) scale(0.95);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes components-reconnect-modal-fadeInOpacity {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes components-reconnect-modal-fadeOutOpacity {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes components-rejoining-animation {
+  0% {
+    height: 0;
+    left: 40px;
+    opacity: 0;
+    top: 40px;
+    width: 0;
+  }
+  4.9% {
+    height: 0;
+    left: 40px;
+    opacity: 0;
+    top: 40px;
+    width: 0;
+  }
+  5% {
+    height: 0;
+    left: 40px;
+    opacity: 1;
+    top: 40px;
+    width: 0;
+  }
+  100% {
+    height: 80px;
+    left: 0;
+    opacity: 0;
+    top: 0;
+    width: 80px;
   }
 }
 @property --tw-translate-x {
