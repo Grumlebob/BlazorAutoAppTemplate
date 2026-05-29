@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROMETHEUS_URL="${1:-http://localhost:9090}"
 LOKI_URL="${2:-http://localhost:3100}"
+DEPLOYMENT_TARGET="${3:-local}"
 PROMETHEUS_SERIES_LIMIT="${PROMETHEUS_SERIES_LIMIT:-10000}"
 LOKI_STREAM_LIMIT="${LOKI_STREAM_LIMIT:-100}"
 
@@ -46,7 +47,7 @@ PY
 
 loki_streams="$(
   curl -fsG \
-    --data-urlencode 'match[]={deployment_target="local"}' \
+    --data-urlencode "match[]={deployment_target=\"$DEPLOYMENT_TARGET\"}" \
     --data-urlencode "start=$start_ns" \
     "$LOKI_URL/loki/api/v1/series" |
     "$PYTHON_BIN" -c 'import json,sys; print(len(json.load(sys.stdin)["data"]))'

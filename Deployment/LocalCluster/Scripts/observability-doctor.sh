@@ -141,7 +141,7 @@ fi
 if [[ -x "$REPO_ROOT/Deployment/Common/observability/scripts/check-telemetry-cardinality.sh" ]]; then
   run_check "cardinality budgets from node-main" \
     ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
-      "cd '$REPO_ROOT' && bash Deployment/Common/observability/scripts/check-telemetry-cardinality.sh http://127.0.0.1:$PROMETHEUS_PORT http://127.0.0.1:$LOKI_PORT"
+      "cd '$REPO_ROOT' && bash Deployment/Common/observability/scripts/check-telemetry-cardinality.sh http://127.0.0.1:$PROMETHEUS_PORT http://127.0.0.1:$LOKI_PORT localcluster"
 fi
 
 echo
