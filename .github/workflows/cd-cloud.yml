@@ -27,7 +27,7 @@ jobs:
     environment:
       name: cloud-hetzner
     env:
-      CLOUD_SSH_PRIVATE_KEY_PATH: ${{ runner.temp }}/bookscloud_deploy
+      CLOUD_SSH_PRIVATE_KEY_PATH: ${{ github.workspace }}/.cloud-ssh/bookscloud_deploy
       CLOUD_BASTION_HOST: ${{ secrets.CLOUD_BASTION_HOST }}
       CLOUD_APP1_PUBLIC_IPV4: ${{ secrets.CLOUD_APP1_PUBLIC_IPV4 }}
       CLOUD_APP2_PUBLIC_IPV4: ${{ secrets.CLOUD_APP2_PUBLIC_IPV4 }}
