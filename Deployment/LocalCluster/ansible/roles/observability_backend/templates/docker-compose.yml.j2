@@ -30,6 +30,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9090/-/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
     networks:
       - default
@@ -54,6 +55,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3100/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
     networks:
       - default
@@ -79,6 +81,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3200/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
     networks:
       - default
@@ -90,11 +93,11 @@ services:
     logging: *localcluster-logging
     depends_on:
       prometheus:
-        condition: service_healthy
+        condition: service_started
       loki:
-        condition: service_healthy
+        condition: service_started
       tempo:
-        condition: service_healthy
+        condition: service_started
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
@@ -113,6 +116,7 @@ services:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health | grep -q 'ok'"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
 
 volumes:

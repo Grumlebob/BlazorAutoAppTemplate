@@ -86,53 +86,90 @@
     mode: "0640"
     directory_mode: "0750"
 
-- name: Pull and start observability backend
-  ansible.builtin.command: docker compose up -d --pull always --remove-orphans
-  args:
-    chdir: "{{ observability_root }}"
-  become: true
-  become_user: deploy
-  register: observability_backend_compose_up
-  changed_when: >-
-    (observability_backend_compose_up.stdout ~ observability_backend_compose_up.stderr)
-    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+- name: Start and verify observability backend
+  block:
+    - name: Pull and start observability backend
+      ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+      args:
+        chdir: "{{ observability_root }}"
+      become: true
+      become_user: deploy
+      register: observability_backend_compose_up
+      changed_when: >-
+        (observability_backend_compose_up.stdout ~ observability_backend_compose_up.stderr)
+        is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
 
-- name: Wait for Prometheus
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ observability_prometheus_port }}/-/ready"
-    status_code: 200
-  register: observability_prometheus_ready
-  retries: 30
-  delay: 3
-  until: observability_prometheus_ready.status == 200
-  changed_when: false
+    - name: Wait for Prometheus
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ observability_prometheus_port }}/-/ready"
+        status_code: 200
+      register: observability_prometheus_ready
+      retries: 30
+      delay: 3
+      until: observability_prometheus_ready.status == 200
+      changed_when: false
 
-- name: Wait for Loki
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ observability_loki_port }}/ready"
-    status_code: 200
-  register: observability_loki_ready
-  retries: 30
-  delay: 3
-  until: observability_loki_ready.status == 200
-  changed_when: false
+    - name: Wait for Loki
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ observability_loki_port }}/ready"
+        status_code: 200
+      register: observability_loki_ready
+      retries: 30
+      delay: 3
+      until: observability_loki_ready.status == 200
+      changed_when: false
 
-- name: Wait for Tempo
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ observability_tempo_http_port }}/ready"
-    status_code: 200
-  register: observability_tempo_ready
-  retries: 30
-  delay: 3
-  until: observability_tempo_ready.status == 200
-  changed_when: false
+    - name: Wait for Tempo
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ observability_tempo_http_port }}/ready"
+        status_code: 200
+      register: observability_tempo_ready
+      retries: 30
+      delay: 3
+      until: observability_tempo_ready.status == 200
+      changed_when: false
 
-- name: Wait for Grafana
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ observability_grafana_port }}/api/health"
-    status_code: 200
-  register: observability_grafana_ready
-  retries: 30
-  delay: 3
-  until: observability_grafana_ready.status == 200
-  changed_when: false
+    - name: Wait for Grafana
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ observability_grafana_port }}/api/health"
+        status_code: 200
+      register: observability_grafana_ready
+      retries: 30
+      delay: 3
+      until: observability_grafana_ready.status == 200
+      changed_when: false
+  rescue:
+    - name: Inspect observability backend containers
+      ansible.builtin.command: docker compose ps
+      args:
+        chdir: "{{ observability_root }}"
+      become: true
+      become_user: deploy
+      register: observability_backend_compose_ps
+      changed_when: false
+      failed_when: false
+
+    - name: Read observability backend logs
+      ansible.builtin.command: docker compose logs --no-color --tail=160 prometheus loki tempo grafana
+      args:
+        chdir: "{{ observability_root }}"
+      become: true
+      become_user: deploy
+      register: observability_backend_compose_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Print observability backend diagnostics
+      ansible.builtin.debug:
+        msg: |
+          Observability backend failed to become ready.
+
+          docker compose ps:
+          {{ observability_backend_compose_ps.stdout | default('no compose ps output') }}
+
+          docker compose logs:
+          {{ observability_backend_compose_logs.stdout | default('no compose logs output') }}
+
+    - name: Fail observability backend deployment
+      ansible.builtin.fail:
+        msg: "Observability backend failed to start or become ready; see diagnostics above."

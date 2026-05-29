@@ -99,6 +99,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9090/-/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
 
   loki:
@@ -119,6 +120,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3100/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
 
   tempo:
@@ -139,6 +141,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3200/ready"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
 
   alloy:
@@ -151,11 +154,11 @@ services:
       - /etc/alloy/config.alloy
     depends_on:
       prometheus:
-        condition: service_healthy
+        condition: service_started
       loki:
-        condition: service_healthy
+        condition: service_started
       tempo:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "127.0.0.1:${ALLOY_HOST_PORT:-12345}:12345"
     volumes:
@@ -171,11 +174,11 @@ services:
     logging: *local-logging
     depends_on:
       prometheus:
-        condition: service_healthy
+        condition: service_started
       loki:
-        condition: service_healthy
+        condition: service_started
       tempo:
-        condition: service_healthy
+        condition: service_started
       alloy:
         condition: service_started
     environment:
@@ -197,6 +200,7 @@ services:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health | grep -q 'ok'"]
       interval: 10s
       timeout: 5s
+      start_period: 60s
       retries: 20
 
 volumes:
