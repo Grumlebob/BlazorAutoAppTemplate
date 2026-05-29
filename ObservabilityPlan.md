@@ -760,7 +760,7 @@ Defaults:
 
 ```text
 Local development:     1.00
-LocalCluster:          0.25 initially, allow 1.00 during short debugging windows
+LocalCluster:          0.10 initially on current hardware, allow 1.00 during short debugging windows
 Cloud:                 0.10 initially, allow 1.00 during short demos only
 ```
 
@@ -814,11 +814,11 @@ All limits below are starting budgets, not performance promises. They must be en
 These are the initial limits for `node-main` and `cloud-main` when they host the observability backend:
 
 ```text
-Grafana:             memory 256m, CPU 0.25
-Prometheus:          memory 768m LocalCluster / 512m Cloud, CPU 0.75
-Loki:                memory 512m, CPU 0.50
-Tempo:               memory 384m, CPU 0.50
-Alloy backend agent: memory 256m, CPU 0.25
+Grafana:             memory 256m, CPU 0.35
+Prometheus:          memory 384m LocalCluster / 512m Cloud, CPU 0.50
+Loki:                memory 256m LocalCluster / 512m Cloud, CPU 0.50
+Tempo:               memory 384m, CPU 0.35
+Alloy backend agent: memory 192m LocalCluster / 256m Cloud, CPU 0.35
 blackbox_exporter:   memory 64m,  CPU 0.10
 Alertmanager:        memory 128m, CPU 0.10
 ```
@@ -2104,6 +2104,7 @@ Implementation notes:
 - Every LocalCluster node runs Alloy and node-exporter from `/opt/books-observability/agent`.
 - `node-db` runs PostgreSQL and Redis exporters in the existing `/opt/books` data compose stack so the exporters can reach the database and Redis over the private Compose network without embedding URL-escaped passwords.
 - App containers join a per-node external Docker network named `books_observability` and send OTLP to the local `alloy` network alias.
+- LocalCluster trace sampling is `0.1` by default because the first CD preflight measured `node-main` at roughly 2943 MiB available memory; the initial higher memory estimate would have left less than the required steady-state headroom.
 - Grafana is bound to `127.0.0.1:3000` on `node-main`; use `Deployment/LocalCluster/Scripts/open-observability-tunnel.sh` from CurrentPC or ControlPC.
 - Docker-published observability ports are protected by UFW and the generated app-specific `DOCKER-USER` chain.
 - Deployment preflight now runs `observability-capacity-check.sh` when observability is enabled.

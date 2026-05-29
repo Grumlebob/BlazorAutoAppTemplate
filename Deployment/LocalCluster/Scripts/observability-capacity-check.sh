@@ -59,8 +59,8 @@ printf \"OK    %s has %sMiB available memory and %sMiB free /opt disk\\n\" \"\$(
 }
 
 echo "checking LocalCluster observability capacity"
-check_group load_balancer 2304 384 20480
-check_group app_servers 384 128 2048
-check_group node_db 768 192 4096
+check_group load_balancer 896 256 20480
+check_group app_servers 256 96 2048
+check_group node_db 384 128 4096
 
 echo "observability capacity check ok"

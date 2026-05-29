@@ -10,7 +10,7 @@ cloudflared_version: 2026.5.2
 observability_enabled: true
 observability_root: /opt/books-observability
 observability_docker_network: books_observability
-observability_trace_sample_ratio: 0.25
+observability_trace_sample_ratio: 0.1
 
 observability_grafana_port: 3000
 observability_prometheus_port: 9090

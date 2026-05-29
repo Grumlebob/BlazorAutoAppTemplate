@@ -216,7 +216,7 @@ cloudflared_version: <pinned-cloudflared-version>
 observability_enabled: true
 observability_root: /opt/<app-name>-observability
 observability_docker_network: <app-name>_observability
-observability_trace_sample_ratio: 0.25
+observability_trace_sample_ratio: 0.1
 
 observability_grafana_port: 3000
 observability_prometheus_port: 9090
@@ -259,7 +259,7 @@ Where the values come from:
 | `observability_enabled` | Keep `true` to deploy the LocalCluster Grafana/Prometheus/Loki/Tempo/Alloy stack. Set `false` only when deliberately disabling production observability. |
 | `observability_root` | Use `/opt/<app_name>-observability`. This keeps observability runtime files separate from app/database runtime files. |
 | `observability_docker_network` | Use `<app_name>_observability`. App containers and local Alloy agents join this Docker network on each node. |
-| `observability_trace_sample_ratio` | Start at `0.25`. Use `1.0` only for short debugging windows because traces increase storage and CPU. |
+| `observability_trace_sample_ratio` | Start at `0.1` on the current LocalCluster hardware. Use `1.0` only for short debugging windows because traces increase storage, memory, and CPU. |
 | `observability_grafana_port` | Keep `3000`. Grafana is bound to `127.0.0.1` on `node-main` and should be reached through SSH tunneling. |
 | `observability_prometheus_port` | Keep `9090`. LocalCluster nodes use this internal port to remote-write metrics to Prometheus on `node-main`. |
 | `observability_loki_port` | Keep `3100`. LocalCluster nodes use this internal port to push logs to Loki on `node-main`. |

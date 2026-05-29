@@ -21,8 +21,8 @@ services:
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    mem_limit: 256m
-    mem_reservation: 128m
+    mem_limit: 192m
+    mem_reservation: 96m
     cpus: 0.35
     networks:
       observability:
