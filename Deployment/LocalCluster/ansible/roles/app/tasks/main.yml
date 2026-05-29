@@ -49,6 +49,9 @@
   become: true
   become_user: deploy
   register: app_compose_up
+  retries: 5
+  delay: 15
+  until: app_compose_up.rc == 0
   changed_when: >-
     (app_compose_up.stdout ~ app_compose_up.stderr)
     is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
