@@ -1,10 +1,10 @@
-app_name: ship
-app_image: ghcr.io/grumlebob/ship
+app_name: books
+app_image: ghcr.io/grumlebob/books
 app_port: 8080
 postgres_port: 5432
 redis_port: 6379
-public_hostname: shipinspection.jacobgrum.com
-deploy_root: /opt/ship
-cloudflare_tunnel_name: ship-prod
+public_hostname: books.jacobgrum.com
+deploy_root: /opt/books
+cloudflare_tunnel_name: books-prod
 cloudflared_version: 2026.5.2
-migration_bundle_name: ship-migrate
+migration_bundle_name: books-migrate

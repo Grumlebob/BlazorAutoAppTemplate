@@ -4,7 +4,7 @@ Status: In progress; deployed P0 verification completed, first optimization patc
 
 Date: 2026-05-28
 
-Production URL: `https://shipinspection.jacobgrum.com/`
+Production URL: `https://books.jacobgrum.com/`
 
 ## Goal
 
@@ -95,7 +95,7 @@ Status: Implemented locally
    - Verification: focused tests passed, and local `HEAD /books/author/ship` returned `200` after rebuild.
 
 3. Public page `HEAD` requests returned `404`.
-   - Symptom: `curl -I https://shipinspection.jacobgrum.com/` returned `404` even though `GET /` returned `200`.
+   - Symptom: `curl -I https://books.jacobgrum.com/` returned `404` even though `GET /` returned `200`.
    - Fix: mapped explicit `HEAD` responses for the public benchmark pages.
    - Verification: local `HEAD /` and `HEAD /books/author/ship` returned `200`.
    - Production verification: pending deploy.
@@ -309,7 +309,7 @@ Read-only production mobile E2E:
 
 ```powershell
 $env:RUN_E2E='1'
-$env:E2E_BASE_URL='https://shipinspection.jacobgrum.com'
+$env:E2E_BASE_URL='https://books.jacobgrum.com'
 $env:E2E_HEADLESS='1'
 $env:E2E_SLOW_MO_MS='0'
 $env:E2E_NAVIGATION_TIMEOUT_MS='60000'
@@ -329,15 +329,15 @@ Work:
 - Verify production:
 
   ```powershell
-  curl.exe -I https://shipinspection.jacobgrum.com/
-  curl.exe -I https://shipinspection.jacobgrum.com/books/author/ship
+  curl.exe -I https://books.jacobgrum.com/
+  curl.exe -I https://books.jacobgrum.com/books/author/ship
   ```
 
 - Re-run:
 
   ```powershell
   .\RunLighthouse.ps1 `
-    -BaseUrl https://shipinspection.jacobgrum.com `
+    -BaseUrl https://books.jacobgrum.com `
     -Paths "/", "/books/author/ship", "/books?authorBookId=2&bookMode=view" `
     -Profile mobile `
     -Label production-big-scores-direct-fixes-after-deploy
@@ -600,7 +600,7 @@ Production command:
 
 ```powershell
 .\RunLighthouse.ps1 `
-  -BaseUrl https://shipinspection.jacobgrum.com `
+  -BaseUrl https://books.jacobgrum.com `
   -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books?authorBookId=2&bookMode=view", "/Account/Login" `
   -Profile both `
   -Label production-big-scores-baseline
@@ -1002,7 +1002,7 @@ Run after deploy:
 
 ```powershell
 .\RunLighthouse.ps1 `
-  -BaseUrl https://shipinspection.jacobgrum.com `
+  -BaseUrl https://books.jacobgrum.com `
   -Paths "/", "/books/design-demos", "/books/design-demos/cloth-hardback", "/books?authorBookId=2&bookMode=view", "/Account/Login" `
   -Profile both `
   -Label production-big-scores-after-deploy
