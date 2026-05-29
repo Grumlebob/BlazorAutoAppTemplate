@@ -22,6 +22,20 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - GitHub Actions CI for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
 - Centralized NuGet package versions in `Directory.Packages.props`.
 
+## Observability
+
+Current local Docker uses Serilog and Seq for local log viewing. `ObservabilityPlan.md` defines the planned replacement stack:
+
+- OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
+- Grafana is the dashboard and operator UI.
+- Prometheus stores metrics and runs alert rules.
+- Loki is centralized log aggregation.
+- Tempo stores distributed traces from OpenTelemetry.
+- Grafana Alloy is the per-node collector for logs, metrics, and OTLP telemetry.
+- Exporters expose host, container, PostgreSQL, Redis, Caddy, cloudflared, and synthetic probe metrics.
+
+The planned deployment keeps observability on the existing LocalCluster and Cloud nodes; no extra observability nodes are part of the plan.
+
 ## Repository Layout
 
 - `BlazorAutoApp.Core/Features/*` contains shared feature contracts, domain types, and request/response DTOs.
