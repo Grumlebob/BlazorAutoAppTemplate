@@ -21,7 +21,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
                 .ToBeVisibleAsync();
             await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Back to books" }).ClickAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
-            await Page.GetByTestId("author-bookcase-book").First.ClickAsync(new LocatorClickOptions { Force = true });
+            await ClickVisibleAuthorBookAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-edit-pencil")).ToHaveCountAsync(0);
             await Page.GetByTestId("book-back").ClickAsync();
@@ -150,6 +150,55 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
     [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
     [Trait("Category", "E2E")]
+    public async Task AuthorBookcase_AllAuthorBooksCanOpenOnMobile()
+    {
+        await RunWithFailureScreenshotAsync(async () =>
+        {
+            await Page.SetViewportSizeAsync(390, 844);
+            await GoHomeAndWaitForInteractivityAsync();
+
+            var viewport = Page.GetByTestId("author-bookcase-viewport");
+            await Expect(viewport).ToBeVisibleAsync();
+            var overflowX = await viewport.EvaluateAsync<string>("element => getComputedStyle(element).overflowX");
+            Assert.Equal("auto", overflowX);
+            var isScrollable = await viewport.EvaluateAsync<bool>("element => element.scrollWidth > element.clientWidth");
+            Assert.True(isScrollable);
+            var touchAction = await viewport.EvaluateAsync<string>("element => getComputedStyle(element).touchAction");
+            Assert.Equal("manipulation", touchAction);
+
+            var track = Page.GetByTestId("author-bookcase-track");
+            var animationName = await track.EvaluateAsync<string>("element => getComputedStyle(element).animationName");
+            Assert.Equal("none", animationName);
+
+            var books = Page.GetByTestId("author-bookcase-book");
+            var count = await books.CountAsync();
+            Assert.True(count > 0);
+
+            for (var index = 0; index < count; index++)
+            {
+                await GoHomeAndWaitForInteractivityAsync();
+                var book = Page.GetByTestId("author-bookcase-book").Nth(index);
+                var label = await book.GetAttributeAsync("aria-label") ?? $"author book {index + 1}";
+
+                await book.ClickAsync();
+
+                await Expect(Page.GetByTestId("book-page-view"), $"Expected {label} to open.")
+                    .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+                await Expect(Page.GetByText("Book not found.")).ToHaveCountAsync(0);
+            }
+
+            await GoHomeAndWaitForInteractivityAsync();
+            viewport = Page.GetByTestId("author-bookcase-viewport");
+            await viewport.EvaluateAsync("element => { element.scrollLeft = element.scrollWidth; }");
+            await Page.GetByTestId("author-bookcase-book").Last.ClickAsync();
+            await Expect(Page.GetByTestId("book-page-view"), "Expected the last author book to open after manual mobile shelf scrolling.")
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await Expect(Page.GetByText("Book not found.")).ToHaveCountAsync(0);
+        });
+    }
+
+    [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
+    [Trait("Category", "E2E")]
     public async Task SeededUser_BookcaseCrudSurvivesRefreshAndNavigation()
     {
         await RunWithFailureScreenshotAsync(async () =>
@@ -220,6 +269,26 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
     private ILocator UserBookLink(string title) =>
         Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = $"{title} details" }).First;
+
+    private async Task ClickVisibleAuthorBookAsync()
+    {
+        var books = Page.GetByTestId("author-bookcase-book");
+        var count = await books.CountAsync();
+        for (var index = 0; index < count; index++)
+        {
+            var book = books.Nth(index);
+            var isVisibleInViewport = await book.EvaluateAsync<bool>(
+                "element => { const rect = element.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth && rect.bottom > 0 && rect.top < window.innerHeight; }");
+
+            if (isVisibleInViewport)
+            {
+                await book.ClickAsync();
+                return;
+            }
+        }
+
+        throw new InvalidOperationException("No visible author book was available to click.");
+    }
 
     private async Task ReloadAndWaitForBooksDocumentAsync()
     {

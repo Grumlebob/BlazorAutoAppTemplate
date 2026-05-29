@@ -117,6 +117,26 @@ Result:
 Passed: 6, Failed: 0, Skipped: 0
 ```
 
+Full local headless fast E2E command:
+
+```powershell
+$env:RUN_E2E='1'
+$env:E2E_BASE_URL='https://127.0.0.1:7186'
+$env:E2E_HEADLESS='1'
+$env:E2E_SLOW_MO_MS='0'
+$env:E2E_NAVIGATION_TIMEOUT_MS='60000'
+$env:E2E_ACTION_TIMEOUT_MS='30000'
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj -c Release --no-build --filter "FullyQualifiedName~E2E"
+```
+
+Result:
+
+```text
+Passed: 6, Failed: 0, Skipped: 0, Duration: 21s
+```
+
+This includes the mobile regression `AuthorBookcase_AllAuthorBooksCanOpenOnMobile`, which verifies the author shelf is manually horizontally scrollable on a phone-sized viewport, disables the auto-scroll animation at phone width so finger swiping is native, and confirms every author book opens without a forced click.
+
 ### Corrected Production Lighthouse Baseline
 
 Status: Completed

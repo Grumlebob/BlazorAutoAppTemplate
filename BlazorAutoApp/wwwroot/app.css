@@ -336,6 +336,33 @@ textarea.valid {
     content: "An error has occurred.";
 }
 
+.bookcase-native-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline: 0.75rem;
+    scroll-snap-type: x proximity;
+    scrollbar-color: rgb(107 79 53 / 0.65) rgb(229 231 235 / 0.95);
+    scrollbar-width: thin;
+    touch-action: manipulation;
+}
+
+.bookcase-native-scroll::-webkit-scrollbar {
+    height: 0.6rem;
+}
+
+.bookcase-native-scroll::-webkit-scrollbar-track {
+    background: rgb(229 231 235 / 0.95);
+}
+
+.bookcase-native-scroll::-webkit-scrollbar-thumb {
+    background: rgb(107 79 53 / 0.65);
+    border: 2px solid rgb(229 231 235 / 0.95);
+    border-radius: 999px;
+}
+
+.bookcase-book-frame {
+    scroll-snap-align: start;
+}
+
 .bookcase-track-auto {
     --bookcase-scroll-visible-width: min(72rem, calc(100vw - 2rem));
     animation: bookcase-self-scroll 26s linear 0.2s infinite alternate;
@@ -343,6 +370,8 @@ textarea.valid {
 }
 
 .bookcase-auto-scroll:hover .bookcase-track-auto,
+.bookcase-auto-scroll:focus .bookcase-track-auto,
+.bookcase-auto-scroll:active .bookcase-track-auto,
 .bookcase-auto-scroll:focus-within .bookcase-track-auto {
     animation-play-state: paused;
 }
@@ -362,6 +391,25 @@ textarea.valid {
         animation: none;
         transform: none;
         will-change: auto;
+    }
+}
+
+@media (max-width: 640px), (hover: none), (pointer: coarse) {
+    .bookcase-track-auto {
+        animation: none;
+        transform: none;
+        will-change: auto;
+    }
+}
+
+@media (min-width: 641px) and (hover: hover) and (pointer: fine) {
+    .bookcase-native-scroll {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .bookcase-native-scroll::-webkit-scrollbar {
+        display: none;
     }
 }
 
