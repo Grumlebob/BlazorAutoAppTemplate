@@ -42,7 +42,7 @@
 - name: Start observability agent
   block:
     - name: Pull and start observability agent
-      ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+      ansible.builtin.command: docker compose up -d --pull always --remove-orphans --force-recreate
       args:
         chdir: "{{ observability_root }}/agent"
       become: true

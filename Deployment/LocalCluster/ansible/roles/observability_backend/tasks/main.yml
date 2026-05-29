@@ -102,7 +102,7 @@
 - name: Start and verify observability backend
   block:
     - name: Pull and start observability backend
-      ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+      ansible.builtin.command: docker compose up -d --pull always --remove-orphans --force-recreate
       args:
         chdir: "{{ observability_root }}"
       become: true
@@ -162,8 +162,37 @@
       changed_when: false
       failed_when: false
 
+    - name: Inspect observability backend container state
+      ansible.builtin.shell: |
+        set -euo pipefail
+        container_ids="$(docker compose ps -q prometheus loki tempo grafana)"
+        if [ -n "$container_ids" ]; then
+          docker inspect \
+            --format '{{ "{{" }}.Name{{ "}}" }} state={{ "{{" }}.State.Status{{ "}}" }} exit={{ "{{" }}.State.ExitCode{{ "}}" }} oom={{ "{{" }}.State.OOMKilled{{ "}}" }} error={{ "{{" }}.State.Error{{ "}}" }} started={{ "{{" }}.State.StartedAt{{ "}}" }} finished={{ "{{" }}.State.FinishedAt{{ "}}" }}' \
+            $container_ids
+        fi
+      args:
+        chdir: "{{ observability_root }}"
+        executable: /bin/bash
+      become: true
+      become_user: deploy
+      register: observability_backend_container_state
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect observability backend config permissions
+      ansible.builtin.shell: |
+        set -euo pipefail
+        find prometheus loki tempo grafana -maxdepth 3 -printf '%M %u:%g %p\n' | sort
+      args:
+        chdir: "{{ observability_root }}"
+        executable: /bin/bash
+      register: observability_backend_config_permissions
+      changed_when: false
+      failed_when: false
+
     - name: Read observability backend logs
-      ansible.builtin.command: docker compose logs --no-color --tail=160 prometheus loki tempo grafana
+      ansible.builtin.command: docker compose logs --no-color --since=4m --tail=160 prometheus loki tempo grafana
       args:
         chdir: "{{ observability_root }}"
       become: true
@@ -179,6 +208,12 @@
 
           docker compose ps:
           {{ observability_backend_compose_ps.stdout | default('no compose ps output') }}
+
+          container state:
+          {{ observability_backend_container_state.stdout | default('no container state output') }}
+
+          config permissions:
+          {{ observability_backend_config_permissions.stdout | default('no config permission output') }}
 
           docker compose logs:
           {{ observability_backend_compose_logs.stdout | default('no compose logs output') }}
