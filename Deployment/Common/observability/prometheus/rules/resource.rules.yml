@@ -1,0 +1,27 @@
+groups:
+  - name: resource-guardrails
+    interval: 30s
+    rules:
+      - alert: PrometheusSeriesBudgetWarning
+        expr: |
+          prometheus_tsdb_head_series > 10000
+        for: 10m
+        labels:
+          severity: warning
+          runbook: telemetry-cardinality
+        annotations:
+          summary: Prometheus active series budget is high
+          description: Prometheus active series count is above the v1 warning budget.
+
+      - alert: AlloyExporterQueueFailures
+        expr: |
+          sum(rate(otelcol_exporter_send_failed_spans[5m])) > 0
+          or
+          sum(rate(otelcol_exporter_send_failed_metric_points[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          runbook: telemetry-missing
+        annotations:
+          summary: Alloy failed to export telemetry
+          description: Alloy is failing to export spans or metric points.

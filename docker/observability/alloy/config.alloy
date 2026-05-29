@@ -1,0 +1,112 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+otelcol.receiver.otlp "app" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.memory_limiter.app.input]
+    traces  = [otelcol.processor.memory_limiter.app.input]
+  }
+}
+
+otelcol.processor.memory_limiter "app" {
+  check_interval = "1s"
+  limit          = "128MiB"
+  spike_limit    = "32MiB"
+
+  output {
+    metrics = [otelcol.processor.batch.app.input]
+    traces  = [otelcol.processor.batch.app.input]
+  }
+}
+
+otelcol.processor.batch "app" {
+  timeout         = "5s"
+  send_batch_size = 512
+
+  output {
+    metrics = [otelcol.exporter.prometheus.app.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.prometheus "app" {
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+
+    tls {
+      insecure = true
+    }
+  }
+}
+
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "local_containers" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "blazorautoapp"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "deployment_target"
+    replacement  = "local"
+  }
+}
+
+loki.source.docker "local" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.local_containers.output
+  forward_to = [loki.process.local.receiver]
+}
+
+loki.process "local" {
+  stage.static_labels {
+    values = {
+      deployment_target = "local",
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -1,6 +1,6 @@
 # How To Run Locally
 
-Use Docker Compose for normal local development. It runs the app, PostgreSQL, Redis, Redis Insight, and Seq.
+Use Docker Compose for normal local development. It runs the app, PostgreSQL, Redis, and Redis Insight. The optional observability profile adds Grafana, Prometheus, Loki, Tempo, and Alloy.
 
 ## Prerequisites
 
@@ -41,9 +41,12 @@ App__Url=https://localhost:7186
 APP_HTTPS_HOST_PORT=7186
 POSTGRES_HOST_PORT=5432
 REDIS_HOST_PORT=6379
-SEQ_UI_HOST_PORT=8081
-SEQ_INGESTION_HOST_PORT=5341
 REDIS_INSIGHT_HOST_PORT=5540
+GRAFANA_HOST_PORT=3000
+PROMETHEUS_HOST_PORT=9090
+LOKI_HOST_PORT=3100
+TEMPO_HOST_PORT=3200
+ALLOY_HOST_PORT=12345
 
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
@@ -57,11 +60,18 @@ Database__Password=postgres
 
 Redis__Configuration=redis:6379
 
+Observability__OpenTelemetry__Enabled=false
+Observability__OpenTelemetry__Endpoint=http://alloy:4317
+Observability__OpenTelemetry__Protocol=Grpc
+Observability__OpenTelemetry__TraceSampleRatio=0.1
+OBSERVABILITY_ENABLED=false
+OBSERVABILITY_OTLP_ENDPOINT=http://alloy:4317
+OBSERVABILITY_OTLP_PROTOCOL=Grpc
+OBSERVABILITY_TRACE_SAMPLE_RATIO=1.0
+
 Authentication__Google__ClientId=
 Authentication__Google__ClientSecret=
 
-ACCEPT_EULA=Y
-SEQ_FIRSTRUN_ADMINPASSWORD=ChangeMe123!
 ```
 
 ## Start The Stack
@@ -95,6 +105,15 @@ Start without opening the browser:
 .\RunLocal.ps1 -NoBrowser
 ```
 
+Start the optional local Grafana observability stack:
+
+```powershell
+.\RunLocal.ps1 -Observability
+pwsh -File .\docker\observability\smoke-local-observability.ps1
+```
+
+This starts Grafana, Prometheus, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
+
 Manual equivalent:
 
 ```powershell
@@ -105,10 +124,13 @@ Open:
 
 - App: `https://localhost:7186`
 - Health: `https://localhost:7186/health`
-- Seq UI: `http://localhost:8081`
 - Redis Insight: `http://localhost:5540`
+- Grafana, only with `-Observability`: `http://localhost:3000`
+- Prometheus, only with `-Observability`: `http://localhost:9090`
+- Loki, only with `-Observability`: `http://localhost:3100`
+- Tempo, only with `-Observability`: `http://localhost:3200`
 
-Docker publishes app, PostgreSQL, Redis, Seq, and Redis Insight ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
+Docker publishes app, PostgreSQL, Redis, Redis Insight, and optional observability ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
 
 Local login seeds:
 
@@ -174,9 +196,12 @@ Local port checklist:
 5025 optional app HTTP
 5432 PostgreSQL
 6379 Redis
-8081 Seq UI
-5341 Seq ingestion
 5540 Redis Insight
+3000 Grafana, optional observability profile
+9090 Prometheus, optional observability profile
+3100 Loki, optional observability profile
+3200 Tempo, optional observability profile
+12345 Alloy UI/API, optional observability profile
 ```
 
 For Docker host-port conflicts, prefer changing `.env` values such as `POSTGRES_HOST_PORT=5433` or `APP_HTTPS_HOST_PORT=7286` instead of editing `docker-compose.yml`.

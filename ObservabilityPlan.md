@@ -1809,147 +1809,272 @@ Commit guidance:
 
 ### Phase 0: Keep Current Deployments Stable
 
-Status: not started.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Work:
 
-- Commit or consciously ignore unrelated worktree changes.
-- Confirm LocalCluster and Cloud are currently healthy.
-- Add a no-change capacity report script that can read current node memory/disk/container state.
-- Add a no-change local Compose resource-limit support check.
-- Do not remove Seq yet.
-- Do not add production observability yet.
+- [x] Commit or consciously ignore unrelated worktree changes.
+- [x] Confirm Cloud is currently healthy from CurrentPC.
+- [x] Confirm LocalCluster public health is currently healthy from CurrentPC.
+- [x] Add a no-change capacity report script that can read current node memory/disk/container state.
+- [x] Add a no-change local Compose resource-limit support check.
+- [x] Do not remove Seq yet.
+- [x] Do not add production observability yet.
 
 Verification:
 
-- LocalCluster doctor/acceptance still works.
-- Cloud doctor/acceptance still works.
-- capacity scripts report current state without changing services.
-- resource-limit check proves Docker Compose can enforce memory limits before limits are added broadly.
+- [x] LocalCluster acceptance works on ControlPC.
+- [x] LocalCluster doctor vault validation works on ControlPC.
+- [x] Cloud doctor reports latest Cloud CD success and public health.
+- [x] Cloud public health returns `Healthy`.
+- [x] LocalCluster public health returns `Healthy`.
+- [x] capacity scripts report current state without changing app services.
+- [x] resource-limit check proves Docker Compose can enforce memory limits before limits are added broadly.
+- [x] `dotnet restore .\BlazorAutoApp.sln`
+- [x] `dotnet build .\BlazorAutoApp.sln --no-restore`
+- [x] `dotnet test .\BlazorAutoApp.sln --no-build`
+- [x] `.\RunLocal.ps1 -NoBrowser`
+- [x] `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"`
+
+Evidence:
+
+- CurrentPC Cloud health: `https://bookscloud.jacobgrum.com/health/ready` returned `Healthy`.
+- CurrentPC LocalCluster health: `https://books.jacobgrum.com/health/ready` returned `Healthy`.
+- Cloud CD run `26659139343` completed successfully at commit `19b553e75cde6140c64f58af7fa312952212bf80`.
+- ControlPC LocalCluster acceptance check passed over SSH from CurrentPC: both app nodes returned `Healthy`, PostgreSQL and Redis were healthy, Caddy/cloudflared were active, and public `https://books.jacobgrum.com/health/ready` returned `Healthy`.
+- Unit/integration test gate: 94 passed, 6 skipped E2E in normal run.
+- Explicit E2E gate: 6 passed, 0 skipped.
+- CurrentPC-triggered LocalCluster doctor reaches ControlPC and cluster nodes, but cannot decrypt `vault.yml` non-interactively because the Ansible Vault password prompt needs a local ControlPC terminal or a temporary password file.
+- ControlPC interactive LocalCluster doctor passed after entering the Ansible Vault password on `node-main`.
 
 ### Phase 1: App OpenTelemetry, Disabled By Default
 
-Status: not started.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Work:
 
-- Add OpenTelemetry packages.
-- Extend `AddAppObservability`.
-- Add app resource attributes.
-- Add trace/log correlation.
-- Add low-cardinality custom metrics.
-- Add bounded exporter queue/batch settings.
-- Make OTLP exporter failure non-fatal.
-- Suppress or downgrade health/static request logs.
-- Remove book title from created-book log message.
-- Add tests for disabled observability.
+- [x] Add OpenTelemetry packages.
+- [x] Extend `AddAppObservability`.
+- [x] Add app resource attributes.
+- [x] Add trace/log correlation.
+- [x] Add low-cardinality custom metrics.
+- [x] Add bounded exporter queue/batch settings.
+- [x] Make OTLP exporter failure non-fatal.
+- [x] Suppress or downgrade health/static request logs.
+- [x] Remove book title from created-book log message.
+- [x] Add tests for disabled observability.
 
 Verification:
 
-- `dotnet build`.
-- `dotnet test`.
-- local app works with observability disabled.
-- app starts when Alloy endpoint is missing.
-- `/health/*` requests do not generate normal information-level request logs.
-- no created-book log contains book title.
-- no deployment behavior changes.
+- [x] `dotnet restore .\BlazorAutoApp.sln`.
+- [x] `dotnet build .\BlazorAutoApp.sln --no-restore`.
+- [x] `dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "FullyQualifiedName~ObservabilityTests"`.
+- [x] `dotnet test .\BlazorAutoApp.sln --no-build`.
+- [x] `.\RunLocal.ps1 -NoBrowser`.
+- [x] `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"`.
+- [x] local app works with observability disabled.
+- [x] app starts when Alloy endpoint is missing.
+- [x] `/health/*` requests do not generate normal information-level request logs.
+- [x] no created-book log contains book title.
+- [x] public LocalCluster health still returns `Healthy`.
+- [x] public Cloud health still returns `Healthy`.
+
+Evidence:
+
+- OpenTelemetry is disabled by default in `appsettings.json`, `appsettings.Docker.json`, and `.env.example`.
+- `AddAppObservability` only registers OpenTelemetry when `Observability:OpenTelemetry:Enabled=true`.
+- Invalid OTLP endpoint configuration disables OpenTelemetry instead of throwing during app startup.
+- OTLP exporter timeout and metric export interval are bounded by config. Trace export uses the OpenTelemetry SDK batch processor, which is a bounded queue and drops telemetry rather than blocking app request handling when full.
+- Resource attributes include service name, service version, service instance id, environment name, and service namespace.
+- Serilog logs are enriched with `TraceId` and `SpanId` when an activity exists.
+- Books API metrics use only low-cardinality `books.operation` and `books.outcome` labels.
+- `rg "Created book|Title\}" BlazorAutoApp\Features\Books\Endpoints\BooksEndpoints.cs BlazorAutoApp\Features\Books BlazorAutoApp.Test` only found `Created book {BookId}`.
+- Focused observability tests passed: 10 passed, 0 skipped.
+- Full normal test gate passed: 104 passed, 6 skipped E2E in normal run.
+- Explicit E2E gate passed: 6 passed, 0 skipped.
+- CurrentPC public LocalCluster health: `https://books.jacobgrum.com/health/ready` returned `Healthy`.
+- CurrentPC public Cloud health: `https://bookscloud.jacobgrum.com/health/ready` returned `Healthy`.
 
 ### Phase 2: Local Grafana Stack Beside Seq
 
-Status: not started.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Work:
 
-- Add local optional observability profile.
-- Add local Grafana, Prometheus, Loki, Tempo, Alloy.
-- Add resource limits to local observability containers.
-- Add retention and disk-size guardrails.
-- Add Docker log rotation.
-- Add Alloy memory limiter and batch processors.
-- Add local observability capacity check.
-- Keep Seq temporarily.
-- Prove logs, metrics, and traces reach Grafana.
+- [x] Add local optional observability profile.
+- [x] Add local Grafana, Prometheus, Loki, Tempo, Alloy.
+- [x] Add resource limits to local observability containers.
+- [x] Add retention and disk-size guardrails.
+- [x] Add Docker log rotation.
+- [x] Add Alloy memory limiter and batch processors.
+- [x] Add local observability capacity check.
+- [x] Keep Seq temporarily.
+- [x] Prove logs, metrics, and traces reach Grafana.
 
 Verification:
 
-- local Grafana shows app request metrics.
-- local Grafana shows app logs in Loki.
-- local Grafana shows traces in Tempo.
-- local resource report shows container limits and no OOMKills.
-- active Prometheus series and Loki streams are below v1 warning thresholds.
-- Seq still works during comparison.
+- [x] `docker compose config --quiet`.
+- [x] `docker compose --profile observability config --quiet`.
+- [x] `.\RunLocal.ps1 -NoBrowser -Observability`.
+- [x] `pwsh -File .\docker\observability\smoke-local-observability.ps1`.
+- [x] `.\RunLocal.ps1 -NoBrowser`.
+- [x] `dotnet restore .\BlazorAutoApp.sln`.
+- [x] `dotnet build .\BlazorAutoApp.sln --no-restore`.
+- [x] `dotnet test .\BlazorAutoApp.sln --no-build`.
+- [x] `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"`.
+- [x] local Grafana shows app request metrics.
+- [x] local Grafana shows app logs in Loki.
+- [x] local Grafana shows traces in Tempo.
+- [x] local resource report shows container limits and no OOMKills.
+- [x] active Prometheus series and Loki streams are below v1 warning thresholds.
+- [x] Seq still works during comparison.
+
+Evidence:
+
+- Local observability runs only with the `observability` Compose profile and `.\RunLocal.ps1 -Observability`.
+- Default `.\RunLocal.ps1 -NoBrowser` still starts the app successfully with `Observability__OpenTelemetry__Enabled=false` in the web container.
+- Observability profile images are pinned: Grafana `12.0.0`, Prometheus `v3.4.1`, Loki `3.5.1`, Tempo `2.8.1`, Alloy `v1.9.2`.
+- Observability ports are bound to `127.0.0.1`: Grafana `3000`, Prometheus `9090`, Loki `3100`, Tempo `3200`, Alloy `12345`.
+- Observability containers have explicit `mem_limit`, `mem_reservation`, and `cpus` settings.
+- Prometheus uses 24h retention and `512MB` retention size. Loki uses 24h retention. Tempo uses 1h trace block retention.
+- Docker JSON log rotation is configured with `max-size=10m` and `max-file=3`.
+- Alloy receives OTLP on `4317/4318`, applies a `128MiB` memory limiter and batch processor, writes metrics to Prometheus remote write, traces to Tempo, and Docker logs to Loki.
+- Smoke check passed: Grafana reachable, Prometheus has app request metrics, Loki has app logs, Tempo has traces, Seq is still reachable.
+- Smoke check cardinality guardrails passed: Prometheus active series `3254`, Loki streams `9`.
+- Smoke check OOM guardrail passed: no Compose container reports `OOMKilled`.
+- Resource report showed local observability container memory limits in effect: Grafana `99.5MiB / 256MiB`, Alloy `101.5MiB / 256MiB`, Prometheus `40.83MiB / 384MiB`, Loki `86.91MiB / 256MiB`, Tempo `162.1MiB / 256MiB`.
+- Full normal test gate passed after Phase 2: 104 passed, 6 skipped E2E in normal run.
+- Explicit E2E gate passed after Phase 2: 6 passed, 0 skipped.
 
 ### Phase 3: Remove Seq
 
-Status: not started.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Entry criteria:
 
-- Loki/Grafana log search works locally.
-- trace ids connect logs and traces.
-- local developer workflow is documented.
+- [x] Loki/Grafana log search works locally.
+- [x] trace ids connect logs and traces.
+- [x] local developer workflow is documented.
 
 Work:
 
-- Remove `seq` service from `docker-compose.yml`.
-- Remove Seq env vars from `.env.example`.
-- Remove Seq sink from `appsettings.Docker.json`.
-- Remove `Serilog.Sinks.Seq` package if no longer used.
-- Update `README.md`.
-- Update `HowToRunLocally.md`.
-- Update `RunLocal.ps1` output if it prints Seq URL.
-- Update `docker/local-status.py` if it checks Seq.
+- [x] Remove `seq` service from `docker-compose.yml`.
+- [x] Remove Seq env vars from `.env.example`.
+- [x] Remove Seq sink from `appsettings.Docker.json`.
+- [x] Remove `Serilog.Sinks.Seq` package if no longer used.
+- [x] Update `README.md`.
+- [x] Update `HowToRunLocally.md`.
+- [x] Update `RunLocal.ps1` output if it prints Seq URL.
+- [x] Update `docker/local-status.py` if it checks Seq.
 
 Verification:
 
-- local Docker starts without Seq.
-- logs appear in Loki/Grafana.
-- Docker logs are rotated.
-- `RunLocal.ps1` prints Grafana instead of Seq.
-- `docker/local-status.py` reports Grafana/Loki/Prometheus readiness instead of Seq.
-- tests pass.
-- docs no longer advertise Seq.
+- [x] `rg "Seq|seq|Serilog.Sinks.Seq|ACCEPT_EULA|SEQ_" README.md HowToRunLocally.md .env.example docker-compose.yml docker BlazorAutoApp Directory.Packages.props RunLocal.ps1` returns no matches.
+- [x] `docker compose config --quiet`.
+- [x] `docker compose --profile observability config --quiet`.
+- [x] `dotnet restore .\BlazorAutoApp.sln`.
+- [x] `dotnet build .\BlazorAutoApp.sln --no-restore`.
+- [x] `dotnet test .\BlazorAutoApp.sln --no-build`.
+- [x] `.\RunLocal.ps1 -NoBrowser`.
+- [x] `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"`.
+- [x] `.\RunLocal.ps1 -NoBrowser -NoBuild -Observability`.
+- [x] `pwsh -File .\docker\observability\smoke-local-observability.ps1`.
+- [x] local Docker starts without Seq.
+- [x] logs appear in Loki/Grafana.
+- [x] Docker logs are rotated.
+- [x] `RunLocal.ps1` prints Grafana instead of Seq.
+- [x] `docker/local-status.py` reports Grafana/Loki/Prometheus readiness instead of Seq.
+- [x] tests pass.
+- [x] docs no longer advertise Seq.
+
+Evidence:
+
+- `RunLocal.ps1 -NoBrowser` removed the stale `blazorautoapp-seq-1` orphan container automatically through `--remove-orphans`.
+- `docker ps --format "{{.Names}}" | Select-String -Pattern "seq"` returned no containers.
+- Active local docs/config/package files have no Seq references after the removal.
+- `Serilog.Sinks.Seq` was removed from `Directory.Packages.props` and `BlazorAutoApp.csproj`.
+- Console log output includes `TraceId` and `SpanId` properties, so Loki log rows can link to Tempo traces.
+- Smoke check passed after Seq removal: Grafana reachable, Prometheus has app request metrics, Loki has app logs, Tempo has traces.
+- Smoke check cardinality guardrails passed after Seq removal: Prometheus active series `5292`, Loki streams `8`.
+- Smoke check OOM guardrail passed after Seq removal: no Compose container reports `OOMKilled`.
+- Resource report after the Tempo memory-limit adjustment showed Grafana `86.67MiB / 256MiB`, Alloy `75.36MiB / 256MiB`, Prometheus `41.53MiB / 384MiB`, Loki `94.31MiB / 256MiB`, Tempo `169.6MiB / 384MiB`.
+- Full normal test gate passed after Seq removal: 104 passed, 6 skipped E2E in normal run.
+- Explicit E2E gate passed after Seq removal: 6 passed, 0 skipped.
 
 ### Phase 4: Shared Observability Assets
 
-Status: not started.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Work:
 
-- Create `Deployment/Common/observability`.
-- Add dashboards.
-- Add Prometheus alert rules.
-- Add runbooks.
-- Add validation scripts.
-- Add shared capacity/cardinality validation scripts.
-- Add shared Grafana datasource provisioning.
-- Add shared dashboard UID conventions so LocalCluster and Cloud use the same dashboards with target variables.
+- [x] Create `Deployment/Common/observability`.
+- [x] Add dashboards.
+- [x] Add Prometheus alert rules.
+- [x] Add runbooks.
+- [x] Add validation scripts.
+- [x] Add shared capacity/cardinality validation scripts.
+- [x] Add shared Grafana datasource provisioning.
+- [x] Add shared dashboard UID conventions so LocalCluster and Cloud use the same dashboards with target variables.
 
 Verification:
 
-- CI validates dashboards and rules.
-- CI validates shell scripts.
-- CI validates no target-specific hostnames/IPs are committed under Common.
-- no target-specific values leak into Common.
+- [x] CI validates dashboards and rules.
+- [x] CI validates shell scripts.
+- [x] CI validates no target-specific hostnames/IPs are committed under Common.
+- [x] no target-specific values leak into Common.
+- [x] `bash Deployment/Common/observability/scripts/validate-observability.sh`.
+- [x] `bash Deployment/Common/observability/scripts/check-telemetry-cardinality.sh http://localhost:9090 http://localhost:3100`.
+- [x] `docker compose --profile observability config --quiet`.
+- [x] `.\RunLocal.ps1 -NoBrowser -NoBuild -Observability`.
+- [x] `pwsh -File .\docker\observability\smoke-local-observability.ps1`.
+- [x] Prometheus reports common alert rule groups healthy.
+- [x] Grafana provisions the common application dashboard.
+- [x] `dotnet restore .\BlazorAutoApp.sln`.
+- [x] `dotnet build .\BlazorAutoApp.sln --no-restore`.
+- [x] `dotnet test .\BlazorAutoApp.sln --no-build`.
+- [x] `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"`.
+
+Evidence:
+
+- Local Docker now mounts Grafana provisioning and dashboards from `Deployment/Common/observability/grafana`.
+- Local Docker now mounts Prometheus rules from `Deployment/Common/observability/prometheus/rules`.
+- Common validation passed: required assets exist, dashboards parse as JSON with uid/title, scripts parse, no target-specific hostnames/IPs, and no obvious secrets.
+- Common cardinality validation passed: Prometheus active series `5425`, Loki streams `9`.
+- Prometheus `/api/v1/rules` reported `application-observability` and `resource-guardrails` groups with `health="ok"`.
+- Grafana `/api/search?query=Application%20Observability` returned dashboard UID `application-observability-overview`.
+- CI now shell-checks `Deployment/Common/observability/scripts` and runs `validate-observability.sh`.
+- Full normal test gate passed after Phase 4: 104 passed, 6 skipped E2E in normal run.
+- Explicit E2E gate passed after Phase 4: 6 passed, 0 skipped.
 
 ### Phase 5: LocalCluster Observability
 
-Status: not started.
+Status: implementation ready; awaiting LocalCluster deployment.
 
 Work:
 
-- Add LocalCluster observability compose and Ansible roles.
-- Deploy backend on `node-main`.
-- Deploy Alloy on all LocalCluster nodes.
-- Add exporters on `node-db`.
-- Enable Caddy/cloudflared metrics.
-- Add resource limits to LocalCluster app/data/observability compose files where safe.
-- Add Docker log rotation.
-- Add LocalCluster observability capacity check.
-- Add firewall rules.
-- Add dashboard tunnel script.
-- Add observability doctor script.
-- Update `Deployment/LocalCluster/HowToDeployLocalCluster.md`.
+- [x] Add LocalCluster observability compose and Ansible roles.
+- [x] Deploy backend on `node-main`.
+- [x] Deploy Alloy on all LocalCluster nodes.
+- [x] Add exporters on `node-db`.
+- [ ] Enable Caddy/cloudflared metrics. Deferred from this slice because exposing Caddy's admin metrics or cloudflared metrics needs a separate security review; v1 collects app/data/node telemetry without opening those admin endpoints.
+- [x] Add resource limits to LocalCluster observability containers and exporters.
+- [x] Add Docker log rotation to LocalCluster app/data/observability compose files.
+- [x] Add LocalCluster observability capacity check.
+- [x] Add firewall rules.
+- [x] Add dashboard tunnel script.
+- [x] Add observability doctor script.
+- [x] Update `Deployment/LocalCluster/HowToDeployLocalCluster.md`.
+- [x] Add LocalCluster CD observability doctor after acceptance when observability is enabled.
 
 Manual step expected:
 
@@ -1960,13 +2085,29 @@ Run the LocalCluster deployment/observability step after scripts are committed.
 
 Verification:
 
-- capacity check passes before deployment.
-- LocalCluster app acceptance passes.
-- LocalCluster observability doctor passes.
-- Grafana shows node-main, node-app1, node-app2, node-db.
-- `node-main` has at least 25 percent free memory after startup and smoke traffic.
-- no observability container is OOMKilled.
-- Prometheus active series and Loki streams are below thresholds.
+- [x] Local static validation passes before deployment: deployment audit, rendered template validation, shellcheck, actionlint, yamllint, Docker Compose config.
+- [x] Local app gate passes: restore, build, full test run, explicit E2E run.
+- [x] Local observability smoke still passes after the shared assets are reused by LocalCluster.
+- [x] Current public LocalCluster health returns `Healthy`.
+- [x] Current public Cloud health returns `Healthy`.
+- [ ] LocalCluster capacity check passes on ControlPC with the new committed scripts.
+- [ ] LocalCluster app acceptance passes after deployment.
+- [ ] LocalCluster observability doctor passes after deployment.
+- [ ] Grafana shows node-main, node-app1, node-app2, node-db.
+- [ ] `node-main` has at least 25 percent free memory after startup and smoke traffic.
+- [ ] no observability container is OOMKilled.
+- [ ] Prometheus active series and Loki streams are below thresholds.
+
+Implementation notes:
+
+- `node-main` hosts Grafana, Prometheus, Loki, and Tempo in `/opt/books-observability`.
+- Every LocalCluster node runs Alloy and node-exporter from `/opt/books-observability/agent`.
+- `node-db` runs PostgreSQL and Redis exporters in the existing `/opt/books` data compose stack so the exporters can reach the database and Redis over the private Compose network without embedding URL-escaped passwords.
+- App containers join a per-node external Docker network named `books_observability` and send OTLP to the local `alloy` network alias.
+- Grafana is bound to `127.0.0.1:3000` on `node-main`; use `Deployment/LocalCluster/Scripts/open-observability-tunnel.sh` from CurrentPC or ControlPC.
+- Docker-published observability ports are protected by UFW and the generated app-specific `DOCKER-USER` chain.
+- Deployment preflight now runs `observability-capacity-check.sh` when observability is enabled.
+- LocalCluster CD now runs `observability-doctor.sh` after acceptance when observability is enabled.
 
 ### Phase 6: Cloud Observability
 

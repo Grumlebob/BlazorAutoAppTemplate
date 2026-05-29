@@ -21,9 +21,12 @@ REQUIRED_KEYS = [
     "APP_HTTPS_HOST_PORT",
     "POSTGRES_HOST_PORT",
     "REDIS_HOST_PORT",
-    "SEQ_UI_HOST_PORT",
-    "SEQ_INGESTION_HOST_PORT",
     "REDIS_INSIGHT_HOST_PORT",
+    "GRAFANA_HOST_PORT",
+    "PROMETHEUS_HOST_PORT",
+    "LOKI_HOST_PORT",
+    "TEMPO_HOST_PORT",
+    "ALLOY_HOST_PORT",
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
     "POSTGRES_DB",
@@ -33,8 +36,14 @@ REQUIRED_KEYS = [
     "Database__Username",
     "Database__Password",
     "Redis__Configuration",
-    "ACCEPT_EULA",
-    "SEQ_FIRSTRUN_ADMINPASSWORD",
+    "Observability__OpenTelemetry__Enabled",
+    "Observability__OpenTelemetry__Endpoint",
+    "Observability__OpenTelemetry__Protocol",
+    "Observability__OpenTelemetry__TraceSampleRatio",
+    "OBSERVABILITY_ENABLED",
+    "OBSERVABILITY_OTLP_ENDPOINT",
+    "OBSERVABILITY_OTLP_PROTOCOL",
+    "OBSERVABILITY_TRACE_SAMPLE_RATIO",
 ]
 
 PORTS = [
@@ -42,9 +51,12 @@ PORTS = [
     ("app HTTP", None, 5025),
     ("PostgreSQL", "POSTGRES_HOST_PORT", 5432),
     ("Redis", "REDIS_HOST_PORT", 6379),
-    ("Seq UI", "SEQ_UI_HOST_PORT", 8081),
-    ("Seq ingestion", "SEQ_INGESTION_HOST_PORT", 5341),
     ("Redis Insight", "REDIS_INSIGHT_HOST_PORT", 5540),
+    ("Grafana", "GRAFANA_HOST_PORT", 3000),
+    ("Prometheus", "PROMETHEUS_HOST_PORT", 9090),
+    ("Loki", "LOKI_HOST_PORT", 3100),
+    ("Tempo", "TEMPO_HOST_PORT", 3200),
+    ("Alloy", "ALLOY_HOST_PORT", 12345),
 ]
 
 
@@ -234,10 +246,6 @@ def main() -> int:
                 fail(f".env has placeholder value for {key}")
             elif value == "" and key not in {"Authentication__Google__ClientId", "Authentication__Google__ClientSecret"}:
                 fail(f".env has empty required value for {key}")
-        if values.get("ACCEPT_EULA") == "Y":
-            ok("Seq EULA accepted for local container")
-        else:
-            fail("ACCEPT_EULA must be Y for local Seq")
     else:
         fail(".env missing; copy .env.example to .env")
 

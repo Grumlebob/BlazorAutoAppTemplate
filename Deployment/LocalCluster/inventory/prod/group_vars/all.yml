@@ -6,3 +6,24 @@ public_hostname: books.jacobgrum.com
 deploy_root: /opt/books
 cloudflare_tunnel_name: books-prod
 cloudflared_version: 2026.5.2
+
+observability_enabled: true
+observability_root: /opt/books-observability
+observability_docker_network: books_observability
+observability_trace_sample_ratio: 0.25
+
+observability_grafana_port: 3000
+observability_prometheus_port: 9090
+observability_loki_port: 3100
+observability_tempo_http_port: 3200
+observability_tempo_otlp_grpc_port: 4317
+observability_tempo_otlp_http_port: 4318
+observability_alloy_http_port: 12345
+observability_node_exporter_port: 9100
+observability_postgres_exporter_port: 9187
+observability_redis_exporter_port: 9121
+
+observability_prometheus_retention_time: 7d
+observability_prometheus_retention_size: 6GB
+observability_loki_retention_period: 7d
+observability_tempo_retention_period: 24h

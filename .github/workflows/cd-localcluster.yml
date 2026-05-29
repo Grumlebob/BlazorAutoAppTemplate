@@ -141,6 +141,14 @@ jobs:
       - name: Run acceptance check
         run: bash Deployment/LocalCluster/Scripts/acceptance-check.sh
 
+      - name: Run observability doctor
+        run: |
+          if [ "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh observability_enabled)" = "true" ]; then
+            bash Deployment/LocalCluster/Scripts/observability-doctor.sh
+          else
+            echo "observability_enabled is false; skipping observability doctor"
+          fi
+
       - name: Remove Ansible Vault password file
         if: always()
         run: |

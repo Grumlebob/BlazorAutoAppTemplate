@@ -10,6 +10,36 @@ iptables -F "$APP_CHAIN"
 iptables -C DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
   || iptables -I DOCKER-USER 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
+{% if observability_enabled | default(false) | bool %}
+{% if inventory_hostname in groups["load_balancer"] %}
+# Observability backend: only LocalCluster nodes may push telemetry to published ingestion ports.
+{% for host in groups["all"] %}
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ observability_prometheus_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ observability_loki_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ observability_tempo_otlp_grpc_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].ansible_host }} -m conntrack --ctorigdstport {{ observability_tempo_otlp_http_port }} -j ACCEPT
+{% endfor %}
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_prometheus_port }} -j DROP
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_loki_port }} -j DROP
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_tempo_otlp_grpc_port }} -j DROP
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_tempo_otlp_http_port }} -j DROP
+{% endif %}
+
+# Observability agents and host exporters: only node-main may scrape them.
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ observability_alloy_http_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ observability_node_exporter_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_alloy_http_port }} -j DROP
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_node_exporter_port }} -j DROP
+
+{% if inventory_hostname in groups["node_db"] %}
+# Database exporters: only node-main may scrape them.
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ observability_postgres_exporter_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ observability_redis_exporter_port }} -j ACCEPT
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_postgres_exporter_port }} -j DROP
+iptables -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ observability_redis_exporter_port }} -j DROP
+{% endif %}
+{% endif %}
+
 {% if inventory_hostname in groups["app_servers"] %}
 # App containers: only node-main may reach the published app port.
 iptables -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].ansible_host }} -m conntrack --ctorigdstport {{ app_port }} -j ACCEPT

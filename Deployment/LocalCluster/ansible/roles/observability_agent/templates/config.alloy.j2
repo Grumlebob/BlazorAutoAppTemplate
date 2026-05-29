@@ -1,0 +1,130 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+otelcol.receiver.otlp "app" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.memory_limiter.app.input]
+    traces  = [otelcol.processor.memory_limiter.app.input]
+  }
+}
+
+otelcol.processor.memory_limiter "app" {
+  check_interval = "1s"
+  limit          = "128MiB"
+  spike_limit    = "32MiB"
+
+  output {
+    metrics = [otelcol.processor.batch.app.input]
+    traces  = [otelcol.processor.batch.app.input]
+  }
+}
+
+otelcol.processor.batch "app" {
+  timeout         = "5s"
+  send_batch_size = 512
+
+  output {
+    metrics = [otelcol.exporter.prometheus.app.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.prometheus "app" {
+  forward_to = [prometheus.remote_write.localcluster.receiver]
+}
+
+prometheus.remote_write "localcluster" {
+  endpoint {
+{% if inventory_hostname in groups['load_balancer'] %}
+    url = "http://prometheus:9090/api/v1/write"
+{% else %}
+    url = "http://{{ hostvars[groups['load_balancer'][0]].ansible_host }}:{{ observability_prometheus_port }}/api/v1/write"
+{% endif %}
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+{% if inventory_hostname in groups['load_balancer'] %}
+    endpoint = "tempo:4317"
+{% else %}
+    endpoint = "{{ hostvars[groups['load_balancer'][0]].ansible_host }}:{{ observability_tempo_otlp_grpc_port }}"
+{% endif %}
+
+    tls {
+      insecure = true
+    }
+  }
+}
+
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "app_containers" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "{{ app_name }}"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "deployment_target"
+    replacement  = "localcluster"
+  }
+
+  rule {
+    target_label = "node"
+    replacement  = "{{ inventory_hostname }}"
+  }
+}
+
+loki.source.docker "app_containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.app_containers.output
+  forward_to = [loki.process.app_containers.receiver]
+}
+
+loki.process "app_containers" {
+  stage.static_labels {
+    values = {
+      deployment_target = "localcluster",
+      node              = "{{ inventory_hostname }}",
+    }
+  }
+
+  forward_to = [loki.write.localcluster.receiver]
+}
+
+loki.write "localcluster" {
+  endpoint {
+{% if inventory_hostname in groups['load_balancer'] %}
+    url = "http://loki:3100/loki/api/v1/push"
+{% else %}
+    url = "http://{{ hostvars[groups['load_balancer'][0]].ansible_host }}:{{ observability_loki_port }}/loki/api/v1/push"
+{% endif %}
+  }
+}

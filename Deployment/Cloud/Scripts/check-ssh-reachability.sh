@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 INVENTORY="$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"
 ATTEMPTS="${CLOUD_SSH_WAIT_ATTEMPTS:-30}"
 DELAY_SECONDS="${CLOUD_SSH_WAIT_DELAY_SECONDS:-10}"
+DEBUG="${CLOUD_SSH_WAIT_DEBUG:-0}"
 
 fail() {
   echo "Cloud SSH reachability check failed: $*" >&2
@@ -14,6 +15,11 @@ fail() {
 
 summarize_failure() {
   local output="$1"
+
+  if [[ "$DEBUG" == "1" ]]; then
+    echo "$output" | sed 's/^/  /'
+    return
+  fi
 
   if grep -qi "REMOTE HOST IDENTIFICATION HAS CHANGED" <<<"$output"; then
     cat <<'EOF'
@@ -28,12 +34,27 @@ EOF
     return
   fi
 
-  if grep -qiE "Connection timed out|No route to host|Connection refused|Connection closed" <<<"$output"; then
-    grep -iE "UNREACHABLE|Connection timed out|No route to host|Connection refused|Connection closed" <<<"$output" | tail -n 6 | sed 's/^/  /'
+  if grep -qi "timed out during banner exchange" <<<"$output"; then
+    echo "  SSH is reachable but not fully ready yet; banner exchange timed out."
     return
   fi
 
-  grep -iE "UNREACHABLE|FAILED|Permission denied|Host key|Connection|No route|Could not" <<<"$output" | tail -n 6 | sed 's/^/  /' || true
+  if grep -qi "UNKNOWN port 65535" <<<"$output"; then
+    echo "  Bastion SSH is up, but a private node is not reachable through ProxyCommand yet."
+    return
+  fi
+
+  if grep -qiE "Connection timed out|No route to host|Connection refused|Connection closed" <<<"$output"; then
+    grep -iE "Connection timed out|No route to host|Connection refused|Connection closed" <<<"$output" \
+      | tail -n 2 \
+      | sed -E 's/^\s*\[ERROR\]: Task failed: //' \
+      | sed 's/^/  last cause: /'
+    return
+  fi
+
+  grep -iE "FAILED|Permission denied|Host key|Connection|No route|Could not" <<<"$output" \
+    | tail -n 2 \
+    | sed 's/^/  last cause: /' || true
 }
 
 command -v ansible >/dev/null 2>&1 || fail "ansible is missing. Run Deployment/Cloud/Scripts/setup-currentpc-tools.sh."
@@ -51,7 +72,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   fi
 
   if ((attempt < ATTEMPTS)); then
-    echo "Cloud SSH not ready yet (${attempt}/${ATTEMPTS}); retrying in ${DELAY_SECONDS}s..."
+    echo "Cloud SSH still warming up (${attempt}/${ATTEMPTS}); retrying in ${DELAY_SECONDS}s..."
     summarize_failure "$last_output"
     sleep "$DELAY_SECONDS"
   fi
@@ -62,9 +83,12 @@ cat >&2 <<'EOF'
 
 Could not reach all Cloud nodes over SSH.
 
+For full Ansible output while debugging, rerun with:
+  CLOUD_SSH_WAIT_DEBUG=1 bash ./Deployment/Cloud/Scripts/check-ssh-reachability.sh
+
 If cloud-main is reachable but cloud-app1/cloud-app2/cloud-db fail at 10.10.0.x
 through ProxyJump, the private network is not usable from the bastion yet.
-Rerun Step 7 with the latest OpenTofu module, then rerender inventory in Step 8.
-The Cloud database is disposable at this stage, so server replacement is acceptable.
+If this happened during quick recreate, rerun the same quick recreate command after
+a minute; OpenTofu should keep the existing servers and continue from provisioning.
 EOF
 exit 1

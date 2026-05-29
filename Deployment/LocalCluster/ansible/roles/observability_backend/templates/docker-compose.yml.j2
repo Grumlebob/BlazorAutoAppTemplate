@@ -1,0 +1,127 @@
+x-localcluster-logging: &localcluster-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    restart: unless-stopped
+    logging: *localcluster-logging
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time={{ observability_prometheus_retention_time }}
+      - --storage.tsdb.retention.size={{ observability_prometheus_retention_size }}
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:{{ observability_prometheus_port }}:9090"
+      - "${NODE_HOST}:{{ observability_prometheus_port }}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheusdata:/prometheus
+    mem_limit: 768m
+    mem_reservation: 384m
+    cpus: 0.75
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - default
+      - observability
+
+  loki:
+    image: grafana/loki:3.5.1
+    restart: unless-stopped
+    logging: *localcluster-logging
+    command:
+      - -config.file=/etc/loki/loki.yml
+    ports:
+      - "127.0.0.1:{{ observability_loki_port }}:3100"
+      - "${NODE_HOST}:{{ observability_loki_port }}:3100"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: 0.50
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - default
+      - observability
+
+  tempo:
+    image: grafana/tempo:2.8.1
+    restart: unless-stopped
+    logging: *localcluster-logging
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "127.0.0.1:{{ observability_tempo_http_port }}:3200"
+      - "${NODE_HOST}:{{ observability_tempo_otlp_grpc_port }}:4317"
+      - "${NODE_HOST}:{{ observability_tempo_otlp_http_port }}:4318"
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempodata:/var/tempo
+    mem_limit: 512m
+    mem_reservation: 256m
+    cpus: 0.50
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - default
+      - observability
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    restart: unless-stopped
+    logging: *localcluster-logging
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: light
+    ports:
+      - "127.0.0.1:{{ observability_grafana_port }}:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.35
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health | grep -q 'ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  prometheusdata:
+  lokidata:
+  tempodata:
+  grafanadata:
+
+networks:
+  observability:
+    external: true
+    name: ${OBSERVABILITY_DOCKER_NETWORK}

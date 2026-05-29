@@ -5,6 +5,7 @@ param(
   [switch]$SkipCertificate,
   [switch]$FollowLogs,
   [switch]$StatusOnly,
+  [switch]$Observability,
   [int]$TimeoutSeconds = 180
 )
 
@@ -12,6 +13,10 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = $PSScriptRoot
 $envPath = Join-Path $repoRoot '.env'
+$previousObservabilityEnabled = $env:OBSERVABILITY_ENABLED
+$previousObservabilityEndpoint = $env:OBSERVABILITY_OTLP_ENDPOINT
+$previousObservabilityProtocol = $env:OBSERVABILITY_OTLP_PROTOCOL
+$previousObservabilitySampleRatio = $env:OBSERVABILITY_TRACE_SAMPLE_RATIO
 
 function Wait-Docker {
   param([int]$TimeoutSeconds = 90)
@@ -162,6 +167,10 @@ try {
   }
 
   $healthUrl = "$($appUrl.TrimEnd('/'))/health/ready"
+  $grafanaUrl = "http://localhost:$($envValues['GRAFANA_HOST_PORT'] ?? '3000')"
+  $prometheusUrl = "http://localhost:$($envValues['PROMETHEUS_HOST_PORT'] ?? '9090')"
+  $lokiUrl = "http://localhost:$($envValues['LOKI_HOST_PORT'] ?? '3100')"
+  $tempoUrl = "http://localhost:$($envValues['TEMPO_HOST_PORT'] ?? '3200')"
   $dotnetDevPids = Get-ListeningProcessIds -Port 5099
   if ($dotnetDevPids.Count -gt 0) {
     Write-Warning "A local dotnet app is already listening on 127.0.0.1:5099 (PID(s): $($dotnetDevPids -join ', ')). The Docker stack can still start on its configured app port; use E2E_BASE_URL intentionally when testing."
@@ -172,11 +181,27 @@ try {
     docker compose down --volumes --remove-orphans
   }
 
-  $composeArgs = @('compose', 'up', '-d')
+  if ($Observability) {
+    $env:OBSERVABILITY_ENABLED = 'true'
+    $env:OBSERVABILITY_OTLP_ENDPOINT = 'http://alloy:4317'
+    $env:OBSERVABILITY_OTLP_PROTOCOL = 'Grpc'
+    $env:OBSERVABILITY_TRACE_SAMPLE_RATIO = '1.0'
+  }
+
+  $composeArgs = @('compose')
+  if ($Observability) {
+    $composeArgs += @('--profile', 'observability')
+  }
+  $composeArgs += @('up', '-d')
   if (-not $NoBuild) {
     $composeArgs += '--build'
   }
-  $composeArgs += 'web'
+  $composeArgs += '--remove-orphans'
+  $composeServices = @('web')
+  if ($Observability) {
+    $composeServices += @('prometheus', 'loki', 'tempo', 'alloy', 'grafana')
+  }
+  $composeArgs += $composeServices
 
   Write-Host "Starting local Docker stack..."
   $logSince = (Get-Date).ToUniversalTime().AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -217,13 +242,40 @@ try {
     throw "Local app health check failed: $healthUrl"
   }
 
+  if ($Observability) {
+    Write-Host "Waiting for Grafana health: $grafanaUrl/api/health"
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $grafanaReady = $false
+    while ((Get-Date) -lt $deadline) {
+      if (Invoke-HealthCheck -Url "$grafanaUrl/api/health") {
+        $grafanaReady = $true
+        break
+      }
+
+      Start-Sleep -Seconds 2
+    }
+
+    if (-not $grafanaReady) {
+      throw "Grafana health check failed: $grafanaUrl/api/health"
+    }
+  }
+
   Write-Host ""
   Write-Host "Local stack is ready."
   Write-Host "Runtime:      Docker Compose web container"
   Write-Host "App:          $appUrl"
   Write-Host "Health:       $healthUrl"
-  Write-Host "Seq:          http://localhost:$($envValues['SEQ_UI_HOST_PORT'] ?? '8081')"
   Write-Host "RedisInsight: http://localhost:$($envValues['REDIS_INSIGHT_HOST_PORT'] ?? '5540')"
+  if ($Observability) {
+    Write-Host "Grafana:      $grafanaUrl"
+    Write-Host "Prometheus:   $prometheusUrl"
+    Write-Host "Loki:         $lokiUrl"
+    Write-Host "Tempo:        $tempoUrl"
+    Write-Host "Smoke check:  pwsh -File .\docker\observability\smoke-local-observability.ps1"
+  }
+  else {
+    Write-Host "Observability: disabled; run .\RunLocal.ps1 -Observability to start the local Grafana stack."
+  }
   Write-Host ""
   Write-Host "Stop with:    docker compose down"
   Write-Host "Reset with:   .\RunLocal.ps1 -ResetDatabase"
@@ -237,5 +289,9 @@ try {
   }
 }
 finally {
+  $env:OBSERVABILITY_ENABLED = $previousObservabilityEnabled
+  $env:OBSERVABILITY_OTLP_ENDPOINT = $previousObservabilityEndpoint
+  $env:OBSERVABILITY_OTLP_PROTOCOL = $previousObservabilityProtocol
+  $env:OBSERVABILITY_TRACE_SAMPLE_RATIO = $previousObservabilitySampleRatio
   Pop-Location
 }

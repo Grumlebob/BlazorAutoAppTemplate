@@ -22,6 +22,14 @@
     group: deploy
     mode: "0640"
 
+- name: Ensure app observability Docker network exists
+  ansible.builtin.command: "docker network create {{ observability_docker_network }}"
+  register: app_observability_network_create
+  failed_when:
+    - app_observability_network_create.rc != 0
+    - "'already exists' not in app_observability_network_create.stderr"
+  changed_when: app_observability_network_create.rc == 0
+
 - name: Render app environment file
   ansible.builtin.template:
     src: app.env.j2

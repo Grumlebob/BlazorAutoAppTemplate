@@ -1,0 +1,59 @@
+x-localcluster-logging: &localcluster-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  alloy:
+    image: grafana/alloy:v1.9.2
+    restart: unless-stopped
+    logging: *localcluster-logging
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    ports:
+      - "127.0.0.1:${OBSERVABILITY_ALLOY_HTTP_PORT}:12345"
+      - "${NODE_HOST}:${OBSERVABILITY_ALLOY_HTTP_PORT}:12345"
+      - "127.0.0.1:{{ observability_tempo_otlp_grpc_port }}:4317"
+      - "127.0.0.1:{{ observability_tempo_otlp_http_port }}:4318"
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.35
+    networks:
+      observability:
+        aliases:
+          - alloy
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    logging: *localcluster-logging
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+      - "127.0.0.1:${OBSERVABILITY_NODE_EXPORTER_PORT}:9100"
+      - "${NODE_HOST}:${OBSERVABILITY_NODE_EXPORTER_PORT}:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    mem_limit: 64m
+    mem_reservation: 32m
+    cpus: 0.10
+    networks:
+      observability:
+        aliases:
+          - node-exporter
+
+networks:
+  observability:
+    external: true
+    name: ${OBSERVABILITY_DOCKER_NETWORK}

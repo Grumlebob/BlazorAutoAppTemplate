@@ -27,4 +27,8 @@ public sealed class WebAppFactoryOptions
     public int? LocalItemTtlSeconds { get; init; }
 
     public bool? DisableLocalCache { get; init; }
+
+    public bool? OpenTelemetryEnabled { get; init; }
+
+    public string? OpenTelemetryEndpoint { get; init; }
 }

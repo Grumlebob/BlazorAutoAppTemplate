@@ -38,6 +38,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string AuthenticationRateLimitEnvironmentVariable = "RateLimiting__Authentication__PermitLimit";
     private const string LocalAccountsEnabledEnvironmentVariable = "LocalAccounts__Enabled";
     private const string AuthorBooksSeedAtStartupEnvironmentVariable = "AuthorBooks__SeedAtStartup";
+    private const string OpenTelemetryEnabledEnvironmentVariable = "Observability__OpenTelemetry__Enabled";
+    private const string OpenTelemetryEndpointEnvironmentVariable = "Observability__OpenTelemetry__Endpoint";
     static WebAppFactory()
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RyukImageEnvironmentVariable)))
@@ -94,6 +96,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["ForwardedHeaders:KnownNetworks:1"] = "::/0",
                 ["RateLimiting:Api:PermitLimit"] = "60",
                 ["RateLimiting:Authentication:PermitLimit"] = "20",
+                ["Observability:OpenTelemetry:Enabled"] = (_options.OpenTelemetryEnabled ?? false).ToString(),
+                ["Observability:OpenTelemetry:Endpoint"] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317",
                 ["Cache:Invalidation:Enabled"] = (_options.CacheInvalidationEnabled ?? !string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal)).ToString()
             };
 
@@ -195,7 +199,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
                 [ForwardedHeaderKnownNetworkV6EnvironmentVariable] = "::/0",
                 [ApiRateLimitEnvironmentVariable] = "60",
-                [AuthenticationRateLimitEnvironmentVariable] = "20"
+                [AuthenticationRateLimitEnvironmentVariable] = "20",
+                [OpenTelemetryEnabledEnvironmentVariable] = (_options.OpenTelemetryEnabled ?? false).ToString(),
+                [OpenTelemetryEndpointEnvironmentVariable] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317"
             });
         }
 

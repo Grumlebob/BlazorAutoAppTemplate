@@ -1,7 +1,14 @@
+x-localcluster-logging: &localcluster-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   web:
     image: ${APP_IMAGE}:${APP_VERSION}
     restart: unless-stopped
+    logging: *localcluster-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_HTTP_PORTS: ${APP_PORT}
@@ -10,10 +17,22 @@ services:
       Database__RunMigrationsAtStartup: "false"
       ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Redis__Configuration: ${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD},abortConnect=false
+      Observability__OpenTelemetry__Enabled: ${OBSERVABILITY_ENABLED:-false}
+      Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
+      Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}
+      Observability__OpenTelemetry__TraceSampleRatio: ${OBSERVABILITY_TRACE_SAMPLE_RATIO:-0.25}
     ports:
       - "${APP_PORT}:${APP_PORT}"
     volumes:
       - app_storage:/app/Storage
+    networks:
+      - default
+      - observability
 
 volumes:
   app_storage:
+
+networks:
+  observability:
+    external: true
+    name: ${OBSERVABILITY_DOCKER_NETWORK}

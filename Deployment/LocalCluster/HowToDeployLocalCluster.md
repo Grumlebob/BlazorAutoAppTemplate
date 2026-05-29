@@ -212,6 +212,27 @@ public_hostname: <public-hostname>
 deploy_root: /opt/<app-name>
 cloudflare_tunnel_name: <cloudflare-tunnel-name>
 cloudflared_version: <pinned-cloudflared-version>
+
+observability_enabled: true
+observability_root: /opt/<app-name>-observability
+observability_docker_network: <app-name>_observability
+observability_trace_sample_ratio: 0.25
+
+observability_grafana_port: 3000
+observability_prometheus_port: 9090
+observability_loki_port: 3100
+observability_tempo_http_port: 3200
+observability_tempo_otlp_grpc_port: 4317
+observability_tempo_otlp_http_port: 4318
+observability_alloy_http_port: 12345
+observability_node_exporter_port: 9100
+observability_postgres_exporter_port: 9187
+observability_redis_exporter_port: 9121
+
+observability_prometheus_retention_time: 7d
+observability_prometheus_retention_size: 6GB
+observability_loki_retention_period: 7d
+observability_tempo_retention_period: 24h
 ```
 
 Do not add `app_image`, `migration_bundle_name`, `migration_runtime`, or `migration_artifact_name` to `all.yml`. Those values belong in or are derived from `Deployment/Common/release.yml`.
@@ -235,6 +256,24 @@ Where the values come from:
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
+| `observability_enabled` | Keep `true` to deploy the LocalCluster Grafana/Prometheus/Loki/Tempo/Alloy stack. Set `false` only when deliberately disabling production observability. |
+| `observability_root` | Use `/opt/<app_name>-observability`. This keeps observability runtime files separate from app/database runtime files. |
+| `observability_docker_network` | Use `<app_name>_observability`. App containers and local Alloy agents join this Docker network on each node. |
+| `observability_trace_sample_ratio` | Start at `0.25`. Use `1.0` only for short debugging windows because traces increase storage and CPU. |
+| `observability_grafana_port` | Keep `3000`. Grafana is bound to `127.0.0.1` on `node-main` and should be reached through SSH tunneling. |
+| `observability_prometheus_port` | Keep `9090`. LocalCluster nodes use this internal port to remote-write metrics to Prometheus on `node-main`. |
+| `observability_loki_port` | Keep `3100`. LocalCluster nodes use this internal port to push logs to Loki on `node-main`. |
+| `observability_tempo_http_port` | Keep `3200`. This is the Tempo HTTP/API port on `node-main`. |
+| `observability_tempo_otlp_grpc_port` | Keep `4317`. LocalCluster nodes use this internal OTLP/gRPC port to push traces to Tempo on `node-main`. |
+| `observability_tempo_otlp_http_port` | Keep `4318`. This is reserved for OTLP/HTTP ingestion on `node-main`. |
+| `observability_alloy_http_port` | Keep `12345`. Prometheus scrapes Alloy health/metrics from this internal port. |
+| `observability_node_exporter_port` | Keep `9100`. Prometheus scrapes host metrics from this internal port on every node. |
+| `observability_postgres_exporter_port` | Keep `9187`. Prometheus scrapes PostgreSQL metrics from this internal port on `node-db`. |
+| `observability_redis_exporter_port` | Keep `9121`. Prometheus scrapes Redis metrics from this internal port on `node-db`. |
+| `observability_prometheus_retention_time` | Keep `7d` for LocalCluster v1. Increase only after checking disk usage. |
+| `observability_prometheus_retention_size` | Keep `6GB` for LocalCluster v1. This caps Prometheus disk growth. |
+| `observability_loki_retention_period` | Keep `7d` for LocalCluster v1. Increase only after checking log volume. |
+| `observability_tempo_retention_period` | Keep `24h` for LocalCluster v1. Traces are high volume and short retention is intentional. |
 | `migration_bundle_name` | Set in `Deployment/Common/release.yml`. Use `<app_name>-migrate` unless you have a naming conflict. |
 | `migration_runtime` | Set in `Deployment/Common/release.yml`. Keep `linux-x64` unless you deliberately move the build and deployment target to another runtime. |
 | `migration_artifact_name` | Derived by `Deployment/Common/Scripts/read-release-setting.sh` as `<migration_bundle_name>-<migration_runtime>`. |
@@ -1210,7 +1249,7 @@ Use `run_migrations: true` for the first deployment and for commits that include
 
 Leave the branch selector on `main`. The workflow rejects non-main refs, checks that CI passed for the selected commit, verifies that `<app_image>:<selected-commit-sha>` exists, downloads the migration bundle from that CI run when migrations are enabled, and deploys that image.
 
-The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/LocalCluster/ansible/playbooks/site.yml`, and then runs `acceptance-check.sh`. That verifies app-node health, compose state, DB/Redis health, app-specific data ports, local Caddy routing, `caddy` and `cloudflared`, backup directory state, and finally public HTTPS health.
+The workflow installs Ansible, reads the vault password from GitHub Secrets, runs `Deployment/LocalCluster/ansible/playbooks/site.yml`, and then runs `acceptance-check.sh`. Deployment preflight also runs the LocalCluster observability capacity check when `observability_enabled: true`. Acceptance verifies app-node health, compose state, DB/Redis health, app-specific data ports, local Caddy routing, `caddy` and `cloudflared`, backup directory state, and finally public HTTPS health.
 
 If CD fails because the migration bundle artifact is missing or expired, rerun `CI` on `main` for the same commit, then rerun `CD - Deploy LocalCluster`.
 
@@ -1245,6 +1284,42 @@ node-db compose services are running
 node-db is listening on postgres_port and redis_port
 caddy and cloudflared are active on node-main
 ```
+
+## 15. Verify LocalCluster Observability
+
+[ControlPC]
+
+Run this after the deployment acceptance check passes:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
+```
+
+Success:
+
+```text
+observability doctor ok
+```
+
+This checks that Grafana, Prometheus, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
+
+Open Grafana from your browser with an SSH tunnel. Keep the terminal open while using Grafana.
+
+[CurrentPC]
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+CONTROLPC_SSH_TARGET=jacob@node-main bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
+```
+
+Then open:
+
+```text
+http://127.0.0.1:3000
+```
+
+If your ControlPC hostname is not resolvable from CurrentPC, replace `jacob@node-main` with `jacob@<node-main-lan-ip>`.
 
 ## Reference: Runtime Services
 
@@ -1430,6 +1505,7 @@ Useful routine commands after the first deployment:
 
 ```bash
 bash ./Deployment/LocalCluster/Scripts/doctor.sh deploy
+bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
 bash ./Deployment/LocalCluster/Scripts/summary.sh
 bash ./Deployment/LocalCluster/Scripts/report-nodes.sh
 bash ./Deployment/LocalCluster/Scripts/acceptance-check.sh
@@ -1527,7 +1603,7 @@ Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, re
 ## Security Notes
 
 - Cloudflare Tunnel is the only public ingress path.
-- Do not configure router port forwarding to app, database, Redis, Seq, or Redis Insight.
+- Do not configure router port forwarding to app, database, Redis, Redis Insight, Grafana, Prometheus, Loki, Tempo, Alloy, or exporter ports.
 - Docker-published ports are restricted with generated app-specific `DOCKER-USER` chains.
 - SSH uses keys after the fresh-machine playbook succeeds.
 - Password SSH login is disabled after SSH hardening.

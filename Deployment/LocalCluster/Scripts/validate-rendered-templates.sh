@@ -16,8 +16,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    from jinja2 import Environment, StrictUndefined
+except ImportError as exc:  # pragma: no cover - exercised in CI if dependency is missing
+    raise SystemExit("rendered template validation failed: python package jinja2 is required") from exc
+
 
 ROOT = Path(sys.argv[1])
+JINJA = Environment(undefined=StrictUndefined, trim_blocks=True, lstrip_blocks=True)
 
 
 def fail(message: str) -> None:
@@ -45,6 +51,11 @@ def render_env(path: Path, values: dict[str, str]) -> str:
     rendered = replace_vars(path.read_text(encoding="utf-8-sig"), values)
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['node_db'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['load_balancer'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.10", rendered)
+    rendered = re.sub(r"\{\{\s*hostvars\[inventory_hostname\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
+    rendered = re.sub(r"\{\{\s*\(observability_enabled\s*\|\s*default\(false\)\s*\|\s*bool\)\s*\|\s*lower\s*\}\}", values["observability_enabled"], rendered)
+    rendered = re.sub(r"\{\{\s*observability_trace_sample_ratio\s*\|\s*default\('0\.25'\)\s*\}\}", values["observability_trace_sample_ratio"], rendered)
+    rendered = re.sub(r"\{\{\s*observability_postgres_exporter_port\s*\|\s*default\(9187\)\s*\}\}", values["observability_postgres_exporter_port"], rendered)
+    rendered = re.sub(r"\{\{\s*observability_redis_exporter_port\s*\|\s*default\(9121\)\s*\}\}", values["observability_redis_exporter_port"], rendered)
     if "{{" in rendered or "{%" in rendered:
         fail(f"unrendered env template markers in {path}")
     return rendered
@@ -58,6 +69,14 @@ def render_compose(path: Path, env: dict[str, str]) -> str:
     rendered = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", repl, text)
     if "UNSET_" in rendered:
         fail(f"compose file {path} has unresolved environment variable")
+    return rendered
+
+
+def render_jinja(path: Path, context: dict[str, object]) -> str:
+    template = JINJA.from_string(path.read_text(encoding="utf-8-sig"))
+    rendered = template.render(**context)
+    if "{{" in rendered or "{%" in rendered:
+        fail(f"unrendered template markers in {path}")
     return rendered
 
 
@@ -89,6 +108,11 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "vault_postgres_password": "db-password",
         "vault_postgres_db": "appdb",
         "vault_redis_password": "redis-password",
+        "observability_enabled": "true",
+        "observability_docker_network": "notes_observability",
+        "observability_trace_sample_ratio": "0.25",
+        "observability_postgres_exporter_port": "9187",
+        "observability_redis_exporter_port": "9121",
     }
     app_values = {
         **common,
@@ -118,6 +142,14 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "REDIS_HOST": "10.10.0.20",
         "REDIS_PORT": "6379",
         "REDIS_PASSWORD": "redis-password",
+        "OBSERVABILITY_ENABLED": "true",
+        "OBSERVABILITY_OTLP_ENDPOINT": "http://alloy:4317",
+        "OBSERVABILITY_OTLP_PROTOCOL": "Grpc",
+        "OBSERVABILITY_TRACE_SAMPLE_RATIO": "0.25",
+        "OBSERVABILITY_DOCKER_NETWORK": "notes_observability",
+        "NODE_HOST": "10.10.0.20",
+        "OBSERVABILITY_POSTGRES_EXPORTER_PORT": "9187",
+        "OBSERVABILITY_REDIS_EXPORTER_PORT": "9121",
     }
     app_compose = tmp_path / "app-compose.yml"
     db_compose = tmp_path / "db-compose.yml"
@@ -128,6 +160,8 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "postgres:18.4-alpine3.23",
         "postgres_data:/var/lib/postgresql",
         "redis:8.8.0-alpine3.23",
+        "prometheuscommunity/postgres-exporter:v0.17.1",
+        "oliver006/redis_exporter:v1.73.0",
     ]:
         if required not in db_compose_text:
             fail(f"rendered node-db compose is missing {required}")
@@ -141,6 +175,74 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     if docker_compose_available:
         subprocess.run(["docker", "compose", "-f", str(app_compose), "config"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["docker", "compose", "-f", str(db_compose), "config"], check=True, stdout=subprocess.DEVNULL)
+
+    groups = {
+        "all": ["node-main", "node-app1", "node-app2", "node-db"],
+        "load_balancer": ["node-main"],
+        "app_servers": ["node-app1", "node-app2"],
+        "node_db": ["node-db"],
+    }
+    hostvars = {
+        "node-main": {"ansible_host": "10.10.0.10"},
+        "node-app1": {"ansible_host": "10.10.0.11"},
+        "node-app2": {"ansible_host": "10.10.0.12"},
+        "node-db": {"ansible_host": "10.10.0.20"},
+    }
+    observability_context = {
+        "app_name": "notes",
+        "groups": groups,
+        "hostvars": hostvars,
+        "observability_docker_network": "notes_observability",
+        "observability_grafana_port": "3000",
+        "observability_prometheus_port": "9090",
+        "observability_loki_port": "3100",
+        "observability_tempo_http_port": "3200",
+        "observability_tempo_otlp_grpc_port": "4317",
+        "observability_tempo_otlp_http_port": "4318",
+        "observability_alloy_http_port": "12345",
+        "observability_node_exporter_port": "9100",
+        "observability_postgres_exporter_port": "9187",
+        "observability_redis_exporter_port": "9121",
+        "observability_prometheus_retention_time": "7d",
+        "observability_prometheus_retention_size": "6GB",
+        "observability_loki_retention_period": "7d",
+        "observability_tempo_retention_period": "24h",
+    }
+    backend_context = {**observability_context, "inventory_hostname": "node-main"}
+    agent_context = {**observability_context, "inventory_hostname": "node-app1"}
+    node_main_agent_context = {**observability_context, "inventory_hostname": "node-main"}
+
+    backend_root = tmp_path / "observability-backend"
+    agent_root = tmp_path / "observability-agent"
+    for path in [
+        backend_root / "prometheus" / "rules",
+        backend_root / "loki",
+        backend_root / "tempo",
+        backend_root / "grafana" / "provisioning",
+        backend_root / "grafana" / "dashboards",
+        agent_root,
+    ]:
+        path.mkdir(parents=True, exist_ok=True)
+
+    backend_template_root = ROOT / "Deployment/LocalCluster/ansible/roles/observability_backend/templates"
+    agent_template_root = ROOT / "Deployment/LocalCluster/ansible/roles/observability_agent/templates"
+    (backend_root / ".env").write_text(render_jinja(backend_template_root / "backend.env.j2", backend_context), encoding="utf-8")
+    (backend_root / "docker-compose.yml").write_text(render_jinja(backend_template_root / "docker-compose.yml.j2", backend_context), encoding="utf-8")
+    (backend_root / "prometheus" / "prometheus.yml").write_text(render_jinja(backend_template_root / "prometheus.yml.j2", backend_context), encoding="utf-8")
+    (backend_root / "loki" / "loki.yml").write_text(render_jinja(backend_template_root / "loki.yml.j2", backend_context), encoding="utf-8")
+    (backend_root / "tempo" / "tempo.yml").write_text(render_jinja(backend_template_root / "tempo.yml.j2", backend_context), encoding="utf-8")
+    (agent_root / ".env").write_text(render_jinja(agent_template_root / "agent.env.j2", agent_context), encoding="utf-8")
+    (agent_root / "docker-compose.yml").write_text(render_jinja(agent_template_root / "docker-compose.yml.j2", agent_context), encoding="utf-8")
+    app_agent_config = render_jinja(agent_template_root / "config.alloy.j2", agent_context)
+    main_agent_config = render_jinja(agent_template_root / "config.alloy.j2", node_main_agent_context)
+    if "http://10.10.0.10:9090/api/v1/write" not in app_agent_config:
+        fail("app-node Alloy config does not forward metrics to node-main Prometheus")
+    if "http://prometheus:9090/api/v1/write" not in main_agent_config:
+        fail("node-main Alloy config does not use the local backend network")
+
+    if docker_compose_available:
+        subprocess.run(["docker", "compose", "-f", str(backend_root / "docker-compose.yml"), "config"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["docker", "compose", "-f", str(agent_root / "docker-compose.yml"), "config"], check=True, stdout=subprocess.DEVNULL)
 
 print("rendered template validation ok")
 PY

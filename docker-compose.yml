@@ -1,6 +1,13 @@
+x-local-logging: &local-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:18.4-alpine3.23
+    logging: *local-logging
     env_file:
       - ./.env
     ports:
@@ -17,6 +24,7 @@ services:
     build:
       context: .
       dockerfile: BlazorAutoApp/Dockerfile
+    logging: *local-logging
     env_file:
       - ./.env
     environment:
@@ -25,13 +33,15 @@ services:
       ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
       ASPNETCORE_Kestrel__Certificates__Default__Password: "localdevpassword"
       Database__RunMigrationsAtStartup: "true"
+      Observability__OpenTelemetry__Enabled: ${OBSERVABILITY_ENABLED:-false}
+      Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
+      Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}
+      Observability__OpenTelemetry__TraceSampleRatio: ${OBSERVABILITY_TRACE_SAMPLE_RATIO:-0.1}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      seq:
-        condition: service_started
     ports:
       - "127.0.0.1:${APP_HTTPS_HOST_PORT:-7186}:7186"
     volumes:
@@ -39,18 +49,9 @@ services:
       # Persist runtime storage such as DataProtection keys. This is not upload/media storage.
       - ./data/storage:/app/Storage
 
-  seq:
-    image: datalust/seq:2025.2
-    env_file:
-      - ./.env
-    ports:
-      - "127.0.0.1:${SEQ_UI_HOST_PORT:-8081}:80"          # UI
-      - "127.0.0.1:${SEQ_INGESTION_HOST_PORT:-5341}:5341" # Ingestion
-    volumes:
-      - seqdata:/data
-
   redis:
     image: redis:8.8.0-alpine3.23
+    logging: *local-logging
     env_file:
       - ./.env
     ports:
@@ -63,6 +64,7 @@ services:
 
   redisinsight:
     image: redis/redisinsight:3.4.2
+    logging: *local-logging
     env_file:
       - ./.env
     depends_on:
@@ -73,7 +75,134 @@ services:
     volumes:
       - redisinsight:/data
 
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    profiles: ["observability"]
+    logging: *local-logging
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=24h
+      - --storage.tsdb.retention.size=512MB
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./docker/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./Deployment/Common/observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheusdata:/prometheus
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.50
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  loki:
+    image: grafana/loki:3.5.1
+    profiles: ["observability"]
+    logging: *local-logging
+    command:
+      - -config.file=/etc/loki/loki.yml
+    ports:
+      - "127.0.0.1:${LOKI_HOST_PORT:-3100}:3100"
+    volumes:
+      - ./docker/observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.35
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  tempo:
+    image: grafana/tempo:2.8.1
+    profiles: ["observability"]
+    logging: *local-logging
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "127.0.0.1:${TEMPO_HOST_PORT:-3200}:3200"
+    volumes:
+      - ./docker/observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempodata:/var/tempo
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.35
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  alloy:
+    image: grafana/alloy:v1.9.2
+    profiles: ["observability"]
+    logging: *local-logging
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ALLOY_HOST_PORT:-12345}:12345"
+    volumes:
+      - ./docker/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.35
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    profiles: ["observability"]
+    logging: *local-logging
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      alloy:
+        condition: service_started
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: light
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
+    volumes:
+      - ./Deployment/Common/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./Deployment/Common/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.35
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health | grep -q 'ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
 volumes:
   pgdata:
-  seqdata:
   redisinsight:
+  prometheusdata:
+  lokidata:
+  tempodata:
+  grafanadata:

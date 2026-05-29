@@ -24,6 +24,43 @@
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
+- name: Allow observability backend ingestion from cluster nodes
+  ansible.builtin.command: "ufw allow from {{ hostvars[item.0].ansible_host }} to any port {{ item.1 }} proto tcp"
+  changed_when: "'Rules updated' in firewall_ufw_observability_backend.stdout"
+  register: firewall_ufw_observability_backend
+  loop: >-
+    {{
+      groups['all'] | product([
+        observability_prometheus_port,
+        observability_loki_port,
+        observability_tempo_otlp_grpc_port,
+        observability_tempo_otlp_http_port
+      ]) | list
+    }}
+  when:
+    - observability_enabled | default(false) | bool
+    - inventory_hostname in groups["load_balancer"]
+
+- name: Allow observability scrape traffic from load balancer
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].ansible_host }} to any port {{ item }} proto tcp"
+  changed_when: "'Rules updated' in firewall_ufw_observability_scrape.stdout"
+  register: firewall_ufw_observability_scrape
+  loop:
+    - "{{ observability_alloy_http_port }}"
+    - "{{ observability_node_exporter_port }}"
+  when: observability_enabled | default(false) | bool
+
+- name: Allow observability database exporter scrapes from load balancer
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].ansible_host }} to any port {{ item }} proto tcp"
+  changed_when: "'Rules updated' in firewall_ufw_observability_db_exporters.stdout"
+  register: firewall_ufw_observability_db_exporters
+  loop:
+    - "{{ observability_postgres_exporter_port }}"
+    - "{{ observability_redis_exporter_port }}"
+  when:
+    - observability_enabled | default(false) | bool
+    - inventory_hostname in groups["node_db"]
+
 - name: Check UFW status
   ansible.builtin.command: ufw status
   changed_when: false

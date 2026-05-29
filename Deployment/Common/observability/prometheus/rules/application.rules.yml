@@ -1,0 +1,36 @@
+groups:
+  - name: application-observability
+    interval: 30s
+    rules:
+      - alert: ApplicationHighServerErrorRate
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          runbook: application-server-errors
+        annotations:
+          summary: Application is returning server errors
+          description: The application emitted HTTP 5xx responses during the last 5 minutes.
+
+      - alert: ApplicationTelemetryMissing
+        expr: |
+          absent(http_server_request_duration_seconds_count)
+        for: 10m
+        labels:
+          severity: warning
+          runbook: telemetry-missing
+        annotations:
+          summary: Application request metrics are missing
+          description: Prometheus has not received application HTTP request metrics.
+
+      - alert: ObservabilityTargetDown
+        expr: |
+          up == 0
+        for: 5m
+        labels:
+          severity: warning
+          runbook: observability-target-down
+        annotations:
+          summary: Prometheus target is down
+          description: The Prometheus target {{ $labels.job }} on {{ $labels.instance }} is down.

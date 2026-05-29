@@ -1,6 +1,6 @@
 # BlazorAutoApp
 
-BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Books feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, Seq logging, Docker Compose, and visible Playwright E2E tests.
+BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Books feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, OpenTelemetry-ready logging, Docker Compose, and visible Playwright E2E tests.
 
 ## Start Here
 
@@ -18,13 +18,13 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - Redis for HybridCache and Data Protection keys.
 - Built-in ASP.NET Core rate limiting for API and account endpoints.
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
-- Serilog console logging and Seq in local Docker.
+- Serilog console logging with OpenTelemetry trace/span correlation.
 - GitHub Actions CI for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
 - Centralized NuGet package versions in `Directory.Packages.props`.
 
 ## Observability
 
-Current local Docker uses Serilog and Seq for local log viewing. `ObservabilityPlan.md` defines the planned replacement stack:
+Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the same stack on `node-main` and per-node collectors through `Deployment/LocalCluster/HowToDeployLocalCluster.md`. `ObservabilityPlan.md` tracks the phased rollout:
 
 - OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
 - Grafana is the dashboard and operator UI.
@@ -32,9 +32,9 @@ Current local Docker uses Serilog and Seq for local log viewing. `ObservabilityP
 - Loki is centralized log aggregation.
 - Tempo stores distributed traces from OpenTelemetry.
 - Grafana Alloy is the per-node collector for logs, metrics, and OTLP telemetry.
-- Exporters expose host, container, PostgreSQL, Redis, Caddy, cloudflared, and synthetic probe metrics.
+- Exporters expose host, PostgreSQL, and Redis metrics; Alloy collects app container logs and app OTLP metrics/traces.
 
-The planned deployment keeps observability on the existing LocalCluster and Cloud nodes; no extra observability nodes are part of the plan.
+The deployment keeps observability on the existing LocalCluster and Cloud nodes; no extra observability nodes are part of the plan.
 
 ## Repository Layout
 
@@ -64,8 +64,8 @@ When running the Docker stack:
 
 - App: `https://localhost:7186`
 - Health: `https://localhost:7186/health`
-- Seq UI: `http://localhost:8081`
 - Redis Insight: `http://localhost:5540`
+- Grafana, with `.\RunLocal.ps1 -Observability`: `http://localhost:3000`
 
 Local Docker publishes these ports on `127.0.0.1` only.
 
@@ -92,6 +92,13 @@ Run the app stack:
 
 ```powershell
 .\RunLocal.ps1
+```
+
+Run the local Grafana/Prometheus/Loki/Tempo/Alloy observability stack:
+
+```powershell
+.\RunLocal.ps1 -Observability
+pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
 Build Tailwind output:

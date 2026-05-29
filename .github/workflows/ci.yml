@@ -23,7 +23,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+          {
+            find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
+            find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
+          } | xargs -0 shellcheck --severity=warning
 
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
@@ -31,11 +34,16 @@ jobs:
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
 
+      - name: Common observability validation
+        run: bash Deployment/Common/observability/scripts/validate-observability.sh
+
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 
       - name: Deployment template render validation
-        run: bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+        run: |
+          python -m pip install jinja2
+          bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 
       - name: Deployment YAML lint
         run: |

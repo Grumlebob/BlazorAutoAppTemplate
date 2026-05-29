@@ -1,0 +1,138 @@
+---
+- name: Ensure observability root exists
+  ansible.builtin.file:
+    path: "{{ observability_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+
+- name: Ensure observability config directories exist
+  ansible.builtin.file:
+    path: "{{ observability_root }}/{{ item }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+  loop:
+    - prometheus/rules
+    - loki
+    - tempo
+    - grafana
+
+- name: Ensure shared observability Docker network exists
+  ansible.builtin.command: "docker network create {{ observability_docker_network }}"
+  register: observability_backend_network_create
+  failed_when:
+    - observability_backend_network_create.rc != 0
+    - "'already exists' not in observability_backend_network_create.stderr"
+  changed_when: observability_backend_network_create.rc == 0
+
+- name: Render observability backend compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ observability_root }}/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render observability backend environment file
+  ansible.builtin.template:
+    src: backend.env.j2
+    dest: "{{ observability_root }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ observability_root }}/prometheus/prometheus.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render Loki configuration
+  ansible.builtin.template:
+    src: loki.yml.j2
+    dest: "{{ observability_root }}/loki/loki.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render Tempo configuration
+  ansible.builtin.template:
+    src: tempo.yml.j2
+    dest: "{{ observability_root }}/tempo/tempo.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Copy Grafana provisioning and dashboards
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../../Common/observability/grafana/"
+    dest: "{{ observability_root }}/grafana/"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+    directory_mode: "0750"
+
+- name: Copy Prometheus alert rules
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../../Common/observability/prometheus/rules/"
+    dest: "{{ observability_root }}/prometheus/rules/"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+    directory_mode: "0750"
+
+- name: Pull and start observability backend
+  ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+  args:
+    chdir: "{{ observability_root }}"
+  become: true
+  become_user: deploy
+  register: observability_backend_compose_up
+  changed_when: >-
+    (observability_backend_compose_up.stdout ~ observability_backend_compose_up.stderr)
+    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+
+- name: Wait for Prometheus
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ observability_prometheus_port }}/-/ready"
+    status_code: 200
+  register: observability_prometheus_ready
+  retries: 30
+  delay: 3
+  until: observability_prometheus_ready.status == 200
+  changed_when: false
+
+- name: Wait for Loki
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ observability_loki_port }}/ready"
+    status_code: 200
+  register: observability_loki_ready
+  retries: 30
+  delay: 3
+  until: observability_loki_ready.status == 200
+  changed_when: false
+
+- name: Wait for Tempo
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ observability_tempo_http_port }}/ready"
+    status_code: 200
+  register: observability_tempo_ready
+  retries: 30
+  delay: 3
+  until: observability_tempo_ready.status == 200
+  changed_when: false
+
+- name: Wait for Grafana
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ observability_grafana_port }}/api/health"
+    status_code: 200
+  register: observability_grafana_ready
+  retries: 30
+  delay: 3
+  until: observability_grafana_ready.status == 200
+  changed_when: false

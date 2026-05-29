@@ -24,6 +24,24 @@ REQUIRED_KEYS = [
 OPTIONAL_KEYS = [
     "runner_name",
     "runner_label",
+    "observability_enabled",
+    "observability_root",
+    "observability_docker_network",
+    "observability_trace_sample_ratio",
+    "observability_grafana_port",
+    "observability_prometheus_port",
+    "observability_loki_port",
+    "observability_tempo_http_port",
+    "observability_tempo_otlp_grpc_port",
+    "observability_tempo_otlp_http_port",
+    "observability_alloy_http_port",
+    "observability_node_exporter_port",
+    "observability_postgres_exporter_port",
+    "observability_redis_exporter_port",
+    "observability_prometheus_retention_time",
+    "observability_prometheus_retention_size",
+    "observability_loki_retention_period",
+    "observability_tempo_retention_period",
 ]
 
 
@@ -87,6 +105,73 @@ def validate(values: dict[str, str]) -> list[str]:
             errors.append(f"{key} must not reuse {previous_key} ({port})")
         else:
             seen_ports[port] = key
+
+    observability_enabled = values.get("observability_enabled", "")
+    if observability_enabled and observability_enabled.lower() not in ["true", "false"]:
+        errors.append("observability_enabled must be true or false")
+
+    observability_root = values.get("observability_root", "")
+    if observability_root:
+        if not observability_root.startswith("/opt/"):
+            errors.append("observability_root must be under /opt, for example /opt/books-observability")
+        if re.search(r"\s", observability_root):
+            errors.append("observability_root must not contain whitespace")
+        if not re.match(r"^/[A-Za-z0-9._/-]+$", observability_root):
+            errors.append("observability_root must contain only letters, numbers, dots, underscores, hyphens, and slashes")
+
+    observability_network = values.get("observability_docker_network", "")
+    if observability_network and not re.match(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$", observability_network):
+        errors.append("observability_docker_network must be a valid Docker network name")
+
+    trace_sample_ratio = values.get("observability_trace_sample_ratio", "")
+    if trace_sample_ratio:
+        try:
+            ratio = float(trace_sample_ratio)
+            if ratio < 0 or ratio > 1:
+                errors.append("observability_trace_sample_ratio must be between 0 and 1")
+        except ValueError:
+            errors.append("observability_trace_sample_ratio must be a decimal number between 0 and 1")
+
+    observability_port_keys = [
+        "observability_grafana_port",
+        "observability_prometheus_port",
+        "observability_loki_port",
+        "observability_tempo_http_port",
+        "observability_tempo_otlp_grpc_port",
+        "observability_tempo_otlp_http_port",
+        "observability_alloy_http_port",
+        "observability_node_exporter_port",
+        "observability_postgres_exporter_port",
+        "observability_redis_exporter_port",
+    ]
+    for key in observability_port_keys:
+        port_value = values.get(key, "")
+        if not port_value:
+            continue
+        if not port_value.isdigit():
+            errors.append(f"{key} must be a number")
+            continue
+        port = int(port_value)
+        if port < 1024 or port > 65535:
+            errors.append(f"{key} must be between 1024 and 65535")
+        previous_key = seen_ports.get(port)
+        if previous_key:
+            errors.append(f"{key} must not reuse {previous_key} ({port})")
+        else:
+            seen_ports[port] = key
+
+    for key in [
+        "observability_prometheus_retention_time",
+        "observability_loki_retention_period",
+        "observability_tempo_retention_period",
+    ]:
+        value = values.get(key, "")
+        if value and not re.match(r"^[0-9]+[hdwmy]$", value):
+            errors.append(f"{key} must look like 24h, 7d, 4w, 12m, or 1y")
+
+    retention_size = values.get("observability_prometheus_retention_size", "")
+    if retention_size and not re.match(r"^[0-9]+(MB|GB)$", retention_size):
+        errors.append("observability_prometheus_retention_size must look like 512MB or 6GB")
 
     public_hostname = values.get("public_hostname", "")
     if public_hostname and not valid_dns_name(public_hostname):
