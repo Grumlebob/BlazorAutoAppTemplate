@@ -72,7 +72,7 @@ Required values:
 | Node LAN IP | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_ip`; reserve it in the router before inventory generation. |
 | Node MAC address | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_mac`; use it for router DHCP reservation. |
 | `app_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a short lowercase deployment name, for example `ship`. |
-| `app_image` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
+| `app_image` | `Deployment/Common/release.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
 | `app_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `8080` unless the container image listens on a different HTTP port. |
 | `postgres_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `5432` for a single app. Use a different host port only when another LocalCluster app already uses `5432` on `node-db`. |
 | `redis_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `6379` for a single app. Use a different host port only when another LocalCluster app already uses `6379` on `node-db`. |
@@ -80,7 +80,8 @@ Required values:
 | `deploy_root` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `/opt/<app_name>` unless you deliberately want another runtime directory. |
 | `cloudflare_tunnel_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
 | `cloudflared_version` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep the checked-in pinned release unless you are deliberately upgrading `cloudflared`. |
-| `migration_bundle_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
+| `migration_bundle_name` | `Deployment/Common/release.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
+| `migration_artifact_name` | `Deployment/Common/release.yml` | Use `<migration_bundle_name>-linux-x64` unless the CI artifact name has a deliberate reason to differ. |
 | GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub personal access token classic for an account that can read the package; select `read:packages`. |
 | Cloudflare tunnel token | `Deployment/LocalCluster/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
 | Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
@@ -175,21 +176,34 @@ gh repo view --json nameWithOwner,url,defaultBranchRef --jq '"repo=\(.nameWithOw
 
 `pwd` should be the repository root. `git status --short` may show your local guide changes, but it should not fail. The `gh repo view` output must show the repository you intend to deploy, especially when working from a fork.
 
-## 2. Confirm Shared Deployment Settings
+## 2. Confirm Shared Release And LocalCluster Settings
 
 [control]
 
-Review:
+Review shared release artifact settings:
+
+```text
+Deployment/Common/release.yml
+```
+
+These values are used by CI, LocalCluster CD, and future deployment targets:
+
+```yaml
+app_image: ghcr.io/<github-owner-or-org>/<image-name>
+migration_bundle_name: <app-name>-migrate
+migration_artifact_name: <app-name>-migrate-linux-x64
+```
+
+Review LocalCluster-specific deployment settings:
 
 ```text
 Deployment/LocalCluster/inventory/prod/group_vars/all.yml
 ```
 
-This is the only shared non-secret group-vars file you normally edit for the first deployment. Set or confirm every value in it before running the setup scripts:
+Set or confirm every LocalCluster value in it before running the setup scripts:
 
 ```yaml
 app_name: <app-name>
-app_image: ghcr.io/<github-owner-or-org>/<image-name>
 app_port: 8080
 postgres_port: 5432
 redis_port: 6379
@@ -197,7 +211,14 @@ public_hostname: <public-hostname>
 deploy_root: /opt/<app-name>
 cloudflare_tunnel_name: <cloudflare-tunnel-name>
 cloudflared_version: <pinned-cloudflared-version>
-migration_bundle_name: <app-name>-migrate
+```
+
+During the `Deployment/Common` refactor, `all.yml` may still contain `app_image` and `migration_bundle_name` as compatibility shadow values. If present, they must match `Deployment/Common/release.yml`.
+
+Validate the shared release settings:
+
+```bash
+bash ./Deployment/Common/Scripts/validate-common-release.sh
 ```
 
 Where the values come from:
@@ -205,7 +226,7 @@ Where the values come from:
 | Setting | How to choose or obtain it |
 | --- | --- |
 | `app_name` | Choose a short lowercase deployment name, for example `ship`. This affects generated names like the deploy SSH key. |
-| `app_image` | Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
+| `app_image` | Set in `Deployment/Common/release.yml`. Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
 | `app_port` | Keep `8080` unless the app image listens on a different HTTP port. This value is rendered into the app-node `.env`, Docker Compose published port, firewall rules, Caddy upstreams, and deployment checks. |
 | `postgres_port` | Keep `5432` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `5433`. |
 | `redis_port` | Keep `6379` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `6380`. |
@@ -213,7 +234,8 @@ Where the values come from:
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
-| `migration_bundle_name` | Use `<app_name>-migrate` unless you have a naming conflict. |
+| `migration_bundle_name` | Set in `Deployment/Common/release.yml`. Use `<app_name>-migrate` unless you have a naming conflict. |
+| `migration_artifact_name` | Set in `Deployment/Common/release.yml`. Use `<migration_bundle_name>-linux-x64` unless the CI artifact name has a deliberate reason to differ. |
 
 If this is the only app on these four nodes, keep the default ports and continue.
 
@@ -396,7 +418,7 @@ Deployment identity checkpoint:
 cd "$(git rev-parse --show-toplevel)"
 gh repo view --json nameWithOwner,url --jq '"repo=\(.nameWithOwner) url=\(.url)"'
 bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name
-bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image
+bash ./Deployment/Common/Scripts/read-release-setting.sh app_image
 bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname
 ```
 
@@ -1036,7 +1058,7 @@ CI and CD are intentionally tied to the same commit:
 CI workflow: .github/workflows/ci.yml
 CD workflow: .github/workflows/cd-localcluster.yml
 Container image: <app_image>:<selected-commit-sha>
-Migration bundle artifact: <app_name>-migrate-linux-x64
+Migration bundle artifact: <migration_artifact_name>
 Migration bundle file: <migration_bundle_name>
 ```
 
@@ -1046,7 +1068,7 @@ Optional sanity check: before deploying, confirm the image tag exists. Run this 
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-APP_IMAGE="$(bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)"
+APP_IMAGE="$(bash ./Deployment/Common/Scripts/read-release-setting.sh app_image)"
 APP_VERSION="$(git rev-parse HEAD)"
 docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
 echo "image exists: ${APP_IMAGE}:${APP_VERSION}"

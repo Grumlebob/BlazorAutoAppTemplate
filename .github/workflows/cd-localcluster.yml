@@ -38,26 +38,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Common release settings validation
+        run: bash Deployment/Common/Scripts/validate-common-release.sh
+
       - name: Load deployment settings
         run: |
+          APP_NAME="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)"
+          APP_IMAGE="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          PUBLIC_HOSTNAME="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
+          MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+          MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          RUNNER_LABEL="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
           {
-            echo "APP_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)"
-            echo "APP_IMAGE=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)"
-            echo "PUBLIC_HOSTNAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
-            echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name)"
-            echo "RUNNER_LABEL=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
+            echo "APP_NAME=${APP_NAME}"
+            echo "APP_IMAGE=${APP_IMAGE}"
+            echo "PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}"
+            echo "MIGRATION_BUNDLE_NAME=${MIGRATION_BUNDLE_NAME}"
+            echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
+            echo "RUNNER_LABEL=${RUNNER_LABEL}"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             echo "APP_VERSION=${GITHUB_SHA}"
           } >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            printf '%s:%s\n' "$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)" "${GITHUB_SHA}"
+            printf '%s:%s\n' "${APP_IMAGE}" "${GITHUB_SHA}"
             echo
             echo "Public hostname:"
-            bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname
+            printf '%s\n' "${PUBLIC_HOSTNAME}"
             echo
             echo "Expected app runner label:"
-            bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label
+            printf '%s\n' "${RUNNER_LABEL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Require successful CI for this commit
@@ -82,7 +92,7 @@ jobs:
         if: inputs.run_migrations == 'true'
         uses: actions/download-artifact@v8
         with:
-          name: ${{ env.APP_NAME }}-migrate-linux-x64
+          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
           path: artifacts/migrations
           run-id: ${{ env.CI_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -114,6 +124,8 @@ jobs:
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
+            -e "app_image=${APP_IMAGE}" \
+            -e "migration_bundle_name=${MIGRATION_BUNDLE_NAME}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
             -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
@@ -126,6 +138,8 @@ jobs:
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
+            -e "app_image=${APP_IMAGE}" \
+            -e "migration_bundle_name=${MIGRATION_BUNDLE_NAME}" \
             -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check

@@ -6,12 +6,22 @@ usage() {
   exit 1
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
 [[ $# -ge 1 ]] || usage
 
 APP_VERSION="$1"
 shift
 
-EXTRA_ARGS=(-e "app_version=$APP_VERSION")
+APP_IMAGE="$(bash "$REPO_ROOT/Deployment/Common/Scripts/read-release-setting.sh" app_image)"
+MIGRATION_BUNDLE_NAME="$(bash "$REPO_ROOT/Deployment/Common/Scripts/read-release-setting.sh" migration_bundle_name)"
+
+EXTRA_ARGS=(
+  -e "app_version=$APP_VERSION"
+  -e "app_image=$APP_IMAGE"
+  -e "migration_bundle_name=$MIGRATION_BUNDLE_NAME"
+)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,8 +41,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SOURCE_REPO_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url || true)"
 [[ -n "$SOURCE_REPO_URL" ]] || SOURCE_REPO_URL="unknown"
 

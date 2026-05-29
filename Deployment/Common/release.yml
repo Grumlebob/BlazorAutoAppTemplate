@@ -1,0 +1,3 @@
+app_image: ghcr.io/grumlebob/books
+migration_bundle_name: books-migrate
+migration_artifact_name: books-migrate-linux-x64

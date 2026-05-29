@@ -75,6 +75,13 @@ def deployment_text_files() -> list[Path]:
 
 
 required_files = [
+    "Deployment/Common/README.md",
+    "Deployment/Common/release.yml",
+    "Deployment/Common/Scripts/read-release-setting.sh",
+    "Deployment/Common/Scripts/validate-common-release.sh",
+    "Deployment/Common/Scripts/Component/lib/read-release-setting.py",
+    "Deployment/Common/Scripts/Component/lib/release_settings.py",
+    "Deployment/Common/Scripts/Component/lib/validate-common-release.py",
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
     ".github/workflows/cd-localcluster.yml",
@@ -721,14 +728,17 @@ for needle, why in [
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
+    ("find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
+    ("bash Deployment/Common/Scripts/validate-common-release.sh", "common release validation step"),
     ("bash Deployment/LocalCluster/Scripts/audit-deployment.sh", "deployment audit step"),
     ("bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
     ("python -m pip install --upgrade yamllint", "deployment lint tool install"),
-    ("yamllint .github Deployment/LocalCluster", "deployment YAML lint step"),
+    ("yamllint .github Deployment/LocalCluster Deployment/Common", "deployment YAML lint step"),
     ("rhysd/actionlint:1.7.12", "current actionlint container"),
     ("node-version: 24", "current Node.js LTS setup"),
-    ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image", "deployment image setting"),
-    ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name", "migration bundle setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
     ("dotnet restore", "restore step"),
     ("dotnet build --configuration Release --no-restore", "Release build step"),
     ("dotnet test --configuration Release --no-build", "test step"),
@@ -738,6 +748,7 @@ for needle, why in [
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
     ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
     ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
+    ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact upload name"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -770,6 +781,7 @@ if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [
     ("name: CD - Deploy LocalCluster", "CD workflow name"),
+    ("bash Deployment/Common/Scripts/validate-common-release.sh", "common release validation step"),
     ("actions: read", "permission to inspect CI workflow runs"),
     ("environment:", "GitHub deployment environment"),
     ("LOCALCLUSTER_ENVIRONMENT", "optional side-by-side GitHub environment variable"),
@@ -779,18 +791,23 @@ for needle, why in [
     ("localcluster", "shared LocalCluster runner label"),
     ("Require main branch", "main branch deployment guard"),
     ("refs/heads/main", "main branch deployment guard"),
-    ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image", "deployment image setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname", "public hostname setting"),
     ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
     ("bash Deployment/LocalCluster/Scripts/find-successful-ci-run.sh", "successful CI gate"),
     ("CI_RUN_ID=", "CI run id export"),
     ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
     ("uses: actions/download-artifact@v8", "CI migration artifact download"),
+    ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact download name"),
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("app_version=${APP_VERSION}", "selected-ref image deployment"),
+    ("app_image=${APP_IMAGE}", "shared image extra var"),
+    ("migration_bundle_name=${MIGRATION_BUNDLE_NAME}", "shared migration bundle extra var"),
     ("source_repo_url=${SOURCE_REPO_URL}", "source repository marker metadata"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
     ("bash Deployment/LocalCluster/Scripts/acceptance-check.sh", "full acceptance verification"),

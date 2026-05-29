@@ -23,10 +23,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+          find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
+
+      - name: Common release settings validation
+        run: bash Deployment/Common/Scripts/validate-common-release.sh
 
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
@@ -37,7 +40,7 @@ jobs:
       - name: Deployment YAML lint
         run: |
           python -m pip install --upgrade yamllint
-          yamllint .github Deployment/LocalCluster
+          yamllint .github Deployment/LocalCluster Deployment/Common
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -95,12 +98,12 @@ jobs:
       - name: Restore .NET tools
         run: dotnet tool restore
 
-      - name: Load deployment settings
+      - name: Load release settings
         run: |
           {
-            echo "APP_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_name)"
-            echo "APP_IMAGE=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh app_image)"
-            echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh migration_bundle_name)"
+            echo "APP_IMAGE=$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+            echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+            echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
           } >> "$GITHUB_ENV"
 
       - name: Build EF migration bundle
@@ -118,7 +121,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}-migrate-linux-x64
+          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
           path: artifacts/migrations/${{ env.MIGRATION_BUNDLE_NAME }}
 
       - name: Build Docker image
