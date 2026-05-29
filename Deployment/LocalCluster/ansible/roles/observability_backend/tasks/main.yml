@@ -13,7 +13,7 @@
     state: directory
     owner: deploy
     group: deploy
-    mode: "0750"
+    mode: "0755"
   loop:
     - prometheus/rules
     - loki
@@ -50,7 +50,7 @@
     dest: "{{ observability_root }}/prometheus/prometheus.yml"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Render Loki configuration
   ansible.builtin.template:
@@ -58,7 +58,7 @@
     dest: "{{ observability_root }}/loki/loki.yml"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Render Tempo configuration
   ansible.builtin.template:
@@ -66,7 +66,7 @@
     dest: "{{ observability_root }}/tempo/tempo.yml"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Copy Grafana provisioning and dashboards
   ansible.builtin.copy:
@@ -74,8 +74,8 @@
     dest: "{{ observability_root }}/grafana/"
     owner: deploy
     group: deploy
-    mode: "0640"
-    directory_mode: "0750"
+    mode: "0644"
+    directory_mode: "0755"
 
 - name: Copy Prometheus alert rules
   ansible.builtin.copy:
@@ -83,8 +83,21 @@
     dest: "{{ observability_root }}/prometheus/rules/"
     owner: deploy
     group: deploy
-    mode: "0640"
-    directory_mode: "0750"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Ensure mounted observability config is readable by container users
+  ansible.builtin.file:
+    path: "{{ observability_root }}/{{ item }}"
+    owner: deploy
+    group: deploy
+    mode: u=rwX,g=rX,o=rX
+    recurse: true
+  loop:
+    - prometheus
+    - loki
+    - tempo
+    - grafana
 
 - name: Start and verify observability backend
   block:

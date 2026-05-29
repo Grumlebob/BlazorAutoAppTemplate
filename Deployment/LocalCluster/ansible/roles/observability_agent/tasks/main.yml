@@ -29,7 +29,7 @@
     dest: "{{ observability_root }}/agent/config.alloy"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Render observability agent environment file
   ansible.builtin.template:
