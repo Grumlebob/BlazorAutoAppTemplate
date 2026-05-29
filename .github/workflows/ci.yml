@@ -103,6 +103,7 @@ jobs:
           {
             echo "APP_IMAGE=$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
             echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+            echo "MIGRATION_RUNTIME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
             echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
           } >> "$GITHUB_ENV"
 
@@ -114,7 +115,7 @@ jobs:
             --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
             --configuration Release \
             --self-contained \
-            --runtime linux-x64 \
+            --runtime "${MIGRATION_RUNTIME}" \
             --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
       - name: Upload migration bundle

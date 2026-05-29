@@ -124,8 +124,6 @@ jobs:
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
-            -e "app_image=${APP_IMAGE}" \
-            -e "migration_bundle_name=${MIGRATION_BUNDLE_NAME}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
             -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
@@ -138,8 +136,6 @@ jobs:
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e "app_version=${APP_VERSION}" \
-            -e "app_image=${APP_IMAGE}" \
-            -e "migration_bundle_name=${MIGRATION_BUNDLE_NAME}" \
             -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check

@@ -15,7 +15,7 @@ Happy path:
 
 ```text
 1. Install Linux Mint on all four nodes.
-2. Confirm shared settings in all.yml.
+2. Confirm shared release settings and LocalCluster settings.
 3. Run setup-control-machine.sh on the control machine.
 4. Run bootstrap-node.sh on every node and copy its values into machines.yml.
 5. Reserve LAN IPs in the router and confirm every node uses its reserved IP.
@@ -81,7 +81,8 @@ Required values:
 | `cloudflare_tunnel_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a name, usually `<app_name>-prod`, then use the exact same name in Cloudflare. |
 | `cloudflared_version` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep the checked-in pinned release unless you are deliberately upgrading `cloudflared`. |
 | `migration_bundle_name` | `Deployment/Common/release.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
-| `migration_artifact_name` | `Deployment/Common/release.yml` | Use `<migration_bundle_name>-linux-x64` unless the CI artifact name has a deliberate reason to differ. |
+| `migration_runtime` | `Deployment/Common/release.yml` | Keep `linux-x64` for the current x86_64 LocalCluster and Hetzner target. |
+| `migration_artifact_name` | Derived by `Deployment/Common/Scripts/read-release-setting.sh` | Derived as `<migration_bundle_name>-<migration_runtime>`. |
 | GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub personal access token classic for an account that can read the package; select `read:packages`. |
 | Cloudflare tunnel token | `Deployment/LocalCluster/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
 | Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
@@ -191,7 +192,7 @@ These values are used by CI, LocalCluster CD, and future deployment targets:
 ```yaml
 app_image: ghcr.io/<github-owner-or-org>/<image-name>
 migration_bundle_name: <app-name>-migrate
-migration_artifact_name: <app-name>-migrate-linux-x64
+migration_runtime: linux-x64
 ```
 
 Review LocalCluster-specific deployment settings:
@@ -213,7 +214,7 @@ cloudflare_tunnel_name: <cloudflare-tunnel-name>
 cloudflared_version: <pinned-cloudflared-version>
 ```
 
-During the `Deployment/Common` refactor, `all.yml` may still contain `app_image` and `migration_bundle_name` as compatibility shadow values. If present, they must match `Deployment/Common/release.yml`.
+Do not add `app_image`, `migration_bundle_name`, `migration_runtime`, or `migration_artifact_name` to `all.yml`. Those values belong in or are derived from `Deployment/Common/release.yml`.
 
 Validate the shared release settings:
 
@@ -235,7 +236,8 @@ Where the values come from:
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
 | `migration_bundle_name` | Set in `Deployment/Common/release.yml`. Use `<app_name>-migrate` unless you have a naming conflict. |
-| `migration_artifact_name` | Set in `Deployment/Common/release.yml`. Use `<migration_bundle_name>-linux-x64` unless the CI artifact name has a deliberate reason to differ. |
+| `migration_runtime` | Set in `Deployment/Common/release.yml`. Keep `linux-x64` unless you deliberately move the build and deployment target to another runtime. |
+| `migration_artifact_name` | Derived by `Deployment/Common/Scripts/read-release-setting.sh` as `<migration_bundle_name>-<migration_runtime>`. |
 
 If this is the only app on these four nodes, keep the default ports and continue.
 
@@ -322,27 +324,33 @@ All side-by-side apps that reuse the default `cloudflared` service must use a tu
 Example side-by-side shape:
 
 ```yaml
-# app 1
-app_name: notes
+# app 1: Deployment/Common/release.yml
 app_image: ghcr.io/example/notes
+migration_bundle_name: notes-migrate
+migration_runtime: linux-x64
+
+# app 1: Deployment/LocalCluster/inventory/prod/group_vars/all.yml
+app_name: notes
 app_port: 8080
 postgres_port: 5432
 redis_port: 6379
 deploy_root: /opt/notes
 public_hostname: notes.example.com
 cloudflare_tunnel_name: notes-prod
-migration_bundle_name: notes-migrate
 
-# app 2, in the forked repo
-app_name: secondnotes
+# app 2, in the forked repo: Deployment/Common/release.yml
 app_image: ghcr.io/example/secondnotes
+migration_bundle_name: secondnotes-migrate
+migration_runtime: linux-x64
+
+# app 2, in the forked repo: Deployment/LocalCluster/inventory/prod/group_vars/all.yml
+app_name: secondnotes
 app_port: 8081
 postgres_port: 5433
 redis_port: 6380
 deploy_root: /opt/secondnotes
 public_hostname: secondnotes.example.com
 cloudflare_tunnel_name: notes-prod
-migration_bundle_name: secondnotes-migrate
 ```
 
 For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment. Repository variables are here:
@@ -355,7 +363,7 @@ Second-fork flow on already-prepared nodes:
 
 ```text
 1. Clone the fork, not the original repository.
-2. Set unique values in all.yml for app_name, app_image, ports, deploy_root, public_hostname, and migration_bundle_name.
+2. Set unique release values in `Deployment/Common/release.yml` and unique LocalCluster values in `all.yml`.
 3. Copy the same machines.yml values used by the first app, or rerun discover-machines.sh on each node.
 4. Run generate-inventory.sh and commit the fork's all.yml and generated hosts.yml.
 5. Run setup-control-machine.sh to create this app's deploy key.
@@ -665,6 +673,7 @@ All generated runtime files use `hosts.yml` through Ansible inventory. Do not co
 Commit the deployment settings and generated production inventory after `hosts.yml` contains real reserved IPs:
 
 ```bash
+git add Deployment/Common/release.yml
 git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml
 git add Deployment/LocalCluster/inventory/prod/hosts.yml
 git commit -m "Configure production deployment settings"
@@ -1513,7 +1522,7 @@ If the public hostname fails:
 
 If local Caddy health returns `503` while both app-node health checks pass, Caddy has matched the hostname but does not yet consider any upstream app node healthy. The acceptance script retries this case because it can happen immediately after app containers restart. If it still fails after the retry window, use the rendered Caddy site and Caddy logs printed by `acceptance-check.sh` to verify the app-node IPs and port.
 
-Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, regenerate `Deployment/LocalCluster/inventory/prod/hosts.yml`, change secrets in `Deployment/LocalCluster/inventory/prod/vault.yml`, and change shared non-secret deployment settings in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml`.
+Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, regenerate `Deployment/LocalCluster/inventory/prod/hosts.yml`, change secrets in `Deployment/LocalCluster/inventory/prod/vault.yml`, change shared release artifact settings in `Deployment/Common/release.yml`, and change LocalCluster non-secret deployment settings in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml`.
 
 ## Security Notes
 

@@ -81,6 +81,7 @@ required_files = [
     "Deployment/Common/Scripts/validate-common-release.sh",
     "Deployment/Common/Scripts/Component/lib/read-release-setting.py",
     "Deployment/Common/Scripts/Component/lib/release_settings.py",
+    "Deployment/Common/Scripts/Component/lib/simple_yaml.py",
     "Deployment/Common/Scripts/Component/lib/validate-common-release.py",
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
@@ -436,9 +437,30 @@ for path in deployment_text_files():
 
 all_vars = read("Deployment/LocalCluster/inventory/prod/group_vars/all.yml")
 all_var_keys = re.findall(r"^([A-Za-z_][A-Za-z0-9_]*):", all_vars, re.MULTILINE)
+for release_key in ["app_image", "migration_bundle_name", "migration_runtime", "migration_artifact_name"]:
+    if release_key in all_var_keys:
+        fail(
+            "Deployment/LocalCluster/inventory/prod/group_vars/all.yml: "
+            f"{release_key} belongs in Deployment/Common/release.yml"
+        )
 for key in all_var_keys:
     if f"`{key}`" not in guide:
         fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing all.yml setting documentation: {key}")
+
+try:
+    common_validation = subprocess.run(
+        [sys.executable, str(ROOT / "Deployment/Common/Scripts/Component/lib/validate-common-release.py")],
+        cwd=ROOT,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+except OSError as exc:
+    fail(f"unable to run common release validation: {exc}")
+else:
+    if common_validation.returncode != 0:
+        fail("Deployment/Common/release.yml failed validation: " + (common_validation.stderr or common_validation.stdout).strip())
 
 try:
     settings_validation = subprocess.run(
@@ -477,6 +499,12 @@ require_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
     "path: /etc/cloudflared",
     "cloudflared config directory creation",
+)
+
+require_contains(
+    "Deployment/LocalCluster/ansible/playbooks/site.yml",
+    "../../../Common/release.yml",
+    "shared release vars file loaded by LocalCluster playbook",
 )
 require_contains(
     "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
@@ -590,6 +618,7 @@ for path, checks in {
     ],
     "Deployment/LocalCluster/Scripts/Component/lib/deploy_settings.py": [
         ("REQUIRED_KEYS", "required all.yml keys"),
+        ("from simple_yaml import read_simple_yaml", "Common simple YAML parser reuse"),
         ("OPTIONAL_KEYS", "derived optional settings"),
         ("postgres_port", "configurable PostgreSQL host port"),
         ("redis_port", "configurable Redis host port"),
@@ -738,11 +767,13 @@ for needle, why in [
     ("node-version: 24", "current Node.js LTS setup"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
     ("dotnet restore", "restore step"),
     ("dotnet build --configuration Release --no-restore", "Release build step"),
     ("dotnet test --configuration Release --no-build", "test step"),
     ("dotnet ef migrations bundle", "migration bundle build"),
+    ('--runtime "${MIGRATION_RUNTIME}"', "shared migration runtime usage"),
     ("docker build", "Docker image build"),
     ("--pull", "Docker build base image freshness"),
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
@@ -806,8 +837,6 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
     ("app_version=${APP_VERSION}", "selected-ref image deployment"),
-    ("app_image=${APP_IMAGE}", "shared image extra var"),
-    ("migration_bundle_name=${MIGRATION_BUNDLE_NAME}", "shared migration bundle extra var"),
     ("source_repo_url=${SOURCE_REPO_URL}", "source repository marker metadata"),
     ("${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}", "absolute migration bundle path"),
     ("bash Deployment/LocalCluster/Scripts/acceptance-check.sh", "full acceptance verification"),

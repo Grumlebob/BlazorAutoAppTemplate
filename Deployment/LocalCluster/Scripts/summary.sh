@@ -14,11 +14,14 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 sys.path.insert(0, str(root / "Deployment/LocalCluster/Scripts/Component/lib"))
+sys.path.insert(0, str(root / "Deployment/Common/Scripts/Component/lib"))
 
 from deploy_settings import load_settings  # noqa: E402
+from release_settings import load_release_settings  # noqa: E402
 
 
 settings_path = root / "Deployment/LocalCluster/inventory/prod/group_vars/all.yml"
+release_path = root / "Deployment/Common/release.yml"
 inventory_path = root / "Deployment/LocalCluster/inventory/prod/hosts.yml"
 
 
@@ -28,15 +31,26 @@ def marker(value: str) -> str:
 
 try:
     settings = load_settings(settings_path, validate_file=True)
+    release_settings = load_release_settings(release_path, validate_file=True)
 except ValueError as exc:
     raise SystemExit(f"deployment summary failed: {exc}")
 
 print("LocalCluster deployment summary")
 print()
+print("Release")
+for key in [
+    "app_image",
+    "migration_bundle_name",
+    "migration_runtime",
+    "migration_artifact_name",
+]:
+    value = release_settings[key]
+    print(f"  {key:<24} {value} [{marker(value)}]")
+
+print()
 print("Settings")
 for key in [
     "app_name",
-    "app_image",
     "public_hostname",
     "deploy_root",
     "app_port",
@@ -44,7 +58,6 @@ for key in [
     "redis_port",
     "cloudflare_tunnel_name",
     "cloudflared_version",
-    "migration_bundle_name",
     "runner_name",
     "runner_label",
 ]:

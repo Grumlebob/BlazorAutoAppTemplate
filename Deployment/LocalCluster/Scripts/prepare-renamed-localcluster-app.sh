@@ -141,9 +141,10 @@ command -v bash >/dev/null 2>&1 || fail "bash is missing"
 command -v python3 >/dev/null 2>&1 || fail "python3 is missing"
 
 bash "$SCRIPT_DIR/validate-deploy-settings.sh" >/dev/null
+bash "$REPO_ROOT/Deployment/Common/Scripts/validate-common-release.sh" >/dev/null
 
 APP_NAME="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" app_name)"
-APP_IMAGE="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" app_image)"
+APP_IMAGE="$(bash "$REPO_ROOT/Deployment/Common/Scripts/read-release-setting.sh" app_image)"
 PUBLIC_HOSTNAME="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" public_hostname)"
 DEPLOY_ROOT="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" deploy_root)"
 APP_PORT="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" app_port)"

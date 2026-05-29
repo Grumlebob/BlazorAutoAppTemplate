@@ -2,12 +2,16 @@
 - name: Apply app firewall rules
   hosts: all
   become: true
+  vars_files:
+    - ../../../Common/release.yml
   roles:
     - firewall
 
 - name: Stop app containers before migration
   hosts: app_servers
   become: true
+  vars_files:
+    - ../../../Common/release.yml
   tasks:
     - name: Check for existing app compose file
       ansible.builtin.stat:
@@ -33,6 +37,7 @@
   hosts: node_db
   become: true
   vars_files:
+    - ../../../Common/release.yml
     - ../../inventory/prod/vault.yml
   roles:
     - postgres
@@ -42,6 +47,7 @@
   hosts: load_balancer
   become: true
   vars_files:
+    - ../../../Common/release.yml
     - ../../inventory/prod/vault.yml
   roles:
     - caddy
@@ -51,6 +57,7 @@
   hosts: node_db
   become: true
   vars_files:
+    - ../../../Common/release.yml
     - ../../inventory/prod/vault.yml
   tasks:
     - name: Require local migration bundle when migrations are enabled
@@ -114,6 +121,7 @@
   hosts: app_servers
   become: true
   vars_files:
+    - ../../../Common/release.yml
     - ../../inventory/prod/vault.yml
   roles:
     - app
@@ -121,5 +129,7 @@
 - name: Write LocalCluster app ownership markers
   hosts: all
   become: true
+  vars_files:
+    - ../../../Common/release.yml
   roles:
     - app_marker

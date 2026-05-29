@@ -22,6 +22,7 @@ command -v ansible-playbook >/dev/null 2>&1 || fail "ansible-playbook is missing
 command -v ssh >/dev/null 2>&1 || fail "ssh is missing."
 
 python3 "${SCRIPT_DIR}/Component/lib/validate-deploy-settings.py" >/dev/null || fail "Deployment/LocalCluster/inventory/prod/group_vars/all.yml is invalid"
+bash "$REPO_ROOT/Deployment/Common/Scripts/validate-common-release.sh" >/dev/null || fail "Deployment/Common/release.yml is invalid"
 
 APP_NAME="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" app_name)"
 SSH_KEY="$HOME/.ssh/${APP_NAME}_deploy"

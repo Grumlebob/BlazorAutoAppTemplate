@@ -123,7 +123,7 @@ Example `Deployment/Common/release.yml`:
 ```yaml
 app_image: ghcr.io/grumlebob/books
 migration_bundle_name: books-migrate
-migration_artifact_name: books-migrate-linux-x64
+migration_runtime: linux-x64
 ```
 
 Then:
@@ -131,6 +131,7 @@ Then:
 - CI reads `Deployment/Common/release.yml` for build artifact settings.
 - LocalCluster CD keeps reading LocalCluster deployment settings for LocalCluster-only values such as `app_name`, `public_hostname`, and `runner_label`.
 - LocalCluster CD reads shared artifact values from `Deployment/Common` after CI has proven the artifact names.
+- LocalCluster Ansible loads `Deployment/Common/release.yml` directly, so `app_image`, `migration_bundle_name`, and `migration_runtime` are not repeated in `all.yml`.
 - Cloud CD later reads Cloud deployment settings plus the already-proven shared artifact values from `Deployment/Common`.
 - Both deployments consume the same image and same migration bundle from the same commit.
 - Neither deployment owns the global build artifact names.
@@ -146,11 +147,12 @@ Staged LocalCluster-first refactor:
 3. Add `Deployment/Common/Scripts/read-release-setting.sh`.
 4. Add validation that proves Common values match the current LocalCluster-derived values.
 5. Run LocalCluster validation with no workflow behavior change.
-6. Update CI to read `app_image`, `migration_bundle_name`, and `migration_artifact_name` from Common.
+6. Update CI to read `app_image`, `migration_bundle_name`, and `migration_runtime` from Common; `migration_artifact_name` is derived by the Common reader.
 7. Run CI and confirm it publishes the same GHCR image tag and migration artifact name as before.
-8. Update LocalCluster CD to read `app_image`, `migration_bundle_name`, and `migration_artifact_name` from Common while leaving LocalCluster-only values in `Deployment/LocalCluster`.
-9. Run LocalCluster CD and verify the live LocalCluster deployment still works.
-10. Only then let the Cloud guide and future Cloud scripts consume those Common values.
+8. Update LocalCluster CD and Ansible to read shared release values from Common while leaving LocalCluster-only values in `Deployment/LocalCluster`.
+9. Remove release values from LocalCluster `all.yml`.
+10. Run LocalCluster CD and verify the live LocalCluster deployment still works.
+11. Only then let the Cloud guide and future Cloud scripts consume those Common values.
 
 This is slower than a direct move, but every step protects the already-working LocalCluster deployment.
 
@@ -427,6 +429,7 @@ cloud_app2_private_ip: 10.10.0.12
 cloud_db_private_ip: 10.10.0.13
 cloudflare_tunnel_name: bookscloud-prod
 migration_bundle_name: books-migrate
+migration_runtime: linux-x64
 ```
 
 Important: `app_image` should remain `ghcr.io/grumlebob/books`. The image is the app, not the deployment target. The deployment-specific identity belongs in `app_name`, `deploy_root`, environment variables, runner/environment names, and Cloudflare hostname.
@@ -876,6 +879,8 @@ Cloud acceptance should verify:
 - Add `Deployment/Common/Scripts/validate-common-release.sh`.
 - Update CI to read shared artifact values from `Deployment/Common`.
 - Update `CD - Deploy LocalCluster` to read shared artifact values from `Deployment/Common`.
+- Update LocalCluster Ansible to load `Deployment/Common/release.yml`.
+- Remove release artifact values from LocalCluster `all.yml`.
 - Keep LocalCluster-only values in `Deployment/LocalCluster`.
 - Run LocalCluster validation after each small change.
 - Dispatch LocalCluster CD from `main` and verify the live site still works before implementing Cloud scripts against Common.
@@ -884,10 +889,15 @@ Cloud acceptance should verify:
 
 Only after Phase 1 is green:
 
-- Consider moving a generic setting parser into `Deployment/Common`.
 - Consider moving generic Ansible installation helper logic into `Deployment/Common`.
 - Consider moving deploy-lock helper logic into `Deployment/Common` if it can stay target-neutral.
 - Do not move LocalCluster-specific audit, inventory, firewall, bootstrap, Caddy, or compose code yet.
+
+Already moved in the first Common pass:
+
+- shared release metadata.
+- derived migration artifact naming.
+- generic simple YAML parser for deployment settings.
 
 Each follow-up candidate gets its own small PR/commit and LocalCluster CI/CD verification.
 

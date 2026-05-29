@@ -14,14 +14,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 APP_VERSION="$1"
 shift
 
-APP_IMAGE="$(bash "$REPO_ROOT/Deployment/Common/Scripts/read-release-setting.sh" app_image)"
-MIGRATION_BUNDLE_NAME="$(bash "$REPO_ROOT/Deployment/Common/Scripts/read-release-setting.sh" migration_bundle_name)"
-
-EXTRA_ARGS=(
-  -e "app_version=$APP_VERSION"
-  -e "app_image=$APP_IMAGE"
-  -e "migration_bundle_name=$MIGRATION_BUNDLE_NAME"
-)
+EXTRA_ARGS=(-e "app_version=$APP_VERSION")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
