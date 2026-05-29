@@ -260,6 +260,22 @@ preflight ok (deploy)
 renamed app preparation complete
 ```
 
+After the renamed app has deployed successfully and `acceptance-check.sh` passes, clean up old local cluster leftovers:
+
+```bash
+# [ControlPC] Run only after the new books deployment is live and verified.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+git pull --ff-only
+
+bash ./Deployment/LocalCluster/Scripts/cleanup-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --confirm-cleanup
+```
+
+That removes old node-local runtime pieces such as `/opt/ship`, `/etc/caddy/sites/ship.caddy`, the old app marker, the old Docker firewall service, and the old `node-main-ship` runner registration/directory when GitHub CLI is authenticated. Add `--remove-old-deploy-key` only after you are certain the old deploy key is no longer needed for rollback.
+
 ### Optional: Second Fork On The Same Nodes
 
 Skip this subsection if this is the only app on the four nodes.

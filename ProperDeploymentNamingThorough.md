@@ -431,6 +431,24 @@ Expected results:
 
 Only do this after `books` passes acceptance.
 
+Preferred cleanup helper:
+
+```bash
+# [ControlPC] Run only after the new books deployment is live and verified.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+git pull --ff-only
+
+bash ./Deployment/LocalCluster/Scripts/cleanup-renamed-localcluster-app.sh \
+  --old-app-name ship \
+  --confirm-cleanup
+```
+
+Add `--remove-old-deploy-key` only after you are certain the old deploy key is no longer needed for rollback.
+
+Manual equivalent:
+
 Remove old Caddy site:
 
 ```bash
