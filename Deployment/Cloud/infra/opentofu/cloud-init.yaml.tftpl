@@ -1,0 +1,51 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - ca-certificates
+  - curl
+  - python3
+  - sudo
+  - ufw
+
+users:
+  - default
+  - name: deploy
+    gecos: Cloud deploy user
+    groups:
+      - sudo
+    shell: /bin/bash
+    sudo:
+      - ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+ssh_pwauth: false
+disable_root: true
+
+write_files:
+  - path: /etc/netplan/60-bookscloud-private-network.yaml
+    owner: root:root
+    permissions: "0644"
+    content: |
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          ens10:
+            dhcp4: true
+            optional: true
+          enp7s0:
+            dhcp4: true
+            optional: true
+  - path: /etc/sudoers.d/90-deploy-user
+    owner: root:root
+    permissions: "0440"
+    content: |
+      deploy ALL=(ALL) NOPASSWD:ALL
+
+runcmd:
+  - netplan generate
+  - netplan apply
+  - systemctl enable --now ssh

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_CHAIN="$(printf '%s' '{{ app_name }}-cloud' | sha1sum | awk '{print "BC-" toupper(substr($1, 1, 16))}')"
+
+iptables -w -N DOCKER-USER 2>/dev/null || true
+iptables -w -N "$APP_CHAIN" 2>/dev/null || true
+iptables -w -F "$APP_CHAIN"
+
+iptables -w -C DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+  || iptables -w -I DOCKER-USER 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+{% if inventory_hostname in groups["app_servers"] %}
+# App containers: cloud-main may reach the private published app port; the host
+# itself may use the localhost binding for health checks.
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} -m conntrack --ctorigdstport {{ app_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s 127.0.0.1/32 -m conntrack --ctorigdstport {{ app_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ cloud_private_ip }} -m conntrack --ctorigdstport {{ app_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ app_port }} -j DROP
+{% endif %}
+
+{% if inventory_hostname in groups["node_db"] %}
+# Data containers: app servers may reach private data ports; the host itself may
+# use localhost bindings for migrations and operational checks.
+iptables -w -A "$APP_CHAIN" -p tcp -s 127.0.0.1/32 -m conntrack --ctorigdstport {{ postgres_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s 127.0.0.1/32 -m conntrack --ctorigdstport {{ redis_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ cloud_private_ip }} -m conntrack --ctorigdstport {{ postgres_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ cloud_private_ip }} -m conntrack --ctorigdstport {{ redis_port }} -j ACCEPT
+{% for host in groups["app_servers"] %}
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdstport {{ postgres_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdstport {{ redis_port }} -j ACCEPT
+{% endfor %}
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ postgres_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdstport {{ redis_port }} -j DROP
+{% endif %}
+
+iptables -w -A "$APP_CHAIN" -j RETURN
+
+while iptables -w -C DOCKER-USER -j "$APP_CHAIN" 2>/dev/null; do
+  iptables -w -D DOCKER-USER -j "$APP_CHAIN"
+done
+
+iptables -w -I DOCKER-USER 2 -j "$APP_CHAIN"
+iptables -w -C DOCKER-USER -j RETURN 2>/dev/null || iptables -w -A DOCKER-USER -j RETURN

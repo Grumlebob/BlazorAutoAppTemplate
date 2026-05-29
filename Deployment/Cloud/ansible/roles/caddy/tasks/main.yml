@@ -1,0 +1,73 @@
+---
+- name: Install Caddy repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - curl
+      - debian-archive-keyring
+      - debian-keyring
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Add Caddy apt key
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  args:
+    executable: /bin/bash
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Add Caddy apt repository
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+    dest: /etc/apt/sources.list.d/caddy-stable.list
+    mode: "0644"
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    state: present
+    update_cache: true
+
+- name: Ensure Caddy sites directory exists
+  ansible.builtin.file:
+    path: /etc/caddy/sites
+    state: directory
+    owner: root
+    group: caddy
+    mode: "0755"
+
+- name: Install root Caddyfile
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../caddy/Caddyfile"
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: caddy
+    mode: "0644"
+  notify: Reload caddy
+
+- name: Render app Caddy site
+  ansible.builtin.template:
+    src: app.caddy.j2
+    dest: "/etc/caddy/sites/{{ app_name }}.caddy"
+    owner: root
+    group: caddy
+    mode: "0644"
+  notify: Reload caddy
+
+- name: Validate Caddy configuration
+  ansible.builtin.command: caddy validate --config /etc/caddy/Caddyfile
+  changed_when: false
+
+- name: Enable Caddy
+  ansible.builtin.systemd:
+    name: caddy
+    enabled: true
+    state: started
+
+- name: Reload Caddy with validated configuration
+  ansible.builtin.systemd:
+    name: caddy
+    state: reloaded
+  changed_when: false

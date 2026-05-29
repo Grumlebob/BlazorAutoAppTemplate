@@ -12,33 +12,11 @@ https://bookscloud.jacobgrum.com
 
 The Cloud deployment is not live yet.
 
-Current runnable range:
+The repo-side deployment implementation is present. Follow this guide from top to bottom; stop only when a command fails or when a labeled external dashboard step requires your action.
 
-- Steps 0, 1, 1.1, 2, 4, and 5 can be followed now.
-- Step 3 is an implementation checklist for Codex.
-- Stop before Step 6 until the OpenTofu module has been implemented.
-- Do not create Hetzner servers manually.
-- No cloud server commands are needed yet because the cloud servers do not exist yet.
+Do not create Hetzner servers manually. OpenTofu owns them.
 
-Implemented:
-
-- Cloud runbook exists.
-- Cloud folder skeleton exists.
-- Cloud committed settings and examples exist.
-- Cloud settings validation, setting reader, summary, and CurrentPC tool setup/checks exist.
-
-Pending implementation:
-
-- OpenTofu module.
-- OpenTofu inventory outputs.
-- inventory renderer.
-- Cloud Compose files.
-- Caddy config.
-- Cloud Ansible playbooks and roles.
-- Cloud CD workflow.
-- acceptance, backup, and restore scripts.
-
-Do not run commands for missing scripts or workflows. When this guide reaches a missing implementation item, Codex should implement it, we validate it, and then you continue from the next runbook step.
+No `[ControlPC]` action is needed for Cloud deployment.
 
 ## Fixed Decisions
 
@@ -166,6 +144,12 @@ test -f Deployment/Common/release.yml
 bash ./Deployment/Common/Scripts/validate-common-release.sh
 ```
 
+Show the current guide readiness:
+
+```bash
+bash ./Deployment/Cloud/Scripts/status-guide.sh
+```
+
 Review:
 
 ```text
@@ -229,7 +213,7 @@ bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh
 
 Do not rely on tools installed only in Windows PowerShell when following bash command blocks. They must be available in the Linux shell where this guide runs.
 
-## 1.1. Confirm Cost Target
+## Cost Note
 
 The v1 Cloud deployment deliberately uses four small servers because the goal is to demonstrate a multi-node cloud architecture:
 
@@ -248,14 +232,6 @@ For Hetzner Germany/Finland, `cx23` is the current cheapest x86_64 shared-resour
 
 Do not switch to ARM/CAX only to chase a lower sticker price. That would require deliberate multi-arch Docker images, `linux-arm64` migration bundles, and separate validation. It also is not currently cheaper than `cx23` in the referenced Germany/Finland price table.
 
-Cost note:
-
-- Four `cx23` servers are the cheapest v1 shape for this multi-VPS x86_64 design.
-- A one-server deployment would be cheaper, but it would not demonstrate the chosen multi-node architecture.
-- v1 deliberately gives all four nodes public IPv4 for reliable outbound internet, so budget for four IPv4 addresses.
-- Backups, snapshots, volumes, object storage, and traffic over included limits can add cost.
-- Check Hetzner's current pricing before applying if exact monthly cost matters.
-
 ## 2. Confirm Cloud Settings Examples
 
 [CurrentPC]
@@ -269,6 +245,15 @@ Deployment/Cloud/inventory/prod/hosts.example.yml
 Deployment/Cloud/infra/opentofu/terraform.tfvars.example
 ```
 
+Verify those files exist:
+
+```bash
+test -f Deployment/Cloud/inventory/prod/group_vars/all.yml
+test -f Deployment/Cloud/inventory/prod/group_vars/all.example.yml
+test -f Deployment/Cloud/inventory/prod/hosts.example.yml
+test -f Deployment/Cloud/infra/opentofu/terraform.tfvars.example
+```
+
 Expected Cloud deployment identity:
 
 ```yaml
@@ -278,15 +263,7 @@ deploy_root: /opt/bookscloud
 cloudflare_tunnel_name: bookscloud-prod
 ```
 
-Generated/private files:
-
-```text
-Deployment/Cloud/inventory/prod/hosts.yml
-Deployment/Cloud/infra/opentofu/terraform.tfvars
-Deployment/Cloud/infra/opentofu/terraform.tfstate
-```
-
-`Deployment/Cloud/inventory/prod/group_vars/all.yml` is committed because it contains non-secret Cloud settings. The generated/private files above must not be committed.
+`Deployment/Cloud/inventory/prod/group_vars/all.yml` is committed because it contains non-secret Cloud settings.
 
 Validate Cloud settings:
 
@@ -295,64 +272,31 @@ bash ./Deployment/Cloud/Scripts/validate-cloud-settings.sh
 bash ./Deployment/Cloud/Scripts/summary.sh
 ```
 
-## 3. Implementation Queue
+At this point the Cloud inventory has not been rendered yet. The summary should show `inventory not rendered yet [WAIT for Step 8]`; that is expected before OpenTofu creates the servers.
+
+## 3. Confirm Cloud Settings Are Not Secret
 
 [CurrentPC]
 
-Before the first real Cloud deployment, these files must be implemented:
-
-```text
-Deployment/Cloud/infra/opentofu/*.tf
-Deployment/Cloud/infra/opentofu/cloud-init.yaml.tftpl
-Deployment/Cloud/Scripts/render-inventory-from-tofu.sh
-Deployment/Cloud/Scripts/preflight.sh
-Deployment/Cloud/Scripts/provision.sh
-Deployment/Cloud/Scripts/deploy.sh
-Deployment/Cloud/Scripts/acceptance-check.sh
-Deployment/Cloud/Scripts/backup-db.sh
-Deployment/Cloud/Scripts/restore-db.sh
-Deployment/Cloud/ansible/ansible.cfg
-Deployment/Cloud/ansible/playbooks/provision.yml
-Deployment/Cloud/ansible/playbooks/deploy.yml
-Deployment/Cloud/ansible/roles/*
-Deployment/Cloud/compose/app-server/docker-compose.yml
-Deployment/Cloud/compose/data/docker-compose.yml
-Deployment/Cloud/caddy/Caddyfile
-.github/workflows/cd-cloud.yml
-```
-
-Implementation order:
-
-1. OpenTofu module and inventory outputs.
-2. Inventory renderer.
-3. Compose files and Caddy template.
-4. Ansible provision/deploy playbooks.
-5. Cloud CD workflow.
-6. Acceptance, backup, and restore scripts.
-
-The OpenTofu module must expose at least these outputs because later guide steps and GitHub secrets depend on their exact names:
-
-```text
-cloud_main_public_ipv4
-cloud_main_private_ip
-cloud_app1_private_ip
-cloud_app2_private_ip
-cloud_db_private_ip
-cloud_temp_ssh_firewall_id
-```
-
-Each implementation pass must end with:
+Print the committed Cloud settings:
 
 ```bash
-git diff --check
-bash ./Deployment/Common/Scripts/validate-common-release.sh
-bash ./Deployment/Cloud/Scripts/validate-cloud-settings.sh
-bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh
-shellcheck Deployment/Cloud/Scripts/*.sh Deployment/Common/Scripts/*.sh
-yamllint Deployment/Cloud Deployment/Common
+bash ./Deployment/Cloud/Scripts/read-cloud-setting.sh app_name
+bash ./Deployment/Cloud/Scripts/read-cloud-setting.sh public_hostname
+bash ./Deployment/Cloud/Scripts/read-cloud-setting.sh deploy_root
+bash ./Deployment/Cloud/Scripts/read-cloud-setting.sh cloudflare_tunnel_name
 ```
 
-If `Deployment/Common` or `Deployment/LocalCluster` changed in that pass, also run the LocalCluster validation gate.
+Expected output values:
+
+```text
+bookscloud
+bookscloud.jacobgrum.com
+/opt/bookscloud
+bookscloud-prod
+```
+
+These are not secrets and can stay committed.
 
 ## 4. Create The Cloud Deploy SSH Key
 
@@ -376,7 +320,7 @@ Print the public key:
 cat ~/.ssh/bookscloud_deploy.pub
 ```
 
-OpenTofu will install this public key on the cloud servers. GitHub CD will later need the private key as `CLOUD_SSH_PRIVATE_KEY`.
+Keep this key pair on `[CurrentPC]`. Do not paste it into GitHub yet.
 
 Do not commit either key.
 
@@ -384,16 +328,54 @@ Do not commit either key.
 
 [Hetzner]
 
-Create a Hetzner Cloud project for the Cloud deployment, or use an existing project dedicated to this app.
+Open the Hetzner Console:
 
-Create an API token for OpenTofu and temporary SSH firewall updates.
+```text
+https://console.hetzner.cloud/projects
+```
+
+Create a dedicated project for this deployment, or open the project you want to use for `bookscloud`.
+
+Suggested project name:
+
+```text
+bookscloud
+```
+
+Inside that project:
+
+1. Select `Security` in the left menu.
+2. Select `API tokens` in the top menu.
+3. Select `Generate API token`.
+4. Description:
+
+```text
+bookscloud-opentofu-cd
+```
+
+5. Permission:
+
+```text
+Read & Write
+```
+
+Use `Read & Write`, not `Read`. OpenTofu needs to create and update servers, networks, SSH keys, and firewalls. `CD - Cloud` also needs to update the temporary SSH firewall rule.
+
+6. Create the token.
+7. Copy the token immediately.
+
+Hetzner shows the token only once. Store it in your password manager before closing the dialog. Do not commit it.
 
 Token use:
 
 - `[CurrentPC]` OpenTofu creates infrastructure.
 - `[GitHub]` `CD - Cloud` temporarily updates the dedicated temporary SSH firewall for `cloud-main`.
 
-Store the token in your password manager. Do not commit it.
+If the console gives you a direct project URL later, it will look similar to:
+
+```text
+https://console.hetzner.cloud/projects/<project-id>/security/tokens
+```
 
 [CurrentPC]
 
@@ -406,37 +388,30 @@ export HCLOUD_TOKEN="REPLACE_WITH_HETZNER_TOKEN"
 Check that it is present without printing it:
 
 ```bash
-test -n "${HCLOUD_TOKEN:?HCLOUD_TOKEN is required}"
+bash ./Deployment/Cloud/Scripts/check-hcloud-token.sh
+```
+
+Expected success output:
+
+```text
+Hetzner API token check ok
+  HCLOUD_TOKEN is set in this shell
+  Hetzner API is reachable
+  location fsn1 is available
 ```
 
 ## 6. Prepare OpenTofu Variables
 
 [CurrentPC]
 
-After the OpenTofu module exists, create local tfvars:
+Create local tfvars:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-cp -n Deployment/Cloud/infra/opentofu/terraform.tfvars.example Deployment/Cloud/infra/opentofu/terraform.tfvars
+bash ./Deployment/Cloud/Scripts/prepare-opentofu-tfvars.sh
 ```
 
-Set your current public IPv4 CIDR for initial `[CurrentPC]` SSH access:
-
-```bash
-CURRENT_PUBLIC_IPV4="$(curl -fsS4 https://checkip.amazonaws.com | tr -d '[:space:]')"
-python3 - "$CURRENT_PUBLIC_IPV4" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path("Deployment/Cloud/infra/opentofu/terraform.tfvars")
-current_ip = sys.argv[1]
-content = path.read_text(encoding="utf-8")
-content = content.replace('admin_ssh_cidrs = ["REPLACE_WITH_YOUR_CURRENT_PUBLIC_IPV4/32"]', f'admin_ssh_cidrs = ["{current_ip}/32"]')
-path.write_text(content, encoding="utf-8")
-PY
-```
-
-If you change network, VPN, or public IP before provisioning, rerun this replacement or edit `admin_ssh_cidrs` before the next `tofu plan`.
+This creates `terraform.tfvars` if needed and updates `admin_ssh_cidrs` to your current public IPv4 `/32`. If you change network, VPN, or public IP before provisioning, rerun the same script before the next `tofu plan`.
 
 Review:
 
@@ -471,13 +446,17 @@ cloud_db_private_ip = "10.10.0.13"
 
 Do not manually create the four servers in Hetzner. OpenTofu owns them.
 
-After the OpenTofu module exists:
+Only continue after Step 6 has created:
+
+```text
+Deployment/Cloud/infra/opentofu/terraform.tfvars
+```
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/Deployment/Cloud/infra/opentofu"
-test -n "${HCLOUD_TOKEN:?HCLOUD_TOKEN is required}"
+bash ../../Scripts/check-hcloud-token.sh
 tofu init
-tofu fmt -check
+tofu fmt -check versions.tf variables.tf locals.tf main.tf firewalls.tf outputs.tf
 tofu validate
 tofu plan -out cloud.tfplan
 ```
@@ -489,7 +468,8 @@ Review the plan. It should create:
 - `cloud-app2`
 - `cloud-db`
 - one private network
-- private network attachments
+- private network attachments at server creation time
+- cloud-init netplan DHCP configuration for the first Hetzner private-network interface
 - public IPv4 and IPv6 enabled for all four servers
 - baseline public firewalls
 - dedicated temporary SSH firewall for `CD - Cloud`
@@ -497,11 +477,37 @@ Review the plan. It should create:
 
 The plan should not create a public load balancer, public HTTP/HTTPS listener, public database port, or public Redis port.
 
+If you previously created servers with an older copy of this guide and Step 11 failed with private hosts unreachable at `10.10.0.x`, rerun this plan/apply now. The updated OpenTofu module attaches the private network during server creation and writes the private-network netplan DHCP config during cloud-init. Because the current Cloud database is disposable, server replacement is acceptable.
+
+For that exact recovery path, create a replacement plan instead of the normal plan:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash ./Deployment/Cloud/Scripts/plan-replace-cloud-servers.sh
+```
+
+Review the replacement plan. It should replace the four cloud servers and keep the network, firewalls, and SSH key managed by OpenTofu.
+
 Apply only after the plan matches:
 
 ```bash
+cd "$(git rev-parse --show-toplevel)/Deployment/Cloud/infra/opentofu"
 tofu apply cloud.tfplan
 tofu output
+```
+
+Confirm these outputs exist:
+
+```bash
+tofu output -raw cloud_main_public_ipv4
+tofu output -raw cloud_app1_public_ipv4
+tofu output -raw cloud_app2_public_ipv4
+tofu output -raw cloud_db_public_ipv4
+tofu output -raw cloud_main_private_ip
+tofu output -raw cloud_app1_private_ip
+tofu output -raw cloud_app2_private_ip
+tofu output -raw cloud_db_private_ip
+tofu output -raw cloud_temp_ssh_firewall_id
 ```
 
 Back up the local state after apply:
@@ -512,114 +518,221 @@ cp terraform.tfstate ~/.local/state/bookscloud/terraform.tfstate.$(date -u +%Y%m
 chmod 600 ~/.local/state/bookscloud/terraform.tfstate.*
 ```
 
-Do not commit state or plan files.
+State, plan, local tfvars, provider cache, and generated inventory files are ignored by `.gitignore`. The provider lock file is intentionally committed:
+
+```text
+Deployment/Cloud/infra/opentofu/.terraform.lock.hcl
+```
+
+Before committing, this command should report ignore rules for generated/private files:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git check-ignore -v \
+  Deployment/Cloud/infra/opentofu/terraform.tfvars \
+  Deployment/Cloud/infra/opentofu/terraform.tfstate \
+  Deployment/Cloud/infra/opentofu/cloud.tfplan \
+  Deployment/Cloud/infra/opentofu/.terraform/providers/example \
+  Deployment/Cloud/inventory/prod/hosts.yml
+```
+
+Then review `git status --short`. It should not show `terraform.tfvars`, `.terraform/`, `terraform.tfstate`, `cloud.tfplan`, or `Deployment/Cloud/inventory/prod/hosts.yml`.
 
 ## 8. Render Cloud Inventory
 
 [CurrentPC]
 
-After the inventory renderer exists:
+Only continue after Step 7 has applied OpenTofu successfully.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/Cloud/Scripts/render-inventory-from-tofu.sh
 ```
 
-Expected generated file:
+This creates:
 
 ```text
 Deployment/Cloud/inventory/prod/hosts.yml
 ```
 
-Verify host aliases:
+Validate host IPs, groups, and SSH routing:
 
 ```bash
-grep -E "cloud-main|cloud-app1|cloud-app2|cloud-db" Deployment/Cloud/inventory/prod/hosts.yml
+bash ./Deployment/Cloud/Scripts/validate-rendered-inventory.sh
 ```
 
-`cloud-main` should have the public IP as `ansible_host`. The other nodes should use private IPs and `ProxyJump` through `cloud-main`.
+The generated inventory must route private nodes through `cloud-main` with an explicit `ProxyCommand` that passes the deploy key to the bastion leg. Do not hand-edit it back to `ProxyJump`; the preflight rejects stale `ProxyJump` inventory because the jump host may not receive the same identity options as the final SSH target.
+
+If Step 7 replaced existing Cloud servers, remove stale SSH host keys for the old server identities before provisioning:
+
+```bash
+bash ./Deployment/Cloud/Scripts/reset-cloud-known-hosts.sh
+```
+
+Expected shape:
+
+```text
+Cloud inventory validation ok
+
+host         ansible_host    private_ip      public_ipv4     route
+cloud-main   <public-ip>     10.10.0.10      <public-ip>     direct public SSH
+cloud-app1   10.10.0.11      10.10.0.11      <public-ip>     via cloud-main (<cloud-main-public-ip>)
+cloud-app2   10.10.0.12      10.10.0.12      <public-ip>     via cloud-main (<cloud-main-public-ip>)
+cloud-db     10.10.0.13      10.10.0.13      <public-ip>     via cloud-main (<cloud-main-public-ip>)
+```
 
 ## 9. Create Cloudflare Tunnel
 
 [Cloudflare]
 
+Open the Cloudflare dashboard:
+
+```text
+https://dash.cloudflare.com/
+```
+
+Go to:
+
+```text
+Zero Trust -> Networks -> Connectors -> Cloudflare Tunnels
+```
+
+If Cloudflare sends you to the Zero Trust dashboard directly, the URL will look similar to:
+
+```text
+https://one.dash.cloudflare.com/
+```
+
 Create a tunnel:
 
-```text
-Tunnel name: bookscloud-prod
-```
-
-Add public hostname:
+1. Select `Create a tunnel`.
+2. Choose `Cloudflared`.
+3. Tunnel name:
 
 ```text
-Hostname: bookscloud.jacobgrum.com
-Service: http://127.0.0.1:80
+bookscloud-prod
 ```
 
-Copy the generated tunnel token. It will become the GitHub environment secret `CLOUD_CLOUDFLARE_TUNNEL_TOKEN`.
+4. Save the tunnel.
+5. In the connector/install step, choose a Linux/Docker option only so Cloudflare shows the connector command.
+6. Copy only the long token value from the command. It will become the GitHub environment secret `CLOUD_CLOUDFLARE_TUNNEL_TOKEN`.
 
-Do not install the connector manually on the server. Ansible will install cloudflared on `cloud-main`.
+The command shown by Cloudflare usually looks like this:
+
+```text
+cloudflared service install <long-token-value>
+```
+
+Do not run that command on any cloud server. Ansible will install cloudflared on `cloud-main`.
+
+Add the public hostname:
+
+1. Open the tunnel `bookscloud-prod`.
+2. Go to `Public Hostnames`.
+3. Select `Add a public hostname`.
+4. Enter:
+
+```text
+Subdomain: bookscloud
+Domain: jacobgrum.com
+Path: leave empty
+Type: HTTP
+URL: 127.0.0.1:80
+```
+
+The resulting public hostname should be:
+
+```text
+bookscloud.jacobgrum.com
+```
+
+Save the public hostname.
 
 ## 10. Configure GitHub Environment
 
-[GitHub]
-
-Create environment:
-
-```text
-cloud-hetzner
-```
-
-Use environment protection if you want a manual approval gate before deployment.
-
 [CurrentPC]
 
-After OpenTofu has created infrastructure, set environment variables for values that can be derived from outputs:
+Only continue after Step 7 has applied OpenTofu and Step 9 has produced the Cloudflare tunnel token.
 
-```bash
-cd "$(git rev-parse --show-toplevel)/Deployment/Cloud/infra/opentofu"
-export CLOUD_BASTION_HOST="$(tofu output -raw cloud_main_public_ipv4)"
-export CLOUD_TEMP_SSH_FIREWALL_ID="$(tofu output -raw cloud_temp_ssh_firewall_id)"
+Prepare the values the script may prompt for:
+
+```text
+CLOUD_GHCR_USERNAME
 ```
 
-Generate database and Redis secrets:
+Use the GitHub username for the account that owns the package-read token. For this repo, that is usually:
 
-```bash
-export CLOUD_POSTGRES_USER="bookscloud_app"
-export CLOUD_POSTGRES_DB="bookscloud"
-export CLOUD_POSTGRES_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
-export CLOUD_REDIS_PASSWORD="$(openssl rand -base64 36 | tr -d '\n')"
+```text
+Grumlebob
 ```
 
-Set GitHub environment secrets:
+```text
+CLOUD_GHCR_TOKEN
+```
+
+Use a GitHub personal access token for pulling the app image from GitHub Container Registry. This is not the Hetzner token, not the Cloudflare tunnel token, and not your GitHub password.
+
+Create it in GitHub:
+
+1. Open:
+
+```text
+https://github.com/settings/tokens
+```
+
+2. Select `Generate new token`.
+3. Select `Generate new token (classic)`.
+4. Note:
+
+```text
+bookscloud-ghcr-read
+```
+
+5. Expiration: choose a sensible rotation window.
+6. Scopes: select only:
+
+```text
+read:packages
+```
+
+7. Generate the token.
+8. Copy it immediately. It will usually start with `ghp_`.
+
+If GitHub shows an organization SSO authorization button for the token, authorize it for the organization that owns `ghcr.io/grumlebob/books`.
+
+```text
+CLOUD_CLOUDFLARE_TUNNEL_TOKEN
+```
+
+Use the long token value copied from the Cloudflare `cloudflared service install <long-token-value>` command in Step 9.
+
+Configure the GitHub environment and secrets:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-gh secret set CLOUD_SSH_PRIVATE_KEY --env cloud-hetzner < ~/.ssh/bookscloud_deploy
-gh secret set CLOUD_BASTION_HOST --env cloud-hetzner --body "$CLOUD_BASTION_HOST"
-gh secret set CLOUD_SSH_USER --env cloud-hetzner --body "deploy"
-gh secret set CLOUD_HETZNER_API_TOKEN --env cloud-hetzner --body "$HCLOUD_TOKEN"
-gh secret set CLOUD_TEMP_SSH_FIREWALL_ID --env cloud-hetzner --body "$CLOUD_TEMP_SSH_FIREWALL_ID"
-gh secret set CLOUD_POSTGRES_USER --env cloud-hetzner --body "$CLOUD_POSTGRES_USER"
-gh secret set CLOUD_POSTGRES_PASSWORD --env cloud-hetzner --body "$CLOUD_POSTGRES_PASSWORD"
-gh secret set CLOUD_POSTGRES_DB --env cloud-hetzner --body "$CLOUD_POSTGRES_DB"
-gh secret set CLOUD_REDIS_PASSWORD --env cloud-hetzner --body "$CLOUD_REDIS_PASSWORD"
+bash ./Deployment/Cloud/Scripts/configure-github-environment.sh
 ```
 
-Set these secrets interactively so they are not printed in shell history:
+The script creates the `cloud-hetzner` environment, reads OpenTofu outputs, sets infrastructure secrets, creates missing PostgreSQL/Redis secrets, and prompts for any missing GHCR or Cloudflare secrets. `CLOUD_GHCR_USERNAME` and `CLOUD_GHCR_TOKEN` must be able to pull `ghcr.io/grumlebob/books`.
+
+Existing PostgreSQL and Redis secrets are kept by default. To intentionally rotate disposable Cloud data secrets, run:
 
 ```bash
-gh secret set CLOUD_GHCR_USERNAME --env cloud-hetzner
-gh secret set CLOUD_GHCR_TOKEN --env cloud-hetzner
-gh secret set CLOUD_CLOUDFLARE_TUNNEL_TOKEN --env cloud-hetzner
+ROTATE_CLOUD_DATA_SECRETS=1 bash ./Deployment/Cloud/Scripts/configure-github-environment.sh
 ```
+
+[GitHub]
+
+Use environment protection if you want a manual approval gate before deployment.
 
 Required secret list:
 
 ```text
 CLOUD_SSH_PRIVATE_KEY
 CLOUD_BASTION_HOST
-CLOUD_SSH_USER
+CLOUD_APP1_PUBLIC_IPV4
+CLOUD_APP2_PUBLIC_IPV4
+CLOUD_DB_PUBLIC_IPV4
 CLOUD_HETZNER_API_TOKEN
 CLOUD_TEMP_SSH_FIREWALL_ID
 CLOUD_GHCR_USERNAME
@@ -631,33 +744,58 @@ CLOUD_REDIS_PASSWORD
 CLOUD_CLOUDFLARE_TUNNEL_TOKEN
 ```
 
+[CurrentPC]
+
+Verify the environment contains every required secret name:
+
+```bash
+bash ./Deployment/Cloud/Scripts/check-github-environment.sh
+```
+
 ## 11. Provision Cloud Nodes
 
-[CurrentPC] or [GitHub]
+[CurrentPC]
 
 Provisioning installs and configures:
 
 - Docker on app and data nodes.
-- Caddy and cloudflared on `cloud-main`.
+- Caddy on `cloud-main`.
 - SSH hardening.
 - Host firewall rules that enforce private-network access.
 - Deployment directories.
 
-After Ansible playbooks and scripts exist, run:
-
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-bash ./Deployment/Cloud/Scripts/preflight.sh
 bash ./Deployment/Cloud/Scripts/provision.sh
 ```
 
-Expected result:
+`provision.sh` runs preflight before Ansible changes the nodes. The preflight includes an SSH reachability check for all four Cloud nodes. It should print:
+
+```text
+Cloud SSH reachability check ok
+```
+
+If preflight repeatedly reports private nodes unreachable at `10.10.0.x` with `Connection closed by UNKNOWN port 65535`, stop the retry loop and check the bastion-to-private network path:
+
+```bash
+bash ./Deployment/Cloud/Scripts/diagnose-cloud-private-network.sh
+```
+
+The diagnosis connects only to `cloud-main`, then prints its private addresses, routes, and TCP/22 checks to `cloud-app1`, `cloud-app2`, and `cloud-db`.
+
+- If those TCP/22 checks are `OK`, rerender and validate inventory, then rerun preflight. The likely issue is stale SSH proxy inventory.
+- If those TCP/22 checks are `FAIL`, the Hetzner private interface or route is not up inside the guest. Stop and fix that layer before running provisioning again.
+
+This should result in:
 
 - Ansible reaches all four nodes.
 - Private-node SSH goes through `cloud-main`.
 - Docker is available where needed.
-- Caddy and cloudflared prerequisites are ready on `cloud-main`.
+- Caddy is ready on `cloud-main`.
 - Host firewalls block app, PostgreSQL, and Redis traffic from unauthorized sources.
+- Firewall rules are applied on private service nodes first, then on `cloud-main`, so the bastion is not changed while it is carrying private-node provisioning traffic.
+
+The `CD - Cloud` workflow also runs provisioning idempotently before deployment.
 
 ## 12. Deploy The App
 
@@ -679,7 +817,7 @@ Before dispatch:
 
 - commit and push the Cloud deployment code to `main`.
 - confirm `CI` passed for the same commit.
-- confirm all `cloud-hetzner` secrets exist.
+- confirm `bash ./Deployment/Cloud/Scripts/check-github-environment.sh` passes.
 
 First deployment:
 
@@ -687,13 +825,15 @@ First deployment:
 Actions -> CD - Cloud -> Run workflow -> run_migrations=true
 ```
 
-The workflow must:
+The workflow does:
 
 - require `main`.
 - require successful CI for the same commit.
 - verify the GHCR image exists.
 - download the migration bundle when migrations are enabled.
 - temporarily allow SSH from the GitHub runner IP to `cloud-main`.
+- render Cloud inventory from GitHub environment secrets.
+- provision Cloud nodes idempotently.
 - deploy PostgreSQL and Redis on `cloud-db`.
 - create a pre-migration PostgreSQL backup.
 - run the migration bundle once on `cloud-db`.
@@ -705,8 +845,6 @@ The workflow must:
 ## 13. Acceptance Checks
 
 [GitHub] or [CurrentPC]
-
-After the acceptance script exists:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -722,8 +860,8 @@ Acceptance must verify:
 - Redis container is healthy on `cloud-db`.
 - app `/health/ready` works on both app nodes over the private network.
 - Caddy can route locally on `cloud-main`.
-- Caddy load-balances to both app nodes.
-- cloudflared is connected on `cloud-main`.
+- both app nodes pass direct private-network readiness checks, and Caddy routes through the app pool.
+- cloudflared service is active on `cloud-main`.
 - public `https://bookscloud.jacobgrum.com/health/ready` works.
 - app home page returns success.
 - public PostgreSQL and Redis are not reachable.
@@ -733,11 +871,11 @@ Acceptance must verify:
 
 ## 14. Backup And Restore
 
-[GitHub] or [cloud-db]
+[CurrentPC]
 
-Minimum backup posture after first deployment:
+Minimum backup posture before treating Cloud data as valuable:
 
-- Hetzner server backups enabled at least for `cloud-db`.
+- Hetzner server backups or scheduled snapshots enabled at least for `cloud-db`.
 - PostgreSQL `pg_dump` before every migration.
 - scheduled PostgreSQL dumps.
 - off-server copy of PostgreSQL dumps.
@@ -745,8 +883,6 @@ Minimum backup posture after first deployment:
 - restore drill to a disposable database.
 
 Do not treat Hetzner snapshots as the only database backup.
-
-After backup scripts exist:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -773,14 +909,20 @@ Do not manually patch cloud servers outside the guide unless the guide is update
 - Hetzner Cloud price adjustment table: `https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/`
 - Hetzner Cloud network options and public IP note: `https://docs.hetzner.com/cloud/servers/overview/`
 - Hetzner Cloud Firewall docs: `https://docs.hetzner.com/cloud/firewalls/getting-started/creating-a-firewall/`
+- Hetzner Cloud Firewall overview: `https://docs.hetzner.com/cloud/firewalls/overview`
 - Hetzner Cloud Firewall FAQ: `https://docs.hetzner.com/cloud/firewalls/faq/`
+- Hetzner Cloud API reference: `https://docs.hetzner.cloud/reference/cloud`
+- Hetzner Cloud API token guide: `https://docs.hetzner.com/cloud/api/getting-started/generating-api-token`
 - Cloudflare Tunnel firewall requirements: `https://developers.cloudflare.com/tunnel/configuration/`
 - Hetzner Cloud Server FAQ: `https://docs.hetzner.com/cloud/servers/faq`
 - Hetzner Object Storage overview: `https://docs.hetzner.com/storage/object-storage/overview/`
 - Cloudflare Tunnel docs: `https://developers.cloudflare.com/tunnel/`
 - Cloudflare Tunnel configuration docs: `https://developers.cloudflare.com/tunnel/configuration/`
+- Cloudflare dashboard tunnel creation guide: `https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/`
 - OpenTofu Debian/Ubuntu install docs: `https://opentofu.org/docs/intro/install/deb/`
 - GitHub CLI install docs: `https://github.com/cli/cli/blob/trunk/docs/install_linux.md`
+- GitHub Container Registry authentication docs: `https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry`
+- GitHub personal access token docs: `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens`
 - OpenTofu S3 backend docs: `https://opentofu.org/docs/language/settings/backends/s3/`
 - OpenTofu sensitive state docs: `https://opentofu.org/docs/language/state/sensitive-data/`
 - OpenTofu provider requirements and lock-file guidance: `https://opentofu.org/docs/language/providers/requirements/`

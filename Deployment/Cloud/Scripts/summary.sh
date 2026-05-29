@@ -69,7 +69,8 @@ for key in [
 print()
 print("Target nodes")
 if not inventory_path.exists():
-    print("  inventory missing: Deployment/Cloud/inventory/prod/hosts.yml")
+    print("  inventory not rendered yet [WAIT for Step 8]")
+    print("  Step 8 creates Deployment/Cloud/inventory/prod/hosts.yml after OpenTofu apply.")
 else:
     current_host: str | None = None
     hosts: list[tuple[str, str]] = []

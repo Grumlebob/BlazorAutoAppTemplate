@@ -1,0 +1,92 @@
+---
+- name: Require data deployment secrets
+  ansible.builtin.assert:
+    that:
+      - cloud_postgres_user is defined
+      - cloud_postgres_user | length > 0
+      - cloud_postgres_password is defined
+      - cloud_postgres_password | length > 0
+      - cloud_postgres_db is defined
+      - cloud_postgres_db | length > 0
+      - cloud_redis_password is defined
+      - cloud_redis_password | length > 0
+    fail_msg: "Cloud data deploy requires PostgreSQL and Redis secrets."
+  no_log: true
+
+- name: Ensure deployment root exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+
+- name: Copy PostgreSQL and Redis compose file
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../compose/data/docker-compose.yml"
+    dest: "{{ deploy_root }}/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render DB/Redis environment file
+  ansible.builtin.template:
+    src: data.env.j2
+    dest: "{{ deploy_root }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+  no_log: true
+
+- name: Copy database maintenance scripts
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../Scripts/Component/cloud-db/{{ item }}"
+    dest: "{{ deploy_root }}/{{ item }}"
+    owner: deploy
+    group: deploy
+    mode: "0750"
+  loop:
+    - backup-db.sh
+    - restore-db.sh
+
+- name: Start PostgreSQL and Redis
+  ansible.builtin.command: docker compose up -d --pull always
+  args:
+    chdir: "{{ deploy_root }}"
+  become: true
+  become_user: deploy
+  register: cloud_data_compose_up
+  retries: 5
+  delay: 15
+  until: cloud_data_compose_up.rc == 0
+  changed_when: >-
+    (cloud_data_compose_up.stdout ~ cloud_data_compose_up.stderr)
+    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+
+- name: Wait for PostgreSQL to become ready
+  ansible.builtin.command: docker compose exec -T postgres pg_isready -U {{ cloud_postgres_user }} -d {{ cloud_postgres_db }}
+  args:
+    chdir: "{{ deploy_root }}"
+  become: true
+  become_user: deploy
+  register: cloud_postgres_ready
+  retries: 20
+  delay: 3
+  until: cloud_postgres_ready.rc == 0
+  changed_when: false
+  no_log: true
+
+- name: Wait for Redis to become ready
+  ansible.builtin.command: docker compose exec -T -e REDISCLI_AUTH redis redis-cli ping
+  args:
+    chdir: "{{ deploy_root }}"
+  become: true
+  become_user: deploy
+  environment:
+    REDISCLI_AUTH: "{{ cloud_redis_password }}"
+  register: cloud_redis_ready
+  retries: 20
+  delay: 3
+  until: cloud_redis_ready.rc == 0
+  changed_when: false
+  no_log: true

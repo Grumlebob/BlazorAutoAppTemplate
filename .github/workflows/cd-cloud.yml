@@ -1,0 +1,174 @@
+name: CD - Cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: Run the EF migration bundle before starting app servers
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: cd-cloud
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: cloud-hetzner
+    env:
+      CLOUD_SSH_PRIVATE_KEY_PATH: /tmp/bookscloud_deploy
+      CLOUD_BASTION_HOST: ${{ secrets.CLOUD_BASTION_HOST }}
+      CLOUD_APP1_PUBLIC_IPV4: ${{ secrets.CLOUD_APP1_PUBLIC_IPV4 }}
+      CLOUD_APP2_PUBLIC_IPV4: ${{ secrets.CLOUD_APP2_PUBLIC_IPV4 }}
+      CLOUD_DB_PUBLIC_IPV4: ${{ secrets.CLOUD_DB_PUBLIC_IPV4 }}
+      CLOUD_TEMP_SSH_FIREWALL_ID: ${{ secrets.CLOUD_TEMP_SSH_FIREWALL_ID }}
+      CLOUD_HETZNER_API_TOKEN: ${{ secrets.CLOUD_HETZNER_API_TOKEN }}
+      CLOUD_GHCR_USERNAME: ${{ secrets.CLOUD_GHCR_USERNAME }}
+      CLOUD_GHCR_TOKEN: ${{ secrets.CLOUD_GHCR_TOKEN }}
+      CLOUD_POSTGRES_USER: ${{ secrets.CLOUD_POSTGRES_USER }}
+      CLOUD_POSTGRES_PASSWORD: ${{ secrets.CLOUD_POSTGRES_PASSWORD }}
+      CLOUD_POSTGRES_DB: ${{ secrets.CLOUD_POSTGRES_DB }}
+      CLOUD_REDIS_PASSWORD: ${{ secrets.CLOUD_REDIS_PASSWORD }}
+      CLOUD_CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUD_CLOUDFLARE_TUNNEL_TOKEN }}
+
+    steps:
+      - name: Require main branch
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "CD - Cloud must be dispatched from main, got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate deployment settings
+        run: |
+          bash Deployment/Common/Scripts/validate-common-release.sh
+          bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
+
+      - name: Load deployment settings
+        run: |
+          APP_NAME="$(bash Deployment/Cloud/Scripts/read-cloud-setting.sh app_name)"
+          APP_IMAGE="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          PUBLIC_HOSTNAME="$(bash Deployment/Cloud/Scripts/read-cloud-setting.sh public_hostname)"
+          MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+          MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          {
+            echo "APP_NAME=${APP_NAME}"
+            echo "APP_IMAGE=${APP_IMAGE}"
+            echo "PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}"
+            echo "MIGRATION_BUNDLE_NAME=${MIGRATION_BUNDLE_NAME}"
+            echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
+            echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            echo "APP_VERSION=${GITHUB_SHA}"
+          } >> "$GITHUB_ENV"
+          {
+            echo "Deploying image:"
+            printf '%s:%s\n' "${APP_IMAGE}" "${GITHUB_SHA}"
+            echo
+            echo "Public hostname:"
+            printf '%s\n' "${PUBLIC_HOSTNAME}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require successful CI for this commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CI_RUN_ID="$(bash Deployment/Common/Scripts/find-successful-ci-run.sh)"
+          echo "CI_RUN_ID=${CI_RUN_ID}" >> "$GITHUB_ENV"
+          echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.CLOUD_GHCR_USERNAME }}
+          password: ${{ secrets.CLOUD_GHCR_TOKEN }}
+
+      - name: Verify image exists
+        run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
+
+      - name: Download migration bundle from CI
+        if: inputs.run_migrations == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
+          path: artifacts/migrations
+          run-id: ${{ env.CI_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare migration bundle
+        if: inputs.run_migrations == 'true'
+        run: |
+          test -f "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+
+      - name: Install Ansible
+        run: bash Deployment/Common/Scripts/install-ansible.sh
+
+      - name: Determine runner SSH CIDR
+        run: |
+          RUNNER_PUBLIC_IPV4="$(curl -fsS4 https://checkip.amazonaws.com | tr -d '[:space:]')"
+          test -n "$RUNNER_PUBLIC_IPV4"
+          echo "RUNNER_SSH_CIDR=${RUNNER_PUBLIC_IPV4}/32" >> "$GITHUB_ENV"
+
+      - name: Allow temporary SSH to cloud-main
+        run: bash Deployment/Cloud/Scripts/set-temporary-ssh-firewall.sh allow "$RUNNER_SSH_CIDR"
+
+      - name: Configure SSH key
+        run: |
+          install -d -m 0700 "$HOME/.ssh"
+          install -d -m 0700 "$(dirname "$CLOUD_SSH_PRIVATE_KEY_PATH")"
+          printf '%s\n' "${{ secrets.CLOUD_SSH_PRIVATE_KEY }}" > "$CLOUD_SSH_PRIVATE_KEY_PATH"
+          chmod 0600 "$CLOUD_SSH_PRIVATE_KEY_PATH"
+          for attempt in $(seq 1 30); do
+            if ssh-keyscan -H "$CLOUD_BASTION_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "ssh-keyscan failed for ${CLOUD_BASTION_HOST}" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          chmod 0600 "$HOME/.ssh/known_hosts"
+
+      - name: Render Cloud inventory
+        run: bash Deployment/Cloud/Scripts/render-inventory-from-env.sh
+
+      - name: Deployment preflight
+        run: bash Deployment/Cloud/Scripts/preflight.sh deploy
+
+      - name: Provision Cloud nodes
+        run: bash Deployment/Cloud/Scripts/provision.sh
+
+      - name: Deploy with migrations
+        if: inputs.run_migrations == 'true'
+        run: bash Deployment/Cloud/Scripts/deploy.sh "$APP_VERSION" --migrate "${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+
+      - name: Deploy without migrations
+        if: inputs.run_migrations == 'false'
+        run: bash Deployment/Cloud/Scripts/deploy.sh "$APP_VERSION"
+
+      - name: Run acceptance check
+        run: bash Deployment/Cloud/Scripts/acceptance-check.sh
+
+      - name: Remove temporary SSH from cloud-main
+        if: always()
+        run: bash Deployment/Cloud/Scripts/set-temporary-ssh-firewall.sh clear
+
+      - name: Remove SSH private key
+        if: always()
+        run: rm -f "$CLOUD_SSH_PRIVATE_KEY_PATH"

@@ -1,0 +1,58 @@
+---
+- name: Require Ubuntu hosts
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["distribution"] == "Ubuntu"
+      - ansible_facts["distribution_version"] is version("24.04", ">=")
+    fail_msg: "Cloud deployment expects Ubuntu 24.04 or newer."
+
+- name: Require amd64 machine architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["architecture"] in ["x86_64", "amd64"]
+    fail_msg: "This deployment supports only x86_64/amd64 Linux machines."
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - bash
+      - ca-certificates
+      - curl
+      - gzip
+      - gnupg
+      - iproute2
+      - iptables
+      - jq
+      - openssl
+      - python3
+      - python3-debian
+      - sudo
+      - ufw
+    state: present
+    update_cache: true
+
+- name: Ensure deploy user exists
+  ansible.builtin.user:
+    name: deploy
+    groups:
+      - sudo
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Ensure deploy user has passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-deploy-user
+    content: "deploy ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Ensure deployment root exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"

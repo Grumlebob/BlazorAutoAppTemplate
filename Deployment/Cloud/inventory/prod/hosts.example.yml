@@ -1,28 +1,36 @@
 all:
   vars:
     ansible_user: deploy
+    ansible_ssh_private_key_file: /home/example/.ssh/bookscloud_deploy
+    ansible_python_interpreter: /usr/bin/python3
   children:
     cloud:
       children:
-        cloud_ingress:
+        load_balancer:
+          vars:
+            ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/example/.ssh/known_hosts"
           hosts:
             cloud-main:
               ansible_host: 203.0.113.10
               cloud_private_ip: 10.10.0.10
-        cloud_app_servers:
+              cloud_public_ipv4: 203.0.113.10
+        app_servers:
           vars:
-            ansible_ssh_common_args: "-o ProxyJump=deploy@203.0.113.10"
+            ansible_ssh_common_args: "-o ProxyCommand=\"ssh -W %h:%p -i /home/example/.ssh/bookscloud_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/example/.ssh/known_hosts deploy@203.0.113.10\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/example/.ssh/known_hosts"
           hosts:
             cloud-app1:
               ansible_host: 10.10.0.11
               cloud_private_ip: 10.10.0.11
+              cloud_public_ipv4: 203.0.113.11
             cloud-app2:
               ansible_host: 10.10.0.12
               cloud_private_ip: 10.10.0.12
-        cloud_data:
+              cloud_public_ipv4: 203.0.113.12
+        node_db:
           vars:
-            ansible_ssh_common_args: "-o ProxyJump=deploy@203.0.113.10"
+            ansible_ssh_common_args: "-o ProxyCommand=\"ssh -W %h:%p -i /home/example/.ssh/bookscloud_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/example/.ssh/known_hosts deploy@203.0.113.10\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/example/.ssh/known_hosts"
           hosts:
             cloud-db:
               ansible_host: 10.10.0.13
               cloud_private_ip: 10.10.0.13
+              cloud_public_ipv4: 203.0.113.13

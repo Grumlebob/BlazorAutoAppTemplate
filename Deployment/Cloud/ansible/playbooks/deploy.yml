@@ -1,0 +1,132 @@
+---
+- name: Reapply Cloud host firewall rules on private service nodes
+  hosts:
+    - app_servers
+    - node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - firewall
+
+- name: Reapply Cloud host firewall rules on ingress node
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - firewall
+
+- name: Stop app containers before migration
+  hosts: app_servers
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  tasks:
+    - name: Check for existing app compose file
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}/docker-compose.yml"
+      register: cloud_app_compose_file
+
+    - name: Stop existing app stack
+      ansible.builtin.command: docker compose down
+      args:
+        chdir: "{{ deploy_root }}"
+      become: true
+      become_user: deploy
+      register: cloud_app_stack_down
+      changed_when: >-
+        cloud_app_stack_down.rc == 0
+        and ((cloud_app_stack_down.stdout ~ cloud_app_stack_down.stderr)
+        is search("(?i)(removed|stopped)"))
+      when:
+        - run_migrations | default(false) | bool
+        - cloud_app_compose_file.stat.exists
+
+- name: Deploy PostgreSQL and Redis
+  hosts: node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - data
+
+- name: Deploy Caddy and Cloudflare Tunnel
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - caddy
+    - cloudflared
+
+- name: Run database migrations once
+  hosts: node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  tasks:
+    - name: Require local migration bundle when migrations are enabled
+      ansible.builtin.assert:
+        that:
+          - migration_bundle_local_path is defined
+          - migration_bundle_local_path | length > 0
+        fail_msg: "Pass -e run_migrations=true -e migration_bundle_local_path=<local path to migration bundle>."
+      when: run_migrations | default(false) | bool
+
+    - name: Ensure migration directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}/migrations"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Copy migration bundle
+      ansible.builtin.copy:
+        src: "{{ migration_bundle_local_path }}"
+        dest: "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Ensure backup directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}/backups"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0750"
+      when: run_migrations | default(false) | bool
+
+    - name: Create pre-migration database backup
+      ansible.builtin.command: ./backup-db.sh
+      args:
+        chdir: "{{ deploy_root }}"
+      become: true
+      become_user: deploy
+      when: run_migrations | default(false) | bool
+
+    - name: Run migration bundle
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd {{ deploy_root }}
+        set -a
+        . ./.env
+        set +a
+        ./migrations/{{ migration_bundle_name }} --connection "Host=127.0.0.1;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: deploy
+      when: run_migrations | default(false) | bool
+
+- name: Deploy app servers
+  hosts: app_servers
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - app

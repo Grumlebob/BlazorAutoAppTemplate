@@ -1,0 +1,86 @@
+---
+- name: Require app_version
+  ansible.builtin.assert:
+    that:
+      - app_version is defined
+      - app_version | length > 0
+    fail_msg: "Pass -e app_version=<git-sha> when deploying app servers."
+
+- name: Require app deployment secrets
+  ansible.builtin.assert:
+    that:
+      - cloud_ghcr_username is defined
+      - cloud_ghcr_username | length > 0
+      - cloud_ghcr_token is defined
+      - cloud_ghcr_token | length > 0
+      - cloud_postgres_user is defined
+      - cloud_postgres_user | length > 0
+      - cloud_postgres_password is defined
+      - cloud_postgres_password | length > 0
+      - cloud_postgres_db is defined
+      - cloud_postgres_db | length > 0
+      - cloud_redis_password is defined
+      - cloud_redis_password | length > 0
+    fail_msg: "Cloud app deploy requires GHCR, PostgreSQL, and Redis secrets."
+  no_log: true
+
+- name: Ensure deployment root exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+
+- name: Copy app compose file
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../compose/app-server/docker-compose.yml"
+    dest: "{{ deploy_root }}/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render app environment file
+  ansible.builtin.template:
+    src: app.env.j2
+    dest: "{{ deploy_root }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+  no_log: true
+
+- name: Log in to GHCR
+  ansible.builtin.shell: |
+    set -eu
+    echo "{{ cloud_ghcr_token }}" | docker login ghcr.io -u "{{ cloud_ghcr_username }}" --password-stdin
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: deploy
+  register: cloud_app_ghcr_login
+  changed_when: false
+  no_log: true
+
+- name: Pull and start app container
+  ansible.builtin.command: docker compose up -d --pull always
+  args:
+    chdir: "{{ deploy_root }}"
+  become: true
+  become_user: deploy
+  register: cloud_app_compose_up
+  retries: 5
+  delay: 15
+  until: cloud_app_compose_up.rc == 0
+  changed_when: >-
+    (cloud_app_compose_up.stdout ~ cloud_app_compose_up.stderr)
+    is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+
+- name: Wait for app health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/health/ready"
+    status_code: 200
+  register: cloud_app_health
+  retries: 30
+  delay: 3
+  until: cloud_app_health.status == 200
+  changed_when: false

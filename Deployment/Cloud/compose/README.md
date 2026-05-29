@@ -1,8 +1,8 @@
 # Cloud Compose
 
-Cloud Docker Compose files will live here.
+Cloud Docker Compose files live here.
 
-Planned projects:
+Projects:
 
 - `app-server`: app container for `cloud-app1` and `cloud-app2`.
 - `data`: PostgreSQL and Redis containers for `cloud-db`.

@@ -1,0 +1,91 @@
+---
+- name: Allow SSH
+  ansible.builtin.command: ufw allow OpenSSH
+  changed_when: "'Rules updated' in cloud_firewall_ufw_ssh.stdout"
+  register: cloud_firewall_ufw_ssh
+
+- name: Allow app traffic from ingress node
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} to any port {{ app_port }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_app.stdout"
+  register: cloud_firewall_ufw_app
+  when: inventory_hostname in groups["app_servers"]
+
+- name: Allow PostgreSQL from app servers
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].cloud_private_ip }} to any port {{ postgres_port }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_postgres.stdout"
+  register: cloud_firewall_ufw_postgres
+  loop: "{{ groups['app_servers'] }}"
+  when: inventory_hostname in groups["node_db"]
+
+- name: Allow Redis from app servers
+  ansible.builtin.command: "ufw allow from {{ hostvars[item].cloud_private_ip }} to any port {{ redis_port }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_redis.stdout"
+  register: cloud_firewall_ufw_redis
+  loop: "{{ groups['app_servers'] }}"
+  when: inventory_hostname in groups["node_db"]
+
+- name: Set default incoming policy
+  ansible.builtin.command: ufw default deny incoming
+  changed_when: "'Default incoming policy changed' in cloud_firewall_default_in.stdout"
+  register: cloud_firewall_default_in
+
+- name: Set default outgoing policy
+  ansible.builtin.command: ufw default allow outgoing
+  changed_when: "'Default outgoing policy changed' in cloud_firewall_default_out.stdout"
+  register: cloud_firewall_default_out
+
+- name: Check UFW status
+  ansible.builtin.command: ufw status
+  changed_when: false
+  register: cloud_firewall_ufw_status
+
+- name: Enable UFW
+  ansible.builtin.command:
+    argv:
+      - timeout
+      - "60"
+      - ufw
+      - --force
+      - enable
+  changed_when: true
+  register: cloud_firewall_ufw_enable
+  when: "'Status: active' not in cloud_firewall_ufw_status.stdout"
+
+- name: Install Docker published-port firewall script
+  ansible.builtin.template:
+    src: cloud-docker-user-firewall.sh.j2
+    dest: "/usr/local/sbin/{{ app_name }}-cloud-docker-user-firewall"
+    owner: root
+    group: root
+    mode: "0755"
+  when: >-
+    inventory_hostname in (groups["app_servers"] | default([]))
+    or inventory_hostname in (groups["node_db"] | default([]))
+
+- name: Install Docker published-port firewall service
+  ansible.builtin.template:
+    src: cloud-docker-user-firewall.service.j2
+    dest: "/etc/systemd/system/{{ app_name }}-cloud-docker-user-firewall.service"
+    owner: root
+    group: root
+    mode: "0644"
+  when: >-
+    inventory_hostname in (groups["app_servers"] | default([]))
+    or inventory_hostname in (groups["node_db"] | default([]))
+
+- name: Enable Docker published-port firewall service
+  ansible.builtin.systemd:
+    name: "{{ app_name }}-cloud-docker-user-firewall"
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: >-
+    inventory_hostname in (groups["app_servers"] | default([]))
+    or inventory_hostname in (groups["node_db"] | default([]))
+
+- name: Apply Docker published-port firewall rules
+  ansible.builtin.command: "/usr/local/sbin/{{ app_name }}-cloud-docker-user-firewall"
+  changed_when: false
+  when: >-
+    inventory_hostname in (groups["app_servers"] | default([]))
+    or inventory_hostname in (groups["node_db"] | default([]))

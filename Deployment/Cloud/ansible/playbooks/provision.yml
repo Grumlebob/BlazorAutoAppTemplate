@@ -1,0 +1,45 @@
+---
+- name: Provision common Cloud node baseline
+  hosts: cloud
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - base
+    - ssh_hardening
+
+- name: Install Docker runtime on service nodes
+  hosts:
+    - app_servers
+    - node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - docker
+
+- name: Apply Cloud host firewall rules on private service nodes
+  hosts:
+    - app_servers
+    - node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - firewall
+
+- name: Apply Cloud host firewall rules on ingress node
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - firewall
+
+- name: Install and configure Caddy on ingress node
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - caddy

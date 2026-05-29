@@ -1,0 +1,16 @@
+---
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
+    validate: "sshd -t -f %s"
+  notify: Restart ssh
+
+- name: Disable SSH challenge-response authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?KbdInteractiveAuthentication"
+    line: "KbdInteractiveAuthentication no"
+    validate: "sshd -t -f %s"
+  notify: Restart ssh

@@ -1,0 +1,73 @@
+---
+- name: Ensure Docker keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Docker apt key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Read Ubuntu codename
+  ansible.builtin.shell: |
+    set -euo pipefail
+    . /etc/os-release
+    printf '%s\n' "${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+  args:
+    executable: /bin/bash
+  register: docker_ubuntu_codename
+  changed_when: false
+
+- name: Require Ubuntu codename
+  ansible.builtin.assert:
+    that:
+      - docker_ubuntu_codename.stdout | length > 0
+    fail_msg: "Could not determine Ubuntu codename from /etc/os-release."
+
+- name: Remove legacy Docker apt repository list
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types:
+      - deb
+    uris:
+      - https://download.docker.com/linux/ubuntu
+    suites:
+      - "{{ docker_ubuntu_codename.stdout }}"
+    components:
+      - stable
+    architectures:
+      - amd64
+    signed_by: /etc/apt/keyrings/docker.asc
+    enabled: true
+    state: present
+
+- name: Install Docker Engine and Compose plugin
+  ansible.builtin.apt:
+    name:
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+    update_cache: true
+    state: present
+
+- name: Add deploy user to docker group
+  ansible.builtin.user:
+    name: deploy
+    groups: docker
+    append: true
+
+- name: Enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

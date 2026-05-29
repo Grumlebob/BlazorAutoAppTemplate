@@ -1,0 +1,20 @@
+services:
+  web:
+    image: ${APP_IMAGE}:${APP_VERSION}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_HTTP_PORTS: ${APP_PORT}
+      App__Name: ${APP_NAME}
+      ForwardedHeaders__KnownProxies__0: ${FORWARDED_HEADERS_KNOWN_PROXY}
+      Database__RunMigrationsAtStartup: "false"
+      ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Redis__Configuration: ${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD},abortConnect=false
+    ports:
+      - "${APP_BIND_IP}:${APP_PORT}:${APP_PORT}"
+      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
+    volumes:
+      - app_storage:/app/Storage
+
+volumes:
+  app_storage:
