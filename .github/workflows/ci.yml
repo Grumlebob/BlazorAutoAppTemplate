@@ -81,6 +81,9 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Traffic simulation wrapper help
+        run: pwsh -File ./RunSimulation.ps1 -Help
+
       - name: Docker preflight for integration tests
         run: |
           docker info

@@ -116,7 +116,18 @@ pwsh -File .\docker\observability\smoke-local-observability.ps1
 
 This starts Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
 
-For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuide.md`.
+For dashboard usage, common queries, and troubleshooting, see `docs/ObservabilityGuide.md`.
+
+Generate safe synthetic traffic for dashboards:
+
+```powershell
+.\RunSimulation.ps1 -Target local -Profile smoke
+.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\RunSimulation.ps1 -Target local -AuthCheck
+.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+```
+
+Read-only simulation is the default. Authenticated writes require `-AllowWrite`, use real login cookies, and clean up V2 synthetic books by default. The simulator is the `BlazorAutoApp.Simulation` operator tool; it is built and tested by CI, but it is not deployed with the app. It paces `/api/*` and authenticated write requests below the app's rate limits, so normal smoke and demo runs should report `unexpected 429: 0`. Reports are written under `artifacts/simulation`.
 
 Manual equivalent:
 

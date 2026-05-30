@@ -26,6 +26,7 @@
     <ProjectReference Include="..\BlazorAutoApp\BlazorAutoApp.csproj" />
     <ProjectReference Include="..\BlazorAutoApp.Client\BlazorAutoApp.Client.csproj" />
     <ProjectReference Include="..\BlazorAutoApp.Core\BlazorAutoApp.Core.csproj" />
+    <ProjectReference Include="..\BlazorAutoApp.Simulation\BlazorAutoApp.Simulation.csproj" />
   </ItemGroup>
 
 </Project>
