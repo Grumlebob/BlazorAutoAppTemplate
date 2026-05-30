@@ -202,12 +202,22 @@ run_check "Grafana dashboard provisioning" \
 import json
 import urllib.request
 
-url = 'http://127.0.0.1:$GRAFANA_PORT/api/search?query=Application%20Observability'
-with urllib.request.urlopen(url, timeout=10) as response:
-    dashboards = json.load(response)
-if not any(item.get('uid') == 'application-observability-overview' for item in dashboards):
-    raise SystemExit('Application Observability dashboard is not provisioned')
-print('OK    Grafana dashboard is provisioned')
+required = {
+    'books-command-center': 'Books Observability Command Center',
+    'books-application-and-books': 'Books Application And Books',
+    'books-infrastructure-and-data': 'Books Infrastructure And Data',
+    'books-telemetry-and-alerts': 'Books Telemetry And Alerts',
+    'books-logs-and-traces': 'Books Logs And Traces',
+}
+
+for uid, title in required.items():
+    url = 'http://127.0.0.1:$GRAFANA_PORT/api/dashboards/uid/' + uid
+    with urllib.request.urlopen(url, timeout=10) as response:
+        payload = json.load(response)
+    actual_title = payload.get('dashboard', {}).get('title')
+    if actual_title != title:
+        raise SystemExit(f'Grafana dashboard {uid} has title {actual_title!r}, expected {title!r}')
+print('OK    Grafana V1 books dashboards are provisioned')
 PY"
 
 run_check "Prometheus is connected to Alertmanager" \

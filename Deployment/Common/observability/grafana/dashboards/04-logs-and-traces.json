@@ -1,0 +1,466 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Command Center",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/books-command-center"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Application And Books",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/books-application-and-books"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Infrastructure And Data",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/books-infrastructure-and-data"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Telemetry And Alerts",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/books-telemetry-and-alerts"
+    }
+  ],
+  "panels": [
+    {
+      "description": "",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "App Logs",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{service=\"web\", deployment_target=~\"$deployment_target\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "description": "Empty means there are no recent error logs.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "title": "App Errors (Empty Is OK)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{service=\"web\", deployment_target=~\"$deployment_target\"} |= \"Error\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "description": "",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 3,
+      "title": "Error Log Rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "sum by (node) (rate({service=\"web\", deployment_target=~\"$deployment_target\"} |= \"Error\" [5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "description": "",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 4,
+      "title": "Recent Traces",
+      "type": "traces",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "query": "{ resource.service.name =~ \"$service_name\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "description": "",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 5,
+      "title": "Error Traces",
+      "type": "traces",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "query": "{ resource.service.name =~ \"$service_name\" && status = error }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "description": "",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 6,
+      "title": "Book Operation Traces",
+      "type": "traces",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "query": "{ span.books.operation =~ \"$book_operation\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 7,
+      "title": "Trace Linking",
+      "type": "text",
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "Loki is configured with a derived field from the structured TraceId property to Tempo. Open a log row that contains TraceId to jump to the related trace.",
+        "mode": "markdown"
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": [
+    "books",
+    "observability"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "includeAll": true,
+        "label": "Deployment target",
+        "multi": true,
+        "name": "deployment_target",
+        "options": [],
+        "query": "local,localcluster,cloud",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(http_server_request_duration_seconds_count, job)",
+        "includeAll": true,
+        "label": "Service job",
+        "multi": true,
+        "name": "service_job",
+        "options": [],
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds_count, job)",
+          "refId": "PrometheusVariableQueryEditor-service_job"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\"}, instance)",
+        "includeAll": true,
+        "label": "App instance",
+        "multi": true,
+        "name": "app_instance",
+        "options": [],
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\"}, instance)",
+          "refId": "PrometheusVariableQueryEditor-app_instance"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{deployment_target=~\"$deployment_target\"}, node)",
+        "includeAll": true,
+        "label": "Node",
+        "multi": true,
+        "name": "node",
+        "options": [],
+        "query": {
+          "query": "label_values(up{deployment_target=~\"$deployment_target\"}, node)",
+          "refId": "PrometheusVariableQueryEditor-node"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\", instance=~\"$app_instance\"}, http_route)",
+        "includeAll": true,
+        "label": "HTTP route",
+        "multi": true,
+        "name": "http_route",
+        "options": [],
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\", instance=~\"$app_instance\"}, http_route)",
+          "refId": "PrometheusVariableQueryEditor-http_route"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\", instance=~\"$app_instance\"}, http_response_status_code)",
+        "includeAll": true,
+        "label": "Status code",
+        "multi": true,
+        "name": "status_code",
+        "options": [],
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds_count{job=~\"$service_job\", instance=~\"$app_instance\"}, http_response_status_code)",
+          "refId": "PrometheusVariableQueryEditor-status_code"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(books_operations_total{job=~\"$service_job\", instance=~\"$app_instance\"}, books_operation)",
+        "includeAll": true,
+        "label": "Book operation",
+        "multi": true,
+        "name": "book_operation",
+        "options": [],
+        "query": {
+          "query": "label_values(books_operations_total{job=~\"$service_job\", instance=~\"$app_instance\"}, books_operation)",
+          "refId": "PrometheusVariableQueryEditor-book_operation"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ".*"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(books_operations_total{job=~\"$service_job\", instance=~\"$app_instance\"}, books_outcome)",
+        "includeAll": true,
+        "label": "Book outcome",
+        "multi": true,
+        "name": "book_outcome",
+        "options": [],
+        "query": {
+          "query": "label_values(books_operations_total{job=~\"$service_job\", instance=~\"$app_instance\"}, books_outcome)",
+          "refId": "PrometheusVariableQueryEditor-book_outcome"
+        },
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "BlazorAutoApp",
+          "value": "BlazorAutoApp"
+        },
+        "label": "Trace service",
+        "name": "service_name",
+        "query": "BlazorAutoApp",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Books Logs And Traces",
+  "uid": "books-logs-and-traces",
+  "version": 1
+}

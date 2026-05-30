@@ -6,7 +6,7 @@ param(
   [string]$LokiUrl = 'http://localhost:3100',
   [string]$TempoUrl = 'http://localhost:3200',
   [int]$TimeoutSeconds = 180,
-  [int]$PrometheusSeriesWarningThreshold = 10000,
+  [int]$PrometheusSeriesWarningThreshold = 25000,
   [int]$LokiStreamWarningThreshold = 100
 )
 
@@ -99,6 +99,36 @@ try {
     $result = Invoke-Json "$PrometheusUrl/api/v1/query?query=$query"
     $instances = @($result.data.result | Where-Object { -not [string]::IsNullOrWhiteSpace($_.metric.service_version) })
     $instances.Count -gt 0
+  } -TimeoutSeconds $TimeoutSeconds
+
+  Wait-Until 'Prometheus has PostgreSQL and Redis exporter metrics' {
+    $pgQuery = [uri]::EscapeDataString('pg_up{deployment_target="local"}')
+    $redisQuery = [uri]::EscapeDataString('redis_up{deployment_target="local"}')
+    $pgResult = Invoke-Json "$PrometheusUrl/api/v1/query?query=$pgQuery"
+    $redisResult = Invoke-Json "$PrometheusUrl/api/v1/query?query=$redisQuery"
+    $pgResult.status -eq 'success' -and
+      $redisResult.status -eq 'success' -and
+      $pgResult.data.result.Count -gt 0 -and
+      $redisResult.data.result.Count -gt 0
+  } -TimeoutSeconds $TimeoutSeconds
+
+  Wait-Until 'Grafana has V1 books dashboards' {
+    $dashboardUids = @(
+      'books-command-center',
+      'books-application-and-books',
+      'books-infrastructure-and-data',
+      'books-telemetry-and-alerts',
+      'books-logs-and-traces'
+    )
+
+    foreach ($uid in $dashboardUids) {
+      $dashboard = Invoke-Json "$GrafanaUrl/api/dashboards/uid/$uid"
+      if ([string]::IsNullOrWhiteSpace($dashboard.dashboard.title)) {
+        return $false
+      }
+    }
+
+    return $true
   } -TimeoutSeconds $TimeoutSeconds
 
   Wait-Until 'Loki has app container logs' {

@@ -79,6 +79,38 @@ services:
     volumes:
       - redisinsight:/data
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    profiles: ["observability"]
+    logging: *local-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_URI: "postgres:5432/${POSTGRES_DB:-app}?sslmode=disable"
+      DATA_SOURCE_USER: ${POSTGRES_USER:-postgres}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "127.0.0.1:${POSTGRES_EXPORTER_HOST_PORT:-9187}:9187"
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: 0.15
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.73.0
+    profiles: ["observability"]
+    logging: *local-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    command:
+      - --redis.addr=redis://redis:6379
+    ports:
+      - "127.0.0.1:${REDIS_EXPORTER_HOST_PORT:-9121}:9121"
+    mem_limit: 96m
+    mem_reservation: 48m
+    cpus: 0.10
+
   prometheus:
     image: prom/prometheus:v3.4.1
     profiles: ["observability"]
@@ -215,6 +247,7 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: light
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/00-books-command-center.json
     ports:
       - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
     volumes:

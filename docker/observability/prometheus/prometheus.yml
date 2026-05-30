@@ -25,3 +25,19 @@ scrape_configs:
           - alloy:12345
         labels:
           deployment_target: local
+
+  - job_name: postgres-exporter
+    static_configs:
+      - targets:
+          - postgres-exporter:9187
+        labels:
+          deployment_target: local
+          node: local-data
+
+  - job_name: redis-exporter
+    static_configs:
+      - targets:
+          - redis-exporter:9121
+        labels:
+          deployment_target: local
+          node: local-data

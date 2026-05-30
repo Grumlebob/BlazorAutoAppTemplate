@@ -205,7 +205,7 @@ try {
   $composeArgs += '--remove-orphans'
   $composeServices = @('web')
   if ($Observability) {
-    $composeServices += @('prometheus', 'alertmanager', 'loki', 'tempo', 'alloy', 'grafana')
+    $composeServices += @('postgres-exporter', 'redis-exporter', 'prometheus', 'alertmanager', 'loki', 'tempo', 'alloy', 'grafana')
   }
   $composeArgs += $composeServices
 

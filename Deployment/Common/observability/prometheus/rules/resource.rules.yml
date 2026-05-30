@@ -4,20 +4,20 @@ groups:
     rules:
       - alert: PrometheusSeriesBudgetWarning
         expr: |
-          prometheus_tsdb_head_series > 10000
+          prometheus_tsdb_head_series > 25000
         for: 10m
         labels:
           severity: warning
           runbook: telemetry-cardinality
         annotations:
           summary: Prometheus active series budget is high
-          description: Prometheus active series count is above the v1 warning budget.
+          description: Prometheus active series count is above the v1 warning budget of 25000.
 
       - alert: AlloyExporterQueueFailures
         expr: |
-          sum(rate(otelcol_exporter_send_failed_spans[5m])) > 0
+          sum(rate(otelcol_exporter_send_failed_spans_total[5m])) > 0
           or
-          sum(rate(otelcol_exporter_send_failed_metric_points[5m])) > 0
+          sum(rate(otelcol_exporter_send_failed_metric_points_total[5m])) > 0
         for: 5m
         labels:
           severity: warning

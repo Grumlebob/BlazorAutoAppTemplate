@@ -9,7 +9,7 @@ LOKI_URL="${LOKI_URL:-http://localhost:3100}"
 TEMPO_URL="${TEMPO_URL:-http://localhost:3200}"
 DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET:-local}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-180}"
-PROMETHEUS_SERIES_LIMIT="${PROMETHEUS_SERIES_LIMIT:-10000}"
+PROMETHEUS_SERIES_LIMIT="${PROMETHEUS_SERIES_LIMIT:-25000}"
 LOKI_STREAM_LIMIT="${LOKI_STREAM_LIMIT:-100}"
 CHECK_DOCKER_OOM="${CHECK_DOCKER_OOM:-true}"
 
@@ -137,6 +137,33 @@ print("app instance versions: " + ", ".join(sorted(labels)))
 '
 }
 
+probe_prometheus_data_exporters() {
+  local query
+
+  for query in \
+    'pg_up{deployment_target="'$DEPLOYMENT_TARGET'"}' \
+    'redis_up{deployment_target="'$DEPLOYMENT_TARGET'"}'; do
+    curl -fsS "$PROMETHEUS_URL/api/v1/query?query=$(urlencode "$query")" |
+      python3 -c 'import json, sys; payload=json.load(sys.stdin); raise SystemExit(0 if payload.get("data", {}).get("result") else 1)'
+  done
+}
+
+probe_grafana_dashboards() {
+  local uid
+  local uids=(
+    books-command-center
+    books-application-and-books
+    books-infrastructure-and-data
+    books-telemetry-and-alerts
+    books-logs-and-traces
+  )
+
+  for uid in "${uids[@]}"; do
+    curl -fsS "$GRAFANA_URL/api/dashboards/uid/$uid" |
+      python3 -c 'import json, sys; payload=json.load(sys.stdin); raise SystemExit(0 if payload.get("dashboard", {}).get("title") else 1)'
+  done
+}
+
 probe_loki_logs() {
   local start_ns
   start_ns="$(python3 - <<'PY'
@@ -229,6 +256,8 @@ wait_until "Alertmanager is reachable" probe_alertmanager
 wait_until "Prometheus has app request metrics" probe_prometheus_app_metrics
 wait_until "Prometheus is connected to Alertmanager" probe_prometheus_alertmanager
 wait_until "Prometheus has app instance versions" probe_prometheus_app_instances
+wait_until "Prometheus has PostgreSQL and Redis exporter metrics" probe_prometheus_data_exporters
+wait_until "Grafana has V1 books dashboards" probe_grafana_dashboards
 wait_until "Loki has app container logs" probe_loki_logs
 wait_until "Tempo has app traces" probe_tempo_traces
 check_cardinality
