@@ -219,6 +219,7 @@ observability_docker_network: <app-name>_observability
 observability_trace_sample_ratio: 0.1
 
 observability_grafana_port: 3000
+observability_alertmanager_port: 9093
 observability_prometheus_port: 9090
 observability_loki_port: 3100
 observability_tempo_http_port: 3200
@@ -261,6 +262,7 @@ Where the values come from:
 | `observability_docker_network` | Use `<app_name>_observability`. App containers and local Alloy agents join this Docker network on each node. |
 | `observability_trace_sample_ratio` | Start at `0.1` on the current LocalCluster hardware. Use `1.0` only for short debugging windows because traces increase storage, memory, and CPU. |
 | `observability_grafana_port` | Keep `3000`. Grafana is bound to `127.0.0.1` on `node-main` and should be reached through SSH tunneling. |
+| `observability_alertmanager_port` | Keep `9093`. Alertmanager is bound to `127.0.0.1` on `node-main`; Prometheus uses it for alert routing and silencing. |
 | `observability_prometheus_port` | Keep `9090`. LocalCluster nodes use this internal port to remote-write metrics to Prometheus on `node-main`. |
 | `observability_loki_port` | Keep `3100`. LocalCluster nodes use this internal port to push logs to Loki on `node-main`. |
 | `observability_tempo_http_port` | Keep `3200`. This is the Tempo HTTP/API port on `node-main`. |
@@ -1302,7 +1304,7 @@ Success:
 observability doctor ok
 ```
 
-This checks that Grafana, Prometheus, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
+This checks that Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets and its Alertmanager connection; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
 
 For day-to-day dashboard usage, common queries, and recovery commands, use `ObservabilityGuide.md`.
 

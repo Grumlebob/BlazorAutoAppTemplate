@@ -13,6 +13,7 @@ observability_docker_network: books_observability
 observability_trace_sample_ratio: 0.1
 
 observability_grafana_port: 3000
+observability_alertmanager_port: 9093
 observability_prometheus_port: 9090
 observability_loki_port: 3100
 observability_tempo_http_port: 3200

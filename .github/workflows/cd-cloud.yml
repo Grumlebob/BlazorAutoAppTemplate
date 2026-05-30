@@ -165,6 +165,14 @@ jobs:
       - name: Run acceptance check
         run: bash Deployment/Cloud/Scripts/acceptance-check.sh
 
+      - name: Run observability doctor
+        run: |
+          if [ "$(bash Deployment/Cloud/Scripts/read-cloud-setting.sh observability_enabled)" = "true" ]; then
+            bash Deployment/Cloud/Scripts/observability-doctor.sh
+          else
+            echo "observability_enabled is false; skipping Cloud observability doctor"
+          fi
+
       - name: Remove temporary SSH from cloud-main
         if: always()
         run: bash Deployment/Cloud/Scripts/set-temporary-ssh-firewall.sh clear

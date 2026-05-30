@@ -29,6 +29,7 @@ for required in \
   "$OBS_ROOT/grafana/provisioning/datasources/datasources.yml" \
   "$OBS_ROOT/grafana/provisioning/dashboards/dashboards.yml" \
   "$OBS_ROOT/grafana/dashboards/application-overview.json" \
+  "$OBS_ROOT/alertmanager/alertmanager.yml" \
   "$OBS_ROOT/prometheus/rules/application.rules.yml" \
   "$OBS_ROOT/prometheus/rules/resource.rules.yml"; do
   [[ -f "$required" ]] || fail "missing $required"

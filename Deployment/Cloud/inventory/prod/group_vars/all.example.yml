@@ -11,3 +11,25 @@ cloud_main_private_ip: 10.10.0.10
 cloud_app1_private_ip: 10.10.0.11
 cloud_app2_private_ip: 10.10.0.12
 cloud_db_private_ip: 10.10.0.13
+
+observability_enabled: true
+observability_root: /opt/bookscloud-observability
+observability_docker_network: bookscloud_observability
+observability_trace_sample_ratio: 0.1
+
+observability_grafana_port: 3000
+observability_alertmanager_port: 9093
+observability_prometheus_port: 9090
+observability_loki_port: 3100
+observability_tempo_http_port: 3200
+observability_tempo_otlp_grpc_port: 4317
+observability_tempo_otlp_http_port: 4318
+observability_alloy_http_port: 12345
+observability_node_exporter_port: 9100
+observability_postgres_exporter_port: 9187
+observability_redis_exporter_port: 9121
+
+observability_prometheus_retention_time: 7d
+observability_prometheus_retention_size: 4GB
+observability_loki_retention_period: 3d
+observability_tempo_retention_period: 24h

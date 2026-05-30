@@ -2,6 +2,7 @@ param(
   [string]$AppUrl = 'https://localhost:7186',
   [string]$GrafanaUrl = 'http://localhost:3000',
   [string]$PrometheusUrl = 'http://localhost:9090',
+  [string]$AlertmanagerUrl = 'http://localhost:9093',
   [string]$LokiUrl = 'http://localhost:3100',
   [string]$TempoUrl = 'http://localhost:3200',
   [int]$TimeoutSeconds = 180,
@@ -75,12 +76,22 @@ try {
     $health.database -eq 'ok'
   } -TimeoutSeconds $TimeoutSeconds
 
+  Wait-Until 'Alertmanager is reachable' {
+    $response = Invoke-WebRequest -Uri "$AlertmanagerUrl/-/healthy" -TimeoutSec 10
+    $response.StatusCode -eq 200
+  } -TimeoutSeconds $TimeoutSeconds
+
   $prometheusQuery = Wait-Until 'Prometheus has app request metrics' {
     Test-PrometheusQuery @(
       'sum(http_server_request_duration_seconds_count)',
       'sum(http_server_request_duration_milliseconds_count)',
       'sum(http_server_request_duration_count)'
     )
+  } -TimeoutSeconds $TimeoutSeconds
+
+  Wait-Until 'Prometheus is connected to Alertmanager' {
+    $alertmanagers = Invoke-Json "$PrometheusUrl/api/v1/alertmanagers"
+    $alertmanagers.status -eq 'success' -and $alertmanagers.data.activeAlertmanagers.Count -gt 0
   } -TimeoutSeconds $TimeoutSeconds
 
   Wait-Until 'Loki has app container logs' {

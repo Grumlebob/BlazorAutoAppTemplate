@@ -3,11 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
-export ANSIBLE_CONFIG="$REPO_ROOT/Deployment/LocalCluster/ansible/ansible.cfg"
+INVENTORY="$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"
+export ANSIBLE_CONFIG="$REPO_ROOT/Deployment/Cloud/ansible/ansible.cfg"
+export ANSIBLE_ROLES_PATH="$REPO_ROOT/Deployment/Cloud/ansible/roles"
 
 fail() {
-  echo "observability doctor failed: $*" >&2
+  echo "cloud observability doctor failed: $*" >&2
   exit 1
 }
 
@@ -19,29 +20,29 @@ run_check() {
 }
 
 command -v ansible >/dev/null 2>&1 || fail "ansible is missing"
-[[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/LocalCluster/inventory/prod/hosts.yml"
+[[ -f "$INVENTORY" ]] || fail "missing inventory: Deployment/Cloud/inventory/prod/hosts.yml"
 
-APP_NAME="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" app_name)"
-DEPLOY_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" deploy_root)"
-OBS_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_root)"
-PROMETHEUS_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_prometheus_port)"
-ALERTMANAGER_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_alertmanager_port)"
-LOKI_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_loki_port)"
-TEMPO_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_tempo_http_port)"
-GRAFANA_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_grafana_port)"
+APP_NAME="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" app_name)"
+DEPLOY_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" deploy_root)"
+OBS_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_root)"
+PROMETHEUS_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_prometheus_port)"
+ALERTMANAGER_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_alertmanager_port)"
+LOKI_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_loki_port)"
+TEMPO_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_tempo_http_port)"
+GRAFANA_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_grafana_port)"
 
-echo "LocalCluster observability doctor"
+echo "Cloud observability doctor"
 echo
 
-run_check "backend containers on node-main" \
+run_check "backend containers on cloud-main" \
   ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
     "cd '$OBS_ROOT' && docker compose ps --services --filter status=running | grep -E '^(prometheus|alertmanager|loki|tempo|grafana)$' | sort | paste -sd ' ' -"
 
-run_check "agents on every node" \
-  ansible all -i "$INVENTORY" -m ansible.builtin.shell -a \
+run_check "agents on every Cloud node" \
+  ansible cloud -i "$INVENTORY" -m ansible.builtin.shell -a \
     "cd '$OBS_ROOT/agent' && docker compose ps --services --filter status=running | grep -E '^(alloy|node-exporter)$' | sort | paste -sd ' ' -"
 
-run_check "database exporters on node-db" \
+run_check "database exporters on cloud-db" \
   ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a \
     "cd '$DEPLOY_ROOT' && docker compose ps --services --filter status=running | grep -E '^(postgres-exporter|redis-exporter)$' | sort | paste -sd ' ' -"
 
@@ -108,6 +109,26 @@ while True:
     time.sleep(5)
 PY"
 
+run_check "Cloud app telemetry labels" \
+  ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
+    "PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
+import json
+import urllib.parse
+import urllib.request
+
+base = 'http://127.0.0.1:' + '$PROMETHEUS_PORT'
+expr = 'count by (instance, host_name, deployment_target) (target_info{job=\"books/books\",deployment_target=\"cloud\"})'
+url = base + '/api/v1/query?query=' + urllib.parse.quote(expr)
+with urllib.request.urlopen(url, timeout=10) as response:
+    payload = json.load(response)
+result = payload.get('data', {}).get('result', [])
+instances = {item.get('metric', {}).get('instance') for item in result}
+missing = {'cloud-app1', 'cloud-app2'} - instances
+if missing:
+    raise SystemExit('missing cloud app telemetry instance(s): ' + ', '.join(sorted(missing)))
+print('OK    cloud app telemetry instances: ' + ', '.join(sorted(instances)))
+PY"
+
 run_check "Grafana dashboard provisioning" \
   ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
     "python3 - <<'PY'
@@ -138,7 +159,7 @@ print('OK    active Alertmanager connection(s): ' + str(len(active)))
 PY"
 
 run_check "no observability containers OOMKilled" \
-  ansible all -i "$INVENTORY" -m ansible.builtin.shell -a \
+  ansible cloud -i "$INVENTORY" -m ansible.builtin.shell -a \
     "APP_NAME='$APP_NAME' bash -lc 'set -euo pipefail
 ids=\$({
   docker ps --filter \"label=com.docker.compose.project=\${APP_NAME}-observability\" -q
@@ -154,11 +175,38 @@ if grep -q \" true$\" /tmp/${APP_NAME}-observability-oom.txt; then
 fi
 '"
 
-if [[ -x "$REPO_ROOT/Deployment/Common/observability/scripts/check-telemetry-cardinality.sh" ]]; then
-  run_check "cardinality budgets from node-main" \
-    ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
-      "cd '$REPO_ROOT' && bash Deployment/Common/observability/scripts/check-telemetry-cardinality.sh http://127.0.0.1:$PROMETHEUS_PORT http://127.0.0.1:$LOKI_PORT localcluster"
-fi
+run_check "cardinality budgets from cloud-main" \
+  ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
+    "PROMETHEUS_PORT='$PROMETHEUS_PORT' LOKI_PORT='$LOKI_PORT' python3 - <<'PY'
+import json
+import time
+import urllib.parse
+import urllib.request
+
+prometheus_url = 'http://127.0.0.1:' + '$PROMETHEUS_PORT'
+loki_url = 'http://127.0.0.1:' + '$LOKI_PORT'
+series_limit = 25000
+stream_limit = 300
+
+with urllib.request.urlopen(prometheus_url + '/api/v1/status/tsdb', timeout=10) as response:
+    prometheus_payload = json.load(response)
+series = int(prometheus_payload['data']['headStats']['numSeries'])
+if series > series_limit:
+    raise SystemExit(f'Prometheus active series {series} exceeds limit {series_limit}')
+print(f'OK    Prometheus active series: {series} <= {series_limit}')
+
+start_ns = int((time.time() - 900) * 1_000_000_000)
+query = urllib.parse.urlencode({
+    'match[]': '{deployment_target=\"cloud\"}',
+    'start': str(start_ns),
+})
+with urllib.request.urlopen(loki_url + '/loki/api/v1/series?' + query, timeout=10) as response:
+    loki_payload = json.load(response)
+streams = len(loki_payload.get('data', []))
+if streams > stream_limit:
+    raise SystemExit(f'Loki stream count {streams} exceeds limit {stream_limit}')
+print(f'OK    Loki stream count: {streams} <= {stream_limit}')
+PY"
 
 echo
-echo "observability doctor ok"
+echo "cloud observability doctor ok"

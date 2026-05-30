@@ -17,16 +17,16 @@ scrape_configs:
       - targets:
           - 127.0.0.1:9090
         labels:
-          deployment_target: localcluster
+          deployment_target: cloud
           node: {{ inventory_hostname }}
 
   - job_name: alloy
     static_configs:
 {% for host in groups['all'] %}
       - targets:
-          - {{ ('alloy:' ~ observability_alloy_http_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_alloy_http_port) }}
+          - {{ ('alloy:' ~ observability_alloy_http_port) if host == groups['load_balancer'][0] else (hostvars[host].cloud_private_ip ~ ':' ~ observability_alloy_http_port) }}
         labels:
-          deployment_target: localcluster
+          deployment_target: cloud
           node: {{ host }}
 {% endfor %}
 
@@ -34,9 +34,9 @@ scrape_configs:
     static_configs:
 {% for host in groups['all'] %}
       - targets:
-          - {{ ('node-exporter:' ~ observability_node_exporter_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_node_exporter_port) }}
+          - {{ ('node-exporter:' ~ observability_node_exporter_port) if host == groups['load_balancer'][0] else (hostvars[host].cloud_private_ip ~ ':' ~ observability_node_exporter_port) }}
         labels:
-          deployment_target: localcluster
+          deployment_target: cloud
           node: {{ host }}
 {% endfor %}
 
@@ -44,9 +44,9 @@ scrape_configs:
     static_configs:
 {% for host in groups['node_db'] %}
       - targets:
-          - {{ hostvars[host].ansible_host }}:{{ observability_postgres_exporter_port }}
+          - {{ hostvars[host].cloud_private_ip }}:{{ observability_postgres_exporter_port }}
         labels:
-          deployment_target: localcluster
+          deployment_target: cloud
           node: {{ host }}
 {% endfor %}
 
@@ -54,8 +54,8 @@ scrape_configs:
     static_configs:
 {% for host in groups['node_db'] %}
       - targets:
-          - {{ hostvars[host].ansible_host }}:{{ observability_redis_exporter_port }}
+          - {{ hostvars[host].cloud_private_ip }}:{{ observability_redis_exporter_port }}
         labels:
-          deployment_target: localcluster
+          deployment_target: cloud
           node: {{ host }}
 {% endfor %}

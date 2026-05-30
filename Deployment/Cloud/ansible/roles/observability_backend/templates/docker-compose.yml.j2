@@ -1,4 +1,4 @@
-x-localcluster-logging: &localcluster-logging
+x-cloud-observability-logging: &cloud-observability-logging
   driver: json-file
   options:
     max-size: "10m"
@@ -8,7 +8,7 @@ services:
   prometheus:
     image: prom/prometheus:v3.4.1
     restart: unless-stopped
-    logging: *localcluster-logging
+    logging: *cloud-observability-logging
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -39,7 +39,7 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.28.1
     restart: unless-stopped
-    logging: *localcluster-logging
+    logging: *cloud-observability-logging
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
@@ -61,7 +61,7 @@ services:
   loki:
     image: grafana/loki:3.5.1
     restart: unless-stopped
-    logging: *localcluster-logging
+    logging: *cloud-observability-logging
     command:
       - -config.file=/etc/loki/loki.yml
     ports:
@@ -86,7 +86,7 @@ services:
   tempo:
     image: grafana/tempo:2.8.1
     restart: unless-stopped
-    logging: *localcluster-logging
+    logging: *cloud-observability-logging
     command:
       - -config.file=/etc/tempo/tempo.yml
     ports:
@@ -112,7 +112,7 @@ services:
   grafana:
     image: grafana/grafana:12.0.0
     restart: unless-stopped
-    logging: *localcluster-logging
+    logging: *cloud-observability-logging
     depends_on:
       prometheus:
         condition: service_started

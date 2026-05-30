@@ -1,8 +1,15 @@
+x-cloud-logging: &cloud-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   web:
     image: ${APP_IMAGE}:${APP_VERSION}
     hostname: ${APP_NODE_NAME}
     restart: unless-stopped
+    logging: *cloud-logging
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_HTTP_PORTS: ${APP_PORT}
@@ -22,6 +29,14 @@ services:
       - "127.0.0.1:${APP_PORT}:${APP_PORT}"
     volumes:
       - app_storage:/app/Storage
+    networks:
+      - default
+      - observability
 
 volumes:
   app_storage:
+
+networks:
+  observability:
+    external: true
+    name: ${OBSERVABILITY_DOCKER_NETWORK}

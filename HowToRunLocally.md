@@ -1,6 +1,6 @@
 # How To Run Locally
 
-Use Docker Compose for normal local development. It runs the app, PostgreSQL, Redis, and Redis Insight. The optional observability profile adds Grafana, Prometheus, Loki, Tempo, and Alloy.
+Use Docker Compose for normal local development. It runs the app, PostgreSQL, Redis, and Redis Insight. The optional observability profile adds Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy.
 
 ## Prerequisites
 
@@ -43,6 +43,7 @@ POSTGRES_HOST_PORT=5432
 REDIS_HOST_PORT=6379
 REDIS_INSIGHT_HOST_PORT=5540
 GRAFANA_HOST_PORT=3000
+ALERTMANAGER_HOST_PORT=9093
 PROMETHEUS_HOST_PORT=9090
 LOKI_HOST_PORT=3100
 TEMPO_HOST_PORT=3200
@@ -112,7 +113,7 @@ Start the optional local Grafana observability stack:
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
-This starts Grafana, Prometheus, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
+This starts Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
 
 For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuide.md`.
 
@@ -128,6 +129,7 @@ Open:
 - Health: `https://localhost:7186/health`
 - Redis Insight: `http://localhost:5540`
 - Grafana, only with `-Observability`: `http://localhost:3000`
+- Alertmanager, only with `-Observability`: `http://localhost:9093`
 - Prometheus, only with `-Observability`: `http://localhost:9090`
 - Loki, only with `-Observability`: `http://localhost:3100`
 - Tempo, only with `-Observability`: `http://localhost:3200`
@@ -200,6 +202,7 @@ Local port checklist:
 6379 Redis
 5540 Redis Insight
 3000 Grafana, optional observability profile
+9093 Alertmanager, optional observability profile
 9090 Prometheus, optional observability profile
 3100 Loki, optional observability profile
 3200 Tempo, optional observability profile

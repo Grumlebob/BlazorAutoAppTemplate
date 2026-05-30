@@ -17,6 +17,24 @@
   roles:
     - firewall
 
+- name: Deploy Cloud observability backend
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - role: observability_backend
+      when: observability_enabled | default(false) | bool
+
+- name: Deploy Cloud observability agents
+  hosts: cloud
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - role: observability_agent
+      when: observability_enabled | default(false) | bool
+
 - name: Stop app containers before migration
   hosts: app_servers
   become: true

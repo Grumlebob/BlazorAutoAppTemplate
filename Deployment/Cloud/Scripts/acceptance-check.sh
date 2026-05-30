@@ -116,6 +116,7 @@ DEPLOY_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" deplo
 APP1_PRIVATE="$(hostvar cloud-app1 cloud_private_ip)"
 APP2_PRIVATE="$(hostvar cloud-app2 cloud_private_ip)"
 DB_PRIVATE="$(hostvar cloud-db cloud_private_ip)"
+MAIN_PUBLIC="$(hostvar cloud-main cloud_public_ipv4)"
 APP1_PUBLIC="$(hostvar cloud-app1 cloud_public_ipv4)"
 APP2_PUBLIC="$(hostvar cloud-app2 cloud_public_ipv4)"
 DB_PUBLIC="$(hostvar cloud-db cloud_public_ipv4)"
@@ -153,6 +154,13 @@ check_public_port_closed "$APP1_PUBLIC" "$APP_PORT" "cloud-app1 app port"
 check_public_port_closed "$APP2_PUBLIC" "$APP_PORT" "cloud-app2 app port"
 check_public_port_closed "$DB_PUBLIC" "$POSTGRES_PORT" "cloud-db PostgreSQL port"
 check_public_port_closed "$DB_PUBLIC" "$REDIS_PORT" "cloud-db Redis port"
+if [[ "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_enabled 2>/dev/null || echo false)" == "true" ]]; then
+  check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_grafana_port)" "cloud-main Grafana port"
+  check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_alertmanager_port)" "cloud-main Alertmanager port"
+  check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_prometheus_port)" "cloud-main Prometheus port"
+  check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_loki_port)" "cloud-main Loki port"
+  check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_tempo_http_port)" "cloud-main Tempo port"
+fi
 
 echo "checking backup directory"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a \

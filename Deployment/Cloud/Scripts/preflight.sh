@@ -39,4 +39,8 @@ if [[ "${SKIP_CLOUD_SSH_REACHABILITY_CHECK:-0}" != "1" ]]; then
   bash "$SCRIPT_DIR/check-ssh-reachability.sh"
 fi
 
+if [[ "$MODE" == "deploy" || "$MODE" == "provision" ]]; then
+  bash "$SCRIPT_DIR/observability-capacity-check.sh"
+fi
+
 echo "cloud preflight ok ($MODE)"

@@ -10,13 +10,17 @@
 
 - name: Install Docker runtime on service nodes
   hosts:
+    - load_balancer
     - app_servers
     - node_db
   become: true
   vars_files:
     - ../../../Common/release.yml
   roles:
-    - docker
+    - role: docker
+      when: >-
+        inventory_hostname not in (groups['load_balancer'] | default([]))
+        or (observability_enabled | default(false) | bool)
 
 - name: Apply Cloud host firewall rules on private service nodes
   hosts:
@@ -35,6 +39,24 @@
     - ../../../Common/release.yml
   roles:
     - firewall
+
+- name: Deploy Cloud observability backend
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - role: observability_backend
+      when: observability_enabled | default(false) | bool
+
+- name: Deploy Cloud observability agents
+  hosts: cloud
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - role: observability_agent
+      when: observability_enabled | default(false) | bool
 
 - name: Install and configure Caddy on ingress node
   hosts: load_balancer

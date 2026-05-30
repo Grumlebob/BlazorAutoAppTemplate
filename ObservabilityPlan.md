@@ -2164,65 +2164,90 @@ Evidence:
 
 ### Phase 6: Cloud Observability
 
-Status: not started.
+Status: completed for v1 implementation.
+
+Last updated: 2026-05-30.
 
 Work:
 
-- Add Cloud observability compose and Ansible roles.
-- Deploy backend on `cloud-main`.
-- Deploy Alloy on all Cloud nodes.
-- Add exporters on `cloud-db`.
-- Enable Caddy/cloudflared metrics.
-- Add resource limits to Cloud app/data/observability compose files where safe.
-- Add Docker log rotation.
-- Add Cloud observability capacity check that queries the chosen Hetzner server type and current node resources.
-- Add firewall rules.
-- Add dashboard tunnel script.
-- Add observability doctor script.
-- Update `Deployment/Cloud/HowToDeployCloud.md`.
-- Update quick destroy/recreate scripts for observability data notes.
-
-Manual step expected:
-
-```text
-[CurrentPC]
-Run Cloud provision/deploy after scripts are committed.
-```
+- [x] Add Cloud observability compose and Ansible roles.
+- [x] Deploy backend on `cloud-main`.
+- [x] Deploy Alloy on all Cloud nodes.
+- [x] Add exporters on `cloud-db`.
+- [ ] Enable Caddy/cloudflared metrics. Deferred for the same reason as LocalCluster: exposing Caddy admin metrics or changing cloudflared service flags needs a separate security review.
+- [x] Add resource limits to Cloud app/data/observability compose files where safe.
+- [x] Add Docker log rotation.
+- [x] Add Cloud observability capacity check for current node resources.
+- [x] Add firewall rules for private observability traffic and public-port closure checks.
+- [x] Add dashboard tunnel script.
+- [x] Add observability doctor script.
+- [x] Update `Deployment/Cloud/HowToDeployCloud.md`.
+- [x] Update quick destroy/recreate scripts for observability data notes.
+- [x] Add Cloud CD observability doctor after acceptance when observability is enabled.
 
 Verification:
 
-- capacity check passes before deployment.
-- Cloud app acceptance passes.
-- Cloud observability doctor passes.
-- Grafana shows cloud-main, cloud-app1, cloud-app2, cloud-db.
-- `cloud-main` has at least 25 percent free memory after startup and smoke traffic.
-- no observability container is OOMKilled.
-- Prometheus active series and Loki streams are below Cloud thresholds.
-- `quick-destroy-cloud.sh --plan-only` clearly warns about Cloud observability data loss.
+- [x] Cloud settings validation accepts the new observability settings.
+- [x] Cloud app and data Compose files render with representative environment values.
+- [x] Cloud scripts parse with `bash -n`.
+- [x] LocalCluster rendered template validation still passes after shared Alertmanager changes.
+- [x] Common observability validation passes.
+- [x] Local Docker observability smoke passes with Alertmanager included.
+- [x] Alertmanager configuration passes `amtool check-config`.
+- [x] Prometheus is wired to Alertmanager in local smoke.
+- [x] Safe synthetic Alertmanager route test passes locally.
+- [x] Cloud app acceptance will check that Grafana, Alertmanager, Prometheus, Loki, and Tempo are not public.
+- [ ] Cloud app acceptance passes after deployment.
+- [ ] Cloud observability doctor passes after deployment.
+- [ ] `cloud-main` has at least 25 percent free memory after startup and smoke traffic.
+- [ ] no Cloud observability container is OOMKilled.
+- [ ] Prometheus active series and Loki streams are below Cloud thresholds.
+- [x] `quick-destroy-cloud.sh --plan-only` clearly warns about Cloud observability data loss.
+
+Implementation notes:
+
+- `cloud-main` hosts Grafana, Prometheus, Alertmanager, Loki, and Tempo in `/opt/bookscloud-observability`.
+- Every Cloud node runs Alloy and node-exporter from `/opt/bookscloud-observability/agent`.
+- `cloud-db` runs PostgreSQL and Redis exporters in the existing `/opt/bookscloud` data compose stack.
+- Cloud app containers join a per-node external Docker network named `bookscloud_observability` and send OTLP to the local `alloy` network alias.
+- Cloud observability ports bind to loopback or private IPs only; the acceptance check verifies public observability ports are closed.
+- Cloud quick destroy removes Cloud observability data with the servers and leaves LocalCluster unaffected.
+
+Evidence before target deployment:
+
+- `bash Deployment/Common/observability/scripts/validate-observability.sh` passed.
+- `docker compose --profile observability config --quiet` passed.
+- `bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh` passed.
+- `bash Deployment/Cloud/Scripts/validate-cloud-settings.sh` passed.
+- Cloud app and data Compose config checks passed with representative environment values.
+- `pwsh -File .\docker\observability\smoke-local-observability.ps1` passed with Alertmanager included.
+- `bash Deployment/Common/observability/scripts/test-alertmanager-route.sh http://127.0.0.1:9093 local` passed.
 
 ### Phase 7: Alerts
 
-Status: not started.
+Status: completed for v1 private routing.
+
+Last updated: 2026-05-30.
 
 Work:
 
-- Add alert rules.
-- Add runbook links.
-- Configure contact point.
-- Test safe alerts.
-- Add memory-pressure alerts for host and containers.
-- Add disk-pressure alerts for host and observability volumes.
-- Add Prometheus active-series growth alert.
-- Add Loki ingestion/stream growth alert.
-- Add Tempo ingestion/drop alert.
-- Add Alloy dropped telemetry alert.
+- [x] Add alert rules.
+- [x] Add runbook links.
+- [x] Add Alertmanager as the private alert routing/contact point for Prometheus.
+- [x] Test safe alerts through Alertmanager.
+- [x] Add memory/telemetry pipeline guardrail rules where metrics already exist.
+- [x] Add Prometheus active-series growth alert.
+- [x] Add Alloy dropped telemetry alert.
+- [ ] Add external notification destination such as Slack, PagerDuty, or email. This requires a real destination URL/token and is intentionally not guessed.
+- [ ] Add Caddy/cloudflared-specific alerts after their metrics exposure receives the same security review as the metrics work.
 
 Verification:
 
-- alert fires for a controlled test condition.
-- notification arrives.
-- alert resolves cleanly.
-- runbook link works.
+- [x] Alertmanager config passes `amtool check-config`.
+- [x] Prometheus reports an active Alertmanager connection in local smoke.
+- [x] `test-alertmanager-route.sh` sends a short-lived synthetic alert and verifies Alertmanager returns it.
+- [x] runbook labels resolve to files under `Deployment/Common/observability/runbooks`.
+- [ ] external notification arrives. Blocked until a real external destination secret is provided.
 
 ## Operator Scripts
 

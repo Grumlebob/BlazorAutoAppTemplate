@@ -1,7 +1,14 @@
+x-cloud-logging: &cloud-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:18.4-alpine3.23
     restart: unless-stopped
+    logging: *cloud-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -20,6 +27,7 @@ services:
   redis:
     image: redis:8.8.0-alpine3.23
     restart: unless-stopped
+    logging: *cloud-logging
     command:
       - redis-server
       - --requirepass
@@ -38,6 +46,41 @@ services:
       retries: 10
     volumes:
       - redis_data:/data
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    logging: *cloud-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_URI: "postgres:5432/${POSTGRES_DB}?sslmode=disable"
+      DATA_SOURCE_USER: ${POSTGRES_USER}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${OBSERVABILITY_POSTGRES_EXPORTER_PORT}:9187"
+      - "${POSTGRES_BIND_IP}:${OBSERVABILITY_POSTGRES_EXPORTER_PORT}:9187"
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: 0.15
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.73.0
+    restart: unless-stopped
+    logging: *cloud-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    command:
+      - --redis.addr=redis://redis:6379
+      - --redis.password=${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:${OBSERVABILITY_REDIS_EXPORTER_PORT}:9121"
+      - "${REDIS_BIND_IP}:${OBSERVABILITY_REDIS_EXPORTER_PORT}:9121"
+    mem_limit: 96m
+    mem_reservation: 48m
+    cpus: 0.10
 
 volumes:
   postgres_data:

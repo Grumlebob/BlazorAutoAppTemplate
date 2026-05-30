@@ -17,6 +17,7 @@ Options:
 
 Recreates the Hetzner Cloud stack after quick-destroy-cloud.sh, refreshes generated
 inventory and GitHub environment secrets, provisions the nodes, then dispatches CD - Cloud.
+Cloud observability starts with empty metrics/logs/traces after recreate.
 USAGE
   exit 1
 }

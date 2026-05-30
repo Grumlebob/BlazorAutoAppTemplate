@@ -1,0 +1,88 @@
+---
+- name: Ensure observability agent root exists
+  ansible.builtin.file:
+    path: "{{ observability_root }}/agent"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+
+- name: Ensure shared observability Docker network exists
+  ansible.builtin.command: "docker network create {{ observability_docker_network }}"
+  register: observability_agent_network_create
+  failed_when:
+    - observability_agent_network_create.rc != 0
+    - "'already exists' not in observability_agent_network_create.stderr"
+  changed_when: observability_agent_network_create.rc == 0
+
+- name: Render observability agent compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ observability_root }}/agent/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Render Alloy configuration
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: "{{ observability_root }}/agent/config.alloy"
+    owner: deploy
+    group: deploy
+    mode: "0644"
+
+- name: Render observability agent environment file
+  ansible.builtin.template:
+    src: agent.env.j2
+    dest: "{{ observability_root }}/agent/.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
+- name: Start observability agent
+  block:
+    - name: Pull and start observability agent
+      ansible.builtin.command: docker compose up -d --pull always --remove-orphans --force-recreate
+      args:
+        chdir: "{{ observability_root }}/agent"
+      become: true
+      become_user: deploy
+      register: observability_agent_compose_up
+      changed_when: >-
+        (observability_agent_compose_up.stdout ~ observability_agent_compose_up.stderr)
+        is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+  rescue:
+    - name: Inspect observability agent containers
+      ansible.builtin.command: docker compose ps
+      args:
+        chdir: "{{ observability_root }}/agent"
+      become: true
+      become_user: deploy
+      register: observability_agent_compose_ps
+      changed_when: false
+      failed_when: false
+
+    - name: Read observability agent logs
+      ansible.builtin.command: docker compose logs --no-color --tail=160 alloy node-exporter
+      args:
+        chdir: "{{ observability_root }}/agent"
+      become: true
+      become_user: deploy
+      register: observability_agent_compose_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Print observability agent diagnostics
+      ansible.builtin.debug:
+        msg: |
+          Observability agent failed to start.
+
+          docker compose ps:
+          {{ observability_agent_compose_ps.stdout | default('no compose ps output') }}
+
+          docker compose logs:
+          {{ observability_agent_compose_logs.stdout | default('no compose logs output') }}
+
+    - name: Fail observability agent deployment
+      ansible.builtin.fail:
+        msg: "Observability agent failed to start; see diagnostics above."

@@ -258,6 +258,7 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "hostvars": hostvars,
         "observability_docker_network": "notes_observability",
         "observability_grafana_port": "3000",
+        "observability_alertmanager_port": "9093",
         "observability_prometheus_port": "9090",
         "observability_loki_port": "3100",
         "observability_tempo_http_port": "3200",
@@ -280,6 +281,7 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     agent_root = tmp_path / "observability-agent"
     for path in [
         backend_root / "prometheus" / "rules",
+        backend_root / "alertmanager",
         backend_root / "loki",
         backend_root / "tempo",
         backend_root / "grafana" / "provisioning",
@@ -292,6 +294,10 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     agent_template_root = ROOT / "Deployment/LocalCluster/ansible/roles/observability_agent/templates"
     for rule_file in (ROOT / "Deployment/Common/observability/prometheus/rules").glob("*.yml"):
         shutil.copy2(rule_file, backend_root / "prometheus" / "rules" / rule_file.name)
+    shutil.copy2(
+        ROOT / "Deployment/Common/observability/alertmanager/alertmanager.yml",
+        backend_root / "alertmanager" / "alertmanager.yml",
+    )
     (backend_root / ".env").write_text(render_jinja(backend_template_root / "backend.env.j2", backend_context), encoding="utf-8")
     (backend_root / "docker-compose.yml").write_text(render_jinja(backend_template_root / "docker-compose.yml.j2", backend_context), encoding="utf-8")
     prometheus_config = backend_root / "prometheus" / "prometheus.yml"

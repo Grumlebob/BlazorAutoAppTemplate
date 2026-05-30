@@ -29,6 +29,10 @@ Implemented local scripts:
 - `provision.sh` runs Cloud host provisioning.
 - `deploy.sh` deploys the app and optionally runs migrations.
 - `acceptance-check.sh` verifies the deployed Cloud app.
+- `observability-capacity-check.sh` verifies Cloud memory/disk headroom before observability deployment.
+- `observability-doctor.sh` verifies Cloud observability containers, scrape targets, app telemetry labels, dashboards, cardinality, and OOM state.
+- `observability-resource-report.sh` prints Cloud observability memory, disk, and container resource snapshots.
+- `open-observability-tunnel.sh` opens a private SSH tunnel to Cloud Grafana on `cloud-main`.
 - `backup-db.sh` triggers a PostgreSQL backup on `cloud-db`.
 - `restore-db.sh` wraps a guarded PostgreSQL restore on `cloud-db`.
 

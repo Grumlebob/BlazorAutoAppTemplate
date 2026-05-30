@@ -12,8 +12,10 @@ Current shared ownership:
 - `Scripts/Component/lib/find-successful-ci-run.py` finds the successful CI run for the selected commit before CD downloads artifacts.
 - `Scripts/Component/lib/simple_yaml.py` is the shared parser for the simple top-level YAML files used by deployment settings.
 - `observability/grafana` contains target-neutral Grafana datasource and dashboard provisioning.
+- `observability/alertmanager` contains target-neutral Alertmanager routing defaults.
 - `observability/prometheus/rules` contains target-neutral Prometheus alert rules.
 - `observability/runbooks` contains short operator runbooks referenced by alerts.
 - `observability/scripts` contains shared validation/cardinality/resource helper scripts.
+- `observability/scripts/test-alertmanager-route.sh` sends a short-lived synthetic alert to prove Alertmanager accepts routed alerts.
 
 Keep this folder small. Do not move LocalCluster inventory, Caddy, firewall, compose, or bootstrap logic here until LocalCluster and Cloud have both proven the shared boundary.

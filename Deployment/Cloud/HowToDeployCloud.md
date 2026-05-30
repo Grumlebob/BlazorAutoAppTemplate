@@ -14,7 +14,7 @@ The Cloud deployment has been brought live at `https://bookscloud.jacobgrum.com`
 
 This guide remains the source of truth for rebuilding, repairing, or repeating the Cloud deployment. Follow it from top to bottom for a fresh deployment; for an existing deployment, run the doctor script first and continue from the first `ACTION` or `BLOCKER`.
 
-Cloud observability is not deployed yet. The current Cloud guide covers the app, data services, Cloudflare Tunnel, health checks, and CD. Cloud Grafana/Prometheus/Loki/Tempo/Alloy is tracked separately in `ObservabilityPlan.md` Phase 6.
+Cloud observability is part of this deployment. Grafana, Prometheus, Alertmanager, Loki, and Tempo run privately on `cloud-main`; Alloy and node-exporter run on every Cloud node; PostgreSQL and Redis exporters run on `cloud-db`.
 
 Do not create Hetzner servers manually. OpenTofu owns them.
 
@@ -52,15 +52,19 @@ Cloudflare -> cloudflared on cloud-main -> Caddy on cloud-main
 
 cloud-app1/cloud-app2 -> cloud-db PostgreSQL container
 cloud-app1/cloud-app2 -> cloud-db Redis container
+
+cloud-main Prometheus/Grafana/Alertmanager/Loki/Tempo
+cloud-main Prometheus scrapes all Cloud nodes over private IPs
+each Cloud node Alloy sends app logs, metrics, and traces to cloud-main
 ```
 
 Nodes:
 
 ```text
-cloud-main  - Caddy, Cloudflare Tunnel, SSH bastion, ingress checks
-cloud-app1  - app container
-cloud-app2  - app container
-cloud-db    - PostgreSQL and Redis containers
+cloud-main  - Caddy, Cloudflare Tunnel, SSH bastion, ingress checks, observability backend and Alertmanager
+cloud-app1  - app container, observability agent
+cloud-app2  - app container, observability agent
+cloud-db    - PostgreSQL and Redis containers, database exporters, observability agent
 ```
 
 Network:
@@ -84,6 +88,8 @@ Security posture:
 - App port `8080` is allowed only from `cloud-main` over the private network by host firewall.
 - PostgreSQL and Redis are allowed only from `cloud-app1` and `cloud-app2` over the private network by host firewall.
 - PostgreSQL and Redis are never public.
+- Grafana, Prometheus, Alertmanager, Loki, Tempo, Alloy, node-exporter, postgres-exporter, and redis-exporter are never public.
+- Open the Cloud Grafana dashboard only through `Deployment/Cloud/Scripts/open-observability-tunnel.sh`.
 - Cloud deployment secrets are separate from LocalCluster secrets.
 
 ## Location Labels
@@ -275,6 +281,7 @@ recreate bookscloud
 ```
 
 It then creates the Hetzner resources, renders inventory, refreshes GitHub environment secrets that depend on new server IPs, provisions the nodes, and dispatches `CD - Cloud` with migrations enabled.
+Cloud observability data is disposable and is destroyed with the servers unless you export it first.
 
 For a non-interactive run after reviewing the plan:
 
@@ -906,12 +913,15 @@ The workflow does:
 - temporarily allow SSH from the GitHub runner IP to `cloud-main`.
 - render Cloud inventory from GitHub environment secrets.
 - provision Cloud nodes idempotently.
+- run the Cloud observability capacity preflight.
+- deploy the Cloud observability backend and agents when `observability_enabled: true`.
 - deploy PostgreSQL and Redis on `cloud-db`.
 - create a pre-migration PostgreSQL backup.
 - run the migration bundle once on `cloud-db`.
 - deploy app containers on `cloud-app1` and `cloud-app2`.
 - deploy Caddy and cloudflared on `cloud-main`.
 - run acceptance checks.
+- run the Cloud observability doctor when `observability_enabled: true`.
 - remove the temporary SSH allow rule even if deployment fails.
 
 ## 13. Acceptance Checks
@@ -938,6 +948,7 @@ Acceptance must verify:
 - app home page returns success, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
 - public PostgreSQL and Redis are not reachable.
 - public app port `8080` is not reachable on app nodes.
+- public Grafana, Alertmanager, Prometheus, Loki, and Tempo ports are not reachable on `cloud-main`.
 - app port, PostgreSQL, and Redis reject unauthorized private-network sources.
 - backup directory exists on `cloud-db`.
 
@@ -947,7 +958,50 @@ The acceptance script is challenge-tolerant by default only for Cloudflare manag
 CLOUD_ACCEPT_CLOUDFLARE_CHALLENGE=false bash ./Deployment/Cloud/Scripts/acceptance-check.sh
 ```
 
-## 14. Backup And Restore
+## 14. Verify Cloud Observability
+
+[GitHub] or [CurrentPC]
+
+The `CD - Cloud` workflow runs this automatically after acceptance when `observability_enabled: true`:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash ./Deployment/Cloud/Scripts/observability-doctor.sh
+```
+
+The doctor verifies:
+
+- Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `cloud-main`.
+- Alloy and node-exporter are running on every Cloud node.
+- PostgreSQL and Redis exporters are running on `cloud-db`.
+- Prometheus sees all Cloud scrape targets.
+- app telemetry identifies `cloud-app1` and `cloud-app2` separately with `deployment_target="cloud"`.
+- the shared Grafana dashboard is provisioned.
+- no observability container has been OOMKilled.
+- active Prometheus series and Loki streams stay below the Cloud budgets.
+
+Open Cloud Grafana from CurrentPC:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+bash ./Deployment/Cloud/Scripts/open-observability-tunnel.sh
+```
+
+Then open:
+
+```text
+http://127.0.0.1:3000
+```
+
+To print a Cloud observability resource snapshot:
+
+```bash
+bash ./Deployment/Cloud/Scripts/observability-resource-report.sh
+```
+
+Do not expose Grafana, Prometheus, Loki, Tempo, Alloy, or exporter ports publicly.
+
+## 15. Backup And Restore
 
 [CurrentPC]
 
@@ -968,7 +1022,7 @@ bash ./Deployment/Cloud/Scripts/backup-db.sh
 bash ./Deployment/Cloud/Scripts/restore-db.sh --help
 ```
 
-## 15. Troubleshooting Loop
+## 16. Troubleshooting Loop
 
 When a step fails:
 

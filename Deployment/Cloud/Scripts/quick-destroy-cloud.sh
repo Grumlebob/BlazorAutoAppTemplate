@@ -12,6 +12,7 @@ Destroys the OpenTofu-owned Hetzner Cloud stack so billable Cloud resources stop
 Safety:
   - requires local OpenTofu state
   - creates a state backup before destroy
+  - destroys disposable Cloud app data and observability metrics/logs/traces
   - removes only the generated Cloud inventory after successful destroy
   - never deletes unmanaged Hetzner resources through the API
 USAGE
@@ -190,6 +191,10 @@ if [[ ! -f "$TOFU_DIR/terraform.tfvars" ]]; then
 fi
 
 print_matching_hcloud_resources "Matching Hetzner resources before destroy:"
+echo
+echo "Data loss note:"
+echo "  Cloud PostgreSQL/Redis data and Cloud observability metrics/logs/traces live on the servers being destroyed."
+echo "  GitHub environment secrets and LocalCluster data are not destroyed by this script."
 backup_state "pre-destroy"
 
 cd "$TOFU_DIR"

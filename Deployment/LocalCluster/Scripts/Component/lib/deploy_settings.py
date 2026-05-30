@@ -29,6 +29,7 @@ OPTIONAL_KEYS = [
     "observability_docker_network",
     "observability_trace_sample_ratio",
     "observability_grafana_port",
+    "observability_alertmanager_port",
     "observability_prometheus_port",
     "observability_loki_port",
     "observability_tempo_http_port",
@@ -134,6 +135,7 @@ def validate(values: dict[str, str]) -> list[str]:
 
     observability_port_keys = [
         "observability_grafana_port",
+        "observability_alertmanager_port",
         "observability_prometheus_port",
         "observability_loki_port",
         "observability_tempo_http_port",

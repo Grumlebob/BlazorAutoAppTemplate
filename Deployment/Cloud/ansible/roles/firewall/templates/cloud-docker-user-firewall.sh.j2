@@ -10,6 +10,36 @@ iptables -w -F "$APP_CHAIN"
 iptables -w -C DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
   || iptables -w -I DOCKER-USER 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
+{% if observability_enabled | default(false) | bool %}
+{% if inventory_hostname in groups["load_balancer"] %}
+# Observability backend: only Cloud private nodes may push telemetry to published ingestion ports.
+{% for host in groups["cloud"] %}
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_prometheus_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_loki_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_tempo_otlp_grpc_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[host].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_tempo_otlp_http_port }} -j ACCEPT
+{% endfor %}
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_prometheus_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_loki_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_tempo_otlp_grpc_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_tempo_otlp_http_port }} -j DROP
+{% endif %}
+
+# Observability agents and host exporters: only cloud-main may scrape them.
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_alloy_http_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_node_exporter_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_alloy_http_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_node_exporter_port }} -j DROP
+
+{% if inventory_hostname in groups["node_db"] %}
+# Database exporters: only cloud-main may scrape them.
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_postgres_exporter_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -s {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_redis_exporter_port }} -j ACCEPT
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_postgres_exporter_port }} -j DROP
+iptables -w -A "$APP_CHAIN" -p tcp -m conntrack --ctorigdst {{ cloud_private_ip }} --ctorigdstport {{ observability_redis_exporter_port }} -j DROP
+{% endif %}
+{% endif %}
+
 {% if inventory_hostname in groups["app_servers"] %}
 # App containers: cloud-main may reach the private published app port; the host
 # itself may use the localhost binding for health checks.

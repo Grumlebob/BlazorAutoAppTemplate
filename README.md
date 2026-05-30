@@ -24,17 +24,18 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Observability
 
-Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the same stack on `node-main` and per-node collectors through `Deployment/LocalCluster/HowToDeployLocalCluster.md`. `ObservabilityGuide.md` is the short operator guide, and `ObservabilityPlan.md` tracks the phased rollout:
+Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `ObservabilityGuide.md` is the short operator guide, and `ObservabilityPlan.md` tracks the phased rollout:
 
 - OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
 - Grafana is the dashboard and operator UI.
 - Prometheus stores metrics and runs alert rules.
+- Alertmanager receives Prometheus alerts for routing and silencing.
 - Loki is centralized log aggregation.
 - Tempo stores distributed traces from OpenTelemetry.
 - Grafana Alloy is the per-node collector for logs, metrics, and OTLP telemetry.
 - Exporters expose host, PostgreSQL, and Redis metrics; Alloy collects app container logs and app OTLP metrics/traces.
 
-The LocalCluster observability deployment uses existing LocalCluster nodes; no extra observability node is part of the plan. Cloud observability is still planned in `ObservabilityPlan.md` Phase 6, so the current Cloud deployment is app-only plus its existing health/doctor checks.
+The LocalCluster and Cloud observability deployments use existing nodes; no extra observability node is part of the plan.
 
 ## Repository Layout
 

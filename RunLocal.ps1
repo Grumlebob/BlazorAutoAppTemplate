@@ -168,6 +168,7 @@ try {
 
   $healthUrl = "$($appUrl.TrimEnd('/'))/health/ready"
   $grafanaUrl = "http://localhost:$($envValues['GRAFANA_HOST_PORT'] ?? '3000')"
+  $alertmanagerUrl = "http://localhost:$($envValues['ALERTMANAGER_HOST_PORT'] ?? '9093')"
   $prometheusUrl = "http://localhost:$($envValues['PROMETHEUS_HOST_PORT'] ?? '9090')"
   $lokiUrl = "http://localhost:$($envValues['LOKI_HOST_PORT'] ?? '3100')"
   $tempoUrl = "http://localhost:$($envValues['TEMPO_HOST_PORT'] ?? '3200')"
@@ -196,10 +197,13 @@ try {
   if (-not $NoBuild) {
     $composeArgs += '--build'
   }
+  if ($Observability) {
+    $composeArgs += '--force-recreate'
+  }
   $composeArgs += '--remove-orphans'
   $composeServices = @('web')
   if ($Observability) {
-    $composeServices += @('prometheus', 'loki', 'tempo', 'alloy', 'grafana')
+    $composeServices += @('prometheus', 'alertmanager', 'loki', 'tempo', 'alloy', 'grafana')
   }
   $composeArgs += $composeServices
 
@@ -268,6 +272,7 @@ try {
   Write-Host "RedisInsight: http://localhost:$($envValues['REDIS_INSIGHT_HOST_PORT'] ?? '5540')"
   if ($Observability) {
     Write-Host "Grafana:      $grafanaUrl"
+    Write-Host "Alertmanager: $alertmanagerUrl"
     Write-Host "Prometheus:   $prometheusUrl"
     Write-Host "Loki:         $lokiUrl"
     Write-Host "Tempo:        $tempoUrl"

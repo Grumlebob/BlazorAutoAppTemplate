@@ -32,6 +32,14 @@
     group: deploy
     mode: "0750"
 
+- name: Ensure app observability Docker network exists
+  ansible.builtin.command: "docker network create {{ observability_docker_network }}"
+  register: cloud_app_observability_network_create
+  failed_when:
+    - cloud_app_observability_network_create.rc != 0
+    - "'already exists' not in cloud_app_observability_network_create.stderr"
+  changed_when: cloud_app_observability_network_create.rc == 0
+
 - name: Copy app compose file
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../compose/app-server/docker-compose.yml"

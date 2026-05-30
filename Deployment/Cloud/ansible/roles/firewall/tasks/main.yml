@@ -24,6 +24,43 @@
   loop: "{{ groups['app_servers'] }}"
   when: inventory_hostname in groups["node_db"]
 
+- name: Allow observability backend ingestion from Cloud nodes
+  ansible.builtin.command: "ufw allow from {{ hostvars[item.0].cloud_private_ip }} to any port {{ item.1 }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_observability_backend.stdout"
+  register: cloud_firewall_ufw_observability_backend
+  loop: >-
+    {{
+      groups['cloud'] | product([
+        observability_prometheus_port,
+        observability_loki_port,
+        observability_tempo_otlp_grpc_port,
+        observability_tempo_otlp_http_port
+      ]) | list
+    }}
+  when:
+    - observability_enabled | default(false) | bool
+    - inventory_hostname in groups["load_balancer"]
+
+- name: Allow observability scrape traffic from ingress node
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} to any port {{ item }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_observability_scrape.stdout"
+  register: cloud_firewall_ufw_observability_scrape
+  loop:
+    - "{{ observability_alloy_http_port }}"
+    - "{{ observability_node_exporter_port }}"
+  when: observability_enabled | default(false) | bool
+
+- name: Allow observability database exporter scrapes from ingress node
+  ansible.builtin.command: "ufw allow from {{ hostvars[groups['load_balancer'][0]].cloud_private_ip }} to any port {{ item }} proto tcp"
+  changed_when: "'Rules updated' in cloud_firewall_ufw_observability_db_exporters.stdout"
+  register: cloud_firewall_ufw_observability_db_exporters
+  loop:
+    - "{{ observability_postgres_exporter_port }}"
+    - "{{ observability_redis_exporter_port }}"
+  when:
+    - observability_enabled | default(false) | bool
+    - inventory_hostname in groups["node_db"]
+
 - name: Set default incoming policy
   ansible.builtin.command: ufw default deny incoming
   changed_when: "'Default incoming policy changed' in cloud_firewall_default_in.stdout"
@@ -59,7 +96,8 @@
     group: root
     mode: "0755"
   when: >-
-    inventory_hostname in (groups["app_servers"] | default([]))
+    inventory_hostname in (groups["load_balancer"] | default([]))
+    or inventory_hostname in (groups["app_servers"] | default([]))
     or inventory_hostname in (groups["node_db"] | default([]))
 
 - name: Install Docker published-port firewall service
@@ -70,7 +108,8 @@
     group: root
     mode: "0644"
   when: >-
-    inventory_hostname in (groups["app_servers"] | default([]))
+    inventory_hostname in (groups["load_balancer"] | default([]))
+    or inventory_hostname in (groups["app_servers"] | default([]))
     or inventory_hostname in (groups["node_db"] | default([]))
 
 - name: Enable Docker published-port firewall service
@@ -80,12 +119,14 @@
     enabled: true
     state: started
   when: >-
-    inventory_hostname in (groups["app_servers"] | default([]))
+    inventory_hostname in (groups["load_balancer"] | default([]))
+    or inventory_hostname in (groups["app_servers"] | default([]))
     or inventory_hostname in (groups["node_db"] | default([]))
 
 - name: Apply Docker published-port firewall rules
   ansible.builtin.command: "/usr/local/sbin/{{ app_name }}-cloud-docker-user-firewall"
   changed_when: false
   when: >-
-    inventory_hostname in (groups["app_servers"] | default([]))
+    inventory_hostname in (groups["load_balancer"] | default([]))
+    or inventory_hostname in (groups["app_servers"] | default([]))
     or inventory_hostname in (groups["node_db"] | default([]))
