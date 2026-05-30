@@ -2150,6 +2150,7 @@ Remediation checklist:
 Evidence:
 
 - `bash Deployment/Common/observability/scripts/validate-observability.sh` passed.
+- `bash Deployment/LocalCluster/Scripts/audit-deployment.sh` passed.
 - `bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh` passed.
 - `docker compose --profile observability config --quiet` passed.
 - Cloud app compose rendered with representative environment values and passed `docker compose config --quiet`.

@@ -763,11 +763,13 @@ for needle, why in [
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
+    ("find Deployment/Cloud/Scripts -type f -name '*.sh'", "Cloud shell lint root"),
     ("bash Deployment/Common/Scripts/validate-common-release.sh", "common release validation step"),
+    ("bash Deployment/Cloud/Scripts/validate-cloud-settings.sh", "Cloud settings validation step"),
     ("bash Deployment/LocalCluster/Scripts/audit-deployment.sh", "deployment audit step"),
     ("bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
     ("python -m pip install --upgrade yamllint", "deployment lint tool install"),
-    ("yamllint .github Deployment/LocalCluster Deployment/Common", "deployment YAML lint step"),
+    ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
     ("rhysd/actionlint:1.7.12", "current actionlint container"),
     ("node-version: 24", "current Node.js LTS setup"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
