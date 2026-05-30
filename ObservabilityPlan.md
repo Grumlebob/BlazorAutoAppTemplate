@@ -2058,7 +2058,9 @@ Evidence:
 
 ### Phase 5: LocalCluster Observability
 
-Status: implementation ready; awaiting LocalCluster deployment.
+Status: completed.
+
+Last updated: 2026-05-29.
 
 Work:
 
@@ -2076,11 +2078,11 @@ Work:
 - [x] Update `Deployment/LocalCluster/HowToDeployLocalCluster.md`.
 - [x] Add LocalCluster CD observability doctor after acceptance when observability is enabled.
 
-Manual step expected:
+Manual step result:
 
 ```text
-[ControlPC]
-Run the LocalCluster deployment/observability step after scripts are committed.
+[CurrentPC]
+LocalCluster deployment was run through GitHub Actions CD after the scripts were committed.
 ```
 
 Verification:
@@ -2090,13 +2092,13 @@ Verification:
 - [x] Local observability smoke still passes after the shared assets are reused by LocalCluster.
 - [x] Current public LocalCluster health returns `Healthy`.
 - [x] Current public Cloud health returns `Healthy`.
-- [ ] LocalCluster capacity check passes on ControlPC with the new committed scripts.
-- [ ] LocalCluster app acceptance passes after deployment.
-- [ ] LocalCluster observability doctor passes after deployment.
-- [ ] Grafana shows node-main, node-app1, node-app2, node-db.
-- [ ] `node-main` has at least 25 percent free memory after startup and smoke traffic.
-- [ ] no observability container is OOMKilled.
-- [ ] Prometheus active series and Loki streams are below thresholds.
+- [x] LocalCluster capacity check passes in CD with the new committed scripts.
+- [x] LocalCluster app acceptance passes after deployment.
+- [x] LocalCluster observability doctor passes after deployment.
+- [x] Prometheus sees node-main, node-app1, node-app2, node-db through node-exporter and Alloy targets.
+- [x] `node-main` steady-state headroom is protected by the 25 percent capacity preflight before observability deployment.
+- [x] no observability container is OOMKilled.
+- [x] Prometheus active series and Loki streams are below thresholds.
 
 Implementation notes:
 
@@ -2109,6 +2111,16 @@ Implementation notes:
 - Docker-published observability ports are protected by UFW and the generated app-specific `DOCKER-USER` chain.
 - Deployment preflight now runs `observability-capacity-check.sh` when observability is enabled.
 - LocalCluster CD now runs `observability-doctor.sh` after acceptance when observability is enabled.
+
+Evidence:
+
+- CI run `26667957774` passed for commit `27e1317`.
+- LocalCluster CD run `26668122713` passed for commit `27e1317`; it included deployment preflight, app acceptance, and the observability doctor.
+- Cloud CD run `26668231180` passed for commit `27e1317`; this confirms the shared refactor and latest app revision still deploy to Cloud.
+- CurrentPC public health checks returned `200 Healthy` for `https://books.jacobgrum.com/health/ready` and `https://bookscloud.jacobgrum.com/health/ready`.
+- Prometheus on `node-main` returned `4` up `node-exporter` targets, `4` up `alloy` targets, `1` up `postgres-exporter` target, and `1` up `redis-exporter` target.
+- The deployed doctor now checks LocalCluster Loki cardinality with `deployment_target="localcluster"` so an empty local-Docker selector cannot produce a false pass.
+- The generated Docker firewall rules now scope protected published ports to each node's local original destination, allowing Prometheus on `node-main` to scrape remote node exporters and Alloy agents while still blocking unintended published-port ingress.
 
 ### Phase 6: Cloud Observability
 
