@@ -65,6 +65,11 @@
     name: deploy
     groups: docker
     append: true
+  register: docker_deploy_user_group
+
+- name: Reset SSH connection after Docker group membership changes
+  ansible.builtin.meta: reset_connection
+  when: docker_deploy_user_group.changed
 
 - name: Enable Docker service
   ansible.builtin.systemd:
