@@ -119,7 +119,7 @@ for _attempt in \$(seq 1 6); do
 done
 '"
 
-run_check "Cloud app telemetry labels" \
+run_check "Cloud app telemetry labels and versions" \
   ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
     "APP_NAME='$APP_NAME' PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
 import json
@@ -144,7 +144,7 @@ def query(expr: str) -> list[dict]:
 
 def app_target_info() -> list[dict]:
     result = query(
-        'count by (job, service_name, instance, host_name, deployment_target) '
+        'count by (job, service_name, instance, host_name, deployment_target, service_version) '
         '(target_info{deployment_target=\"cloud\"})'
     )
     app_result = []
@@ -160,21 +160,35 @@ deadline = time.monotonic() + 180
 last_result: list[dict] = []
 while True:
     last_result = app_target_info()
-    nodes = {
-        item.get('metric', {}).get('host_name')
-        for item in last_result
-        if item.get('metric', {}).get('host_name')
-    }
-    missing = expected_nodes - nodes
-    if not missing:
-        print('OK    cloud app telemetry host_name labels: ' + ', '.join(sorted(nodes)))
+    versions = {}
+    for item in last_result:
+        metric = item.get('metric', {})
+        node = metric.get('host_name', '')
+        version = metric.get('service_version', '')
+        if node:
+            versions[node] = version
+    missing = expected_nodes - set(versions)
+    missing_versions = sorted(node for node, version in versions.items() if node in expected_nodes and not version)
+    if not missing and not missing_versions:
+        labels = [f'{node}={versions[node]}' for node in sorted(expected_nodes)]
+        print('OK    cloud app telemetry versions: ' + ', '.join(labels))
         break
     if time.monotonic() >= deadline:
         print('app target_info diagnostics:', file=sys.stderr)
         for item in last_result:
             print(json.dumps(item.get('metric', {}), sort_keys=True), file=sys.stderr)
-        raise SystemExit('missing cloud app telemetry host_name label(s): ' + ', '.join(sorted(missing)))
-    print('WAIT  Cloud app telemetry warming up; missing host_name label(s): ' + ', '.join(sorted(missing)))
+        problems = []
+        if missing:
+            problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
+        if missing_versions:
+            problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+        raise SystemExit('cloud app telemetry labels incomplete: ' + '; '.join(problems))
+    problems = []
+    if missing:
+        problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
+    if missing_versions:
+        problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+    print('WAIT  Cloud app telemetry warming up; ' + '; '.join(problems))
     time.sleep(5)
 PY"
 

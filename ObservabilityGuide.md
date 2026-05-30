@@ -50,6 +50,12 @@ Alerts:
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
+The shared Bash smoke script checks the same core telemetry path and can be run from WSL or Linux shells:
+
+```bash
+bash ./Deployment/Common/observability/scripts/smoke-observability.sh
+```
+
 Open:
 
 ```text
@@ -143,6 +149,7 @@ The dashboard includes:
 - app logs from Loki.
 - book operation metrics.
 - recent traces from Tempo.
+- app instance inventory with `service_version`, which is the deployed image SHA on LocalCluster and Cloud.
 
 Use the dashboard variables to narrow by service job, instance, deployment target, or trace service.
 
@@ -195,6 +202,8 @@ Current retention:
 Alertmanager stores only short local alert state; dashboard/rule definitions are recreated from git.
 
 The LocalCluster and Cloud CD preflights run capacity checks before deploying observability. Each CD observability doctor checks scrape targets, dashboard provisioning, cardinality budgets, and OOMKilled state after app acceptance.
+
+Caddy and cloudflared are still verified by the deployment acceptance checks as active services and healthy routing paths. Their native Prometheus metrics are not enabled in v1 because exposing those endpoints from host services into containerized Prometheus needs a separate private-exposure design.
 
 ## Disable Or Recover
 

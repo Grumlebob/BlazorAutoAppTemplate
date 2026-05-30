@@ -10,7 +10,7 @@ Clean up local cluster leftovers after a renamed app has deployed and passed
 acceptance. Run this on the control machine from the renamed app checkout.
 
 Required:
-  --old-app-name <name>       Previous app_name, for example ship.
+  --old-app-name <name>       Previous app_name, for example oldapp.
   --confirm-cleanup           Required before removing old runtime files/services.
 
 Options:

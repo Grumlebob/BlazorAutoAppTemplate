@@ -177,12 +177,12 @@ def validate(values: dict[str, str]) -> list[str]:
 
     public_hostname = values.get("public_hostname", "")
     if public_hostname and not valid_dns_name(public_hostname):
-        errors.append("public_hostname must be a DNS hostname inside your Cloudflare zone, for example ship.example.com")
+        errors.append("public_hostname must be a DNS hostname inside your Cloudflare zone, for example books.example.com")
 
     deploy_root = values.get("deploy_root", "")
     if deploy_root:
         if not deploy_root.startswith("/opt/"):
-            errors.append("deploy_root must be under /opt, for example /opt/ship")
+            errors.append("deploy_root must be under /opt, for example /opt/books")
         if re.search(r"\s", deploy_root):
             errors.append("deploy_root must not contain whitespace")
         if not re.match(r"^/[A-Za-z0-9._/-]+$", deploy_root):

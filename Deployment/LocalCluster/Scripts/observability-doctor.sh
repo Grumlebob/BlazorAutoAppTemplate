@@ -23,6 +23,7 @@ command -v ansible >/dev/null 2>&1 || fail "ansible is missing"
 
 APP_NAME="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" app_name)"
 DEPLOY_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" deploy_root)"
+APP_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" app_port)"
 OBS_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_root)"
 PROMETHEUS_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_prometheus_port)"
 ALERTMANAGER_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-deploy-setting.py" observability_alertmanager_port)"
@@ -105,6 +106,88 @@ while True:
         print(target_diagnostics(), file=sys.stderr)
         raise SystemExit(\"Prometheus targets not healthy: \" + \", \".join(missing))
     print(\"WAIT  Prometheus targets warming up: \" + \", \".join(missing))
+    time.sleep(5)
+PY"
+
+run_check "generate LocalCluster app telemetry" \
+  ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a \
+    "APP_PORT='$APP_PORT' bash -lc 'set -euo pipefail
+for _attempt in \$(seq 1 6); do
+  curl -fsS \"http://127.0.0.1:\${APP_PORT}/\" >/dev/null
+  sleep 1
+done
+'"
+
+run_check "LocalCluster app telemetry labels and versions" \
+  ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
+    "APP_NAME='$APP_NAME' PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
+import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+base = 'http://127.0.0.1:' + '$PROMETHEUS_PORT'
+app_name = os.environ['APP_NAME']
+expected_nodes = {'node-app1', 'node-app2'}
+expected_job = 'books/' + app_name
+
+def query(expr: str) -> list[dict]:
+    url = base + '/api/v1/query?query=' + urllib.parse.quote(expr)
+    with urllib.request.urlopen(url, timeout=10) as response:
+        payload = json.load(response)
+    if payload.get('status') != 'success':
+        raise SystemExit(f'Prometheus query failed: {expr}')
+    return payload.get('data', {}).get('result', [])
+
+def app_target_info() -> list[dict]:
+    result = query(
+        'count by (job, service_name, instance, host_name, deployment_target, service_version) '
+        '(target_info{deployment_target=\"localcluster\"})'
+    )
+    app_result = []
+    for item in result:
+        metric = item.get('metric', {})
+        job = metric.get('job', '')
+        service_name = metric.get('service_name', '')
+        if job == expected_job or job.endswith('/' + app_name) or service_name == app_name:
+            app_result.append(item)
+    return app_result
+
+deadline = time.monotonic() + 180
+last_result: list[dict] = []
+while True:
+    last_result = app_target_info()
+    versions = {}
+    for item in last_result:
+        metric = item.get('metric', {})
+        node = metric.get('host_name', '')
+        version = metric.get('service_version', '')
+        if node:
+            versions[node] = version
+    missing = expected_nodes - set(versions)
+    missing_versions = sorted(node for node, version in versions.items() if node in expected_nodes and not version)
+    if not missing and not missing_versions:
+        labels = [f'{node}={versions[node]}' for node in sorted(expected_nodes)]
+        print('OK    LocalCluster app telemetry versions: ' + ', '.join(labels))
+        break
+    if time.monotonic() >= deadline:
+        print('app target_info diagnostics:', file=sys.stderr)
+        for item in last_result:
+            print(json.dumps(item.get('metric', {}), sort_keys=True), file=sys.stderr)
+        problems = []
+        if missing:
+            problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
+        if missing_versions:
+            problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+        raise SystemExit('LocalCluster app telemetry labels incomplete: ' + '; '.join(problems))
+    problems = []
+    if missing:
+        problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
+    if missing_versions:
+        problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+    print('WAIT  LocalCluster app telemetry warming up; ' + '; '.join(problems))
     time.sleep(5)
 PY"
 

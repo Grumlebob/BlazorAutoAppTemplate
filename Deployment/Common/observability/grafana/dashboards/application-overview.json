@@ -136,6 +136,36 @@
       ],
       "title": "Recent Traces",
       "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "expr": "target_info{job=~\"$service_job\", instance=~\"$instance\", deployment_target=~\"$deployment_target\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "App Instances",
+      "type": "table"
     }
   ],
   "refresh": "10s",

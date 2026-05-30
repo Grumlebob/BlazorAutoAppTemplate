@@ -33,12 +33,16 @@ check_group() {
     "APP_NAME='$APP_NAME' OBS_ROOT='$OBS_ROOT' FRESH_MB='$fresh_mb' RERUN_MB='$rerun_mb' DISK_MB='$disk_mb' bash -lc 'set -euo pipefail
 mem_total_mb=\$(awk \"/MemTotal/ {printf \\\"%d\\\", \\\$2/1024}\" /proc/meminfo)
 mem_available_mb=\$(awk \"/MemAvailable/ {printf \\\"%d\\\", \\\$2/1024}\" /proc/meminfo)
-compose_projects=\$(
-  {
-    docker ps --filter \"label=com.docker.compose.project=\${APP_NAME}-observability\" -q 2>/dev/null
-    docker ps --filter \"label=com.docker.compose.project=\${APP_NAME}-observability-agent\" -q 2>/dev/null
-  } | wc -l
-)
+if command -v docker >/dev/null 2>&1; then
+  compose_projects=\$(
+    {
+      docker ps --filter \"label=com.docker.compose.project=\${APP_NAME}-observability\" -q 2>/dev/null
+      docker ps --filter \"label=com.docker.compose.project=\${APP_NAME}-observability-agent\" -q 2>/dev/null
+    } | wc -l
+  )
+else
+  compose_projects=0
+fi
 additional_mb=\$FRESH_MB
 if [ \"\$compose_projects\" -gt 0 ]; then
   additional_mb=\$RERUN_MB

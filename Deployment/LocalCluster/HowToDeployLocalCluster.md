@@ -71,7 +71,7 @@ Required values:
 | Node install username | `Deployment/LocalCluster/machines.yml` | The Linux Mint user created during installation. `bootstrap-node.sh` prints it as `username`. |
 | Node LAN IP | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_ip`; reserve it in the router before inventory generation. |
 | Node MAC address | `Deployment/LocalCluster/machines.yml` | `bootstrap-node.sh` prints it as `lan_mac`; use it for router DHCP reservation. |
-| `app_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a short lowercase deployment name, for example `ship`. |
+| `app_name` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Choose a short lowercase deployment name, for example `books`. |
 | `app_image` | `Deployment/Common/release.yml` | `ghcr.io/<repo-owner>/<image-name>`. The repo owner is in the GitHub URL or `gh repo view --json owner --jq .owner.login`. |
 | `app_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `8080` unless the container image listens on a different HTTP port. |
 | `postgres_port` | `Deployment/LocalCluster/inventory/prod/group_vars/all.yml` | Keep `5432` for a single app. Use a different host port only when another LocalCluster app already uses `5432` on `node-db`. |
@@ -248,12 +248,12 @@ Where the values come from:
 
 | Setting | How to choose or obtain it |
 | --- | --- |
-| `app_name` | Choose a short lowercase deployment name, for example `ship`. This affects generated names like the deploy SSH key. |
+| `app_name` | Choose a short lowercase deployment name, for example `books`. This affects generated names like the deploy SSH key. |
 | `app_image` | Set in `Deployment/Common/release.yml`. Use `ghcr.io/<repo-owner>/<image-name>`. To print the repo owner, run `gh repo view --json owner --jq .owner.login`. The image name can match `app_name`. |
 | `app_port` | Keep `8080` unless the app image listens on a different HTTP port. This value is rendered into the app-node `.env`, Docker Compose published port, firewall rules, Caddy upstreams, and deployment checks. |
 | `postgres_port` | Keep `5432` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `5433`. |
 | `redis_port` | Keep `6379` if this is the only app on these nodes. If another LocalCluster app already runs on the same four nodes, choose a free node-db host port such as `6380`. |
-| `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `ship.example.com`. |
+| `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `books.example.com`. |
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
@@ -1158,7 +1158,7 @@ The workflow targets:
 runs-on: [self-hosted, linux, x64, localcluster]
 ```
 
-GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds the shared `localcluster` label and an app-specific label derived from `app_name`, for example `localcluster-ship`.
+GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds the shared `localcluster` label and an app-specific label derived from `app_name`, for example `localcluster-books`.
 
 Checkpoint:
 
@@ -1304,7 +1304,7 @@ Success:
 observability doctor ok
 ```
 
-This checks that Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets and its Alertmanager connection; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
+This checks that Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets and its Alertmanager connection; app telemetry identifies both app nodes with nonempty `service_version` values; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
 
 For day-to-day dashboard usage, common queries, and recovery commands, use `ObservabilityGuide.md`.
 

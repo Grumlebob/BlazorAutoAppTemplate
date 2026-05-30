@@ -14,7 +14,7 @@ By default the script validates settings and prints the planned actions only.
 Actions are enabled explicitly with flags.
 
 Required:
-  --old-app-name <name>          Previous app_name, for example ship.
+  --old-app-name <name>          Previous app_name, for example oldapp.
 
 Options:
   --old-deploy-root <path>       Previous deploy root. Defaults to /opt/<old-app-name>.

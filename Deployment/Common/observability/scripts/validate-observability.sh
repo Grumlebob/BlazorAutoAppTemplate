@@ -31,7 +31,8 @@ for required in \
   "$OBS_ROOT/grafana/dashboards/application-overview.json" \
   "$OBS_ROOT/alertmanager/alertmanager.yml" \
   "$OBS_ROOT/prometheus/rules/application.rules.yml" \
-  "$OBS_ROOT/prometheus/rules/resource.rules.yml"; do
+  "$OBS_ROOT/prometheus/rules/resource.rules.yml" \
+  "$OBS_ROOT/scripts/smoke-observability.sh"; do
   [[ -f "$required" ]] || fail "missing $required"
 done
 ok "required observability assets exist"

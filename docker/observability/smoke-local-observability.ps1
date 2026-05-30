@@ -94,6 +94,13 @@ try {
     $alertmanagers.status -eq 'success' -and $alertmanagers.data.activeAlertmanagers.Count -gt 0
   } -TimeoutSeconds $TimeoutSeconds
 
+  Wait-Until 'Prometheus has app instance versions' {
+    $query = [uri]::EscapeDataString('target_info{deployment_target="local"}')
+    $result = Invoke-Json "$PrometheusUrl/api/v1/query?query=$query"
+    $instances = @($result.data.result | Where-Object { -not [string]::IsNullOrWhiteSpace($_.metric.service_version) })
+    $instances.Count -gt 0
+  } -TimeoutSeconds $TimeoutSeconds
+
   Wait-Until 'Loki has app container logs' {
     $query = [uri]::EscapeDataString('{service="web"}')
     $startNs = [DateTimeOffset]::UtcNow.AddMinutes(-15).ToUnixTimeMilliseconds() * 1000000

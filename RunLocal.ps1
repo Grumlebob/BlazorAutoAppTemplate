@@ -17,6 +17,7 @@ $previousObservabilityEnabled = $env:OBSERVABILITY_ENABLED
 $previousObservabilityEndpoint = $env:OBSERVABILITY_OTLP_ENDPOINT
 $previousObservabilityProtocol = $env:OBSERVABILITY_OTLP_PROTOCOL
 $previousObservabilitySampleRatio = $env:OBSERVABILITY_TRACE_SAMPLE_RATIO
+$previousObservabilityDeploymentTarget = $env:OBSERVABILITY_DEPLOYMENT_TARGET
 
 function Wait-Docker {
   param([int]$TimeoutSeconds = 90)
@@ -187,6 +188,7 @@ try {
     $env:OBSERVABILITY_OTLP_ENDPOINT = 'http://alloy:4317'
     $env:OBSERVABILITY_OTLP_PROTOCOL = 'Grpc'
     $env:OBSERVABILITY_TRACE_SAMPLE_RATIO = '1.0'
+    $env:OBSERVABILITY_DEPLOYMENT_TARGET = 'local'
   }
 
   $composeArgs = @('compose')
@@ -298,5 +300,6 @@ finally {
   $env:OBSERVABILITY_OTLP_ENDPOINT = $previousObservabilityEndpoint
   $env:OBSERVABILITY_OTLP_PROTOCOL = $previousObservabilityProtocol
   $env:OBSERVABILITY_TRACE_SAMPLE_RATIO = $previousObservabilitySampleRatio
+  $env:OBSERVABILITY_DEPLOYMENT_TARGET = $previousObservabilityDeploymentTarget
   Pop-Location
 }

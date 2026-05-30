@@ -975,7 +975,7 @@ The doctor verifies:
 - Alloy and node-exporter are running on every Cloud node.
 - PostgreSQL and Redis exporters are running on `cloud-db`.
 - Prometheus sees all Cloud scrape targets.
-- app telemetry identifies `cloud-app1` and `cloud-app2` separately through `host_name` labels with `deployment_target="cloud"`.
+- app telemetry identifies `cloud-app1` and `cloud-app2` separately through `host_name` labels with `deployment_target="cloud"` and nonempty `service_version` values.
 - the shared Grafana dashboard is provisioned.
 - no observability container has been OOMKilled.
 - active Prometheus series and Loki streams stay below the Cloud budgets.

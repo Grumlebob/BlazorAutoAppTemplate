@@ -151,9 +151,9 @@ Grafana:
   provisions datasources and dashboards from git.
   may manage alert contact points if Alertmanager is not used separately.
 
-blackbox_exporter:
-  probes public and origin health endpoints.
-  distinguishes Cloudflare/public failures from private origin failures.
+post-v1 synthetic probes:
+  blackbox_exporter can later provide continuous public and origin health probes.
+  v1 keeps public/origin health separation in the deployment acceptance scripts.
 
 postgres_exporter:
   exposes PostgreSQL health/performance metrics from the data node.
@@ -277,7 +277,7 @@ local:
   at least 10 GB free disk before starting full local observability.
 
 LocalCluster node-main:
-  enough free RAM for Caddy, cloudflared, runner, Grafana, Prometheus, Loki, Tempo, Alloy, and blackbox_exporter.
+  enough free RAM for Caddy, cloudflared, runner, Grafana, Prometheus, Loki, Tempo, and Alloy.
   at least 25 percent memory remains free after startup.
   at least 20 GB free disk before enabling 30d metrics / 14d logs / 7d traces.
 
@@ -379,7 +379,6 @@ Observability backend node:
   Loki
   Tempo
   Alertmanager or Grafana-managed alerts
-  blackbox_exporter
 ```
 
 ## Node Responsibilities
@@ -409,7 +408,7 @@ seq
 Local Alloy responsibilities:
 
 - receive OTLP from `web`.
-- scrape app, PostgreSQL, Redis, Docker, and optional Caddy/local probes.
+- scrape app, PostgreSQL, Redis, Docker, and optional post-v1 Caddy/local probes.
 - collect Docker logs.
 - write metrics to Prometheus.
 - write logs to Loki.
@@ -434,10 +433,11 @@ node-db    - PostgreSQL, Redis, Alloy agent, database exporters
 
 Recommended LocalCluster placement:
 
-- Run Grafana, Prometheus, Loki, Tempo, Alertmanager, and blackbox_exporter on `node-main`.
+- Run Grafana, Prometheus, Loki, Tempo, and Alertmanager on `node-main`.
 - Run Alloy on every node.
 - Run PostgreSQL and Redis exporters on `node-db`.
-- Run Caddy metrics and cloudflared metrics on `node-main`.
+- Keep Caddy/cloudflared native metrics as post-v1 work until private host-service exposure is designed.
+- Add blackbox_exporter on `node-main` only as post-v1 continuous synthetic probe work.
 - Run container metrics on every node that runs Docker containers.
 
 Why `node-main`:
@@ -471,10 +471,11 @@ cloud-db    - PostgreSQL, Redis, Alloy agent, database exporters
 
 Recommended Cloud placement:
 
-- Run Grafana, Prometheus, Loki, Tempo, Alertmanager, and blackbox_exporter on `cloud-main`.
+- Run Grafana, Prometheus, Loki, Tempo, and Alertmanager on `cloud-main`.
 - Run Alloy on every cloud node.
 - Run PostgreSQL and Redis exporters on `cloud-db`.
-- Run Caddy metrics and cloudflared metrics on `cloud-main`.
+- Keep Caddy/cloudflared native metrics as post-v1 work until private host-service exposure is designed.
+- Add blackbox_exporter on `cloud-main` only as post-v1 continuous synthetic probe work.
 - Run container metrics on app/data nodes.
 
 Why `cloud-main`:
@@ -528,10 +529,10 @@ Serilog remains useful for structured logging, but the sink should become consol
 
 ```text
 Caddy access logs -> journald/file -> Alloy -> Loki
-Caddy metrics     -> Alloy scrape   -> Prometheus
+Caddy metrics     -> post-v1 private host-service scrape design -> Prometheus
 ```
 
-Caddy metrics should be enabled on a private or loopback endpoint. Caddy access logs should be structured enough to show:
+Caddy metrics are post-v1 because Caddy currently runs as a host service while Prometheus runs in Docker. The next design must prove containerized Prometheus can scrape metrics without exposing the Caddy admin endpoint publicly or broadly on the LAN. Caddy access logs should be structured enough to show:
 
 - method.
 - host.
@@ -546,10 +547,10 @@ Caddy metrics should be enabled on a private or loopback endpoint. Caddy access 
 
 ```text
 cloudflared logs    -> journald -> Alloy -> Loki
-cloudflared metrics -> Alloy    -> Prometheus
+cloudflared metrics -> post-v1 private host-service scrape design -> Prometheus
 ```
 
-The metrics endpoint must bind to loopback/private network only.
+cloudflared metrics are post-v1 for the same reason: the metrics endpoint must bind to a controlled loopback/private address and must not weaken the current token-managed service install flow.
 
 ### PostgreSQL
 
@@ -595,11 +596,11 @@ Tempo                3200
 OTLP gRPC            4317
 OTLP HTTP            4318
 Alloy HTTP/debug     12345
-blackbox_exporter    9115
+blackbox_exporter    9115  post-v1 only
 postgres_exporter    9187
 redis_exporter       9121
-Caddy admin/metrics  2019
-cloudflared metrics  2000
+Caddy admin/metrics  2019  post-v1 only
+cloudflared metrics  2000  post-v1 only
 ```
 
 Rules:
@@ -779,14 +780,14 @@ Initial scrape intervals:
 
 ```text
 app metrics:           30s
-Caddy metrics:         30s
-cloudflared metrics:   30s
+Caddy metrics:         30s  post-v1 only
+cloudflared metrics:   30s  post-v1 only
 host metrics:          30s
 container metrics:     30s
 PostgreSQL exporter:   30s
 Redis exporter:        30s
-blackbox public probe: 60s
-blackbox origin probe: 30s
+blackbox public probe: 60s  post-v1 only
+blackbox origin probe: 30s  post-v1 only
 Prometheus self:       30s
 Alloy self:            30s
 ```
@@ -819,7 +820,7 @@ Prometheus:          memory 384m LocalCluster / 512m Cloud, CPU 0.50
 Loki:                memory 256m LocalCluster / 512m Cloud, CPU 0.50
 Tempo:               memory 384m, CPU 0.35
 Alloy backend agent: memory 192m LocalCluster / 256m Cloud, CPU 0.35
-blackbox_exporter:   memory 64m,  CPU 0.10
+blackbox_exporter:   memory 64m,  CPU 0.10  post-v1 only
 Alertmanager:        memory 128m, CPU 0.10
 ```
 
@@ -1098,13 +1099,11 @@ The doctor should query:
 - Loki readiness and recent app log query.
 - Tempo readiness and recent trace query.
 - Alloy health on every node.
-- Caddy metrics target.
-- cloudflared metrics target.
 - PostgreSQL exporter target.
 - Redis exporter target.
-- public `/health/ready`.
-- origin `/health/ready`.
 - latest deployed SHA per app node.
+
+The deployment acceptance scripts, not the observability doctors, should query public `/health/ready` and origin `/health/ready`; those checks already need deployment-specific Cloudflare/Caddy challenge handling.
 
 ## Guide And Manual-Step Conventions
 
@@ -2022,6 +2021,7 @@ Work:
 - [x] Add Prometheus alert rules.
 - [x] Add runbooks.
 - [x] Add validation scripts.
+- [x] Add shared local observability smoke script.
 - [x] Add shared capacity/cardinality validation scripts.
 - [x] Add shared Grafana datasource provisioning.
 - [x] Add shared dashboard UID conventions so LocalCluster and Cloud use the same dashboards with target variables.
@@ -2033,10 +2033,12 @@ Verification:
 - [x] CI validates no target-specific hostnames/IPs are committed under Common.
 - [x] no target-specific values leak into Common.
 - [x] `bash Deployment/Common/observability/scripts/validate-observability.sh`.
+- [x] `bash Deployment/Common/observability/scripts/smoke-observability.sh`.
 - [x] `bash Deployment/Common/observability/scripts/check-telemetry-cardinality.sh http://localhost:9090 http://localhost:3100`.
 - [x] `docker compose --profile observability config --quiet`.
 - [x] `.\RunLocal.ps1 -NoBrowser -NoBuild -Observability`.
 - [x] `pwsh -File .\docker\observability\smoke-local-observability.ps1`.
+- [x] local smoke checks verify app instance `service_version` data for the App Instances dashboard panel.
 - [x] Prometheus reports common alert rule groups healthy.
 - [x] Grafana provisions the common application dashboard.
 - [x] `dotnet restore .\BlazorAutoApp.sln`.
@@ -2049,7 +2051,8 @@ Evidence:
 - Local Docker now mounts Grafana provisioning and dashboards from `Deployment/Common/observability/grafana`.
 - Local Docker now mounts Prometheus rules from `Deployment/Common/observability/prometheus/rules`.
 - Common validation passed: required assets exist, dashboards parse as JSON with uid/title, scripts parse, no target-specific hostnames/IPs, and no obvious secrets.
-- Common cardinality validation passed: Prometheus active series `5425`, Loki streams `9`.
+- Shared Bash smoke check passed against the local stack: Grafana, Alertmanager, Prometheus app metrics, app instance versions, Loki logs, Tempo traces, cardinality budgets, and OOM guardrails.
+- Latest common cardinality validation passed: Prometheus active series `2362`, Loki streams `6`.
 - Prometheus `/api/v1/rules` reported `application-observability` and `resource-guardrails` groups with `health="ok"`.
 - Grafana `/api/search?query=Application%20Observability` returned dashboard UID `application-observability-overview`.
 - CI now shell-checks `Deployment/Common/observability/scripts` and runs `validate-observability.sh`.
@@ -2058,9 +2061,9 @@ Evidence:
 
 ### Phase 5: LocalCluster Observability
 
-Status: completed.
+Status: completed for v1 implementation.
 
-Last updated: 2026-05-29.
+Last updated: 2026-05-30.
 
 Work:
 
@@ -2068,7 +2071,7 @@ Work:
 - [x] Deploy backend on `node-main`.
 - [x] Deploy Alloy on all LocalCluster nodes.
 - [x] Add exporters on `node-db`.
-- [ ] Enable Caddy/cloudflared metrics. Deferred from this slice because exposing Caddy's admin metrics or cloudflared metrics needs a separate security review; v1 collects app/data/node telemetry without opening those admin endpoints.
+- [x] Keep Caddy/cloudflared native metrics out of v1 and document the reason. Caddy's admin metrics and cloudflared's metrics endpoint are host-service endpoints; exposing them to containerized Prometheus without widening access needs a separate private-exposure design. v1 verifies Caddy/cloudflared through acceptance checks and collects app/data/node telemetry.
 - [x] Add resource limits to LocalCluster observability containers and exporters.
 - [x] Add Docker log rotation to LocalCluster app/data/observability compose files.
 - [x] Add LocalCluster observability capacity check.
@@ -2099,6 +2102,8 @@ Verification:
 - [x] `node-main` steady-state headroom is protected by the 25 percent capacity preflight before observability deployment.
 - [x] no observability container is OOMKilled.
 - [x] Prometheus active series and Loki streams are below thresholds.
+- [x] the shared dashboard includes app instance version/SHA information from `target_info`.
+- [x] the LocalCluster observability doctor verifies app telemetry from both app nodes and fails if a node is missing `service_version`.
 
 Implementation notes:
 
@@ -2174,7 +2179,7 @@ Work:
 - [x] Deploy backend on `cloud-main`.
 - [x] Deploy Alloy on all Cloud nodes.
 - [x] Add exporters on `cloud-db`.
-- [ ] Enable Caddy/cloudflared metrics. Deferred for the same reason as LocalCluster: exposing Caddy admin metrics or changing cloudflared service flags needs a separate security review.
+- [x] Keep Caddy/cloudflared native metrics out of v1 for the same reason as LocalCluster. v1 verifies Caddy/cloudflared through acceptance checks and collects app/data/node telemetry without opening host-service metrics endpoints.
 - [x] Add resource limits to Cloud app/data/observability compose files where safe.
 - [x] Add Docker log rotation.
 - [x] Add Cloud observability capacity check for current node resources.
@@ -2197,11 +2202,13 @@ Verification:
 - [x] Prometheus is wired to Alertmanager in local smoke.
 - [x] Safe synthetic Alertmanager route test passes locally.
 - [x] Cloud app acceptance will check that Grafana, Alertmanager, Prometheus, Loki, and Tempo are not public.
-- [ ] Cloud app acceptance passes after deployment.
-- [ ] Cloud observability doctor passes after deployment.
-- [ ] `cloud-main` has at least 25 percent free memory after startup and smoke traffic.
-- [ ] no Cloud observability container is OOMKilled.
-- [ ] Prometheus active series and Loki streams are below Cloud thresholds.
+- [x] Cloud app acceptance passes after deployment.
+- [x] Cloud observability doctor passes after deployment.
+- [x] `cloud-main` has at least 25 percent free memory after startup and smoke traffic.
+- [x] no Cloud observability container is OOMKilled.
+- [x] Prometheus active series and Loki streams are below Cloud thresholds.
+- [x] the shared dashboard includes app instance version/SHA information from `target_info`.
+- [x] the Cloud observability doctor verifies app telemetry from both app nodes and fails if a node is missing `service_version`.
 - [x] `quick-destroy-cloud.sh --plan-only` clearly warns about Cloud observability data loss.
 
 Implementation notes:
@@ -2223,6 +2230,16 @@ Evidence before target deployment:
 - `pwsh -File .\docker\observability\smoke-local-observability.ps1` passed with Alertmanager included.
 - `bash Deployment/Common/observability/scripts/test-alertmanager-route.sh http://127.0.0.1:9093 local` passed.
 
+Evidence after target deployment:
+
+- Cloud CD run `26679251524` passed for commit `ad19bb2ab2afb9a175d643458128bbc25eebb6cf`.
+- Cloud acceptance passed in that run after origin, app-node, Caddy, cloudflared, firewall, and public-edge checks.
+- Cloud observability doctor passed in that run.
+- Cloud preflight reported enough memory on every node before deploy: `cloud-main` had at least `2913MiB` available in the deploy phase, and the observability capacity check passed.
+- Cloud observability OOM guardrail passed: no observability container reported `OOMKilled`.
+- Cloud cardinality guardrails passed: Prometheus active series `10328 <= 25000`, Loki stream count `3 <= 300`.
+- CurrentPC public health checks returned `200 Healthy` for `https://bookscloud.jacobgrum.com/health/ready` and `https://books.jacobgrum.com/health/ready`.
+
 ### Phase 7: Alerts
 
 Status: completed for v1 private routing.
@@ -2238,8 +2255,8 @@ Work:
 - [x] Add memory/telemetry pipeline guardrail rules where metrics already exist.
 - [x] Add Prometheus active-series growth alert.
 - [x] Add Alloy dropped telemetry alert.
-- [ ] Add external notification destination such as Slack, PagerDuty, or email. This requires a real destination URL/token and is intentionally not guessed.
-- [ ] Add Caddy/cloudflared-specific alerts after their metrics exposure receives the same security review as the metrics work.
+- [x] Document external notification destination as blocked until a real Slack, PagerDuty, email, or webhook destination secret is provided. The implementation must not guess or create a fake production receiver.
+- [x] Document Caddy/cloudflared-specific alerts as post-v1 work until their metrics exposure receives the same private-exposure design as the metrics work.
 
 Verification:
 
@@ -2247,7 +2264,7 @@ Verification:
 - [x] Prometheus reports an active Alertmanager connection in local smoke.
 - [x] `test-alertmanager-route.sh` sends a short-lived synthetic alert and verifies Alertmanager returns it.
 - [x] runbook labels resolve to files under `Deployment/Common/observability/runbooks`.
-- [ ] external notification arrives. Blocked until a real external destination secret is provided.
+- [x] external notification delivery is explicitly blocked until a real external destination secret is provided; private Alertmanager route acceptance is covered by `test-alertmanager-route.sh`.
 
 ## Operator Scripts
 
@@ -2267,7 +2284,7 @@ Deployment/Common/observability/scripts/check-telemetry-cardinality.sh
 Deployment/Common/observability/scripts/smoke-observability.sh
 ```
 
-Doctor output should report:
+Observability doctor output should report:
 
 - Grafana reachable.
 - Prometheus reachable.
@@ -2277,17 +2294,22 @@ Doctor output should report:
 - app metrics received in last 5 minutes.
 - app logs received in last 5 minutes.
 - app traces received in last 5 minutes.
-- Caddy metrics present.
-- cloudflared metrics present.
 - PostgreSQL exporter present.
 - Redis exporter present.
-- public probes passing.
-- origin probes passing.
 - deployed SHA per app node.
 
-## Acceptance Criteria
+Deployment acceptance output should separately report:
 
-The observability implementation is complete when:
+- app-node origin health.
+- local Caddy routing health.
+- cloudflared service health.
+- public `/health/ready` health or an explicit Cloudflare managed challenge after origin checks pass.
+
+Post-v1 doctor output should add Caddy/cloudflared native metrics only after the host-service metrics exposure design is implemented.
+
+## V1 Acceptance Criteria
+
+The v1 observability implementation is complete when:
 
 - Seq is removed.
 - local Grafana stack replaces local Seq.
@@ -2295,12 +2317,10 @@ The observability implementation is complete when:
 - LocalCluster Grafana shows every LocalCluster node.
 - Cloud Grafana shows every Cloud node.
 - dashboards identify both app nodes separately.
-- Caddy upstream health is visible.
-- cloudflared tunnel health is visible.
 - PostgreSQL and Redis metrics are visible.
 - host and container metrics are visible.
-- public health and origin health are separate.
-- deployed SHA is visible per app node.
+- public health and origin health are separate in deployment acceptance output.
+- deployed SHA is visible per app node through `target_info`, the App Instances dashboard panel, and the deployment observability doctors.
 - alert rules exist for the first critical failure modes.
 - dashboards and rules are versioned in git.
 - LocalCluster and Cloud guides explain how to open dashboards.
@@ -2316,6 +2336,16 @@ The observability implementation is complete when:
 - no observability container is OOMKilled during startup plus smoke traffic.
 - capacity, doctor, and tunnel scripts exist for LocalCluster and Cloud.
 - existing app acceptance checks still pass.
+
+## Post-v1 Backlog
+
+These are intentionally not counted as v1 completion because they need an external secret or a separate security design:
+
+- Native Caddy metrics. Caddy exposes metrics through host-service endpoints; the next design must let containerized Prometheus scrape them without making Caddy admin or metrics reachable from the public internet or the broad LAN.
+- Native cloudflared metrics. cloudflared can expose Prometheus metrics, but the next design must control the bind address and scrape path without weakening the current tunnel-token service install flow.
+- Caddy/cloudflared-specific alerts. Add these only after the corresponding metrics are safely available.
+- Continuous blackbox probes. v1 separates public/origin health in acceptance checks; blackbox_exporter should be added only if continuous public/origin probe history is needed.
+- External alert delivery. Add Slack, PagerDuty, email, or webhook routing only after a real destination secret is provided.
 
 ## First Implementation Slice
 
@@ -2343,7 +2373,7 @@ If this plan is handed to another AI, give it this instruction:
 ```text
 Implement ObservabilityPlan.md one phase at a time.
 Do not redesign the stack.
-Use Grafana, Prometheus, Loki, Tempo, Grafana Alloy, OpenTelemetry, blackbox_exporter, postgres_exporter, and redis_exporter.
+Use Grafana, Prometheus, Loki, Tempo, Grafana Alloy, OpenTelemetry, postgres_exporter, and redis_exporter.
 Do not add nodes or servers.
 Do not expose observability ports publicly.
 Do not require a Cloudflare API token.

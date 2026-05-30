@@ -391,8 +391,8 @@ for path in deployment_text_files():
         continue
     text = path.read_text(encoding="utf-8-sig")
     for stale, replacement in [
-        ("improveddb", "ship"),
-        ("/opt/improveddb", "/opt/ship"),
+        ("improveddb", "books"),
+        ("/opt/improveddb", "/opt/books"),
         ("node-db-redis", "node-db"),
         ("NODE_DB_REDIS", "NODE_DB"),
         ("db_redis", "node_db"),
