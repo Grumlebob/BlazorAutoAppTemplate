@@ -1,8 +1,8 @@
 # Observability Plan
 
-Status: accepted architecture plan created on 2026-05-29 and hardened after repo scan plus official-doc review on 2026-05-29.
+Status: v1 implemented and deployed on 2026-05-30. The original architecture plan was created on 2026-05-29 and hardened after repo scan plus official-doc review on 2026-05-29.
 
-This document is a plan only. It does not authorize code, deployment, firewall, Cloudflare, Hetzner, or data-destruction changes until execution is explicitly requested.
+This document is now both the completed implementation record for v1 and the remaining post-v1 backlog. Further code, deployment, firewall, Cloudflare, Hetzner, or data-destruction changes still require explicit execution requests.
 
 This plan is intended to be complete enough that implementation can proceed in small verified slices without re-deciding the architecture.
 
@@ -13,8 +13,8 @@ If another agent implements this plan, it must follow these instructions exactly
 1. Read this whole document before editing files.
 2. Do not replace the chosen stack with another observability product family.
 3. Do not add servers, nodes, hosted SaaS requirements, public dashboards, or Cloudflare API-token dependencies.
-4. Do not remove Seq until Phase 3 entry criteria are met.
-5. Do not implement Cloud or LocalCluster observability before the local Docker observability slice is proven.
+4. Do not reintroduce Seq; it was removed after local Loki/Grafana parity was proven.
+5. Do not implement post-v1 Cloud or LocalCluster observability work before proving it locally where possible.
 6. Do not change the app's deployment domains, app ports, database ports, Redis ports, or Cloudflare tunnel routing as part of observability.
 7. Do not commit secrets, generated state files, generated inventories, Grafana SQLite databases, Prometheus/Loki/Tempo data, or local `.env` files.
 8. Before every phase, run `git status --short` and preserve unrelated user changes.
@@ -33,7 +33,7 @@ local Docker:
   postgres
   redis
   redisinsight
-  seq, temporary until Phase 3
+  optional Grafana/Prometheus/Alertmanager/Loki/Tempo/Alloy profile
 
 LocalCluster:
   node-main  - Caddy, cloudflared, GitHub runner, observability backend
@@ -99,10 +99,11 @@ We will build a self-hosted Grafana observability stack for this distributed app
 - Loki for logs.
 - Tempo for traces.
 - Grafana Alloy as the node agent and OpenTelemetry collector.
-- Exporters for host, container, PostgreSQL, Redis, Caddy, cloudflared, and synthetic probes.
+- Exporters for host, container, PostgreSQL, and Redis.
+- Post-v1 exporters/probes for Caddy, cloudflared, and synthetic public/origin checks after their private exposure design is approved.
 - OpenTelemetry instrumentation in the .NET app.
 
-Seq is not part of the long-term plan. It is currently useful in local Docker, but once Loki/Grafana log search works locally, Seq should be removed from:
+Seq is not part of the long-term plan and has been removed after local Loki/Grafana log parity was proven. It was removed from:
 
 - `docker-compose.yml`
 - `BlazorAutoApp/appsettings.Docker.json`
@@ -112,7 +113,7 @@ Seq is not part of the long-term plan. It is currently useful in local Docker, b
 - `HowToRunLocally.md`
 - `README.md`
 
-The final system should not run both Seq and Loki for the same app logs.
+The v1 system does not run both Seq and Loki for the same app logs.
 
 ## Component Responsibilities
 
@@ -138,7 +139,7 @@ Prometheus:
 
 Loki:
   stores centralized logs.
-  replaces Seq after parity is proven.
+  replaced Seq after parity was proven.
   must use low-cardinality labels only.
 
 Tempo:
@@ -2135,9 +2136,9 @@ Problems found during the senior review:
 
 - LocalCluster observability disable path must remain app-safe. The app compose references the external observability Docker network, so fresh or disabled observability deployments must still create that network before app startup.
 - The shared Grafana dashboard was too local-centric for a distributed app. It hardcoded `BlazorAutoApp` in the trace query, had no dashboard variables, and did not make node/app-instance separation obvious.
-- Cloud observability is not implemented yet. Docs must not imply that Cloud Grafana/Prometheus/Loki/Tempo/Alloy exists before Phase 6 is executed.
-- Operators need a short `ObservabilityGuide.md`; the long plan is not a day-to-day usage guide.
-- Prometheus alert rules exist, but alert notification delivery is not wired yet. Docs must make that clear until Phase 7.
+- Before Phase 6, Cloud observability had not been deployed yet. Docs needed to avoid implying that Cloud Grafana/Prometheus/Loki/Tempo/Alloy existed before the Cloud phase was executed.
+- Operators needed a short `ObservabilityGuide.md`; the long plan is not a day-to-day usage guide.
+- Before Phase 7, Prometheus alert rules existed, but alert notification delivery was not wired yet. Docs needed to make that clear until private Alertmanager routing was implemented.
 - CI validated LocalCluster/Common deployment assets more thoroughly than Cloud deployment assets.
 - `Deployment/Common/README.md` was stale and did not document shared observability assets.
 
@@ -2147,7 +2148,7 @@ Remediation checklist:
 - [x] Add stable app node names to app containers so dashboards can distinguish `node-app1` and `node-app2`.
 - [x] Replace hardcoded dashboard service/trace filters with dashboard variables.
 - [x] Add `ObservabilityGuide.md` and link it from the README/local/deployment docs.
-- [x] Update docs to state that Cloud observability is planned, not currently deployed.
+- [x] Update docs to state the correct Cloud observability status for each stage; Cloud observability is now deployed for v1.
 - [x] Expand CI to lint/validate Cloud deployment assets.
 - [x] Update `Deployment/Common/README.md` for shared observability ownership.
 - [x] Re-run static validation, rendered template validation, Docker Compose config validation, shellcheck, yamllint, and .NET tests.
@@ -2337,6 +2338,40 @@ The v1 observability implementation is complete when:
 - capacity, doctor, and tunnel scripts exist for LocalCluster and Cloud.
 - existing app acceptance checks still pass.
 
+## Final V1 Verification
+
+Status: completed on 2026-05-30.
+
+Latest verified commit:
+
+```text
+408f35ef50f6042fa32d3f9313275df434ab9b66 Expose app version to telemetry
+```
+
+Checks:
+
+- [x] CI run `26685096490` passed for `408f35ef50f6042fa32d3f9313275df434ab9b66`.
+- [x] LocalCluster CD run `26685195235` passed for `408f35ef50f6042fa32d3f9313275df434ab9b66`.
+- [x] Cloud CD run `26685195237` passed for `408f35ef50f6042fa32d3f9313275df434ab9b66`.
+- [x] LocalCluster acceptance check passed and public HTTPS health returned `Healthy`.
+- [x] Cloud acceptance check passed. The GitHub runner hit a Cloudflare managed challenge at the public edge, but origin, Caddy, app-node, firewall, and cloudflared checks passed; CurrentPC public health returned `200 Healthy`.
+- [x] LocalCluster observability doctor passed.
+- [x] Cloud observability doctor passed.
+- [x] LocalCluster app telemetry reported both app nodes with the deployed Git SHA:
+  `node-app1=408f35ef50f6042fa32d3f9313275df434ab9b66`,
+  `node-app2=408f35ef50f6042fa32d3f9313275df434ab9b66`.
+- [x] Cloud app telemetry reported both app nodes with the deployed Git SHA:
+  `cloud-app1=408f35ef50f6042fa32d3f9313275df434ab9b66`,
+  `cloud-app2=408f35ef50f6042fa32d3f9313275df434ab9b66`.
+- [x] Cloud cardinality guardrails passed after deployment: Prometheus active series `11035 <= 25000`, Loki stream count `2 <= 300`.
+- [x] Public health from CurrentPC returned `200 Healthy` for:
+  `https://books.jacobgrum.com/health/ready`
+  and `https://bookscloud.jacobgrum.com/health/ready`.
+
+Important fix found during final execution:
+
+- App telemetry initially reported `service_version=1.0.0.0` in deployed environments because `APP_VERSION` was used for Docker image interpolation but was not passed into the app container environment. This is fixed in local, LocalCluster, and Cloud Compose files, and both deployment doctors now fail if either app node lacks a Git-SHA-shaped `service_version`.
+
 ## Post-v1 Backlog
 
 These are intentionally not counted as v1 completion because they need an external secret or a separate security design:
@@ -2347,9 +2382,9 @@ These are intentionally not counted as v1 completion because they need an extern
 - Continuous blackbox probes. v1 separates public/origin health in acceptance checks; blackbox_exporter should be added only if continuous public/origin probe history is needed.
 - External alert delivery. Add Slack, PagerDuty, email, or webhook routing only after a real destination secret is provided.
 
-## First Implementation Slice
+## Historical First Implementation Slice
 
-Do this first:
+Status: completed. This was the original safe execution order and is kept as context for why v1 was built locally before being deployed to LocalCluster and Cloud.
 
 1. Add no-change capacity/resource-limit check scripts.
 2. Add OpenTelemetry to the app, disabled by default.
@@ -2364,29 +2399,28 @@ Do this first:
 7. Prove resource reports stay under warning thresholds during smoke traffic.
 8. Remove Seq once parity is proven.
 
-Do not start with Cloud or LocalCluster observability. Starting local keeps the feedback loop short and avoids debugging firewalls, Ansible, Hetzner, Cloudflare, and telemetry at the same time.
+The implementation did not start with Cloud or LocalCluster observability. Starting local kept the feedback loop short and avoided debugging firewalls, Ansible, Hetzner, Cloudflare, and telemetry at the same time.
 
 ## Handoff Summary For Next Agent
 
-If this plan is handed to another AI, give it this instruction:
+If this plan is handed to another AI for post-v1 work, give it this instruction:
 
 ```text
-Implement ObservabilityPlan.md one phase at a time.
+V1 is already implemented and deployed. Verify current status before changing anything.
 Do not redesign the stack.
 Use Grafana, Prometheus, Loki, Tempo, Grafana Alloy, OpenTelemetry, postgres_exporter, and redis_exporter.
 Do not add nodes or servers.
 Do not expose observability ports publicly.
 Do not require a Cloudflare API token.
-Do not remove Seq until local Loki/Grafana log parity is proven.
-Start with Phase 0 and Phase 1 only.
+Do not reintroduce Seq.
 Before editing, inspect the files listed in "Files To Inspect First".
-After editing, run the verification commands listed in the phase.
+For post-v1 work, update this plan first, then run the relevant local, LocalCluster, and Cloud verification commands.
 If a check fails, stop and fix it before continuing.
 ```
 
 The most likely mistakes by a weaker agent:
 
-- starting with Cloud before local Docker works.
+- treating post-v1 Cloud changes as safe without proving the change locally where possible.
 - adding an extra observability node.
 - exposing Grafana publicly.
 - leaving Seq and Loki both running permanently.
