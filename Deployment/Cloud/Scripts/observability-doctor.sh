@@ -24,6 +24,7 @@ command -v ansible >/dev/null 2>&1 || fail "ansible is missing"
 
 APP_NAME="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" app_name)"
 DEPLOY_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" deploy_root)"
+APP_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" app_port)"
 OBS_ROOT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_root)"
 PROMETHEUS_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_prometheus_port)"
 ALERTMANAGER_PORT="$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_alertmanager_port)"
@@ -109,24 +110,72 @@ while True:
     time.sleep(5)
 PY"
 
+run_check "generate Cloud app telemetry" \
+  ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a \
+    "APP_PORT='$APP_PORT' bash -lc 'set -euo pipefail
+for _attempt in \$(seq 1 6); do
+  curl -fsS \"http://127.0.0.1:\${APP_PORT}/\" >/dev/null
+  sleep 1
+done
+'"
+
 run_check "Cloud app telemetry labels" \
   ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a \
-    "PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
+    "APP_NAME='$APP_NAME' PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
 import json
+import os
+import sys
+import time
 import urllib.parse
 import urllib.request
 
 base = 'http://127.0.0.1:' + '$PROMETHEUS_PORT'
-expr = 'count by (instance, host_name, deployment_target) (target_info{job=\"books/books\",deployment_target=\"cloud\"})'
-url = base + '/api/v1/query?query=' + urllib.parse.quote(expr)
-with urllib.request.urlopen(url, timeout=10) as response:
-    payload = json.load(response)
-result = payload.get('data', {}).get('result', [])
-instances = {item.get('metric', {}).get('instance') for item in result}
-missing = {'cloud-app1', 'cloud-app2'} - instances
-if missing:
-    raise SystemExit('missing cloud app telemetry instance(s): ' + ', '.join(sorted(missing)))
-print('OK    cloud app telemetry instances: ' + ', '.join(sorted(instances)))
+app_name = os.environ['APP_NAME']
+expected_nodes = {'cloud-app1', 'cloud-app2'}
+expected_job = 'books/' + app_name
+
+def query(expr: str) -> list[dict]:
+    url = base + '/api/v1/query?query=' + urllib.parse.quote(expr)
+    with urllib.request.urlopen(url, timeout=10) as response:
+        payload = json.load(response)
+    if payload.get('status') != 'success':
+        raise SystemExit(f'Prometheus query failed: {expr}')
+    return payload.get('data', {}).get('result', [])
+
+def app_target_info() -> list[dict]:
+    result = query(
+        'count by (job, service_name, instance, host_name, deployment_target) '
+        '(target_info{deployment_target=\"cloud\"})'
+    )
+    app_result = []
+    for item in result:
+        metric = item.get('metric', {})
+        job = metric.get('job', '')
+        service_name = metric.get('service_name', '')
+        if job == expected_job or job.endswith('/' + app_name) or service_name == app_name:
+            app_result.append(item)
+    return app_result
+
+deadline = time.monotonic() + 180
+last_result: list[dict] = []
+while True:
+    last_result = app_target_info()
+    nodes = {
+        item.get('metric', {}).get('host_name')
+        for item in last_result
+        if item.get('metric', {}).get('host_name')
+    }
+    missing = expected_nodes - nodes
+    if not missing:
+        print('OK    cloud app telemetry host_name labels: ' + ', '.join(sorted(nodes)))
+        break
+    if time.monotonic() >= deadline:
+        print('app target_info diagnostics:', file=sys.stderr)
+        for item in last_result:
+            print(json.dumps(item.get('metric', {}), sort_keys=True), file=sys.stderr)
+        raise SystemExit('missing cloud app telemetry host_name label(s): ' + ', '.join(sorted(missing)))
+    print('WAIT  Cloud app telemetry warming up; missing host_name label(s): ' + ', '.join(sorted(missing)))
+    time.sleep(5)
 PY"
 
 run_check "Grafana dashboard provisioning" \
