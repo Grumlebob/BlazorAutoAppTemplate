@@ -2122,6 +2122,45 @@ Evidence:
 - The deployed doctor now checks LocalCluster Loki cardinality with `deployment_target="localcluster"` so an empty local-Docker selector cannot produce a false pass.
 - The generated Docker firewall rules now scope protected published ports to each node's local original destination, allowing Prometheus on `node-main` to scrape remote node exporters and Alloy agents while still blocking unintended published-port ingress.
 
+### Senior Review Remediation: 2026-05-30
+
+Status: completed.
+
+Problems found during the senior review:
+
+- LocalCluster observability disable path must remain app-safe. The app compose references the external observability Docker network, so fresh or disabled observability deployments must still create that network before app startup.
+- The shared Grafana dashboard was too local-centric for a distributed app. It hardcoded `BlazorAutoApp` in the trace query, had no dashboard variables, and did not make node/app-instance separation obvious.
+- Cloud observability is not implemented yet. Docs must not imply that Cloud Grafana/Prometheus/Loki/Tempo/Alloy exists before Phase 6 is executed.
+- Operators need a short `ObservabilityGuide.md`; the long plan is not a day-to-day usage guide.
+- Prometheus alert rules exist, but alert notification delivery is not wired yet. Docs must make that clear until Phase 7.
+- CI validated LocalCluster/Common deployment assets more thoroughly than Cloud deployment assets.
+- `Deployment/Common/README.md` was stale and did not document shared observability assets.
+
+Remediation checklist:
+
+- [x] Verify the LocalCluster app role creates `observability_docker_network` before `docker compose up`, even when telemetry export is disabled.
+- [x] Add stable app node names to app containers so dashboards can distinguish `node-app1` and `node-app2`.
+- [x] Replace hardcoded dashboard service/trace filters with dashboard variables.
+- [x] Add `ObservabilityGuide.md` and link it from the README/local/deployment docs.
+- [x] Update docs to state that Cloud observability is planned, not currently deployed.
+- [x] Expand CI to lint/validate Cloud deployment assets.
+- [x] Update `Deployment/Common/README.md` for shared observability ownership.
+- [x] Re-run static validation, rendered template validation, Docker Compose config validation, shellcheck, yamllint, and .NET tests.
+
+Evidence:
+
+- `bash Deployment/Common/observability/scripts/validate-observability.sh` passed.
+- `bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh` passed.
+- `docker compose --profile observability config --quiet` passed.
+- Cloud app compose rendered with representative environment values and passed `docker compose config --quiet`.
+- ShellCheck passed for LocalCluster, Cloud, Common, and Common observability shell scripts.
+- `python -m yamllint .github Deployment docker-compose.yml .yamllint.yml` passed.
+- `docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12` passed.
+- `dotnet format --verify-no-changes --verbosity minimal --no-restore` passed.
+- `dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "FullyQualifiedName~ObservabilityTests"` passed: 10 tests.
+- `dotnet test .\BlazorAutoApp.sln --no-build` passed: 104 passed, 6 skipped.
+- `RUN_E2E=1 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --no-build --filter "Category=E2E"` passed: 6 tests.
+
 ### Phase 6: Cloud Observability
 
 Status: not started.

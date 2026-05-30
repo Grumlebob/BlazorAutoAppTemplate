@@ -24,6 +24,7 @@ services:
     build:
       context: .
       dockerfile: BlazorAutoApp/Dockerfile
+    hostname: ${APP_NODE_NAME:-local-web}
     logging: *local-logging
     env_file:
       - ./.env
@@ -37,6 +38,8 @@ services:
       Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
       Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}
       Observability__OpenTelemetry__TraceSampleRatio: ${OBSERVABILITY_TRACE_SAMPLE_RATIO:-0.1}
+      Observability__OpenTelemetry__DeploymentTarget: ${OBSERVABILITY_DEPLOYMENT_TARGET:-local}
+      Observability__OpenTelemetry__NodeName: ${APP_NODE_NAME:-local-web}
     depends_on:
       postgres:
         condition: service_healthy

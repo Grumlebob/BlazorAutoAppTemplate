@@ -24,7 +24,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Observability
 
-Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the same stack on `node-main` and per-node collectors through `Deployment/LocalCluster/HowToDeployLocalCluster.md`. `ObservabilityPlan.md` tracks the phased rollout:
+Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the same stack on `node-main` and per-node collectors through `Deployment/LocalCluster/HowToDeployLocalCluster.md`. `ObservabilityGuide.md` is the short operator guide, and `ObservabilityPlan.md` tracks the phased rollout:
 
 - OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
 - Grafana is the dashboard and operator UI.
@@ -34,7 +34,7 @@ Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Obser
 - Grafana Alloy is the per-node collector for logs, metrics, and OTLP telemetry.
 - Exporters expose host, PostgreSQL, and Redis metrics; Alloy collects app container logs and app OTLP metrics/traces.
 
-The deployment keeps observability on the existing LocalCluster and Cloud nodes; no extra observability nodes are part of the plan.
+The LocalCluster observability deployment uses existing LocalCluster nodes; no extra observability node is part of the plan. Cloud observability is still planned in `ObservabilityPlan.md` Phase 6, so the current Cloud deployment is app-only plus its existing health/doctor checks.
 
 ## Repository Layout
 
@@ -100,6 +100,8 @@ Run the local Grafana/Prometheus/Loki/Tempo/Alloy observability stack:
 .\RunLocal.ps1 -Observability
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
+
+For dashboard access, common checks, and troubleshooting queries, see `ObservabilityGuide.md`.
 
 Build Tailwind output:
 

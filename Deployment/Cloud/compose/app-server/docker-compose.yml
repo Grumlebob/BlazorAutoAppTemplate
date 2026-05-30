@@ -1,6 +1,7 @@
 services:
   web:
     image: ${APP_IMAGE}:${APP_VERSION}
+    hostname: ${APP_NODE_NAME}
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
@@ -10,6 +11,12 @@ services:
       Database__RunMigrationsAtStartup: "false"
       ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Redis__Configuration: ${REDIS_HOST}:${REDIS_PORT},password=${REDIS_PASSWORD},abortConnect=false
+      Observability__OpenTelemetry__Enabled: ${OBSERVABILITY_ENABLED:-false}
+      Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
+      Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}
+      Observability__OpenTelemetry__TraceSampleRatio: ${OBSERVABILITY_TRACE_SAMPLE_RATIO:-0.1}
+      Observability__OpenTelemetry__DeploymentTarget: ${OBSERVABILITY_DEPLOYMENT_TARGET:-cloud}
+      Observability__OpenTelemetry__NodeName: ${APP_NODE_NAME}
     ports:
       - "${APP_BIND_IP}:${APP_PORT}:${APP_PORT}"
       - "127.0.0.1:${APP_PORT}:${APP_PORT}"

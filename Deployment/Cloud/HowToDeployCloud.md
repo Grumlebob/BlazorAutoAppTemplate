@@ -14,6 +14,8 @@ The Cloud deployment has been brought live at `https://bookscloud.jacobgrum.com`
 
 This guide remains the source of truth for rebuilding, repairing, or repeating the Cloud deployment. Follow it from top to bottom for a fresh deployment; for an existing deployment, run the doctor script first and continue from the first `ACTION` or `BLOCKER`.
 
+Cloud observability is not deployed yet. The current Cloud guide covers the app, data services, Cloudflare Tunnel, health checks, and CD. Cloud Grafana/Prometheus/Loki/Tempo/Alloy is tracked separately in `ObservabilityPlan.md` Phase 6.
+
 Do not create Hetzner servers manually. OpenTofu owns them.
 
 No `[ControlPC]` action is needed for Cloud deployment.

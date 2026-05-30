@@ -59,6 +59,7 @@ def render_env(path: Path, values: dict[str, str]) -> str:
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['node_db'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['load_balancer'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.10", rendered)
     rendered = re.sub(r"\{\{\s*hostvars\[inventory_hostname\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
+    rendered = re.sub(r"\{\{\s*inventory_hostname\s*\}\}", values["inventory_hostname"], rendered)
     rendered = re.sub(r"\{\{\s*\(observability_enabled\s*\|\s*default\(false\)\s*\|\s*bool\)\s*\|\s*lower\s*\}\}", values["observability_enabled"], rendered)
     rendered = re.sub(r"\{\{\s*observability_trace_sample_ratio\s*\|\s*default\('0\.25'\)\s*\}\}", values["observability_trace_sample_ratio"], rendered)
     rendered = re.sub(r"\{\{\s*observability_postgres_exporter_port\s*\|\s*default\(9187\)\s*\}\}", values["observability_postgres_exporter_port"], rendered)
@@ -165,6 +166,7 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     common = {
         "app_image": "ghcr.io/example/notes",
         "app_version": "abcdef123456",
+        "inventory_hostname": "node-app1",
         "vault_postgres_user": "appuser",
         "vault_postgres_password": "db-password",
         "vault_postgres_db": "appdb",
@@ -186,12 +188,15 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     db_env = render_env(ROOT / "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2", app_values)
     if "APP_NAME=notes" not in app_env or "APP_NAME=notes" not in db_env:
         fail("rendered env files are missing app identity marker")
+    if "APP_NODE_NAME=node-app1" not in app_env:
+        fail("rendered app env is missing stable app node name")
     if "COMPOSE_PROJECT_NAME=notes" not in app_env or "COMPOSE_PROJECT_NAME=notes" not in db_env:
         fail("rendered env files are missing explicit Compose project names")
 
     compose_env = {
         "APP_IMAGE": "ghcr.io/example/notes",
         "APP_VERSION": "abcdef123456",
+        "APP_NODE_NAME": "node-app1",
         "APP_NAME": "notes",
         "APP_PORT": "8080",
         "FORWARDED_HEADERS_KNOWN_PROXY": "10.10.0.10",
@@ -207,6 +212,7 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "OBSERVABILITY_OTLP_ENDPOINT": "http://alloy:4317",
         "OBSERVABILITY_OTLP_PROTOCOL": "Grpc",
         "OBSERVABILITY_TRACE_SAMPLE_RATIO": "0.25",
+        "OBSERVABILITY_DEPLOYMENT_TARGET": "localcluster",
         "OBSERVABILITY_DOCKER_NETWORK": "notes_observability",
         "NODE_HOST": "10.10.0.20",
         "OBSERVABILITY_POSTGRES_EXPORTER_PORT": "9187",
@@ -215,6 +221,8 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     app_compose = tmp_path / "app-compose.yml"
     db_compose = tmp_path / "db-compose.yml"
     app_compose.write_text(render_compose(ROOT / "Deployment/LocalCluster/compose/app-server/docker-compose.yml", compose_env), encoding="utf-8")
+    if "hostname: node-app1" not in app_compose.read_text(encoding="utf-8"):
+        fail("rendered app compose is missing stable container hostname")
     db_compose_text = render_compose(ROOT / "Deployment/LocalCluster/compose/node-db/docker-compose.yml", compose_env)
     db_compose.write_text(db_compose_text, encoding="utf-8")
     for required in [

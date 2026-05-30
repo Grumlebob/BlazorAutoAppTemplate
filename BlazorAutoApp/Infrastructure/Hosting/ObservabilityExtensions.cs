@@ -44,7 +44,8 @@ internal static class ObservabilityExtensions
         }
 
         var appName = builder.Configuration.GetValue<string>("App:Name") ?? "BlazorAutoApp";
-        var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString();
+        var serviceVersion = Environment.GetEnvironmentVariable("APP_VERSION")
+            ?? typeof(Program).Assembly.GetName().Version?.ToString();
         var serviceInstanceId = Environment.GetEnvironmentVariable("HOSTNAME");
         if (string.IsNullOrWhiteSpace(serviceInstanceId))
         {
@@ -53,6 +54,22 @@ internal static class ObservabilityExtensions
 
         var protocol = ParseOtlpProtocol(options.Protocol);
         var sampler = new ParentBasedSampler(new TraceIdRatioBasedSampler(ClampSampleRatio(options.TraceSampleRatio)));
+        var resourceAttributes = new Dictionary<string, object>
+        {
+            ["deployment.environment.name"] = builder.Environment.EnvironmentName,
+            ["service.namespace"] = "books",
+            ["telemetry.sdk.language"] = "dotnet"
+        };
+
+        if (!string.IsNullOrWhiteSpace(options.DeploymentTarget))
+        {
+            resourceAttributes["deployment.target"] = options.DeploymentTarget;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.NodeName))
+        {
+            resourceAttributes["host.name"] = options.NodeName;
+        }
 
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource
@@ -60,12 +77,7 @@ internal static class ObservabilityExtensions
                     serviceName: appName,
                     serviceVersion: serviceVersion,
                     serviceInstanceId: serviceInstanceId)
-                .AddAttributes(new Dictionary<string, object>
-                {
-                    ["deployment.environment.name"] = builder.Environment.EnvironmentName,
-                    ["service.namespace"] = "books",
-                    ["telemetry.sdk.language"] = "dotnet"
-                }))
+                .AddAttributes(resourceAttributes))
             .WithTracing(tracing => tracing
                 .SetSampler(sampler)
                 .AddSource(BooksTelemetry.ActivitySourceName)
@@ -208,6 +220,10 @@ internal static class ObservabilityExtensions
         public string Protocol { get; init; } = "Grpc";
 
         public double TraceSampleRatio { get; init; } = 0.1;
+
+        public string? DeploymentTarget { get; init; }
+
+        public string? NodeName { get; init; }
 
         public int ExportIntervalMilliseconds { get; init; } = 10000;
 

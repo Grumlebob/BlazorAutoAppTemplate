@@ -256,7 +256,7 @@ Where the values come from:
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
 | `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
-| `observability_enabled` | Keep `true` to deploy the LocalCluster Grafana/Prometheus/Loki/Tempo/Alloy stack. Set `false` only when deliberately disabling production observability. |
+| `observability_enabled` | Keep `true` to deploy the LocalCluster Grafana/Prometheus/Loki/Tempo/Alloy stack. Set `false` only when deliberately disabling production observability. The app role still creates the external observability Docker network so app startup stays safe when telemetry export is disabled. |
 | `observability_root` | Use `/opt/<app_name>-observability`. This keeps observability runtime files separate from app/database runtime files. |
 | `observability_docker_network` | Use `<app_name>_observability`. App containers and local Alloy agents join this Docker network on each node. |
 | `observability_trace_sample_ratio` | Start at `0.1` on the current LocalCluster hardware. Use `1.0` only for short debugging windows because traces increase storage, memory, and CPU. |
@@ -1303,6 +1303,8 @@ observability doctor ok
 ```
 
 This checks that Grafana, Prometheus, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
+
+For day-to-day dashboard usage, common queries, and recovery commands, use `ObservabilityGuide.md`.
 
 Open Grafana from your browser with an SSH tunnel. Keep the terminal open while using Grafana.
 

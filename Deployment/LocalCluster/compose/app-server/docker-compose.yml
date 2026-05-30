@@ -7,6 +7,7 @@ x-localcluster-logging: &localcluster-logging
 services:
   web:
     image: ${APP_IMAGE}:${APP_VERSION}
+    hostname: ${APP_NODE_NAME}
     restart: unless-stopped
     logging: *localcluster-logging
     environment:
@@ -21,6 +22,8 @@ services:
       Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
       Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}
       Observability__OpenTelemetry__TraceSampleRatio: ${OBSERVABILITY_TRACE_SAMPLE_RATIO:-0.25}
+      Observability__OpenTelemetry__DeploymentTarget: ${OBSERVABILITY_DEPLOYMENT_TARGET:-localcluster}
+      Observability__OpenTelemetry__NodeName: ${APP_NODE_NAME}
     ports:
       - "${APP_PORT}:${APP_PORT}"
     volumes:
