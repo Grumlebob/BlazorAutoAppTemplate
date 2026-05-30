@@ -124,6 +124,7 @@ run_check "Cloud app telemetry labels and versions" \
     "APP_NAME='$APP_NAME' PROMETHEUS_PORT='$PROMETHEUS_PORT' python3 - <<'PY'
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -133,6 +134,7 @@ base = 'http://127.0.0.1:' + '$PROMETHEUS_PORT'
 app_name = os.environ['APP_NAME']
 expected_nodes = {'cloud-app1', 'cloud-app2'}
 expected_job = 'books/' + app_name
+sha_pattern = re.compile(r'^[0-9a-f]{40}$')
 
 def query(expr: str) -> list[dict]:
     url = base + '/api/v1/query?query=' + urllib.parse.quote(expr)
@@ -168,8 +170,11 @@ while True:
         if node:
             versions[node] = version
     missing = expected_nodes - set(versions)
-    missing_versions = sorted(node for node, version in versions.items() if node in expected_nodes and not version)
-    if not missing and not missing_versions:
+    invalid_versions = sorted(
+        node for node, version in versions.items()
+        if node in expected_nodes and not sha_pattern.match(version)
+    )
+    if not missing and not invalid_versions:
         labels = [f'{node}={versions[node]}' for node in sorted(expected_nodes)]
         print('OK    cloud app telemetry versions: ' + ', '.join(labels))
         break
@@ -180,14 +185,14 @@ while True:
         problems = []
         if missing:
             problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
-        if missing_versions:
-            problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+        if invalid_versions:
+            problems.append('invalid service_version label(s): ' + ', '.join(f'{node}={versions[node]}' for node in invalid_versions))
         raise SystemExit('cloud app telemetry labels incomplete: ' + '; '.join(problems))
     problems = []
     if missing:
         problems.append('missing host_name label(s): ' + ', '.join(sorted(missing)))
-    if missing_versions:
-        problems.append('missing service_version label(s): ' + ', '.join(missing_versions))
+    if invalid_versions:
+        problems.append('invalid service_version label(s): ' + ', '.join(f'{node}={versions[node]}' for node in invalid_versions))
     print('WAIT  Cloud app telemetry warming up; ' + '; '.join(problems))
     time.sleep(5)
 PY"

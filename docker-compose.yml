@@ -33,6 +33,7 @@ services:
       ASPNETCORE_HTTPS_PORTS: "7186"
       ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
       ASPNETCORE_Kestrel__Certificates__Default__Password: "localdevpassword"
+      APP_VERSION: ${APP_VERSION:-local}
       Database__RunMigrationsAtStartup: "true"
       Observability__OpenTelemetry__Enabled: ${OBSERVABILITY_ENABLED:-false}
       Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}

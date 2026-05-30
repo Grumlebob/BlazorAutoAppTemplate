@@ -13,6 +13,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_HTTP_PORTS: ${APP_PORT}
+      APP_VERSION: ${APP_VERSION}
       App__Name: ${APP_NAME}
       ForwardedHeaders__KnownProxies__0: ${FORWARDED_HEADERS_KNOWN_PROXY}
       Database__RunMigrationsAtStartup: "false"

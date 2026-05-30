@@ -2103,7 +2103,7 @@ Verification:
 - [x] no observability container is OOMKilled.
 - [x] Prometheus active series and Loki streams are below thresholds.
 - [x] the shared dashboard includes app instance version/SHA information from `target_info`.
-- [x] the LocalCluster observability doctor verifies app telemetry from both app nodes and fails if a node is missing `service_version`.
+- [x] the LocalCluster observability doctor verifies app telemetry from both app nodes and fails if a node is missing a Git-SHA `service_version`.
 
 Implementation notes:
 
@@ -2208,7 +2208,7 @@ Verification:
 - [x] no Cloud observability container is OOMKilled.
 - [x] Prometheus active series and Loki streams are below Cloud thresholds.
 - [x] the shared dashboard includes app instance version/SHA information from `target_info`.
-- [x] the Cloud observability doctor verifies app telemetry from both app nodes and fails if a node is missing `service_version`.
+- [x] the Cloud observability doctor verifies app telemetry from both app nodes and fails if a node is missing a Git-SHA `service_version`.
 - [x] `quick-destroy-cloud.sh --plan-only` clearly warns about Cloud observability data loss.
 
 Implementation notes:

@@ -1304,7 +1304,7 @@ Success:
 observability doctor ok
 ```
 
-This checks that Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets and its Alertmanager connection; app telemetry identifies both app nodes with nonempty `service_version` values; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
+This checks that Grafana, Prometheus, Alertmanager, Loki, and Tempo are running on `node-main`; Alloy and node-exporter are running on every node; PostgreSQL and Redis exporters are running on `node-db`; Prometheus sees all expected scrape targets and its Alertmanager connection; app telemetry identifies both app nodes with Git-SHA `service_version` values; the shared Grafana dashboard is provisioned; cardinality is below the current budget; and no observability container reports `OOMKilled`.
 
 For day-to-day dashboard usage, common queries, and recovery commands, use `ObservabilityGuide.md`.
 
