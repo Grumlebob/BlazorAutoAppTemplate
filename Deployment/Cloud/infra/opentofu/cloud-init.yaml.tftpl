@@ -57,6 +57,40 @@ write_files:
                 via: ${private_network_gateway_ip}
                 on-link: true
 %{ endif ~}
+%{ if private_default_route_enabled ~}
+  - path: /usr/local/sbin/${app_name}-private-egress
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      gateway_ip="${private_network_gateway_ip}"
+      private_iface="$(ip -o -4 route get "$gateway_ip" | awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
+
+      if [[ -z "$private_iface" ]]; then
+        echo "Unable to determine private interface for gateway $gateway_ip" >&2
+        exit 1
+      fi
+
+      ip route replace default via "$gateway_ip" dev "$private_iface" onlink
+  - path: /etc/systemd/system/${app_name}-private-egress.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=${app_name} private cloud egress route
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/${app_name}-private-egress
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+%{ endif ~}
 %{ if nat_gateway_enabled ~}
   - path: /etc/sysctl.d/90-${app_name}-nat-gateway.conf
     owner: root:root
@@ -102,6 +136,10 @@ write_files:
 runcmd:
   - netplan generate
   - netplan apply
+%{ if private_default_route_enabled ~}
+  - systemctl daemon-reload
+  - systemctl enable --now ${app_name}-private-egress
+%{ endif ~}
 %{ if nat_gateway_enabled ~}
   - sysctl --system
   - systemctl daemon-reload

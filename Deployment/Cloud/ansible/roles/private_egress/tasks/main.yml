@@ -23,3 +23,44 @@
   ansible.builtin.command: netplan apply
   changed_when: cloud_private_egress_netplan.changed
   when: cloud_private_egress_netplan.changed
+
+- name: Install private egress route script
+  ansible.builtin.template:
+    src: private-egress.sh.j2
+    dest: "/usr/local/sbin/{{ app_name }}-private-egress"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install private egress route service
+  ansible.builtin.template:
+    src: private-egress.service.j2
+    dest: "/etc/systemd/system/{{ app_name }}-private-egress.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable private egress route service
+  ansible.builtin.systemd:
+    name: "{{ app_name }}-private-egress"
+    daemon_reload: true
+    enabled: true
+    state: started
+
+- name: Apply private egress route
+  ansible.builtin.command: "/usr/local/sbin/{{ app_name }}-private-egress"
+  changed_when: false
+
+- name: Verify private node outbound egress
+  ansible.builtin.shell: |
+    set -euo pipefail
+    python3 - <<'PY'
+    import socket
+
+    socket.create_connection(("1.1.1.1", 443), timeout=10).close()
+    socket.getaddrinfo("archive.ubuntu.com", 80)
+    socket.create_connection(("archive.ubuntu.com", 80), timeout=10).close()
+    PY
+  args:
+    executable: /bin/bash
+  changed_when: false

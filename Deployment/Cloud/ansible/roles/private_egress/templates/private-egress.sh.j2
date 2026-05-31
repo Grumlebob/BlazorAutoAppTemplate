@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+gateway_ip="{{ cloud_private_gateway_ip }}"
+private_iface="$(ip -o -4 route get "$gateway_ip" | awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
+
+if [[ -z "$private_iface" ]]; then
+  echo "Unable to determine private interface for gateway $gateway_ip" >&2
+  exit 1
+fi
+
+ip route replace default via "$gateway_ip" dev "$private_iface" onlink
