@@ -22,10 +22,10 @@ tofu fmt -check versions.tf variables.tf locals.tf main.tf firewalls.tf outputs.
 tofu validate
 rm -f "$PLAN_FILE"
 tofu plan \
-  -replace='hcloud_server.nodes["cloud-main"]' \
-  -replace='hcloud_server.nodes["cloud-app1"]' \
-  -replace='hcloud_server.nodes["cloud-app2"]' \
-  -replace='hcloud_server.nodes["cloud-db"]' \
+  -replace='hcloud_server.cloud_main' \
+  -replace='hcloud_server.private_nodes["cloud-app1"]' \
+  -replace='hcloud_server.private_nodes["cloud-app2"]' \
+  -replace='hcloud_server.private_nodes["cloud-db"]' \
   -out "$PLAN_FILE"
 
 cat <<EOF

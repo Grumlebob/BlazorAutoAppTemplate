@@ -117,9 +117,6 @@ APP1_PRIVATE="$(hostvar cloud-app1 cloud_private_ip)"
 APP2_PRIVATE="$(hostvar cloud-app2 cloud_private_ip)"
 DB_PRIVATE="$(hostvar cloud-db cloud_private_ip)"
 MAIN_PUBLIC="$(hostvar cloud-main cloud_public_ipv4)"
-APP1_PUBLIC="$(hostvar cloud-app1 cloud_public_ipv4)"
-APP2_PUBLIC="$(hostvar cloud-app2 cloud_public_ipv4)"
-DB_PUBLIC="$(hostvar cloud-db cloud_public_ipv4)"
 
 echo "checking SSH reachability"
 ansible cloud -i "$INVENTORY" -m ansible.builtin.ping
@@ -149,11 +146,10 @@ ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "if timeout 5 
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "if timeout 5 bash -lc '</dev/tcp/${APP1_PRIVATE}/${APP_PORT}' 2>/dev/null; then echo 'cloud-db reached cloud-app1 unexpectedly' >&2; exit 1; fi"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "if timeout 5 bash -lc '</dev/tcp/${APP2_PRIVATE}/${APP_PORT}' 2>/dev/null; then echo 'cloud-db reached cloud-app2 unexpectedly' >&2; exit 1; fi"
 
+echo "checking private-node outbound egress"
+ansible app_servers:node_db -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS --max-time 15 https://checkip.amazonaws.com >/dev/null"
+
 echo "checking public service ports are closed"
-check_public_port_closed "$APP1_PUBLIC" "$APP_PORT" "cloud-app1 app port"
-check_public_port_closed "$APP2_PUBLIC" "$APP_PORT" "cloud-app2 app port"
-check_public_port_closed "$DB_PUBLIC" "$POSTGRES_PORT" "cloud-db PostgreSQL port"
-check_public_port_closed "$DB_PUBLIC" "$REDIS_PORT" "cloud-db Redis port"
 if [[ "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_enabled 2>/dev/null || echo false)" == "true" ]]; then
   check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_grafana_port)" "cloud-main Grafana port"
   check_public_port_closed "$MAIN_PUBLIC" "$(python3 "${SCRIPT_DIR}/Component/lib/read-cloud-setting.py" observability_alertmanager_port)" "cloud-main Alertmanager port"

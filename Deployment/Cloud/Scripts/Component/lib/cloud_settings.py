@@ -21,6 +21,7 @@ REQUIRED_KEYS = [
     "cloudflare_tunnel_name",
     "cloudflared_version",
     "cloud_private_network_cidr",
+    "cloud_private_gateway_ip",
     "cloud_main_private_ip",
     "cloud_app1_private_ip",
     "cloud_app2_private_ip",
@@ -217,6 +218,7 @@ def validate(values: dict[str, str]) -> list[str]:
 
     private_ips: dict[str, ipaddress.IPv4Address] = {}
     for key in [
+        "cloud_private_gateway_ip",
         "cloud_main_private_ip",
         "cloud_app1_private_ip",
         "cloud_app2_private_ip",

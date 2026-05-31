@@ -35,7 +35,7 @@ No `[ControlPC]` action is needed for Cloud deployment.
 - Cloud server type: `cx23` for all four servers in v1.
 - Hetzner location: `fsn1` for v1.
 - Hetzner network zone: `eu-central` for v1.
-- Public networking: all four servers get public IPv4 and IPv6 in v1 so package installs, Docker pulls, GHCR pulls, and outbound updates are simple and reliable.
+- Public networking: only `cloud-main` gets public IPv4 and IPv6. App and data nodes stay private-only and use `cloud-main` as a NAT gateway for outbound package, Docker, GHCR, and update traffic.
 - Public ingress: Hetzner Cloud Firewalls allow no public HTTP/HTTPS and no public app/data ports. SSH is public only to `cloud-main` from explicit temporary/admin CIDRs.
 - Private-network enforcement: host firewall rules are mandatory because Hetzner Cloud Firewalls do not secure private-network traffic.
 - CD temporary SSH rule: use a dedicated OpenTofu-created firewall for temporary SSH access and expose its ID as `cloud_temp_ssh_firewall_id`.
@@ -537,7 +537,8 @@ Review the plan. It should create:
 - one private network
 - private network attachments at server creation time
 - cloud-init netplan DHCP configuration for the first Hetzner private-network interface
-- public IPv4 and IPv6 enabled for all four servers
+- public IPv4 and IPv6 enabled only for `cloud-main`
+- a private-network default route through `cloud-main`
 - baseline public firewalls
 - dedicated temporary SSH firewall for `CD - Cloud`
 - one SSH key resource
@@ -567,9 +568,6 @@ Confirm these outputs exist:
 
 ```bash
 tofu output -raw cloud_main_public_ipv4
-tofu output -raw cloud_app1_public_ipv4
-tofu output -raw cloud_app2_public_ipv4
-tofu output -raw cloud_db_public_ipv4
 tofu output -raw cloud_main_private_ip
 tofu output -raw cloud_app1_private_ip
 tofu output -raw cloud_app2_private_ip
@@ -809,9 +807,6 @@ Required secret list:
 ```text
 CLOUD_SSH_PRIVATE_KEY
 CLOUD_BASTION_HOST
-CLOUD_APP1_PUBLIC_IPV4
-CLOUD_APP2_PUBLIC_IPV4
-CLOUD_DB_PUBLIC_IPV4
 CLOUD_HETZNER_API_TOKEN
 CLOUD_TEMP_SSH_FIREWALL_ID
 CLOUD_GHCR_USERNAME

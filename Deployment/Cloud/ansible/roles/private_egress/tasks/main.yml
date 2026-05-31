@@ -1,0 +1,25 @@
+---
+- name: Require private egress route runs on private nodes
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in (groups["app_servers"] + groups["node_db"])
+    fail_msg: "private_egress role must run only on app and database nodes."
+
+- name: Install private-network egress netplan
+  ansible.builtin.template:
+    src: private-network-egress.yaml.j2
+    dest: "/etc/netplan/60-{{ app_name }}-private-network.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  register: cloud_private_egress_netplan
+
+- name: Generate private-network egress netplan
+  ansible.builtin.command: netplan generate
+  changed_when: cloud_private_egress_netplan.changed
+  when: cloud_private_egress_netplan.changed
+
+- name: Apply private-network egress netplan
+  ansible.builtin.command: netplan apply
+  changed_when: cloud_private_egress_netplan.changed
+  when: cloud_private_egress_netplan.changed

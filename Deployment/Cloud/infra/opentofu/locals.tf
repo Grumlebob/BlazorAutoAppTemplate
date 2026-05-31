@@ -5,11 +5,12 @@ locals {
     managed_by = "opentofu"
   }
 
-  server_specs = {
-    cloud-main = {
-      role       = "ingress"
-      private_ip = var.cloud_main_private_ip
-    }
+  cloud_main_spec = {
+    role       = "ingress"
+    private_ip = var.cloud_main_private_ip
+  }
+
+  private_server_specs = {
     cloud-app1 = {
       role       = "app"
       private_ip = var.cloud_app1_private_ip
@@ -23,4 +24,8 @@ locals {
       private_ip = var.cloud_db_private_ip
     }
   }
+
+  server_specs = merge({
+    cloud-main = local.cloud_main_spec
+  }, local.private_server_specs)
 }

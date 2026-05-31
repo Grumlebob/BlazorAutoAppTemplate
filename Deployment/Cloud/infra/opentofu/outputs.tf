@@ -1,21 +1,6 @@
 output "cloud_main_public_ipv4" {
-  value       = hcloud_server.nodes["cloud-main"].ipv4_address
+  value       = hcloud_server.cloud_main.ipv4_address
   description = "Public IPv4 for cloud-main SSH and Cloud CD bastion access."
-}
-
-output "cloud_app1_public_ipv4" {
-  value       = hcloud_server.nodes["cloud-app1"].ipv4_address
-  description = "Public IPv4 for cloud-app1. Public inbound app traffic must remain blocked."
-}
-
-output "cloud_app2_public_ipv4" {
-  value       = hcloud_server.nodes["cloud-app2"].ipv4_address
-  description = "Public IPv4 for cloud-app2. Public inbound app traffic must remain blocked."
-}
-
-output "cloud_db_public_ipv4" {
-  value       = hcloud_server.nodes["cloud-db"].ipv4_address
-  description = "Public IPv4 for cloud-db. Public inbound data traffic must remain blocked."
 }
 
 output "cloud_main_private_ip" {

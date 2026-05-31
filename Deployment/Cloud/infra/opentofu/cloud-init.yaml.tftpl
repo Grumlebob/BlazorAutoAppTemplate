@@ -1,12 +1,18 @@
 #cloud-config
+%{ if nat_gateway_enabled ~}
 package_update: true
 package_upgrade: false
 packages:
   - ca-certificates
   - curl
+  - iptables
   - python3
   - sudo
   - ufw
+%{ else ~}
+package_update: false
+package_upgrade: false
+%{ endif ~}
 
 users:
   - default
@@ -36,9 +42,57 @@ write_files:
           ens10:
             dhcp4: true
             optional: true
+%{ if private_default_route_enabled ~}
+            routes:
+              - to: 0.0.0.0/0
+                via: ${private_network_gateway_ip}
+                on-link: true
+%{ endif ~}
           enp7s0:
             dhcp4: true
             optional: true
+%{ if private_default_route_enabled ~}
+            routes:
+              - to: 0.0.0.0/0
+                via: ${private_network_gateway_ip}
+                on-link: true
+%{ endif ~}
+%{ if nat_gateway_enabled ~}
+  - path: /etc/sysctl.d/90-${app_name}-nat-gateway.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_forward=1
+  - path: /usr/local/sbin/${app_name}-nat-gateway
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      iptables -w -t nat -C POSTROUTING -s ${private_network_cidr} ! -d ${private_network_cidr} -j MASQUERADE 2>/dev/null \
+        || iptables -w -t nat -A POSTROUTING -s ${private_network_cidr} ! -d ${private_network_cidr} -j MASQUERADE
+      iptables -w -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+        || iptables -w -I FORWARD 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+      iptables -w -C FORWARD -s ${private_network_cidr} -j ACCEPT 2>/dev/null \
+        || iptables -w -I FORWARD 2 -s ${private_network_cidr} -j ACCEPT
+  - path: /etc/systemd/system/${app_name}-nat-gateway.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=${app_name} Cloud NAT gateway
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/${app_name}-nat-gateway
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+%{ endif ~}
   - path: /etc/sudoers.d/90-deploy-user
     owner: root:root
     permissions: "0440"
@@ -48,4 +102,9 @@ write_files:
 runcmd:
   - netplan generate
   - netplan apply
+%{ if nat_gateway_enabled ~}
+  - sysctl --system
+  - systemctl daemon-reload
+  - systemctl enable --now ${app_name}-nat-gateway
+%{ endif ~}
   - systemctl enable --now ssh

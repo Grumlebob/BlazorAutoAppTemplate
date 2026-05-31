@@ -11,18 +11,12 @@ fail() {
 
 command -v python3 >/dev/null 2>&1 || fail "python3 is missing."
 : "${CLOUD_BASTION_HOST:?CLOUD_BASTION_HOST is required}"
-: "${CLOUD_APP1_PUBLIC_IPV4:?CLOUD_APP1_PUBLIC_IPV4 is required}"
-: "${CLOUD_APP2_PUBLIC_IPV4:?CLOUD_APP2_PUBLIC_IPV4 is required}"
-: "${CLOUD_DB_PUBLIC_IPV4:?CLOUD_DB_PUBLIC_IPV4 is required}"
 
 SSH_KEY_PATH="${CLOUD_SSH_PRIVATE_KEY_PATH:-$HOME/.ssh/bookscloud_deploy}"
 KNOWN_HOSTS_PATH="${CLOUD_KNOWN_HOSTS_FILE:-$HOME/.ssh/known_hosts}"
 
 python3 "$SCRIPT_DIR/Component/lib/render-inventory.py" \
   --bastion-public-ip "$CLOUD_BASTION_HOST" \
-  --app1-public-ip "${CLOUD_APP1_PUBLIC_IPV4:-}" \
-  --app2-public-ip "${CLOUD_APP2_PUBLIC_IPV4:-}" \
-  --db-public-ip "${CLOUD_DB_PUBLIC_IPV4:-}" \
   --ssh-private-key-path "$SSH_KEY_PATH" \
   --known-hosts-path "$KNOWN_HOSTS_PATH" \
   --output "$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"

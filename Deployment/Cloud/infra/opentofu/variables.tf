@@ -35,12 +35,12 @@ variable "ssh_public_key_path" {
 
 variable "public_ipv4_enabled" {
   type        = bool
-  description = "Enable public IPv4 on all nodes for outbound package and image access."
+  description = "Enable public IPv4 on cloud-main for SSH, Cloud CD, and private-node NAT egress."
 }
 
 variable "public_ipv6_enabled" {
   type        = bool
-  description = "Enable public IPv6 on all nodes for outbound package and image access."
+  description = "Enable public IPv6 on cloud-main. Private nodes do not receive public IPv6."
 }
 
 variable "admin_ssh_cidrs" {

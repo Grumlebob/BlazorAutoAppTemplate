@@ -29,9 +29,6 @@ jobs:
     env:
       CLOUD_SSH_PRIVATE_KEY_PATH: ${{ github.workspace }}/.cloud-ssh/bookscloud_deploy
       CLOUD_BASTION_HOST: ${{ secrets.CLOUD_BASTION_HOST }}
-      CLOUD_APP1_PUBLIC_IPV4: ${{ secrets.CLOUD_APP1_PUBLIC_IPV4 }}
-      CLOUD_APP2_PUBLIC_IPV4: ${{ secrets.CLOUD_APP2_PUBLIC_IPV4 }}
-      CLOUD_DB_PUBLIC_IPV4: ${{ secrets.CLOUD_DB_PUBLIC_IPV4 }}
       CLOUD_TEMP_SSH_FIREWALL_ID: ${{ secrets.CLOUD_TEMP_SSH_FIREWALL_ID }}
       CLOUD_HETZNER_API_TOKEN: ${{ secrets.CLOUD_HETZNER_API_TOKEN }}
       CLOUD_GHCR_USERNAME: ${{ secrets.CLOUD_GHCR_USERNAME }}

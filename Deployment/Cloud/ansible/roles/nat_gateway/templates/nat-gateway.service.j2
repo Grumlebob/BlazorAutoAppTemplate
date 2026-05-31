@@ -1,0 +1,12 @@
+[Unit]
+Description={{ app_name }} Cloud NAT gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/{{ app_name }}-nat-gateway
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

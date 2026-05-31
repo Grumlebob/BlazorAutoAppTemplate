@@ -23,9 +23,6 @@ tofu_output() {
 
 python3 "$SCRIPT_DIR/Component/lib/render-inventory.py" \
   --bastion-public-ip "$(tofu_output cloud_main_public_ipv4)" \
-  --app1-public-ip "$(tofu_output cloud_app1_public_ipv4)" \
-  --app2-public-ip "$(tofu_output cloud_app2_public_ipv4)" \
-  --db-public-ip "$(tofu_output cloud_db_public_ipv4)" \
   --ssh-private-key-path "$SSH_KEY_PATH" \
   --known-hosts-path "$KNOWN_HOSTS_PATH" \
   --output "$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"

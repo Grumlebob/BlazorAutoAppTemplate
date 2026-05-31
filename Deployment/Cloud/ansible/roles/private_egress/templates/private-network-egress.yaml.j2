@@ -1,0 +1,18 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens10:
+      dhcp4: true
+      optional: true
+      routes:
+        - to: 0.0.0.0/0
+          via: {{ cloud_private_gateway_ip }}
+          on-link: true
+    enp7s0:
+      dhcp4: true
+      optional: true
+      routes:
+        - to: 0.0.0.0/0
+          via: {{ cloud_private_gateway_ip }}
+          on-link: true

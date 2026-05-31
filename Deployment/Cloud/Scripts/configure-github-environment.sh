@@ -87,9 +87,6 @@ tofu_output() {
 
 set_secret_file CLOUD_SSH_PRIVATE_KEY "$SSH_PRIVATE_KEY"
 set_secret_body CLOUD_BASTION_HOST "$(tofu_output cloud_main_public_ipv4)"
-set_secret_body CLOUD_APP1_PUBLIC_IPV4 "$(tofu_output cloud_app1_public_ipv4)"
-set_secret_body CLOUD_APP2_PUBLIC_IPV4 "$(tofu_output cloud_app2_public_ipv4)"
-set_secret_body CLOUD_DB_PUBLIC_IPV4 "$(tofu_output cloud_db_public_ipv4)"
 set_secret_body CLOUD_HETZNER_API_TOKEN "$HCLOUD_TOKEN"
 set_secret_body CLOUD_TEMP_SSH_FIREWALL_ID "$(tofu_output cloud_temp_ssh_firewall_id)"
 

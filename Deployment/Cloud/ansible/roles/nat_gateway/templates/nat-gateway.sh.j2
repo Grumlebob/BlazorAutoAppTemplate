@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+iptables -w -t nat -C POSTROUTING -s {{ cloud_private_network_cidr }} ! -d {{ cloud_private_network_cidr }} -j MASQUERADE 2>/dev/null \
+  || iptables -w -t nat -A POSTROUTING -s {{ cloud_private_network_cidr }} ! -d {{ cloud_private_network_cidr }} -j MASQUERADE
+
+iptables -w -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+  || iptables -w -I FORWARD 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+iptables -w -C FORWARD -s {{ cloud_private_network_cidr }} -j ACCEPT 2>/dev/null \
+  || iptables -w -I FORWARD 2 -s {{ cloud_private_network_cidr }} -j ACCEPT

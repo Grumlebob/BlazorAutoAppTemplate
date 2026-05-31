@@ -113,10 +113,12 @@ def main() -> int:
         if private_ip != expected_private_ip:
             fail(f"{host} private IP is {private_ip}, expected {expected_private_ip}")
 
-        public_ip = require_text(vars_, host, "cloud_public_ipv4")
+        public_ip = str(vars_.get("cloud_public_ipv4", ""))
         ssh_args = str(vars_.get("ansible_ssh_common_args", ""))
 
         if expected_route == "public":
+            if not public_ip:
+                fail(f"{host} is missing cloud_public_ipv4")
             if ansible_host != public_ip:
                 fail(f"{host} should use public ansible_host {public_ip}, got {ansible_host}")
             if "ProxyJump" in ssh_args or "ProxyCommand" in ssh_args:
@@ -135,7 +137,7 @@ def main() -> int:
                 fail(f"{host} ProxyCommand should pass the deploy identity file explicitly")
             route = f"via cloud-main ({bastion_public_ip})"
 
-        rows.append((host, ansible_host, private_ip, public_ip, route))
+        rows.append((host, ansible_host, private_ip, public_ip or "-", route))
 
     print("Cloud inventory validation ok")
     print()

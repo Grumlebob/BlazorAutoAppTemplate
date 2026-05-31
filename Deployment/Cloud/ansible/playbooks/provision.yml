@@ -1,4 +1,22 @@
 ---
+- name: Configure Cloud NAT gateway before private node package installs
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - nat_gateway
+
+- name: Configure private node egress route before package installs
+  hosts:
+    - app_servers
+    - node_db
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+  roles:
+    - private_egress
+
 - name: Provision common Cloud node baseline
   hosts: cloud
   become: true
@@ -39,6 +57,7 @@
     - ../../../Common/release.yml
   roles:
     - firewall
+    - nat_gateway
 
 - name: Deploy Cloud observability backend
   hosts: load_balancer

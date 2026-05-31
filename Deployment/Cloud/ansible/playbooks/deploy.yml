@@ -16,6 +16,7 @@
     - ../../../Common/release.yml
   roles:
     - firewall
+    - nat_gateway
 
 - name: Deploy Cloud observability backend
   hosts: load_balancer
