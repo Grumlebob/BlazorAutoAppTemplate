@@ -116,7 +116,7 @@ pwsh -File .\docker\observability\smoke-local-observability.ps1
 
 This starts Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
 
-For dashboard usage, common queries, and troubleshooting, see `docs/ObservabilityGuide.md`.
+For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuide.md`.
 
 Generate safe synthetic traffic for dashboards:
 
@@ -276,7 +276,7 @@ Docker must be running because integration tests use Testcontainers.
 dotnet test
 ```
 
-Visible E2E is documented in `BlazorAutoApp.Test/TESTING.md`.
+Visible E2E is documented in `Test.md`.
 
 Deployment validation without deploying:
 

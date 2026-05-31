@@ -1,11 +1,16 @@
-# Testing
+# Test
 
-This project has four test layers:
+This is the single testing guide for the repository. Paths and commands are relative to the repository root.
+
+## Test Layers
+
+This project has these test layers:
 
 - Feature/integration tests for the vertical slices.
 - Architecture tests for repo structure and endpoint behavior.
 - Infrastructure/hosting behavior tests.
 - Headed Playwright E2E tests for real browser render mode, Books, and Identity flows.
+- Lighthouse performance checks for local and deployed pages.
 
 ## Normal Test Run
 
@@ -29,7 +34,7 @@ Run them directly with:
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "FullyQualifiedName~BooksCrossNodeCacheInvalidationTests"
 ```
 
-The shared fixture lives under `TestSupport/Integration`. Normal integration tests keep Redis disabled with `Redis:AllowMissing=true` unless the test explicitly opts into shared Redis.
+The shared fixture lives under `BlazorAutoApp.Test/TestSupport/Integration`. Normal integration tests keep Redis disabled with `Redis:AllowMissing=true` unless the test explicitly opts into shared Redis.
 
 ## Vertical Slice Rules
 
@@ -184,6 +189,43 @@ TestResults/Playwright
 
 Failed E2E runs also retain a Playwright trace zip, and browser videos are written under `TestResults/Playwright/Videos`. `TestResults` is generated output and can be deleted.
 Normal snapshot runs write page screenshots under `TestResults/Playwright/Snapshots`.
+
+## Lighthouse Performance
+
+Lighthouse is pinned in the client npm toolchain and writes generated reports under `TestResults/Lighthouse`.
+
+Run local mobile and desktop reports against the Docker app:
+
+```powershell
+.\RunLocal.ps1 -NoBrowser
+.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/", "/books/design-demos", "/Account/Login" -Profile both -IgnoreCertificateErrors
+```
+
+Run an authenticated local home-page report with the seeded Docker/Development user:
+
+```powershell
+.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/" -Profile both -IgnoreCertificateErrors -AuthenticatedLocalUser
+```
+
+For production, omit `-IgnoreCertificateErrors` and point `-BaseUrl` at the deployed domain.
+
+If a Cloudflare-proxied production run reports deprecated APIs from `/cdn-cgi/challenge-platform/scripts/jsd/main.js`, that is Cloudflare JavaScript Detections/Bot Fight Mode injecting a challenge script into the HTML. Confirm by running a one-off Lighthouse comparison with `--blocked-url-patterns='*/cdn-cgi/challenge-platform/*'`; fixing that score requires a Cloudflare zone setting, not an app code change.
+
+When testing a local `dotnet run` app on `http://127.0.0.1:5099`, start that app with higher local-only rate limits so headed desktop and mobile runs do not trip the template limiter:
+
+```powershell
+$env:RateLimiting__Global__PermitLimit='10000'
+$env:RateLimiting__Api__PermitLimit='1000'
+$env:RateLimiting__Authentication__PermitLimit='1000'
+$env:E2E_BASE_URL='http://127.0.0.1:5099'
+```
+
+For a mobile viewport pass, set:
+
+```powershell
+$env:E2E_VIEWPORT_WIDTH='390'
+$env:E2E_VIEWPORT_HEIGHT='844'
+```
 
 ## Deployment Checks
 

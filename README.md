@@ -4,10 +4,10 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Start Here
 
-- `HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
+- `docs/HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
-- `overview.md` explains the render-mode and vertical-slice architecture.
-- `TESTING.md` links to the full unit/integration and headed Playwright E2E guide.
+- `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
+- `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing.
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
 - `TemplateCustomization.md` lists the first things to rename or configure in a fork.
 
@@ -25,7 +25,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Observability
 
-Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `docs/ObservabilityGuide.md` is the short operator guide, and `docs/ObservabilityPlan.md` tracks the phased rollout:
+Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `docs/ObservabilityGuide.md` is the operator guide and architecture reference:
 
 - OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
 - Grafana is the dashboard and operator UI.
