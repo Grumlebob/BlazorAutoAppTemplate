@@ -22,6 +22,8 @@ internal sealed class BrowserAuthBootstrap
         var playwright = await Playwright.CreateAsync();
         IBrowser? browser = null;
         IBrowserContext? context = null;
+        IPage? page = null;
+        var savedFailureScreenshot = false;
 
         try
         {
@@ -35,7 +37,7 @@ internal sealed class BrowserAuthBootstrap
                 IgnoreHTTPSErrors = HttpClientFactory.IsLocalhost(_options.BaseUrl)
             });
 
-            var page = await context.NewPageAsync();
+            page = await context.NewPageAsync();
             var loggedIn = await TryLoginAsync(page, cancellationToken);
             var registered = false;
             if (!loggedIn && _options.RegisterSyntheticUser)
@@ -54,6 +56,7 @@ internal sealed class BrowserAuthBootstrap
             if (!loggedIn)
             {
                 await SaveFailureScreenshotAsync(page, "auth-login-failed");
+                savedFailureScreenshot = true;
                 throw new InvalidOperationException(
                     "Authentication failed. Verify SIMULATION_AUTH_EMAIL/SIMULATION_AUTH_PASSWORD or use -RegisterSyntheticUser for first-time setup.");
             }
@@ -83,6 +86,11 @@ internal sealed class BrowserAuthBootstrap
         }
         catch
         {
+            if (page is not null && !savedFailureScreenshot)
+            {
+                await TrySaveFailureScreenshotAsync(page, "auth-unexpected-failure");
+            }
+
             if (context is not null)
             {
                 await context.DisposeAsync();
@@ -191,6 +199,22 @@ internal sealed class BrowserAuthBootstrap
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{name}.png");
         await page.ScreenshotAsync(new PageScreenshotOptions { Path = path, FullPage = true });
+    }
+
+    private async Task TrySaveFailureScreenshotAsync(IPage page, string name)
+    {
+        try
+        {
+            await SaveFailureScreenshotAsync(page, name);
+        }
+        catch (PlaywrightException)
+        {
+            // Preserve the original authentication exception; diagnostics are best effort.
+        }
+        catch (IOException)
+        {
+            // Preserve the original authentication exception; diagnostics are best effort.
+        }
     }
 
     private string Absolute(string path) =>

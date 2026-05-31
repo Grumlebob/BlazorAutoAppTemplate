@@ -127,6 +127,13 @@ Generate safe synthetic traffic for dashboards:
 .\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
+Run a strict evidence matrix and summarize reports:
+
+```powershell
+.\RunSimulationMatrix.ps1 -All
+.\AnalyzeSimulationReports.ps1 -Latest 15
+```
+
 Read-only simulation is the default. Authenticated writes require `-AllowWrite`, use real login cookies, and clean up V2 synthetic books by default. The simulator is the `BlazorAutoApp.Simulation` operator tool; it is built and tested by CI, but it is not deployed with the app. It paces `/api/*` and authenticated write requests below the app's rate limits, so normal smoke and demo runs should report `unexpected 429: 0`. Reports are written under `artifacts/simulation`.
 
 Manual equivalent:

@@ -49,7 +49,7 @@ Use `RunSimulation.ps1` to generate safe traffic for dashboard demos and smoke c
 .\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
-The simulator is a .NET console operator tool in `BlazorAutoApp.Simulation`. It is built and tested by CI, but it is not deployed with the app. It paces API and authenticated write traffic below the app's rate limits, reports unexpected `429` responses separately, cleans up V2 synthetic books, and writes run summaries under `artifacts/simulation`. See `docs/SimulationGuide.md`.
+Use `RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evidence pass, and `AnalyzeSimulationReports.ps1` to summarize generated reports. The simulator is a .NET console operator tool in `BlazorAutoApp.Simulation`. It is built and tested by CI, but it is not deployed with the app. It paces API and authenticated write traffic below the app's rate limits, reports unexpected `429` responses separately, cleans up V2 synthetic books, and writes run summaries under `artifacts/simulation`. See `docs/SimulationGuide.md`.
 
 ## Repository Layout
 

@@ -153,6 +153,57 @@ Show tool help:
 .\RunSimulation.ps1 -Help
 ```
 
+## Three-Environment Matrix
+
+Use `RunSimulationMatrix.ps1` when you want one operator command to run the
+same safe checks across local, LocalCluster, and Cloud. It stops immediately if
+any simulator command exits nonzero and prints the report directories it
+created.
+
+Read-only matrix for all targets:
+
+```powershell
+.\RunSimulationMatrix.ps1 -All
+```
+
+Local read/write/browser/cleanup matrix:
+
+```powershell
+.\RunSimulationMatrix.ps1 -Local -IncludeWrites
+```
+
+Deployed read/write/browser/cleanup matrix with disposable generated users:
+
+```powershell
+.\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites
+```
+
+Safety rules are intentionally duplicated in the wrapper:
+
+- deployed writes require `-AllowDeployedWrites`.
+- deployed registration requires `-RegisterSyntheticUsers`.
+- generated passwords stay in memory and are not printed.
+- cleanup-only runs after write/browser passes.
+
+## Report Analysis
+
+Use `AnalyzeSimulationReports.ps1` to turn local `summary.json` files into a
+compact Markdown table:
+
+```powershell
+.\AnalyzeSimulationReports.ps1 -Latest 15
+```
+
+Analyze a specific run:
+
+```powershell
+.\AnalyzeSimulationReports.ps1 -Report .\artifacts\simulation\20260530-215221-cloud-public-smoke
+```
+
+The analyzer reads local artifacts only. It does not call deployed targets and
+does not require credentials. The `Alerts` column highlights failed thresholds,
+unexpected `429`, `5xx`, browser failures, and cleanup leftovers.
+
 ## Reports
 
 Reports are written under:
