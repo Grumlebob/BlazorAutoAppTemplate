@@ -5,6 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 TOFU_DIR="$REPO_ROOT/Deployment/Cloud/infra/opentofu"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 fail() {
   echo "render inventory from OpenTofu failed: $*" >&2
   exit 1

@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+export REPO_ROOT
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 fail() {
   echo "Hetzner API token check failed: $*" >&2
   exit 1
 }
 
+cloud_env_load_hcloud_token
 [[ -n "${HCLOUD_TOKEN:-}" ]] || fail "HCLOUD_TOKEN is not set in this shell."
 
 command -v curl >/dev/null 2>&1 || fail "curl is missing. Run Deployment/Cloud/Scripts/setup-currentpc-tools.sh."

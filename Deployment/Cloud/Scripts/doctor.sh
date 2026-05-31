@@ -7,6 +7,10 @@ TOFU_DIR="$REPO_ROOT/Deployment/Cloud/infra/opentofu"
 INVENTORY="$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"
 ENVIRONMENT_NAME="${CLOUD_GITHUB_ENVIRONMENT:-cloud-hetzner}"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 cd "$REPO_ROOT"
 
 status_line() {
@@ -179,6 +183,113 @@ if missing:
 PY
 }
 
+report_hcloud_resources() {
+  local app_name="$1"
+  local tmpdir
+  local spec
+  local name
+  local path
+  local url
+  local failed=0
+  local report
+
+  if [[ -z "$app_name" ]]; then
+    status_line "ACTION" "Hetzner billables" "app_name could not be read"
+    return
+  fi
+
+  CLOUD_ENV_QUIET=1 cloud_env_load_hcloud_token
+  if [[ -z "${HCLOUD_TOKEN:-}" ]]; then
+    status_line "INFO" "Hetzner billables" "HCLOUD_TOKEN is not set; add .env.cloud to report matching resources"
+    return
+  fi
+
+  if ! has_command curl || ! has_command python3; then
+    status_line "ACTION" "Hetzner billables" "curl/python3 missing; run setup-currentpc-tools.sh"
+    return
+  fi
+
+  tmpdir="$(mktemp -d)"
+  for spec in \
+    "servers|servers" \
+    "primary_ips|primary_ips" \
+    "floating_ips|floating_ips" \
+    "volumes|volumes" \
+    "load_balancers|load_balancers" \
+    "images|images?type=snapshot"; do
+    name="${spec%%|*}"
+    path="${spec#*|}"
+    if [[ "$path" == *\?* ]]; then
+      url="https://api.hetzner.cloud/v1/${path}&per_page=50"
+    else
+      url="https://api.hetzner.cloud/v1/${path}?per_page=50"
+    fi
+
+    if ! curl -fsS -H "Authorization: Bearer ${HCLOUD_TOKEN}" "$url" > "$tmpdir/${name}.json"; then
+      failed=1
+      break
+    fi
+  done
+
+  if ((failed)); then
+    rm -rf "$tmpdir"
+    status_line "ACTION" "Hetzner billables" "could not query Hetzner API; check HCLOUD_TOKEN"
+    return
+  fi
+
+  report="$(APP_NAME="$app_name" RESOURCE_DIR="$tmpdir" python3 - <<'PY'
+from __future__ import annotations
+
+from collections import Counter
+import json
+import os
+from pathlib import Path
+
+app_name = os.environ["APP_NAME"]
+resource_dir = Path(os.environ["RESOURCE_DIR"])
+collections = {
+    "servers": "servers",
+    "primary_ips": "primary_ips",
+    "floating_ips": "floating_ips",
+    "volumes": "volumes",
+    "load_balancers": "load_balancers",
+    "images": "images",
+}
+node_names = {"cloud-main", "cloud-app1", "cloud-app2", "cloud-db"}
+
+
+def matches(resource: dict) -> bool:
+    labels = resource.get("labels") or {}
+    name = str(resource.get("name") or "")
+    return labels.get("app") == app_name or name.startswith(f"{app_name}-") or name in node_names
+
+
+found: list[tuple[str, str, object]] = []
+for file_name, key in collections.items():
+    payload = json.loads((resource_dir / f"{file_name}.json").read_text(encoding="utf-8"))
+    for resource in payload.get(key, []):
+        if matches(resource):
+            display = resource.get("name") or resource.get("ip") or resource.get("id")
+            found.append((file_name, str(display), resource.get("id", "unknown")))
+
+if found:
+    counts = Counter(kind for kind, _, _ in found)
+    summary = ", ".join(f"{kind}={count}" for kind, count in sorted(counts.items()))
+    print(f"{len(found)} matching resources ({summary})")
+    for kind, display, resource_id in found[:12]:
+        print(f"  {kind}: {display} (id {resource_id})")
+PY
+)"
+  rm -rf "$tmpdir"
+
+  if [[ -n "$report" ]]; then
+    status_line "WARN" "Hetzner billables" "$(head -n 1 <<< "$report")"
+    tail -n +2 <<< "$report" | sed 's/^/                           /'
+  else
+    status_line "OK" "Hetzner billables" "no matching servers, IPs, volumes, load balancers, or snapshots found"
+  fi
+}
+
 echo "Cloud deployment doctor"
 echo
 
@@ -193,7 +304,7 @@ else
   status_line "BLOCKER" "Repo" "Cloud guide or shared release settings need attention"
 fi
 
-if bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh >/dev/null 2>&1; then
+if SKIP_GH_AUTH_CHECK=1 bash ./Deployment/Cloud/Scripts/check-currentpc-tools.sh >/dev/null 2>&1; then
   status_line "OK" "CurrentPC tools" "required local tools are installed"
 else
   status_line "ACTION" "CurrentPC tools" "run: bash ./Deployment/Cloud/Scripts/setup-currentpc-tools.sh"
@@ -210,6 +321,8 @@ if [[ -f "$TOFU_DIR/terraform.tfstate" ]]; then
 else
   status_line "WAIT" "OpenTofu state" "run Step 7 apply before provisioning or GitHub secret configuration"
 fi
+
+report_hcloud_resources "$(setting app_name)"
 
 if [[ -f "$INVENTORY" ]]; then
   if ! has_command ansible-inventory; then

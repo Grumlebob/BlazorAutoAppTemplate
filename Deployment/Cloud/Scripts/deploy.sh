@@ -11,6 +11,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 export ANSIBLE_CONFIG="$REPO_ROOT/Deployment/Cloud/ansible/ansible.cfg"
 export ANSIBLE_ROLES_PATH="$REPO_ROOT/Deployment/Cloud/ansible/roles"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+cloud_env_load_valid_cloudflare_tunnel_token
+
 [[ $# -ge 1 ]] || usage
 
 APP_VERSION="$1"

@@ -250,11 +250,10 @@ Powering off Hetzner Cloud servers does not stop billing. To stop Cloud costs, d
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-export HCLOUD_TOKEN="paste-hetzner-api-token"
 bash ./Deployment/Cloud/Scripts/quick-destroy-cloud.sh
 ```
 
-The script first creates a destroy plan and then asks you to type:
+If `HCLOUD_TOKEN` is not already set, the script loads repo-root `.env.cloud` when present. It first creates a destroy plan and then asks you to type:
 
 ```text
 destroy bookscloud
@@ -272,7 +271,6 @@ To recreate the Cloud stack later:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-export HCLOUD_TOKEN="paste-hetzner-api-token"
 bash ./Deployment/Cloud/Scripts/quick-recreate-cloud-after-destruction.sh
 ```
 
@@ -448,13 +446,13 @@ https://console.hetzner.cloud/projects/<project-id>/security/tokens
 
 [CurrentPC]
 
-Set it for the current shell:
+Set it for the current shell, or put `HCLOUD_TOKEN="..."` in repo-root `.env.cloud`. Cloud helper scripts load `.env.cloud` when `HCLOUD_TOKEN` is not already set.
 
 ```bash
 export HCLOUD_TOKEN="REPLACE_WITH_HETZNER_TOKEN"
 ```
 
-Check that it is present without printing it:
+Check that it is available without printing it:
 
 ```bash
 bash ./Deployment/Cloud/Scripts/check-hcloud-token.sh
@@ -783,7 +781,7 @@ If GitHub shows an organization SSO authorization button for the token, authoriz
 CLOUD_CLOUDFLARE_TUNNEL_TOKEN
 ```
 
-Use the long token value copied from the Cloudflare `cloudflared service install <long-token-value>` command in Step 9.
+Use the long token value copied from the Cloudflare `cloudflared service install <long-token-value>` command in Step 9. If repo-root `.env.cloud` contains a value that looks like a real Cloudflare tunnel token, `configure-github-environment.sh` uses it. If it is missing or looks like a note/placeholder, the script keeps an existing GitHub secret or prompts as before.
 
 Configure the GitHub environment and secrets:
 

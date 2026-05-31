@@ -8,6 +8,10 @@ INVENTORY="$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"
 export ANSIBLE_CONFIG="$REPO_ROOT/Deployment/Cloud/ansible/ansible.cfg"
 export ANSIBLE_ROLES_PATH="$REPO_ROOT/Deployment/Cloud/ansible/roles"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 fail() {
   echo "cloud preflight failed: $*" >&2
   exit 1

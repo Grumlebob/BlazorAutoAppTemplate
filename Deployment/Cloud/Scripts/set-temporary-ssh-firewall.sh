@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+TOFU_DIR="$REPO_ROOT/Deployment/Cloud/infra/opentofu"
+APP_NAME="$(bash "$SCRIPT_DIR/read-cloud-setting.sh" app_name)"
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 usage() {
   cat >&2 <<'USAGE'
 usage:
@@ -18,10 +27,24 @@ USAGE
 ACTION="$1"
 CIDR="${2:-}"
 
+cloud_env_load_hcloud_token
+if [[ -z "${CLOUD_HETZNER_API_TOKEN:-}" && -n "${HCLOUD_TOKEN:-}" ]]; then
+  export CLOUD_HETZNER_API_TOKEN="$HCLOUD_TOKEN"
+  echo "using HCLOUD_TOKEN as CLOUD_HETZNER_API_TOKEN"
+fi
+
+if [[ -z "${CLOUD_TEMP_SSH_FIREWALL_ID:-}" && -f "$TOFU_DIR/terraform.tfstate" ]] && command -v tofu >/dev/null 2>&1; then
+  CLOUD_TEMP_SSH_FIREWALL_ID="$(cd "$TOFU_DIR" && tofu output -raw cloud_temp_ssh_firewall_id 2>/dev/null || true)"
+  if [[ -n "$CLOUD_TEMP_SSH_FIREWALL_ID" ]]; then
+    export CLOUD_TEMP_SSH_FIREWALL_ID
+    echo "loaded CLOUD_TEMP_SSH_FIREWALL_ID from OpenTofu state"
+  fi
+fi
+
 : "${CLOUD_HETZNER_API_TOKEN:?CLOUD_HETZNER_API_TOKEN is required}"
 : "${CLOUD_TEMP_SSH_FIREWALL_ID:?CLOUD_TEMP_SSH_FIREWALL_ID is required}"
 
-PAYLOAD_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/bookscloud-firewall.XXXXXX.json")"
+PAYLOAD_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}-firewall.XXXXXX.json")"
 cleanup() {
   rm -f "$PAYLOAD_FILE"
 }

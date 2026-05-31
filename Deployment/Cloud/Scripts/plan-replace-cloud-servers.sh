@@ -6,6 +6,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 TOFU_DIR="$REPO_ROOT/Deployment/Cloud/infra/opentofu"
 PLAN_FILE="${CLOUD_TOFU_PLAN_FILE:-cloud.tfplan}"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 fail() {
   echo "cloud server replacement plan failed: $*" >&2
   exit 1
@@ -16,6 +20,7 @@ command -v tofu >/dev/null 2>&1 || fail "tofu is missing. Run Deployment/Cloud/S
 
 cd "$TOFU_DIR"
 
+cloud_env_load_hcloud_token
 bash "$SCRIPT_DIR/check-hcloud-token.sh"
 tofu init
 tofu fmt -check versions.tf variables.tf locals.tf main.tf firewalls.tf outputs.tf

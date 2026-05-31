@@ -7,6 +7,10 @@ TOFU_DIR="$REPO_ROOT/Deployment/Cloud/infra/opentofu"
 ENVIRONMENT_NAME="${CLOUD_GITHUB_ENVIRONMENT:-cloud-hetzner}"
 SSH_PRIVATE_KEY="${CLOUD_SSH_PRIVATE_KEY_PATH:-$HOME/.ssh/bookscloud_deploy}"
 
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 fail() {
   echo "configure GitHub environment failed: $*" >&2
   exit 1
@@ -19,6 +23,9 @@ require_command() {
 require_command gh
 require_command openssl
 require_command tofu
+
+cloud_env_load_hcloud_token
+cloud_env_load_valid_cloudflare_tunnel_token
 
 [[ -f "$SSH_PRIVATE_KEY" ]] || fail "missing SSH private key: $SSH_PRIVATE_KEY"
 [[ -f "$TOFU_DIR/terraform.tfstate" ]] || fail "missing OpenTofu state. Run Step 7 first."

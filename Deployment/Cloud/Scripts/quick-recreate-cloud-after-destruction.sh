@@ -18,6 +18,7 @@ Options:
 Recreates the Hetzner Cloud stack after quick-destroy-cloud.sh, refreshes generated
 inventory and GitHub environment secrets, provisions the nodes, then dispatches CD - Cloud.
 Cloud observability starts with empty metrics/logs/traces after recreate.
+If HCLOUD_TOKEN is not already set, the script loads repo-root .env.cloud when present.
 USAGE
   exit 1
 }
@@ -29,6 +30,10 @@ APP_NAME="$(bash "$SCRIPT_DIR/read-cloud-setting.sh" app_name)"
 CONFIRM_PHRASE="recreate ${APP_NAME}"
 STATE_BACKUP_DIR="${CLOUD_STATE_BACKUP_DIR:-$HOME/.local/state/${APP_NAME}}"
 SSH_PRIVATE_KEY="${CLOUD_SSH_PRIVATE_KEY_PATH:-$HOME/.ssh/bookscloud_deploy}"
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
 
 PLAN_ONLY=0
 CONFIRM_VALUE=""
@@ -253,6 +258,7 @@ fi
 cd "$REPO_ROOT"
 bash "$REPO_ROOT/Deployment/Common/Scripts/validate-common-release.sh" >/dev/null
 bash "$SCRIPT_DIR/validate-cloud-settings.sh" >/dev/null
+cloud_env_load_hcloud_token
 [[ -n "${HCLOUD_TOKEN:-}" ]] || fail "HCLOUD_TOKEN is required in this shell."
 bash "$SCRIPT_DIR/check-hcloud-token.sh"
 

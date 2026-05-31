@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
+
 required_tools=(
   ansible
   ansible-playbook
@@ -48,7 +54,9 @@ printf '  tofu        %s\n' "$(tofu version | head -n 1)"
 printf '  yamllint    %s\n' "$(yamllint --version)"
 printf '  ansible     %s\n' "$(ansible --version | head -n 1)"
 
-if gh auth status >/dev/null 2>&1; then
+if [[ "${SKIP_GH_AUTH_CHECK:-0}" == "1" ]]; then
+  printf '  gh auth     SKIPPED\n'
+elif gh auth status >/dev/null 2>&1; then
   printf '  gh auth     OK\n'
 else
   printf '  gh auth     BLOCKER: run gh auth login\n' >&2

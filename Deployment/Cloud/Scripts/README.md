@@ -4,6 +4,7 @@ Cloud helper scripts live here.
 
 Implemented local scripts:
 
+- `Component/lib/cloud-env.sh` centralizes repo-root `.env.cloud` loading and WSL/local PATH bootstrap for Cloud scripts.
 - `setup-currentpc-tools.sh` installs the CurrentPC toolchain on apt-based Linux shells.
 - `check-currentpc-tools.sh` verifies local tool prerequisites.
 - `check-hcloud-token.sh` verifies `HCLOUD_TOKEN` without printing it.

@@ -11,6 +11,7 @@ Destroys the OpenTofu-owned Hetzner Cloud stack so billable Cloud resources stop
 
 Safety:
   - requires local OpenTofu state
+  - loads repo-root .env.cloud when HCLOUD_TOKEN is not already set
   - creates a state backup before destroy
   - destroys disposable Cloud app data and observability metrics/logs/traces
   - removes only the generated Cloud inventory after successful destroy
@@ -26,6 +27,10 @@ INVENTORY="$REPO_ROOT/Deployment/Cloud/inventory/prod/hosts.yml"
 APP_NAME="$(bash "$SCRIPT_DIR/read-cloud-setting.sh" app_name)"
 CONFIRM_PHRASE="destroy ${APP_NAME}"
 STATE_BACKUP_DIR="${CLOUD_STATE_BACKUP_DIR:-$HOME/.local/state/${APP_NAME}}"
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/Component/lib/cloud-env.sh"
+cloud_env_bootstrap_path
 
 PLAN_ONLY=0
 CONFIRM_VALUE=""
@@ -179,6 +184,7 @@ require_command jq
 require_command python3
 require_command tofu
 
+cloud_env_load_hcloud_token
 [[ -n "${HCLOUD_TOKEN:-}" ]] || fail "HCLOUD_TOKEN is required in this shell."
 [[ -f "$TOFU_DIR/terraform.tfstate" ]] || fail "missing OpenTofu state: Deployment/Cloud/infra/opentofu/terraform.tfstate"
 
