@@ -10,3 +10,8 @@ if [[ -z "$private_iface" ]]; then
 fi
 
 ip route replace default via "$gateway_ip" dev "$private_iface" onlink
+
+if command -v resolvectl >/dev/null 2>&1; then
+  resolvectl dns "$private_iface" 1.1.1.1 8.8.8.8
+  resolvectl domain "$private_iface" "~."
+fi
