@@ -10,6 +10,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing.
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
 - `docs/HowToForkThisRepo.md` explains how to customize a fork and deploy it quickly on the existing LocalCluster.
+- `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.
 
 ## Tech Stack
 
