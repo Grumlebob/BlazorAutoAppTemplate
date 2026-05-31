@@ -11,7 +11,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = $PSScriptRoot
+$scriptRoot = $PSScriptRoot
+$repoRoot = Split-Path -Parent $scriptRoot
 $envPath = Join-Path $repoRoot '.env'
 $previousObservabilityEnabled = $env:OBSERVABILITY_ENABLED
 $previousObservabilityEndpoint = $env:OBSERVABILITY_OTLP_ENDPOINT
@@ -39,7 +40,7 @@ function Wait-Docker {
     Start-Sleep -Seconds 2
   }
 
-  throw "Docker Desktop is not ready. Start Docker Desktop, wait until it finishes starting, and run .\RunLocal.ps1 again."
+  throw "Docker Desktop is not ready. Start Docker Desktop, wait until it finishes starting, and run .\Scripts\RunLocal.ps1 again."
 }
 
 function Read-DotEnv {
@@ -125,7 +126,7 @@ function Write-StartupFailureHelp {
   if ($Logs -match 'relation "AspNetRoles" already exists' -or $Logs -match '42P07') {
     Write-Host ""
     Write-Warning "The local Docker PostgreSQL volume contains an older schema. This repo now has a fresh initial migration, so the old local database must be reset."
-    Write-Host "Run: .\RunLocal.ps1 -ResetDatabase"
+    Write-Host "Run: .\Scripts\RunLocal.ps1 -ResetDatabase"
   }
 }
 
@@ -281,11 +282,11 @@ try {
     Write-Host "Smoke check:  pwsh -File .\docker\observability\smoke-local-observability.ps1"
   }
   else {
-    Write-Host "Observability: disabled; run .\RunLocal.ps1 -Observability to start the local Grafana stack."
+    Write-Host "Observability: disabled; run .\Scripts\RunLocal.ps1 -Observability to start the local Grafana stack."
   }
   Write-Host ""
   Write-Host "Stop with:    docker compose down"
-  Write-Host "Reset with:   .\RunLocal.ps1 -ResetDatabase"
+  Write-Host "Reset with:   .\Scripts\RunLocal.ps1 -ResetDatabase"
 
   if (-not $NoBrowser) {
     Start-Process $appUrl

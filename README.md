@@ -9,7 +9,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
 - `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing.
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
-- `TemplateCustomization.md` lists the first things to rename or configure in a fork.
+- `docs/HowToForkThisRepo.md` explains how to customize a fork and deploy it quickly on the existing LocalCluster.
 
 ## Tech Stack
 
@@ -25,7 +25,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Observability
 
-Local Docker can run the Grafana observability stack with `.\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `docs/ObservabilityGuide.md` is the operator guide and architecture reference:
+Local Docker can run the Grafana observability stack with `.\Scripts\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `docs/ObservabilityGuide.md` is the operator guide and architecture reference:
 
 - OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
 - Grafana is the dashboard and operator UI.
@@ -40,16 +40,16 @@ The LocalCluster and Cloud observability deployments use existing nodes; no extr
 
 ## Traffic Simulation
 
-Use `RunSimulation.ps1` to generate safe traffic for dashboard demos and smoke checks:
+Use `Scripts/RunSimulation.ps1` to generate safe traffic for dashboard demos and smoke checks:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\RunSimulation.ps1 -Target local -AuthCheck
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
-Use `RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evidence pass, and `AnalyzeSimulationReports.ps1` to summarize generated reports. The simulator is a .NET console operator tool in `BlazorAutoApp.Simulation`. It is built and tested by CI, but it is not deployed with the app. It paces API and authenticated write traffic below the app's rate limits, reports unexpected `429` responses separately, cleans up V2 synthetic books, and writes run summaries under `artifacts/simulation`. See `docs/SimulationGuide.md`.
+Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evidence pass, and `Scripts/AnalyzeSimulationReports.ps1` to summarize generated reports. The simulator is a .NET console operator tool in `BlazorAutoApp.Simulation`. It is built and tested by CI, but it is not deployed with the app. It paces API and authenticated write traffic below the app's rate limits, reports unexpected `429` responses separately, cleans up V2 synthetic books, and writes run summaries under `artifacts/simulation`. See `docs/SimulationGuide.md`.
 
 ## Repository Layout
 
@@ -81,7 +81,7 @@ When running the Docker stack:
 - App: `https://localhost:7186`
 - Health: `https://localhost:7186/health`
 - Redis Insight: `http://localhost:5540`
-- Grafana, with `.\RunLocal.ps1 -Observability`: `http://localhost:3000`
+- Grafana, with `.\Scripts\RunLocal.ps1 -Observability`: `http://localhost:3000`
 
 Local Docker publishes these ports on `127.0.0.1` only.
 
@@ -107,13 +107,13 @@ dotnet package list --project .\BlazorAutoApp.sln --vulnerable --include-transit
 Run the app stack:
 
 ```powershell
-.\RunLocal.ps1
+.\Scripts\RunLocal.ps1
 ```
 
 Run the local Grafana/Prometheus/Loki/Tempo/Alloy observability stack:
 
 ```powershell
-.\RunLocal.ps1 -Observability
+.\Scripts\RunLocal.ps1 -Observability
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
@@ -122,7 +122,7 @@ For dashboard access, common checks, and troubleshooting queries, see `docs/Obse
 Generate local demo traffic for Grafana:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
 ```
 
 Build Tailwind output:

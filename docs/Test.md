@@ -197,14 +197,14 @@ Lighthouse is pinned in the client npm toolchain and writes generated reports un
 Run local mobile and desktop reports against the Docker app:
 
 ```powershell
-.\RunLocal.ps1 -NoBrowser
-.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/", "/books/design-demos", "/Account/Login" -Profile both -IgnoreCertificateErrors
+.\Scripts\RunLocal.ps1 -NoBrowser
+.\Scripts\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/", "/books/design-demos", "/Account/Login" -Profile both -IgnoreCertificateErrors
 ```
 
 Run an authenticated local home-page report with the seeded Docker/Development user:
 
 ```powershell
-.\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/" -Profile both -IgnoreCertificateErrors -AuthenticatedLocalUser
+.\Scripts\RunLighthouse.ps1 -BaseUrl https://127.0.0.1:7186 -Paths "/" -Profile both -IgnoreCertificateErrors -AuthenticatedLocalUser
 ```
 
 For production, omit `-IgnoreCertificateErrors` and point `-BaseUrl` at the deployed domain.

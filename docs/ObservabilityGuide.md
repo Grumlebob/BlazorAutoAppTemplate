@@ -206,7 +206,7 @@ redis-exporter publicly.
 Local Docker:
 
 ```powershell
-.\RunLocal.ps1 -Observability
+.\Scripts\RunLocal.ps1 -Observability
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
@@ -692,15 +692,15 @@ Noise policy:
 Use the simulator to warm dashboards and verify telemetry:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
 For a strict public matrix:
 
 ```powershell
-.\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites -Duration 60s
-.\AnalyzeSimulationReports.ps1 -Latest 10
+.\Scripts\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites -Duration 60s
+.\Scripts\AnalyzeSimulationReports.ps1 -Latest 10
 ```
 
 Normal smoke/demo simulation should show:

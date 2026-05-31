@@ -722,7 +722,7 @@ Feature-level observability should normally include:
 - Error logs only for exceptional failures, not normal validation or not-found behavior.
 - No high-cardinality metric labels.
 
-If a feature becomes important to demos or dashboards, update the simulator in `BlazorAutoApp.Simulation`, `RunSimulation.ps1`, and `SimulationGuide.md` so observability can show realistic traffic without manual clicking.
+If a feature becomes important to demos or dashboards, update the simulator in `BlazorAutoApp.Simulation`, `Scripts/RunSimulation.ps1`, and `SimulationGuide.md` so observability can show realistic traffic without manual clicking.
 
 ## 9. Add Tests
 
@@ -833,7 +833,7 @@ dotnet test .\BlazorAutoApp.sln --no-build
 For visible E2E:
 
 ```powershell
-.\RunLocal.ps1 -NoBrowser
+.\Scripts\RunLocal.ps1 -NoBrowser
 $env:RUN_E2E='1'
 $env:E2E_BASE_URL='https://localhost:7186'
 Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
@@ -845,8 +845,8 @@ For more test details, see `Test.md`.
 For synthetic traffic after the feature is observable or demo-critical:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke
-.\RunSimulationMatrix.ps1 -All
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
+.\Scripts\RunSimulationMatrix.ps1 -All
 ```
 
 Only add feature-specific simulation writes when they can be safely cleaned up and paced below rate limits.

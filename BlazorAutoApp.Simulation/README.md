@@ -2,10 +2,10 @@
 
 Synthetic traffic generator for the Books app.
 
-Prefer the repo-root wrapper:
+Prefer the repo Scripts entrypoint:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
 ```
 
 Raw command:
@@ -69,25 +69,25 @@ dotnet run --project .\BlazorAutoApp.Simulation -- --target local --profile smok
 Install Chromium for auth/browser modes:
 
 ```powershell
-.\RunSimulation.ps1 -InstallBrowsers
+.\Scripts\RunSimulation.ps1 -InstallBrowsers
 ```
 
 Local authenticated check without writes:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -AuthCheck
+.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
 ```
 
 Local authenticated write smoke:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
 Cleanup safe V2 synthetic books:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
+.\Scripts\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
 ```
 
 If a run reports cleanup leftovers, run cleanup-only for the same target. Cleanup deletes only books owned by the simulator user whose title starts with `[sim-v2:<target>:` and whose URL starts with `https://simulation.invalid/books/`.

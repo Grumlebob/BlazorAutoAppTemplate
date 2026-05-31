@@ -9,31 +9,31 @@ The simulator is a `BlazorAutoApp.Simulation` operator tool for observability de
 Start the local app and observability stack:
 
 ```powershell
-.\RunLocal.ps1 -NoBrowser -Observability
+.\Scripts\RunLocal.ps1 -NoBrowser -Observability
 ```
 
 Run a short local smoke:
 
 ```powershell
-.\RunSimulation.ps1
+.\Scripts\RunSimulation.ps1
 ```
 
 Run a dashboard warmup:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
 ```
 
 Install the browser used for authenticated checks and the optional UI sampler:
 
 ```powershell
-.\RunSimulation.ps1 -InstallBrowsers
+.\Scripts\RunSimulation.ps1 -InstallBrowsers
 ```
 
 Run an authenticated local check without writes:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -AuthCheck
+.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
 ```
 
 Open Grafana:
@@ -56,14 +56,14 @@ origin-via-tunnel   requires -BaseUrl
 Deployed targets require an explicit gate:
 
 ```powershell
-.\RunSimulation.ps1 -Target cloud-public -Profile smoke -AllowDeployed
+.\Scripts\RunSimulation.ps1 -Target cloud-public -Profile smoke -AllowDeployed
 ```
 
 or:
 
 ```powershell
 $env:SIMULATION_ALLOW_DEPLOYED = "1"
-.\RunSimulation.ps1 -Target cloud-public -Profile smoke
+.\Scripts\RunSimulation.ps1 -Target cloud-public -Profile smoke
 ```
 
 ## Profiles
@@ -102,39 +102,39 @@ If a `429` happens, the simulator honors `Retry-After`, backs off that scenario 
 Local smoke:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
 ```
 
 Local demo:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
 ```
 
 Lower API traffic further:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile demo -MaxRps 3 -ApiRpsBudget 0.5
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -MaxRps 3 -ApiRpsBudget 0.5
 ```
 
 Cloud read-only smoke:
 
 ```powershell
-.\RunSimulation.ps1 -Target cloud-public -Profile smoke -AllowDeployed
+.\Scripts\RunSimulation.ps1 -Target cloud-public -Profile smoke -AllowDeployed
 ```
 
 Local authenticated smoke:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -AuthCheck
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
-.\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
+.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+.\Scripts\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
 ```
 
 Local authenticated smoke with the UI sampler:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -BrowserSampler -Duration 60s
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -BrowserSampler -Duration 60s
 ```
 
 Cloud authenticated smoke:
@@ -142,20 +142,20 @@ Cloud authenticated smoke:
 ```powershell
 $env:SIMULATION_AUTH_EMAIL = "bookscloud-sim@example.com"
 $env:SIMULATION_AUTH_PASSWORD = "<secret>"
-.\RunSimulation.ps1 -Target cloud-public -AuthCheck -AllowDeployed
-.\RunSimulation.ps1 -Target cloud-public -Profile smoke -Writes -Cleanup -AllowDeployed -AllowWrite -Duration 60s
-.\RunSimulation.ps1 -Target cloud-public -CleanupOnly -AllowDeployed -AllowWrite
+.\Scripts\RunSimulation.ps1 -Target cloud-public -AuthCheck -AllowDeployed
+.\Scripts\RunSimulation.ps1 -Target cloud-public -Profile smoke -Writes -Cleanup -AllowDeployed -AllowWrite -Duration 60s
+.\Scripts\RunSimulation.ps1 -Target cloud-public -CleanupOnly -AllowDeployed -AllowWrite
 ```
 
 Show tool help:
 
 ```powershell
-.\RunSimulation.ps1 -Help
+.\Scripts\RunSimulation.ps1 -Help
 ```
 
 ## Three-Environment Matrix
 
-Use `RunSimulationMatrix.ps1` when you want one operator command to run the
+Use `Scripts/RunSimulationMatrix.ps1` when you want one operator command to run the
 same safe checks across local, LocalCluster, and Cloud. It stops immediately if
 any simulator command exits nonzero and prints the report directories it
 created.
@@ -163,19 +163,19 @@ created.
 Read-only matrix for all targets:
 
 ```powershell
-.\RunSimulationMatrix.ps1 -All
+.\Scripts\RunSimulationMatrix.ps1 -All
 ```
 
 Local read/write/browser/cleanup matrix:
 
 ```powershell
-.\RunSimulationMatrix.ps1 -Local -IncludeWrites
+.\Scripts\RunSimulationMatrix.ps1 -Local -IncludeWrites
 ```
 
 Deployed read/write/browser/cleanup matrix with disposable generated users:
 
 ```powershell
-.\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites
+.\Scripts\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites
 ```
 
 Safety rules are intentionally duplicated in the wrapper:
@@ -187,17 +187,17 @@ Safety rules are intentionally duplicated in the wrapper:
 
 ## Report Analysis
 
-Use `AnalyzeSimulationReports.ps1` to turn local `summary.json` files into a
+Use `Scripts/AnalyzeSimulationReports.ps1` to turn local `summary.json` files into a
 compact Markdown table:
 
 ```powershell
-.\AnalyzeSimulationReports.ps1 -Latest 15
+.\Scripts\AnalyzeSimulationReports.ps1 -Latest 15
 ```
 
 Analyze a specific run:
 
 ```powershell
-.\AnalyzeSimulationReports.ps1 -Report .\artifacts\simulation\20260530-215221-cloud-public-smoke
+.\Scripts\AnalyzeSimulationReports.ps1 -Report .\artifacts\simulation\20260530-215221-cloud-public-smoke
 ```
 
 The analyzer reads local artifacts only. It does not call deployed targets and
@@ -239,13 +239,13 @@ The summary includes:
 If a write run exits with cleanup failure or reports `leftovers` greater than `0`, run cleanup-only for the same target:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
+.\Scripts\RunSimulation.ps1 -Target local -CleanupOnly -AllowWrite
 ```
 
 For Cloud:
 
 ```powershell
-.\RunSimulation.ps1 -Target cloud-public -CleanupOnly -AllowDeployed -AllowWrite
+.\Scripts\RunSimulation.ps1 -Target cloud-public -CleanupOnly -AllowDeployed -AllowWrite
 ```
 
 Cleanup-only logs in as the configured simulator user, lists that user's books, and deletes only books that match both V2 safety markers:
@@ -283,4 +283,4 @@ The friendly wrapper runs the .NET tool:
 dotnet run --project .\BlazorAutoApp.Simulation -- --target local --profile smoke
 ```
 
-Prefer `RunSimulation.ps1` for normal use.
+Prefer `Scripts/RunSimulation.ps1` for normal use.

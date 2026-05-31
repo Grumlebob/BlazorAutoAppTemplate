@@ -84,19 +84,19 @@ In Rider, use the shared run configuration:
 Local Docker Stack
 ```
 
-It runs `RunLocal.ps1`, prepares `.env` and the HTTPS certificate, starts Docker Compose, waits for `/health/ready`, and opens the app.
+It runs `Scripts/RunLocal.ps1`, prepares `.env` and the HTTPS certificate, starts Docker Compose, waits for `/health/ready`, and opens the app.
 The runner waits for Docker Desktop to be ready before it starts the stack.
 
 From a terminal, the same one-click path is:
 
 ```powershell
-.\RunLocal.ps1
+.\Scripts\RunLocal.ps1
 ```
 
 Reset the local Docker database and service volumes before starting:
 
 ```powershell
-.\RunLocal.ps1 -ResetDatabase
+.\Scripts\RunLocal.ps1 -ResetDatabase
 ```
 
 Use that reset path after major local PostgreSQL or Redis image upgrades. PostgreSQL 18 uses a version-specific data directory under the Docker volume, so stale PostgreSQL 16 volumes should be discarded instead of reused.
@@ -104,13 +104,13 @@ Use that reset path after major local PostgreSQL or Redis image upgrades. Postgr
 Start without opening the browser:
 
 ```powershell
-.\RunLocal.ps1 -NoBrowser
+.\Scripts\RunLocal.ps1 -NoBrowser
 ```
 
 Start the optional local Grafana observability stack:
 
 ```powershell
-.\RunLocal.ps1 -Observability
+.\Scripts\RunLocal.ps1 -Observability
 pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
@@ -121,17 +121,17 @@ For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuid
 Generate safe synthetic traffic for dashboards:
 
 ```powershell
-.\RunSimulation.ps1 -Target local -Profile smoke
-.\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\RunSimulation.ps1 -Target local -AuthCheck
-.\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
+.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
+.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
+.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
 ```
 
 Run a strict evidence matrix and summarize reports:
 
 ```powershell
-.\RunSimulationMatrix.ps1 -All
-.\AnalyzeSimulationReports.ps1 -Latest 15
+.\Scripts\RunSimulationMatrix.ps1 -All
+.\Scripts\AnalyzeSimulationReports.ps1 -Latest 15
 ```
 
 Read-only simulation is the default. Authenticated writes require `-AllowWrite`, use real login cookies, and clean up V2 synthetic books by default. The simulator is the `BlazorAutoApp.Simulation` operator tool; it is built and tested by CI, but it is not deployed with the app. It paces `/api/*` and authenticated write requests below the app's rate limits, so normal smoke and demo runs should report `unexpected 429: 0`. Reports are written under `artifacts/simulation`.
@@ -325,5 +325,5 @@ docker compose down --volumes --remove-orphans
 If the app exits while applying a fresh initial migration and the logs mention an existing table such as `AspNetRoles`, the local Docker database volume is from an older template version. Reset the local Docker volumes:
 
 ```powershell
-.\RunLocal.ps1 -ResetDatabase
+.\Scripts\RunLocal.ps1 -ResetDatabase
 ```

@@ -33,7 +33,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptRoot
 $projectPath = Join-Path $repoRoot "BlazorAutoApp.Simulation/BlazorAutoApp.Simulation.csproj"
 
 if ($Help) {

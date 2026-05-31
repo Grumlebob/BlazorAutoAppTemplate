@@ -65,8 +65,8 @@ internal static class HelpText
               SIMULATION_AUTH_EMAIL=<email>
               SIMULATION_AUTH_PASSWORD=<password>
 
-            Preferred repo-root entrypoint:
-              ./RunSimulation.ps1 -Target local -Profile smoke
+            Preferred repo entrypoint:
+              ./Scripts/RunSimulation.ps1 -Target local -Profile smoke
             """);
     }
 }

@@ -7,6 +7,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptRoot
+
 function Show-Help {
     Write-Host @"
 AnalyzeSimulationReports.ps1
@@ -14,8 +17,8 @@ AnalyzeSimulationReports.ps1
 Reads traffic simulation summary.json files and prints a compact Markdown table.
 
 Examples:
-  .\AnalyzeSimulationReports.ps1 -Latest 15
-  .\AnalyzeSimulationReports.ps1 -Report artifacts/simulation/20260530-215221-cloud-public-smoke
+  .\Scripts\AnalyzeSimulationReports.ps1 -Latest 15
+  .\Scripts\AnalyzeSimulationReports.ps1 -Report artifacts/simulation/20260530-215221-cloud-public-smoke
 
 The script reads local artifacts only. It does not call deployed targets and it
 does not require credentials.
@@ -42,6 +45,10 @@ function Escape-Markdown {
 function Get-SummaryPath {
     param([Parameter(Mandatory = $true)][string] $Path)
 
+    if (-not [System.IO.Path]::IsPathRooted($Path)) {
+        $Path = Join-Path $repoRoot $Path
+    }
+
     if (Test-Path $Path -PathType Container) {
         return Join-Path $Path "summary.json"
     }
@@ -53,6 +60,10 @@ if ($Report -and $Report.Count -gt 0) {
     $summaryPaths = @($Report | ForEach-Object { Get-SummaryPath -Path $_ })
 }
 else {
+    if (-not [System.IO.Path]::IsPathRooted($ReportRoot)) {
+        $ReportRoot = Join-Path $repoRoot $ReportRoot
+    }
+
     if (-not (Test-Path $ReportRoot)) {
         throw "Report root was not found: $ReportRoot"
     }

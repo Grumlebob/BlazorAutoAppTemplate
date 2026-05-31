@@ -13,9 +13,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptRoot
 $simulationRoot = Join-Path $repoRoot "artifacts/simulation"
-$runSimulation = Join-Path $repoRoot "RunSimulation.ps1"
+$runSimulation = Join-Path $scriptRoot "RunSimulation.ps1"
 
 function Show-Help {
     Write-Host @"
@@ -25,9 +26,9 @@ Runs a safe traffic-simulation matrix and stops immediately on the first failed
 simulation command.
 
 Examples:
-  .\RunSimulationMatrix.ps1 -All
-  .\RunSimulationMatrix.ps1 -Local -IncludeWrites
-  .\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites
+  .\Scripts\RunSimulationMatrix.ps1 -All
+  .\Scripts\RunSimulationMatrix.ps1 -Local -IncludeWrites
+  .\Scripts\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites
 
 Safety:
   - Read-only deployed simulation is allowed with -LocalCluster/-Cloud/-All.
@@ -112,7 +113,7 @@ function Invoke-SimulationStrict {
         }
     }) -join " "
 
-    Write-Host "Running [$Label]: .\RunSimulation.ps1 $display"
+    Write-Host "Running [$Label]: .\Scripts\RunSimulation.ps1 $display"
     & $runSimulation @Parameters | ForEach-Object { Write-Host $_ }
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {

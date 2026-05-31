@@ -12,7 +12,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptRoot
 $clientRoot = Join-Path $repoRoot "BlazorAutoApp.Client"
 $outputRootPath = Join-Path $repoRoot $OutputRoot
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
