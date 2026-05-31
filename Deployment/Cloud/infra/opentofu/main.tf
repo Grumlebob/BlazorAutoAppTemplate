@@ -29,7 +29,7 @@ resource "hcloud_server" "cloud_main" {
     nat_gateway_enabled           = true
     private_default_route_enabled = false
     private_network_cidr          = var.private_network_cidr
-    private_network_gateway_ip    = var.cloud_main_private_ip
+    private_network_gateway_ip    = cidrhost(var.private_network_cidr, 1)
     ssh_public_key                = trimspace(file(pathexpand(var.ssh_public_key_path)))
   })
 
@@ -77,7 +77,7 @@ resource "hcloud_server" "private_nodes" {
     nat_gateway_enabled           = false
     private_default_route_enabled = true
     private_network_cidr          = var.private_network_cidr
-    private_network_gateway_ip    = var.cloud_main_private_ip
+    private_network_gateway_ip    = cidrhost(var.private_network_cidr, 1)
     ssh_public_key                = trimspace(file(pathexpand(var.ssh_public_key_path)))
   })
 

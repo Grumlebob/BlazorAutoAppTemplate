@@ -71,7 +71,7 @@ Network:
 
 ```text
 cloud_private_network_cidr: 10.10.0.0/24
-cloud_private_gateway_ip: 10.10.0.10
+cloud_private_gateway_ip: 10.10.0.1
 cloud_main_private_ip: 10.10.0.10
 cloud_app1_private_ip: 10.10.0.11
 cloud_app2_private_ip: 10.10.0.12
@@ -82,6 +82,7 @@ Security posture:
 
 - No public HTTP/HTTPS ports for v1; Cloudflare Tunnel is the public ingress.
 - Public IPv4/IPv6 exists only on `cloud-main`; private nodes use `cloud-main` NAT for outbound package and image access.
+- Private nodes route outbound traffic to the Hetzner private-network gateway, which has an OpenTofu route to `cloud-main`.
 - Hetzner Cloud Firewalls protect public inbound traffic.
 - Host firewalls protect private-network traffic.
 - SSH to `cloud-main` is public only from an explicit admin CIDR or temporary GitHub runner CIDR.

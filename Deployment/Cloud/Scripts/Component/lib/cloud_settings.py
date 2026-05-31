@@ -240,18 +240,11 @@ def validate(values: dict[str, str]) -> list[str]:
 
     seen_ips: dict[ipaddress.IPv4Address, str] = {}
     for key, address in private_ips.items():
-        if key == "cloud_private_gateway_ip":
-            continue
         previous_key = seen_ips.get(address)
         if previous_key:
             errors.append(f"{key} must not reuse {previous_key} ({address})")
         else:
             seen_ips[address] = key
-
-    gateway_address = private_ips.get("cloud_private_gateway_ip")
-    main_address = private_ips.get("cloud_main_private_ip")
-    if gateway_address and main_address and gateway_address != main_address:
-        errors.append("cloud_private_gateway_ip must match cloud_main_private_ip")
 
     return errors
 
