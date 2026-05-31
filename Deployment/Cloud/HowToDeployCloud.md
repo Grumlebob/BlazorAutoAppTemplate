@@ -71,6 +71,7 @@ Network:
 
 ```text
 cloud_private_network_cidr: 10.10.0.0/24
+cloud_private_gateway_ip: 10.10.0.10
 cloud_main_private_ip: 10.10.0.10
 cloud_app1_private_ip: 10.10.0.11
 cloud_app2_private_ip: 10.10.0.12
@@ -80,7 +81,7 @@ cloud_db_private_ip: 10.10.0.13
 Security posture:
 
 - No public HTTP/HTTPS ports for v1; Cloudflare Tunnel is the public ingress.
-- Public IPv4/IPv6 exists on all nodes for outbound package and image access.
+- Public IPv4/IPv6 exists only on `cloud-main`; private nodes use `cloud-main` NAT for outbound package and image access.
 - Hetzner Cloud Firewalls protect public inbound traffic.
 - Host firewalls protect private-network traffic.
 - SSH to `cloud-main` is public only from an explicit admin CIDR or temporary GitHub runner CIDR.
@@ -641,9 +642,9 @@ Cloud inventory validation ok
 
 host         ansible_host    private_ip      public_ipv4     route
 cloud-main   <public-ip>     10.10.0.10      <public-ip>     direct public SSH
-cloud-app1   10.10.0.11      10.10.0.11      <public-ip>     via cloud-main (<cloud-main-public-ip>)
-cloud-app2   10.10.0.12      10.10.0.12      <public-ip>     via cloud-main (<cloud-main-public-ip>)
-cloud-db     10.10.0.13      10.10.0.13      <public-ip>     via cloud-main (<cloud-main-public-ip>)
+cloud-app1   10.10.0.11      10.10.0.11      -               via cloud-main (<cloud-main-public-ip>)
+cloud-app2   10.10.0.12      10.10.0.12      -               via cloud-main (<cloud-main-public-ip>)
+cloud-db     10.10.0.13      10.10.0.13      -               via cloud-main (<cloud-main-public-ip>)
 ```
 
 ## 9. Create Cloudflare Tunnel

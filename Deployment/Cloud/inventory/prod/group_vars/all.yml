@@ -7,7 +7,7 @@ deploy_root: /opt/bookscloud
 cloudflare_tunnel_name: bookscloud-prod
 cloudflared_version: 2026.5.2
 cloud_private_network_cidr: 10.10.0.0/24
-cloud_private_gateway_ip: 10.10.0.1
+cloud_private_gateway_ip: 10.10.0.10
 cloud_main_private_ip: 10.10.0.10
 cloud_app1_private_ip: 10.10.0.11
 cloud_app2_private_ip: 10.10.0.12
