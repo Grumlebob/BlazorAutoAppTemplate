@@ -10,6 +10,6 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.0",
     "lighthouse": "^13.4.0",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.1"
   }
 }
