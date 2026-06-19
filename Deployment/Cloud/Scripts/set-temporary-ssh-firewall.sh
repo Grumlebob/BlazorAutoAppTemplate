@@ -211,13 +211,8 @@ resolve_firewall_id() {
 }
 
 if ! resolve_firewall_id; then
-  if [[ "$ACTION" == "clear" ]]; then
-    echo "::warning::Could not resolve ${APP_NAME}-temporary-ssh; no temporary SSH rule was cleared."
-    exit 0
-  fi
-
-  echo "Could not resolve ${APP_NAME}-temporary-ssh from CLOUD_TEMP_SSH_FIREWALL_ID, OpenTofu state, or Hetzner API." >&2
-  exit 1
+  echo "::warning::Could not resolve ${APP_NAME}-temporary-ssh; relying on existing cloud-main SSH ingress."
+  exit 0
 fi
 
 wait_for_action() {
