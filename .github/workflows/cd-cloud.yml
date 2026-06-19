@@ -175,6 +175,9 @@ jobs:
             exit 1
           fi
 
+      - name: Repair Cloud deploy SSH access
+        run: bash Deployment/Cloud/Scripts/repair-cloud-ssh-access.sh
+
       - name: Render Cloud inventory
         run: bash Deployment/Cloud/Scripts/render-inventory-from-env.sh
 
