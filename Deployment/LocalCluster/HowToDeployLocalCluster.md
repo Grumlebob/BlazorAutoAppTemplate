@@ -1116,7 +1116,7 @@ Migration bundle file: <migration_bundle_name>
 
 The CD workflow first finds a successful CI run for the selected commit, verifies the GHCR image tag exists, and then downloads the migration bundle artifact from that CI run when `run_migrations` is `true`. If any of those values do not line up, deploy should stop instead of mixing artifacts from different commits.
 
-CI uploads migration bundle artifacts with 7-day retention and prunes old matching `books-migrate-linux-x64` artifacts after successful `main` publishes, keeping the newest 5. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
+CI uploads migration bundle artifacts with 7-day retention and prunes old matching `books-migrate-linux-x64` artifacts after successful `main` publishes, keeping the newest 2. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
 
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 

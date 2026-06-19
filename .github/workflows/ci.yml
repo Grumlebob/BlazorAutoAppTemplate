@@ -252,4 +252,4 @@ jobs:
         run: |
           bash Deployment/Common/Scripts/prune-actions-artifacts.sh \
             --artifact-name "${MIGRATION_ARTIFACT_NAME}" \
-            --keep 5
+            --keep 2

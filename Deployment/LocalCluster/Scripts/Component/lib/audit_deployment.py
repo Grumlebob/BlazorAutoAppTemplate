@@ -804,7 +804,7 @@ for needle, why in [
     ("actions: write", "permission to prune old CI artifacts"),
     ("Prune old migration bundle artifacts", "old migration artifact pruning step"),
     ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
-    ("--keep 5", "bounded migration artifact keep count"),
+    ("--keep 2", "bounded migration artifact keep count"),
     ("Clean self-hosted Docker build residue", "self-hosted Docker cleanup step"),
     ("bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh", "LocalCluster Docker cleanup script call"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
