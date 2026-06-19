@@ -131,11 +131,23 @@ jobs:
         run: bash Deployment/Cloud/Scripts/set-temporary-ssh-firewall.sh allow "$RUNNER_SSH_CIDR"
 
       - name: Configure SSH key
+        env:
+          CLOUD_SSH_PRIVATE_KEY: ${{ secrets.CLOUD_SSH_PRIVATE_KEY }}
         run: |
           install -d -m 0700 "$HOME/.ssh"
           install -d -m 0700 "$(dirname "$CLOUD_SSH_PRIVATE_KEY_PATH")"
-          printf '%s\n' "${{ secrets.CLOUD_SSH_PRIVATE_KEY }}" > "$CLOUD_SSH_PRIVATE_KEY_PATH"
-          chmod 0600 "$CLOUD_SSH_PRIVATE_KEY_PATH"
+          runner_key_path="${CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH:-/home/grumbo/.ssh/bookscloud_deploy}"
+          if [ -f "$runner_key_path" ]; then
+            install -m 0600 "$runner_key_path" "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            echo "Using runner-local Cloud SSH deploy key."
+          elif [ -n "${CLOUD_SSH_PRIVATE_KEY:-}" ]; then
+            printf '%s\n' "$CLOUD_SSH_PRIVATE_KEY" > "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            chmod 0600 "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            echo "Using CLOUD_SSH_PRIVATE_KEY from GitHub environment."
+          else
+            echo "No Cloud SSH deploy key found at $runner_key_path and CLOUD_SSH_PRIVATE_KEY is empty." >&2
+            exit 1
+          fi
           for attempt in $(seq 1 30); do
             if ssh-keyscan -H "$CLOUD_BASTION_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null; then
               break
