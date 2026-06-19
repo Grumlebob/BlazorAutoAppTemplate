@@ -16,8 +16,17 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.actor.login == 'dependabot[bot]' &&
       github.event.workflow_run.pull_requests[0].number != null
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     steps:
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
+
+      - name: Verify GitHub CLI
+        run: command -v gh
+
       - name: Evaluate auto-merge scope
         id: evaluate
         shell: bash

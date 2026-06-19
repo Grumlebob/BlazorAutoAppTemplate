@@ -85,7 +85,7 @@ Security posture:
 - Private nodes route outbound traffic to the Hetzner private-network gateway, which has an OpenTofu route to `cloud-main`.
 - Hetzner Cloud Firewalls protect public inbound traffic.
 - Host firewalls protect private-network traffic.
-- SSH to `cloud-main` is public only from an explicit admin CIDR or temporary GitHub runner CIDR.
+- SSH to `cloud-main` is public only from an explicit admin CIDR or temporary Actions runner CIDR.
 - SSH to private nodes is not public; Ansible reaches them through `cloud-main`.
 - App port `8080` is allowed only from `cloud-main` over the private network by host firewall.
 - PostgreSQL and Redis are allowed only from `cloud-app1` and `cloud-app2` over the private network by host firewall.
@@ -108,7 +108,7 @@ Security posture:
 [cloud-db]        run on cloud-db only
 ```
 
-`[ControlPC]` is not used for Cloud. The local cluster has a control machine; the cloud target uses `[CurrentPC]` for OpenTofu bring-up and GitHub-hosted runners for app deployment.
+`[ControlPC]` is not used for Cloud. The local cluster has a control machine; the cloud target uses `[CurrentPC]` for OpenTofu bring-up and the `node-main-books` self-hosted Actions runner for app deployment.
 
 `cloud-main` is a bastion and ingress node, not a control machine. Do not run commands on cloud servers unless a step is explicitly labeled `[cloud-main]`, `[cloud-db]`, `[cloud-app1]`, `[cloud-app2]`, or `[each cloud node]`.
 
@@ -905,7 +905,7 @@ The workflow does:
 - require successful CI for the same commit.
 - verify the GHCR image exists.
 - download the migration bundle when migrations are enabled.
-- temporarily allow SSH from the GitHub runner IP to `cloud-main`.
+- temporarily allow SSH from the Actions runner IP to `cloud-main`.
 - render Cloud inventory from GitHub environment secrets.
 - provision Cloud nodes idempotently.
 - run the Cloud observability capacity preflight.

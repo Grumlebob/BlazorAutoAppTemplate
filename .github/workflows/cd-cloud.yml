@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     environment:
       name: cloud-hetzner
     env:
@@ -46,6 +46,12 @@ jobs:
             echo "CD - Cloud must be dispatched from main, got ${GITHUB_REF}." >&2
             exit 1
           fi
+
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
 
       - name: Checkout
         uses: actions/checkout@v6

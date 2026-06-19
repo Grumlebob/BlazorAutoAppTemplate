@@ -78,7 +78,9 @@ required_files = [
     "Deployment/Common/README.md",
     "Deployment/Common/release.yml",
     "Deployment/Common/Scripts/install-ansible.sh",
+    "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
+    "Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py",
     "Deployment/Common/Scripts/read-release-setting.sh",
     "Deployment/Common/Scripts/validate-common-release.sh",
     "Deployment/Common/Scripts/Component/lib/read-release-setting.py",
@@ -127,6 +129,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/deploy.sh",
     "Deployment/LocalCluster/Scripts/doctor.sh",
     "Deployment/LocalCluster/Scripts/discover-machines.sh",
+    "Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh",
     "Deployment/LocalCluster/Scripts/audit-deployment.sh",
     "Deployment/LocalCluster/Scripts/find-successful-ci-run.sh",
     "Deployment/LocalCluster/Scripts/generate-inventory.sh",
@@ -144,6 +147,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/preflight.sh",
     "Deployment/LocalCluster/Scripts/prepare-existing-localcluster-app.sh",
     "Deployment/LocalCluster/Scripts/prepare-fresh-linux-machines.sh",
+    "Deployment/LocalCluster/Scripts/prune-docker-residue.sh",
     "Deployment/LocalCluster/Scripts/list-deployed-apps.sh",
     "Deployment/LocalCluster/Scripts/report-nodes.sh",
     "Deployment/LocalCluster/Scripts/setup-cloudflare-tunnel.sh",
@@ -162,6 +166,8 @@ required_files = [
     "Deployment/LocalCluster/Scripts/verify-backup.sh",
     "Deployment/LocalCluster/Scripts/verify-deployment.sh",
     "Deployment/LocalCluster/Scripts/with-deploy-lock.sh",
+    ".github/workflows/auto-merge-dependabot.yml",
+    ".github/workflows/cd-cloud.yml",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
 ]
@@ -762,6 +768,11 @@ for needle, why in [
 
 ci = read(".github/workflows/ci.yml")
 for needle, why in [
+    ("github.event.pull_request.head.repo.full_name == github.repository", "external-fork pull request guard before self-hosted runner allocation"),
+    ("localcluster-books", "app-specific self-hosted runner label fallback"),
+    ("Verify node-main runner", "explicit node-main runner verification"),
+    ("Ensure self-hosted runner prerequisites", "node-main prerequisite bootstrap step"),
+    ("RUNNER_TEMP", "temporary self-hosted runner tool install directories"),
     ("find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
     ("find Deployment/Cloud/Scripts -type f -name '*.sh'", "Cloud shell lint root"),
     ("bash Deployment/Common/Scripts/validate-common-release.sh", "common release validation step"),
@@ -787,6 +798,15 @@ for needle, why in [
     ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
     ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
     ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact upload name"),
+    ("retention-days: 7", "short migration artifact retention"),
+    ("prune-migration-artifacts:", "dedicated artifact pruning job"),
+    ("needs: build-test-push", "artifact pruning waits for successful build/test/push"),
+    ("actions: write", "permission to prune old CI artifacts"),
+    ("Prune old migration bundle artifacts", "old migration artifact pruning step"),
+    ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
+    ("--keep 5", "bounded migration artifact keep count"),
+    ("Clean self-hosted Docker build residue", "self-hosted Docker cleanup step"),
+    ("bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh", "LocalCluster Docker cleanup script call"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -815,6 +835,12 @@ if "secrets.ANSIBLE_VAULT_PASSWORD" in ci:
     fail(".github/workflows/ci.yml: CI must not require the production Ansible Vault password")
 if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
     fail(".github/workflows/ci.yml: CI must not run dummy-vault Ansible linting")
+if "cache: npm" in ci or "cache-dependency-path" in ci:
+    fail(".github/workflows/ci.yml: CI must not use GitHub cloud npm cache on the self-hosted runner")
+push_pos = ci.find('docker push "${APP_IMAGE}:${{ github.sha }}"')
+upload_pos = ci.find("Upload migration bundle")
+if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
+    fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
 
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [
@@ -1326,6 +1352,34 @@ for normal_path in [
     for forbidden in ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_API_TOKEN"]:
         if forbidden in text:
             fail(f"{normal_path}: Cloudflare API variables must stay optional, not part of the normal deploy path")
+
+workflow_paths = sorted(
+    str(path.relative_to(ROOT)).replace("\\", "/")
+    for path in (ROOT / ".github" / "workflows").glob("*.yml")
+)
+if not workflow_paths:
+    fail(".github/workflows: no workflow files found")
+
+for workflow in workflow_paths:
+    has_runs_on = False
+    for line_number, line in enumerate(read(workflow).splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped.startswith("runs-on:"):
+            continue
+        has_runs_on = True
+        if "self-hosted" not in stripped:
+            fail(f"{workflow}:{line_number}: runs-on must target the node-main self-hosted runner: {stripped}")
+        for hosted_runner in ["ubuntu-", "ubuntu-latest", "windows-", "macos-"]:
+            if hosted_runner in stripped:
+                fail(f"{workflow}:{line_number}: contains forbidden GitHub-hosted runner label: {stripped}")
+    if has_runs_on:
+        require_contains(workflow, "localcluster-books", "app-specific node-main runner fallback")
+        require_contains(workflow, "Verify node-main runner", "explicit node-main runner verification")
+require_contains(
+    ".github/workflows/auto-merge-dependabot.yml",
+    "Verify GitHub CLI",
+    "self-hosted auto-merge gh availability check",
+)
 
 
 if failures:

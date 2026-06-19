@@ -46,6 +46,12 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `find-successful-ci-run.sh` wraps the shared GitHub Actions helper in `Deployment/Common`.
 
+`ensure-actions-runner-prereqs.sh` verifies or installs self-hosted CI prerequisites on `node-main`.
+
+`prune-docker-residue.sh` safely prunes routine self-hosted runner Docker residue without deleting volumes.
+
+`Deployment/Common/Scripts/prune-actions-artifacts.sh` prunes old GitHub Actions artifacts by exact artifact name after successful CI publishes.
+
 `Component/with-deploy-lock.sh` serializes deploys that run on the same `node-main` runner host.
 
 `Component/with-node-main-deploy-lock.sh` lets manual deploys from a control machine use that same `node-main` lock.

@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster' }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     environment:
       name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 
@@ -34,6 +34,12 @@ jobs:
             echo "LocalCluster CD must be dispatched from main, got ${GITHUB_REF}." >&2
             exit 1
           fi
+
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
 
       - name: Checkout
         uses: actions/checkout@v6

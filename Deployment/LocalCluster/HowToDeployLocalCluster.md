@@ -1080,6 +1080,8 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
+This repository runs CI, Dependabot auto-merge, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label `localcluster-books`. External fork pull requests must be skipped before self-hosted runner allocation because this repository is public.
+
 For a fork or a newly created repository, confirm GitHub Actions is enabled before pushing the deployment commit:
 
 ```text
@@ -1113,6 +1115,8 @@ Migration bundle file: <migration_bundle_name>
 ```
 
 The CD workflow first finds a successful CI run for the selected commit, verifies the GHCR image tag exists, and then downloads the migration bundle artifact from that CI run when `run_migrations` is `true`. If any of those values do not line up, deploy should stop instead of mixing artifacts from different commits.
+
+CI uploads migration bundle artifacts with 7-day retention and prunes old matching `books-migrate-linux-x64` artifacts after successful `main` publishes, keeping the newest 5. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
 
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
@@ -1155,7 +1159,7 @@ On rerun, the script verifies the configured runner name and repository, starts 
 The workflow targets:
 
 ```yaml
-runs-on: [self-hosted, linux, x64, localcluster]
+runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
 ```
 
 GitHub automatically supplies `self-hosted`, `linux`, and `x64`; the script adds the shared `localcluster` label and an app-specific label derived from `app_name`, for example `localcluster-books`.
@@ -1202,7 +1206,7 @@ environment:
   name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 ```
 
-For a single app, do not create any extra GitHub variables; the workflow uses `localcluster`. For side-by-side apps, you may set repository variable `LOCALCLUSTER_RUNNER_LABEL` to the app-specific runner label, for example `localcluster-secondnotes`, and `LOCALCLUSTER_ENVIRONMENT` to a repo-specific environment name if you want that distinction. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
+For this app, set repository variable `LOCALCLUSTER_RUNNER_LABEL` to `localcluster-books` so workflows target this app's runner. For side-by-side apps, set it to that app's derived runner label, for example `localcluster-secondnotes`, and set `LOCALCLUSTER_ENVIRONMENT` to a repo-specific environment name if you want that distinction. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
 
 Repository variables are configured here:
 

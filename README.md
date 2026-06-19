@@ -21,7 +21,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - Built-in ASP.NET Core rate limiting for API and account endpoints.
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - Serilog console logging with OpenTelemetry trace/span correlation.
-- GitHub Actions CI for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
+- GitHub Actions CI on the `node-main-books` self-hosted runner for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
 - Centralized NuGet package versions in `Directory.Packages.props`.
 
 ## Observability
@@ -70,8 +70,8 @@ Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evid
 
 The LocalCluster deployment flow is intentionally kept in this repository. It uses:
 
-- `.github/workflows/ci.yml` to run deployment checks, build the migration bundle, build the Docker image, and push the image to GHCR on `main`.
-- `.github/workflows/cd-localcluster.yml` to deploy from the self-hosted LocalCluster runner.
+- `.github/workflows/ci.yml` to run deployment checks on `node-main-books`, build the migration bundle, build the Docker image, push the image to GHCR on `main`, and prune old migration artifacts.
+- `.github/workflows/cd-localcluster.yml` to deploy from the app-specific self-hosted LocalCluster runner.
 - `Deployment/LocalCluster/Scripts/audit-deployment.sh` and `validate-rendered-templates.sh` as deployment safety checks.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` as the operating guide.
 
