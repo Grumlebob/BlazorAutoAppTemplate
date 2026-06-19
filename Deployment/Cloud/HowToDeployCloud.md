@@ -389,7 +389,7 @@ cat ~/.ssh/bookscloud_deploy.pub
 
 Keep this key pair on `[CurrentPC]`. Do not paste it into GitHub yet.
 
-Do not commit the private key. The public key may be committed when Cloud CD needs a non-secret fingerprint reference; this repo keeps that reference at `Deployment/Cloud/infra/opentofu/bookscloud_deploy.pub` so the self-hosted runner can select the right local private key without printing key material.
+Do not commit either key.
 
 ## 5. Create Hetzner API Token
 

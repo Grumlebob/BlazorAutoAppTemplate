@@ -136,7 +136,21 @@ jobs:
           CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH: ${{ vars.CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH }}
         run: |
           install -d -m 0700 "$HOME/.ssh"
-          bash Deployment/Cloud/Scripts/select-cloud-ssh-key.sh
+          install -d -m 0700 "$(dirname "$CLOUD_SSH_PRIVATE_KEY_PATH")"
+          if [ -n "${CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH:-}" ] && [ -f "$CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH" ]; then
+            install -m 0600 "$CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH" "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            key_source="runner-local:${CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH}"
+          elif [ -n "${CLOUD_SSH_PRIVATE_KEY:-}" ]; then
+            printf '%s\n' "$CLOUD_SSH_PRIVATE_KEY" > "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            chmod 0600 "$CLOUD_SSH_PRIVATE_KEY_PATH"
+            key_source="github-environment:CLOUD_SSH_PRIVATE_KEY"
+          else
+            echo "No Cloud SSH key configured. Set CLOUD_RUNNER_SSH_PRIVATE_KEY_PATH or CLOUD_SSH_PRIVATE_KEY." >&2
+            exit 1
+          fi
+          fingerprint="$(ssh-keygen -y -f "$CLOUD_SSH_PRIVATE_KEY_PATH" | ssh-keygen -lf - -E sha256 | awk '{print $2}')"
+          echo "Cloud SSH key source: ${key_source}"
+          echo "Cloud SSH public fingerprint: ${fingerprint}"
           for attempt in $(seq 1 30); do
             if ssh-keyscan -H "$CLOUD_BASTION_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null; then
               break
@@ -148,35 +162,6 @@ jobs:
             sleep 5
           done
           chmod 0600 "$HOME/.ssh/known_hosts"
-
-      - name: Verify Cloud SSH key matches Hetzner deploy key
-        run: |
-          local_public_key="$(ssh-keygen -y -f "$CLOUD_SSH_PRIVATE_KEY_PATH" | awk '{print $1 " " $2}')"
-          if ! api_response="$(curl -fsS \
-            -H "Authorization: Bearer ${CLOUD_HETZNER_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            "https://api.hetzner.cloud/v1/ssh_keys")"; then
-            echo "::warning::CLOUD_HETZNER_API_TOKEN could not list SSH keys; continuing with local public-key validation."
-            exit 0
-          fi
-          hcloud_public_key="$(python3 -c 'import json, os, sys; name=os.environ["APP_NAME"] + "-deploy"; keys=[key for key in json.load(sys.stdin).get("ssh_keys", []) if key.get("name") == name or key.get("labels", {}).get("app") == os.environ["APP_NAME"]]; print(keys[0]["public_key"] if keys else "")' <<<"$api_response")"
-          hcloud_key_id="$(python3 -c 'import json, os, sys; name=os.environ["APP_NAME"] + "-deploy"; keys=[key for key in json.load(sys.stdin).get("ssh_keys", []) if key.get("name") == name or key.get("labels", {}).get("app") == os.environ["APP_NAME"]]; print(keys[0]["id"] if keys else "")' <<<"$api_response")"
-          if [ -z "$hcloud_public_key" ]; then
-            echo "::warning::Hetzner SSH key ${APP_NAME}-deploy was not visible to CLOUD_HETZNER_API_TOKEN; continuing with local public-key validation."
-            exit 0
-          fi
-          hcloud_public_key="$(printf '%s\n' "$hcloud_public_key" | awk '{print $1 " " $2}')"
-          hcloud_fingerprint="$(printf '%s\n' "$hcloud_public_key" | ssh-keygen -lf - -E sha256 | awk '{print $2}')"
-          echo "Hetzner SSH key id: ${hcloud_key_id}"
-          echo "Hetzner SSH key fingerprint: ${hcloud_fingerprint}"
-          if [ "$local_public_key" != "$hcloud_public_key" ]; then
-            echo "Configured Cloud SSH private key does not match Hetzner SSH key ${APP_NAME}-deploy." >&2
-            echo "Update the runner key path or CLOUD_SSH_PRIVATE_KEY before running Cloud CD." >&2
-            exit 1
-          fi
-
-      - name: Repair Cloud deploy SSH access
-        run: bash Deployment/Cloud/Scripts/repair-cloud-ssh-access.sh
 
       - name: Render Cloud inventory
         run: bash Deployment/Cloud/Scripts/render-inventory-from-env.sh
