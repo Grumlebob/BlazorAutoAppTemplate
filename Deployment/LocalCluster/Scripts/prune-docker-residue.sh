@@ -12,6 +12,7 @@ DANGLING_IMAGE_UNTIL="168h"
 LOCALCLUSTER_IMAGE_UNTIL="168h"
 BUILDER_UNTIL="48h"
 NETWORK_UNTIL="24h"
+INCLUDE_UNLABELLED_HOST_RESIDUE="false"
 REMOVE_IMAGES=()
 PROTECT_IMAGES=()
 PROTECTED_DATA_PATHS=()
@@ -38,6 +39,9 @@ Options:
   --network-until <duration>        Unused network retention. Default: 24h.
   --remove-image <image:tag>        Remove a specific image tag unless it is protected.
   --protect-image <image:tag>       Add an image tag to the protected set.
+  --include-unlabelled-host-residue Also run host-wide prunes of stopped containers, dangling
+                                    images, build cache and unused networks. These affect every
+                                    app on this Docker daemon; use only in reviewed maintenance.
   --help, -h                        Show this help.
 USAGE
 }
@@ -472,6 +476,10 @@ while [[ $# -gt 0 ]]; do
       PROTECT_IMAGES+=("$2")
       shift 2
       ;;
+    --include-unlabelled-host-residue)
+      INCLUDE_UNLABELLED_HOST_RESIDUE="true"
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -510,11 +518,17 @@ for image_ref in "${REMOVE_IMAGES[@]}"; do
 done
 
 if [[ "$SHOULD_RUN_RETENTION" == "true" ]]; then
-  run_or_print docker container prune -f --filter "until=${CONTAINER_UNTIL}"
-  run_or_print docker image prune -f --filter "until=${DANGLING_IMAGE_UNTIL}"
+  # Old tags of discovered LocalCluster app images; every deployed ref stays protected.
   prune_old_unprotected_localcluster_images
-  run_or_print docker builder prune -af --filter "until=${BUILDER_UNTIL}"
-  run_or_print docker network prune -f --filter "until=${NETWORK_UNTIL}"
+  if [[ "$INCLUDE_UNLABELLED_HOST_RESIDUE" == "true" ]]; then
+    echo "warning: host-wide prunes requested; they affect every app on this Docker daemon" >&2
+    run_or_print docker container prune -f --filter "until=${CONTAINER_UNTIL}"
+    run_or_print docker image prune -f --filter "until=${DANGLING_IMAGE_UNTIL}"
+    run_or_print docker builder prune -af --filter "until=${BUILDER_UNTIL}"
+    run_or_print docker network prune -f --filter "until=${NETWORK_UNTIL}"
+  else
+    echo "host-wide container/image/builder/network prunes skipped; pass --include-unlabelled-host-residue to run them"
+  fi
 else
   echo "/opt has ${FREE_BEFORE_MB}MiB free; retention cleanup skipped. Use --force for routine scheduled maintenance."
 fi

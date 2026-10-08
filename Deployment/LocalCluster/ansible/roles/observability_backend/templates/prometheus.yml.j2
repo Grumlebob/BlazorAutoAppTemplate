@@ -20,11 +20,18 @@ scrape_configs:
           deployment_target: localcluster
           node: {{ inventory_hostname }}
 
+  # Targets on the backend host are reached over the Docker network, so they use
+  # the container ports (12345, 9100), not the host-published observability ports.
   - job_name: alloy
     static_configs:
+{% set load_balancer_host = groups['load_balancer'][0] %}
 {% for host in groups['all'] %}
       - targets:
-          - {{ ('alloy:' ~ observability_alloy_http_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_alloy_http_port) }}
+{% if host == load_balancer_host %}
+          - alloy:12345
+{% else %}
+          - {{ hostvars[host].ansible_host }}:{{ observability_alloy_http_port }}
+{% endif %}
         labels:
           deployment_target: localcluster
           node: {{ host }}
@@ -34,7 +41,11 @@ scrape_configs:
     static_configs:
 {% for host in groups['all'] %}
       - targets:
-          - {{ ('node-exporter:' ~ observability_node_exporter_port) if host == groups['load_balancer'][0] else (hostvars[host].ansible_host ~ ':' ~ observability_node_exporter_port) }}
+{% if host == load_balancer_host %}
+          - node-exporter:9100
+{% else %}
+          - {{ hostvars[host].ansible_host }}:{{ observability_node_exporter_port }}
+{% endif %}
         labels:
           deployment_target: localcluster
           node: {{ host }}

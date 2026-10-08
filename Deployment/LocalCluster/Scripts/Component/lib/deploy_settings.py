@@ -22,6 +22,7 @@ REQUIRED_KEYS = [
 ]
 
 OPTIONAL_KEYS = [
+    "inventory_dns_suffix",
     "runner_name",
     "runner_label",
     "observability_enabled",
@@ -199,6 +200,10 @@ def validate(values: dict[str, str]) -> list[str]:
         elif not re.match(r"^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$", cloudflared_version):
             errors.append("cloudflared_version must be an exact release like 2026.5.0")
 
+    inventory_dns_suffix = values.get("inventory_dns_suffix", "")
+    if inventory_dns_suffix and not re.match(r"^\.?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$", inventory_dns_suffix):
+        errors.append("inventory_dns_suffix must be empty or a DNS suffix like home or .lan")
+
     runner_name = values.get("runner_name", "")
     if runner_name and not re.match(r"^[A-Za-z0-9._-]{1,64}$", runner_name):
         errors.append("runner_name must contain only letters, numbers, dots, underscores, or hyphens")
@@ -216,6 +221,7 @@ def apply_defaults(values: dict[str, str]) -> dict[str, str]:
     if app_name:
         resolved.setdefault("runner_name", f"node-main-{app_name}")
         resolved.setdefault("runner_label", f"localcluster-{app_name}")
+    resolved.setdefault("inventory_dns_suffix", "")
     return resolved
 
 
