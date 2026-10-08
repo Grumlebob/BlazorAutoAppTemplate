@@ -19,7 +19,7 @@ using BlazorAutoApp.Test.Features.Books.TestData;
 
 namespace BlazorAutoApp.Test.Features.Books.Api;
 
-[Collection("IntegrationTestCollection")]
+[Collection(TestCollectionNames.Integration)]
 public class GetBooksTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;

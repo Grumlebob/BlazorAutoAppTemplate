@@ -13,6 +13,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Books.Caching;
 
+[Collection(TestCollectionNames.CrossNodeRedis)]
 public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnvironment environment)
     : IClassFixture<SharedIntegrationEnvironment>, IAsyncLifetime
 {

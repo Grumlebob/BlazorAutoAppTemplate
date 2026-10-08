@@ -11,6 +11,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
+[Collection(TestCollectionNames.EnvironmentMutation)]
 public sealed class ForwardedHeadersTests
 {
     [Fact]

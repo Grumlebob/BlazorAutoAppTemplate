@@ -45,14 +45,14 @@
                         <button data-testid="book-delete-confirm"
                                 class="inline-flex h-8 items-center rounded-full border border-red-200 bg-red-50/95 px-4 text-sm font-bold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                                 type="button"
-                                disabled="@IsDeleteBusy"
+                                disabled="@(IsDeleteBusy || !RendererInfo.IsInteractive)"
                                 @onclick="OnDeleteConfirm">
                             @(IsDeleteBusy ? "Deleting" : "Confirm")
                         </button>
                         <button data-testid="book-delete-cancel"
                                 class="inline-flex h-8 items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                                 type="button"
-                                disabled="@IsDeleteBusy"
+                                disabled="@(IsDeleteBusy || !RendererInfo.IsInteractive)"
                                 @onclick="OnDeleteCancel">
                             Cancel
                         </button>

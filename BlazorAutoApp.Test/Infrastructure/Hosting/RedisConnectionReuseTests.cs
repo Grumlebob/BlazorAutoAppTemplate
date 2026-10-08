@@ -7,6 +7,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
+[Collection(TestCollectionNames.CrossNodeRedis)]
 public sealed class RedisConnectionReuseTests(SharedIntegrationEnvironment environment)
     : IClassFixture<SharedIntegrationEnvironment>
 {

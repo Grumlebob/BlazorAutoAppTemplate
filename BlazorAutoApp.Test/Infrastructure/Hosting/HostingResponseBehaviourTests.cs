@@ -4,10 +4,16 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using BlazorAutoApp.Test.TestSupport.Integration;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
+[Collection(TestCollectionNames.StartupIntegration)]
 public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixture fixture)
     : IClassFixture<HostingResponseBehaviourFixture>
 {
@@ -63,6 +69,22 @@ public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixtur
     }
 
     [Fact]
+    public async Task TestAuthentication_AddsRolesFromHeader()
+    {
+        using var client = fixture.Factory.CreateAuthenticatedClient($"roles-{Guid.NewGuid():N}@example.test");
+
+        using var withoutRole = new HttpRequestMessage(HttpMethod.Get, HostingResponseBehaviourFixture.RoleProbePath);
+        using var withoutRoleResponse = await client.SendAsync(withoutRole);
+
+        using var withRole = new HttpRequestMessage(HttpMethod.Get, HostingResponseBehaviourFixture.RoleProbePath);
+        withRole.Headers.TryAddWithoutValidation(TestAuthenticationHandler.RolesHeader, "User, Admin");
+        using var withRoleResponse = await client.SendAsync(withRole);
+
+        Assert.Equal(HttpStatusCode.Forbidden, withoutRoleResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, withRoleResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task UserSpecificApiResponses_AreNotCacheable()
     {
         using var client = fixture.Factory.CreateAuthenticatedClient($"cache-headers-{Guid.NewGuid():N}@example.test");
@@ -82,12 +104,31 @@ public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixtur
 public sealed class HostingResponseBehaviourFixture : IAsyncLifetime
 {
     public const int GlobalPermitLimit = 5;
+    public const string RoleProbePath = "/__test/role-probe";
 
     public WebAppFactory Factory { get; } = new(new WebAppFactoryOptions
     {
         GlobalRateLimitPermitLimit = GlobalPermitLimit,
-        UseIdentityCookieChallenge = true
+        UseIdentityCookieChallenge = true,
+        InitializeDatabaseRespawner = false,
+        ConfigureTestServices = services => services.AddTransient<IStartupFilter, RoleProbeStartupFilter>()
     });
+
+    // Test-only endpoint that reports whether the authenticated user has the Admin role.
+    private sealed class RoleProbeStartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Map(RoleProbePath, branch => branch.Run(async context =>
+            {
+                var result = await context.AuthenticateAsync(TestAuthenticationHandler.SchemeName);
+                context.Response.StatusCode = result.Principal?.IsInRole("Admin") == true
+                    ? StatusCodes.Status200OK
+                    : StatusCodes.Status403Forbidden;
+            }));
+            next(app);
+        };
+    }
 
     public async ValueTask InitializeAsync()
     {

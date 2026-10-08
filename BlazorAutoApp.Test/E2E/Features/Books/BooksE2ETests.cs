@@ -3,9 +3,11 @@ using System.Threading.Tasks;
 using Microsoft.Playwright;
 using Xunit;
 using BlazorAutoApp.Test.E2E.Support;
+using BlazorAutoApp.Test.TestSupport.Integration;
 
 namespace BlazorAutoApp.Test.E2E.Features.Books;
 
+[Collection(TestCollectionNames.E2E)]
 public sealed class BooksE2ETests : BlazorE2ETestBase
 {
     [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
@@ -282,6 +284,8 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
             if (isVisibleInViewport)
             {
+                // The author shelf self-scrolls until hovered; hover first so the click target is stable.
+                await book.HoverAsync(new LocatorHoverOptions { Force = true });
                 await book.ClickAsync();
                 return;
             }

@@ -8,7 +8,7 @@ using BlazorAutoApp.Test.Architecture.Support;
 
 namespace BlazorAutoApp.Test.Architecture.Composition;
 
-[Collection("IntegrationTestCollection")]
+[Collection(TestCollectionNames.Integration)]
 public class DiWiringTests(WebAppFactory factory)
 {
     private readonly IServiceProvider _services = factory.Services;
