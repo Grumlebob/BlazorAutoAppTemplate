@@ -6,6 +6,8 @@ param(
   [switch]$FollowLogs,
   [switch]$StatusOnly,
   [switch]$Observability,
+  [switch]$StopStack,
+  [switch]$SkipDockerCleanup,
   [int]$TimeoutSeconds = 180
 )
 
@@ -147,6 +149,21 @@ try {
 
   Wait-Docker
 
+  if ($StopStack) {
+    if ($ResetDatabase) {
+      Write-Warning "-ResetDatabase with -StopStack deletes the local database and service volumes."
+      docker compose down --volumes --remove-orphans
+    }
+    else {
+      docker compose down --remove-orphans
+    }
+    if ($LASTEXITCODE -ne 0) {
+      throw "docker compose down failed."
+    }
+    Write-Host "Local stack stopped."
+    return
+  }
+
   Write-Host "Preparing local Docker setup..."
   $setupArgs = @('-File', './docker/setup-local.ps1')
   if ($SkipCertificate) {
@@ -285,8 +302,15 @@ try {
     Write-Host "Observability: disabled; run .\Scripts\RunLocal.ps1 -Observability to start the local Grafana stack."
   }
   Write-Host ""
-  Write-Host "Stop with:    docker compose down"
+  Write-Host "Stop with:    .\Scripts\RunLocal.ps1 -StopStack"
   Write-Host "Reset with:   .\Scripts\RunLocal.ps1 -ResetDatabase"
+
+  # Each rebuild leaves the previous web image dangling. Remove only dangling
+  # images here; stopped containers, networks and build cache may belong to
+  # other projects, so their cleanup stays a manual PruneLocalDockerResidue run.
+  if (-not $NoBuild -and -not $SkipDockerCleanup) {
+    & (Join-Path $scriptRoot 'PruneLocalDockerResidue.ps1') -SkipStoppedContainers -SkipNetworks -SkipBuilderCache
+  }
 
   if (-not $NoBrowser) {
     Start-Process $appUrl
