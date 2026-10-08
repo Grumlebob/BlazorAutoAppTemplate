@@ -4,18 +4,60 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      head_branch:
+        description: Dependabot branch whose validated commit should be considered for merge.
+        type: string
+        required: true
+      source_sha:
+        description: Exact Dependabot commit tested by CI.
+        type: string
+        required: true
+      source_run_id:
+        description: Successful trusted CI run ID.
+        type: string
+        required: true
+      source_run_attempt:
+        description: Successful CI run attempt.
+        type: string
+        required: true
+      source_run_head_sha:
+        description: Commit used to load the trusted CI workflow.
+        type: string
+        required: true
+      source_run_head_branch:
+        description: Branch used to load the trusted CI workflow.
+        type: string
+        required: true
+      source_run_url:
+        description: CI run URL for the required check details.
+        type: string
+        required: true
 
 permissions:
+  actions: write
+  checks: write
   pull-requests: write
   contents: write
 
 jobs:
   auto-merge:
     if: >
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
-      github.event.workflow_run.pull_requests[0].number != null
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch != null &&
+       startsWith(github.event.workflow_run.head_branch, 'dependabot/') &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.pull_requests[0].number != null) ||
+      (github.event_name == 'workflow_dispatch' &&
+       startsWith(inputs.head_branch, 'dependabot/') &&
+       inputs.source_sha != '' &&
+       inputs.source_run_id != '' &&
+       inputs.source_run_attempt != '' &&
+       inputs.source_run_head_sha != '' &&
+       inputs.source_run_head_branch != '' &&
+       inputs.source_run_url != '')
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     steps:
       - name: Verify node-main runner
@@ -27,46 +69,389 @@ jobs:
       - name: Verify GitHub CLI
         run: command -v gh
 
-      - name: Evaluate auto-merge scope
+      - name: Evaluate auto-merge scope and refresh stale branches
         id: evaluate
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          DISPATCH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || 'workflow_dispatch' }}
+          SOURCE_PR: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].number || '' }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.source_sha }}
+          HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.head_branch }}
+          SOURCE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.source_run_attempt }}
+          SOURCE_RUN_HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.source_run_head_sha }}
+          SOURCE_RUN_HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.source_run_head_branch }}
+          SOURCE_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || inputs.source_run_url }}
         run: |
           set -euo pipefail
-          pr="${{ github.event.workflow_run.pull_requests[0].number }}"
-          labels="$(gh pr view "$pr" --json labels --jq '.labels[].name')"
+
+          skip() {
+            echo "Auto-merge deferred: $1"
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            {
+              echo "Auto-merge deferred: $1"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          if [[ -z "$SOURCE_RUN_ID" || -z "$SOURCE_RUN_ATTEMPT" || -z "$SOURCE_RUN_URL" ]]; then
+            skip "CI run identity is incomplete"
+          fi
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || ! "$SOURCE_RUN_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            skip "CI commit identity is invalid"
+          fi
+          if [[ "$HEAD_BRANCH" != dependabot/* ]]; then
+            skip "source branch $HEAD_BRANCH is outside Dependabot scope"
+          fi
+
+          source_run_endpoint="repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID"
+          source_status="$(gh api "$source_run_endpoint" --jq '.status')"
+          wait_attempt=0
+          while [[ "$SOURCE_EVENT" == 'workflow_dispatch' && "$source_status" != 'completed' && "$wait_attempt" -lt 12 ]]; do
+            wait_attempt=$((wait_attempt + 1))
+            sleep 5
+            source_status="$(gh api "$source_run_endpoint" --jq '.status')"
+          done
+          if [[ "$source_status" != 'completed' ]]; then
+            skip "CI run $SOURCE_RUN_ID did not complete before auto-merge verification"
+          fi
+          source_run_fields="$(gh api "$source_run_endpoint" --jq '[.conclusion, .event, .head_branch, .head_sha, (.run_attempt | tostring), .path, .html_url] | @tsv')"
+          IFS=$'\t' read -r source_conclusion source_event source_head_branch source_head_sha source_attempt source_workflow_path source_run_url <<<"$source_run_fields"
+          if [[ "$source_conclusion" != 'success' || "$source_event" != "$SOURCE_EVENT" ||
+                "$source_head_branch" != "$SOURCE_RUN_HEAD_BRANCH" ||
+                "$source_head_sha" != "$SOURCE_RUN_HEAD_SHA" ||
+                "$source_attempt" != "$SOURCE_RUN_ATTEMPT" || "$source_workflow_path" != '.github/workflows/ci.yml' ||
+                "$source_run_url" != "$SOURCE_RUN_URL" ]]; then
+            skip "CI run $SOURCE_RUN_ID does not match the successful source identity"
+          fi
+          if [[ "$SOURCE_EVENT" == 'pull_request' ]]; then
+            if [[ "$SOURCE_RUN_HEAD_BRANCH" != "$HEAD_BRANCH" || "$SOURCE_RUN_HEAD_SHA" != "$SOURCE_SHA" ]]; then
+              skip "pull request CI run does not test the current Dependabot commit"
+            fi
+          elif [[ "$SOURCE_RUN_HEAD_BRANCH" != "$HEAD_BRANCH" || "$SOURCE_RUN_HEAD_SHA" != "$SOURCE_SHA" ]]; then
+            skip "workflow-dispatch CI run does not test the current Dependabot commit"
+          fi
+
+          pr="$SOURCE_PR"
+          if [[ "$SOURCE_EVENT" == 'workflow_dispatch' ]]; then
+            matching_pr_numbers="$(gh pr list --state open --head "$HEAD_BRANCH" --json number --jq '.[].number')"
+            matching_prs=()
+            if [[ -n "$matching_pr_numbers" ]]; then
+              mapfile -t matching_prs <<<"$matching_pr_numbers"
+            fi
+            if [[ "${#matching_prs[@]}" -ne 1 ]]; then
+              skip "expected one open pull request for $HEAD_BRANCH; found ${#matching_prs[@]}"
+            fi
+            pr="${matching_prs[0]}"
+          fi
+
+          author="$(gh pr view "$pr" --json author --jq '.author.login')"
+          state="$(gh pr view "$pr" --json state --jq '.state')"
+          head_sha="$(gh pr view "$pr" --json headRefOid --jq '.headRefOid')"
+          head_branch="$(gh pr view "$pr" --json headRefName --jq '.headRefName')"
+          base_branch="$(gh pr view "$pr" --json baseRefName --jq '.baseRefName')"
           files="$(gh pr view "$pr" --json files --jq '.files[].path')"
+          labels="$(gh pr view "$pr" --json labels --jq '.labels[].name')"
 
-          skip=false
+          if [[ "$state" != 'OPEN' ]]; then
+            skip "pull request #$pr is $state"
+          fi
+          if [[ "$head_branch" != "$HEAD_BRANCH" ]]; then
+            skip "pull request #$pr branch changed from $HEAD_BRANCH to $head_branch"
+          fi
+          if [[ "$base_branch" != 'main' ]]; then
+            skip "pull request #$pr targets $base_branch; auto-merge is limited to main"
+          fi
+          if [[ "$head_sha" != "$SOURCE_SHA" ]]; then
+            skip "CI passed for stale commit $SOURCE_SHA; current head is $head_sha"
+          fi
+
           reasons=()
+          manual_review_required=false
+          is_dependabot_author=true
+          if [[ "$author" != 'dependabot[bot]' && "$author" != 'app/dependabot' ]]; then
+            reasons+=("not-dependabot-author")
+            is_dependabot_author=false
+          fi
+          # Major version bumps need a human, whatever files they touch.
           if grep -qx 'semver-major' <<<"$labels"; then
-            skip=true
             reasons+=("semver-major")
+            manual_review_required=true
           fi
-          if grep -Eq '(^|/)(Dockerfile|docker-compose\.ya?ml)$|^Deployment/|^\.github/workflows/' <<<"$files"; then
-            skip=true
-            reasons+=("deployment-or-workflow-surface")
+          if grep -Eq '(^|/)(Dockerfile|docker-compose\.ya?ml)$|^Deployment/' <<<"$files"; then
+            reasons+=("deployment-surface")
+            manual_review_required=true
+          fi
+          workflow_files="$(grep -E '^\.github/workflows/' <<<"$files" || true)"
+          if [[ -n "$workflow_files" ]]; then
+            if grep -Ev '^\.github/workflows/' <<<"$files" | grep -q .; then
+              reasons+=("mixed-workflow-and-code-changes")
+              manual_review_required=true
+            else
+              workflow_patches="$(gh api --paginate "repos/$GH_REPO/pulls/$pr/files" --jq '.[] | select(.filename | startswith(".github/workflows/")) | .patch // ""')"
+              workflow_additions="$(gh pr view "$pr" --json files --jq '[.files[] | select(.path | startswith(".github/workflows/")) | .additions] | add // 0')"
+              workflow_deletions="$(gh pr view "$pr" --json files --jq '[.files[] | select(.path | startswith(".github/workflows/")) | .deletions] | add // 0')"
+              if ! awk -v expected_additions="$workflow_additions" -v expected_deletions="$workflow_deletions" '
+                /^\+\+\+ / || /^--- / { next }
+                # Count blank lines toward patch totals without treating them as workflow logic.
+                /^[+][[:space:]]*$/ { blank_added++; next }
+                /^-[[:space:]]*$/ { blank_removed++; next }
+                /^[+-]/ {
+                  if ($0 !~ /^[+-][[:space:]]+uses:[[:space:]]+[[:alnum:]_.-]+\/[[:alnum:]_.-]+@[^[:space:]]+[[:space:]]*$/) {
+                    invalid = 1
+                    next
+                  }
+                  value = substr($0, 2)
+                  sub(/^[[:space:]]+uses:[[:space:]]+/, "", value)
+                  separator = index(value, "@")
+                  repository = substr(value, 1, separator - 1)
+                  if (substr($0, 1, 1) == "-") {
+                    removed[repository]++
+                    removed_lines++
+                  } else {
+                    added[repository]++
+                    added_lines++
+                  }
+                  changed_lines++
+                }
+                END {
+                  if (invalid || changed_lines == 0 || added_lines + blank_added != expected_additions || removed_lines + blank_removed != expected_deletions) exit 1
+                  for (repository in removed) if (removed[repository] != added[repository]) exit 1
+                  for (repository in added) if (added[repository] != removed[repository]) exit 1
+                }
+              ' <<<"$workflow_patches"; then
+                reasons+=("workflow-change-not-limited-to-action-version-updates")
+                manual_review_required=true
+              fi
+            fi
+          fi
+          if [[ "${#reasons[@]}" -gt 0 ]]; then
+            if [[ "$manual_review_required" == 'true' && "$is_dependabot_author" == 'true' ]]; then
+              auto_merge_enabled="$(gh pr view "$pr" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+              if [[ "$auto_merge_enabled" == 'true' ]]; then
+                gh pr merge "$pr" --disable-auto
+                echo "Disabled existing GitHub auto-merge for pull request #$pr; manual review is required." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+            skip "pull request #$pr excluded: ${reasons[*]}"
           fi
 
-          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
-          printf 'reasons=%s\n' "${reasons[*]:-none}" >> "$GITHUB_OUTPUT"
-          {
-            echo "Auto-merge skip: ${skip}"
-            echo "Reasons: ${reasons[*]:-none}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          merge_state="$(gh pr view "$pr" --json mergeStateStatus --jq '.mergeStateStatus')"
+          attempt=0
+          while [[ "$merge_state" == 'UNKNOWN' && "$attempt" -lt 12 ]]; do
+            attempt=$((attempt + 1))
+            sleep 5
+            merge_state="$(gh pr view "$pr" --json mergeStateStatus --jq '.mergeStateStatus')"
+          done
+          if [[ "$merge_state" == 'UNKNOWN' ]]; then
+            skip "GitHub could not determine merge state for pull request #$pr"
+          fi
+
+          if [[ "$merge_state" == 'BEHIND' ]]; then
+            if update_output="$(gh api --method PUT "repos/$GH_REPO/pulls/$pr/update-branch" -f expected_head_sha="$SOURCE_SHA" 2>&1)"; then
+              if [[ -n "$update_output" ]]; then
+                printf '%s\n' "$update_output"
+              fi
+            else
+              update_status=$?
+              if ! grep -Eiq 'HTTP 403|403 Forbidden' <<<"$update_output" ||
+                 ! grep -Eiq 'without .?workflows.? permission|workflows permission.*required|permission.*workflows.*required' <<<"$update_output"; then
+                printf '%s\n' "$update_output" >&2
+                exit "$update_status"
+              fi
+
+              error_message="Cannot refresh Dependabot pull request #$pr: token lacks the Workflows permission required for workflow-file changes. Configure the repository Actions secret GH_TOKEN with Contents: write, Pull requests: write, and Workflows: write permissions."
+              echo "::error::$error_message" >&2
+              {
+                echo "Auto-merge blocked for pull request #$pr: token lacks Workflows permission."
+                echo "Configure repository Actions secret GH_TOKEN with Contents: write, Pull requests: write, and Workflows: write permissions."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit "$update_status"
+            fi
+
+            refreshed_sha="$(gh pr view "$pr" --json headRefOid --jq '.headRefOid')"
+            attempt=0
+            while [[ "$refreshed_sha" == "$SOURCE_SHA" && "$attempt" -lt 30 ]]; do
+              attempt=$((attempt + 1))
+              sleep 5
+              refresh_status="$(gh pr view "$pr" --json headRefOid --jq '.headRefOid')"
+              refreshed_sha="$refresh_status"
+            done
+            if [[ "$refreshed_sha" == "$SOURCE_SHA" ]]; then
+              echo "GitHub accepted branch update for pull request #$pr but head SHA did not change." >&2
+              exit 1
+            fi
+
+            # Run updated workflow action pins from the refreshed Dependabot commit.
+            GH_TOKEN="$DISPATCH_TOKEN" gh workflow run ci.yml --ref "$head_branch"
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            {
+              echo "Auto-merge deferred: refreshed pull request #$pr to $refreshed_sha."
+              echo "Dispatched CI for $head_branch; its isolated success callback will retry auto-merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          case "$merge_state" in
+            DIRTY)
+              skip "pull request #$pr has merge conflicts"
+              ;;
+            DRAFT)
+              skip "pull request #$pr is a draft"
+              ;;
+            CLEAN|BLOCKED|HAS_HOOKS|UNSTABLE)
+              ;;
+            *)
+              skip "pull request #$pr has unsupported merge state $merge_state"
+              ;;
+          esac
+
+          echo "action=merge" >> "$GITHUB_OUTPUT"
+          echo "Pull request #$pr passed CI for current head $SOURCE_SHA and is $merge_state." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach required check to dispatched Dependabot PR head
+        if: steps.evaluate.outputs.action == 'merge' && github.event_name == 'workflow_dispatch'
+        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          CHECKS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.head_branch }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.source_sha }}
+          SOURCE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.source_run_attempt }}
+          SOURCE_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || inputs.source_run_url }}
+        run: |
+          set -euo pipefail
 
+          pr_numbers="$(gh pr list --state open --head "$HEAD_BRANCH" --json number --jq '.[].number')"
+          matching_prs=()
+          if [[ -n "$pr_numbers" ]]; then
+            mapfile -t matching_prs <<<"$pr_numbers"
+          fi
+          if [[ "${#matching_prs[@]}" -ne 1 ]]; then
+            echo "Expected one open pull request for $HEAD_BRANCH; found ${#matching_prs[@]}." >&2
+            exit 1
+          fi
+          pr="${matching_prs[0]}"
+
+          pull_fields="$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.state, .head.sha, .base.sha, (.merge_commit_sha // "null")] | @tsv')"
+          IFS=$'\t' read -r state head_sha base_sha merge_sha <<<"$pull_fields"
+          if [[ "$state" != 'open' || "$head_sha" != "$SOURCE_SHA" || "$merge_sha" == 'null' ]]; then
+            echo "Pull request #$pr changed after dispatched CI; refusing to attach a required check." >&2
+            exit 1
+          fi
+
+          head_tree="$(gh api "repos/$GH_REPO/git/commits/$SOURCE_SHA" --jq '.tree.sha')"
+          merge_tree="$(gh api "repos/$GH_REPO/git/commits/$merge_sha" --jq '.tree.sha')"
+          if [[ "$head_tree" != "$merge_tree" ]]; then
+            echo "Dispatched CI tree does not match pull request #$pr merge tree; refusing to attach a required check." >&2
+            exit 1
+          fi
+
+          external_id="dependabot-automerge-${pr}-${SOURCE_RUN_ID}-${SOURCE_RUN_ATTEMPT}"
+          existing_check="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/$GH_REPO/commits/$SOURCE_SHA/check-runs" \
+            --jq ".check_runs[] | select(.name == \"build-test-push\" and .external_id == \"$external_id\" and .app.id == 15368 and .conclusion == \"success\") | .id" | head -n 1)"
+          check_id="$existing_check"
+          if [[ -z "$check_id" ]]; then
+            completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            summary="CI run $SOURCE_RUN_URL passed for PR head $SOURCE_SHA and the identical merge tree on base $base_sha."
+            check_fields="$(GH_TOKEN="$CHECKS_TOKEN" gh api --method POST "repos/$GH_REPO/check-runs" \
+              -f name='build-test-push' \
+              -f head_sha="$SOURCE_SHA" \
+              -f status='completed' \
+              -f conclusion='success' \
+              -f started_at="$completed_at" \
+              -f completed_at="$completed_at" \
+              -f external_id="$external_id" \
+              -f details_url="$SOURCE_RUN_URL" \
+              -f 'output[title]=Dependabot CI passed for current PR head' \
+              -f "output[summary]=$summary" \
+              --jq '[.id, (.app.id | tostring)] | @tsv')"
+            IFS=$'\t' read -r check_id check_app_id <<<"$check_fields"
+            if [[ -z "$check_id" || "$check_app_id" != '15368' ]]; then
+              echo "Required check was not created by the branch-protection GitHub Actions app." >&2
+              exit 1
+            fi
+          fi
+
+          check_html_url="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/$GH_REPO/check-runs/$check_id" --jq '.html_url')"
+          if [[ -z "$check_html_url" ]]; then
+            echo "Could not resolve the PR-visible URL for required check $check_id." >&2
+            exit 1
+          fi
+
+          latest_pull_fields="$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.state, .head.sha, .base.sha, (.merge_commit_sha // "null")] | @tsv')"
+          IFS=$'\t' read -r latest_state latest_head_sha latest_base_sha latest_merge_sha <<<"$latest_pull_fields"
+          if [[ "$latest_state" != 'open' || "$latest_head_sha" != "$SOURCE_SHA" || "$latest_base_sha" != "$base_sha" || "$latest_merge_sha" != "$merge_sha" ]]; then
+            echo "Pull request #$pr changed while its required check was being attached." >&2
+            exit 1
+          fi
+
+          check_count=0
+          check_attempt=0
+          while [[ "$check_count" != '1' && "$check_attempt" -lt 12 ]]; do
+            check_attempt=$((check_attempt + 1))
+            check_urls="$(gh pr view "$pr" --json statusCheckRollup \
+              --jq '.statusCheckRollup[]? | select(.name == "build-test-push" and .conclusion == "SUCCESS") | .detailsUrl')"
+            if printf '%s\n' "$check_urls" | grep -Fqx -- "$check_html_url"; then
+              check_count=1
+            else
+              check_count=0
+            fi
+            if [[ "$check_count" != '1' ]]; then
+              sleep 5
+            fi
+          done
+          if [[ "$check_count" != '1' ]]; then
+            echo "GitHub did not recognize the successful build-test-push check on pull request #$pr head $SOURCE_SHA." >&2
+            gh pr view "$pr" --json statusCheckRollup >&2
+            exit 1
+          fi
+
+          echo "Attached successful build-test-push check $check_id to PR head $SOURCE_SHA for pull request #$pr." >> "$GITHUB_STEP_SUMMARY"
+
+      # Branch protection may require an approval. GitHub Actions can approve only
+      # when the repository allows it; a refusal is reported, not fatal.
       - name: Approve Pull Request
-        if: steps.evaluate.outputs.skip != 'true'
-        run: gh pr review "${{ github.event.workflow_run.pull_requests[0].number }}" --approve
+        if: steps.evaluate.outputs.action == 'merge'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          SOURCE_PR: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].number || '' }}
+          SOURCE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || 'workflow_dispatch' }}
+          HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.head_branch }}
+        run: |
+          set -euo pipefail
+          pr="$SOURCE_PR"
+          if [[ "$SOURCE_EVENT" == 'workflow_dispatch' ]]; then
+            pr="$(gh pr list --state open --head "$HEAD_BRANCH" --json number --jq '.[0].number')"
+          fi
+          if ! gh pr review "$pr" --approve; then
+            echo "Could not approve pull request #$pr with the workflow token; merge proceeds if branch protection allows it." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Merge Pull Request
-        if: steps.evaluate.outputs.skip != 'true'
-        run: gh pr merge "${{ github.event.workflow_run.pull_requests[0].number }}" --merge --delete-branch
+        if: steps.evaluate.outputs.action == 'merge'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          SOURCE_PR: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].number || '' }}
+          SOURCE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || 'workflow_dispatch' }}
+          HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.head_branch }}
+        run: |
+          set -euo pipefail
+          pr="$SOURCE_PR"
+          if [[ "$SOURCE_EVENT" == 'workflow_dispatch' ]]; then
+            matching_pr_numbers="$(gh pr list --state open --head "$HEAD_BRANCH" --json number --jq '.[].number')"
+            matching_prs=()
+            if [[ -n "$matching_pr_numbers" ]]; then
+              mapfile -t matching_prs <<<"$matching_pr_numbers"
+            fi
+            test "${#matching_prs[@]}" -eq 1
+            pr="${matching_prs[0]}"
+          fi
+          gh pr merge "$pr" --merge --auto

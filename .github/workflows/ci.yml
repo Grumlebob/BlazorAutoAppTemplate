@@ -558,6 +558,45 @@ jobs:
           df -Pi /opt
           echo "CI cleans only resources it owns; scoped maintenance handles the rest."
 
+  # After a dispatched CI run validates a refreshed Dependabot branch, hand the
+  # exact tested commit back to the auto-merge workflow.
+  notify-dependabot-automerge:
+    name: Notify Dependabot auto-merge
+    needs: validate
+    if: ${{ needs.validate.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' && startsWith(github.ref_name, 'dependabot/') }}
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    permissions:
+      actions: write
+    steps:
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
+      - name: Verify GitHub CLI
+        run: command -v gh
+      - name: Dispatch auto-merge for the exact validated commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_RUN_HEAD_SHA: ${{ github.sha }}
+          SOURCE_RUN_HEAD_BRANCH: ${{ github.ref_name }}
+          SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh workflow run auto-merge-dependabot.yml --repo "$GH_REPO" --ref main \
+            --field head_branch="$HEAD_BRANCH" \
+            --field source_sha="$SOURCE_SHA" \
+            --field source_run_id="$SOURCE_RUN_ID" \
+            --field source_run_attempt="$SOURCE_RUN_ATTEMPT" \
+            --field source_run_head_sha="$SOURCE_RUN_HEAD_SHA" \
+            --field source_run_head_branch="$SOURCE_RUN_HEAD_BRANCH" \
+            --field source_run_url="$SOURCE_RUN_URL"
+
   prune-migration-artifacts:
     needs: publish-main
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
