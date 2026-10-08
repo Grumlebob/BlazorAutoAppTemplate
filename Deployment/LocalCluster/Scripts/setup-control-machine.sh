@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-bash "${SCRIPT_DIR}/install-ansible.sh"
+bash "${SCRIPT_DIR}/install-ansible.sh" --provision
 bash "${SCRIPT_DIR}/validate-deploy-settings.sh"
 
 APP_NAME="$(bash "${SCRIPT_DIR}/read-deploy-setting.sh" app_name)"

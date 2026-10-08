@@ -737,6 +737,20 @@ require_contains(
     "Deployment/Common/Scripts/install-ansible.sh",
     "LocalCluster Ansible installer wrapper points to Common",
 )
+# CI/CD jobs only check prerequisites. apt runs during explicit provisioning,
+# because a host-wide apt lock (for example mint-refresh-ca) breaks CI otherwise.
+for script, needle in [
+    ("Deployment/Common/Scripts/install-ansible.sh", '--check) MODE="check"'),
+    ("Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh", '--check) MODE="check"'),
+]:
+    require_contains(script, needle, "check-only mode without apt or sudo")
+require_contains(".github/workflows/ci.yml", "ensure-actions-runner-prereqs.sh --check", "check-only runner prerequisites in CI")
+require_contains(".github/workflows/ci.yml", "Tests/test-install-ansible-check.sh", "Ansible check-only setup test")
+for workflow, installer in [
+    (".github/workflows/cd-localcluster.yml", "Deployment/LocalCluster/Scripts/install-ansible.sh --check"),
+    (".github/workflows/cd-cloud.yml", "Deployment/Common/Scripts/install-ansible.sh --check"),
+]:
+    require_contains(workflow, installer, "check-only Ansible activation in CD")
 require_contains(
     "Deployment/LocalCluster/Scripts/setup-control-machine.sh",
     "validate-deploy-settings.sh",

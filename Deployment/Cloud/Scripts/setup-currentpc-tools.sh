@@ -87,7 +87,7 @@ install_base_packages
 install_github_cli
 install_opentofu
 
-bash "$REPO_ROOT/Deployment/Common/Scripts/install-ansible.sh"
+bash "$REPO_ROOT/Deployment/Common/Scripts/install-ansible.sh" --provision
 
 if ! gh auth status >/dev/null 2>&1; then
   if [[ "${SKIP_GH_LOGIN:-}" == "1" ]]; then

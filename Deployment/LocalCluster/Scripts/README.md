@@ -36,7 +36,7 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `validate-rendered-templates.sh` renders representative deployment templates and runs optional local validators when available.
 
-`install-ansible.sh` wraps the shared installer in `Deployment/Common/Scripts/install-ansible.sh`.
+`install-ansible.sh` wraps the shared installer in `Deployment/Common/Scripts/install-ansible.sh`. `--provision` (the default) installs missing OS packages with bounded, retried apt calls and publishes a validated Ansible generation under `~/.local/share/books-ansible/current`. `--check` validates that generation without apt or sudo; CI and CD use only `--check`.
 
 `with-deploy-lock.sh` is the workflow-facing wrapper for serialized node-main deploys.
 
@@ -46,7 +46,7 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `find-successful-ci-run.sh` wraps the shared GitHub Actions helper in `Deployment/Common`.
 
-`ensure-actions-runner-prereqs.sh` verifies or installs self-hosted CI prerequisites on `node-main`.
+`ensure-actions-runner-prereqs.sh` verifies (`--check`, used by CI) or installs (`--provision`, the default) self-hosted CI prerequisites on `node-main`. If CI reports a missing tool, run it with `--provision` on `node-main` as an administrator.
 
 `prune-docker-residue.sh` removes old unused LocalCluster app image tags without deleting volumes. Host-wide prunes (stopped containers, dangling images, build cache, networks) run only with `--include-unlabelled-host-residue`, because they affect every app on the Docker host.
 
