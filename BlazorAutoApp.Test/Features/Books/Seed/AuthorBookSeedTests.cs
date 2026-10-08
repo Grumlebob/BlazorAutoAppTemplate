@@ -6,6 +6,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Books.Seed;
 
+[Collection(TestCollectionNames.StartupSeed)]
 public sealed class AuthorBookSeedTests
 {
     [Fact]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Xunit;
 using BlazorAutoApp.Test.Architecture.Support;
 
@@ -97,38 +98,39 @@ public class FeatureSlicesArchitectureTests
     }
 
     [Fact]
-    public void EachCoreRequest_HasMatchingFeatureTestClass()
+    public void CoreFeaturesWithUseCases_HaveFeatureTestCoverage()
     {
-        var requests = ArchitectureAssemblies.Core.GetTypes()
-            .Where(t => t.IsClass && t.IsPublic && t.Namespace != null && t.Namespace.Contains(".Features.") && t.Name.EndsWith("Request", StringComparison.Ordinal))
-            .Select(t => new
-            {
-                Type = t,
-                FeaturePath = GetFeaturePath(t.Namespace!),
-                BaseName = t.Name[..^"Request".Length]
-            })
-            .Where(x => !string.IsNullOrWhiteSpace(x.FeaturePath))
+        var featureNames = ArchitectureAssemblies.Core.GetTypes()
+            .Where(t => t.IsPublic
+                && t.Namespace is not null
+                && t.Namespace.StartsWith("BlazorAutoApp.Core.Features.", StringComparison.Ordinal)
+                && t.Namespace.Contains(".UseCases.", StringComparison.Ordinal))
+            .Select(t => GetFeatureName(t.Namespace!))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
 
-        Assert.NotEmpty(requests);
+        Assert.NotEmpty(featureNames);
 
-        var failures = new List<string>();
+        var testTypes = ArchitectureAssemblies.Tests.GetTypes()
+            .Where(t => t.IsClass
+                && t.IsPublic
+                && t.Namespace is not null
+                && t.Namespace.StartsWith("BlazorAutoApp.Test.Features.", StringComparison.Ordinal)
+                && t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                    .Any(m => m.GetCustomAttributes(inherit: true)
+                        .Any(a => a.GetType().Name is "FactAttribute" or "TheoryAttribute")))
+            .ToList();
 
-        foreach (var req in requests)
-        {
-            var expectedClass = $"{req.BaseName}Tests";
-            var expectedNamespace = "BlazorAutoApp.Test.Features." + req.FeaturePath;
-            var match = ArchitectureAssemblies.Tests.GetTypes()
-                .FirstOrDefault(t => t.IsClass && t.IsPublic
-                                     && t.Name.Equals(expectedClass, StringComparison.Ordinal)
-                                     && t.Namespace is not null
-                                     && t.Namespace.StartsWith(expectedNamespace, StringComparison.Ordinal));
-
-            if (match is null)
+        var failures = featureNames
+            .Where(featureName => !testTypes.Any(testType =>
             {
-                failures.Add($"Missing test class for {req.Type.FullName}: expected {expectedNamespace}.{expectedClass}");
-            }
-        }
+                var expectedNamespace = "BlazorAutoApp.Test.Features." + featureName;
+                return testType.Namespace!.StartsWith(expectedNamespace, StringComparison.Ordinal);
+            }))
+            .Select(featureName => $"Missing feature test coverage for BlazorAutoApp.Core.Features.{featureName}")
+            .ToList();
 
         Assert.True(failures.Count == 0, "Missing feature tests:\n" + string.Join("\n", failures));
     }
@@ -158,7 +160,33 @@ public class FeatureSlicesArchitectureTests
         Assert.True(failures.Count == 0, "Feature test classes missing test methods:\n" + string.Join("\n", failures));
     }
 
-    private static string? GetFeaturePath(string namespaceName)
+    [Fact]
+    public void PassiveRequestDtoConstructionTests_AreNotAllowed()
+    {
+        var root = SourceSearch.GetRepoRoot();
+        var testRoot = Path.Combine(root, "BlazorAutoApp.Test", "Features");
+        var passiveTestNamePattern = new Regex(
+            @"\b(?<name>(?:Request_(?:CanBeCreated|Has[A-Za-z0-9_]*)|CanBeCreated))\b",
+            RegexOptions.Compiled);
+
+        var offenders = Directory.EnumerateFiles(testRoot, "*Tests.cs", SearchOption.AllDirectories)
+            .SelectMany(file =>
+            {
+                var relative = Path.GetRelativePath(root, file);
+                return File.ReadLines(file)
+                    .Select((line, index) => new { Line = line, LineNumber = index + 1 })
+                    .Where(row => passiveTestNamePattern.IsMatch(row.Line))
+                    .Select(row => $"{relative}:{row.LineNumber}: {row.Line.Trim()}");
+            })
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(offenders.Count == 0,
+            "Do not test passive DTO construction; test validation, API behavior, mapper behavior, or persistence instead:\n"
+            + string.Join("\n", offenders));
+    }
+
+    private static string? GetFeatureName(string namespaceName)
     {
         const string prefix = "BlazorAutoApp.Core.Features.";
         if (!namespaceName.StartsWith(prefix, StringComparison.Ordinal))
@@ -167,13 +195,6 @@ public class FeatureSlicesArchitectureTests
         }
 
         var relative = namespaceName[prefix.Length..];
-        var parts = relative.Split('.');
-        var useCasesIndex = Array.IndexOf(parts, "UseCases");
-        if (useCasesIndex <= 0)
-        {
-            return null;
-        }
-
-        return string.Join('.', parts.Take(useCasesIndex));
+        return relative.Split('.').FirstOrDefault();
     }
 }

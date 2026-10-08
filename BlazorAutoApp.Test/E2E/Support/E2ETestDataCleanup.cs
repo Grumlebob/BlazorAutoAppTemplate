@@ -12,7 +12,7 @@ namespace BlazorAutoApp.Test.E2E.Support;
 
 internal sealed class E2ETestDataCleanup(Func<IPage> page, Func<string, Task<IResponse?>> goTo)
 {
-    internal const string DefaultPassword = "Passw0rd!";
+    internal const string DefaultPassword = E2ETestCredentials.Password;
 
     private readonly List<TrackedBook> _trackedBooks = [];
     private readonly List<TrackedUser> _trackedUsers = [];

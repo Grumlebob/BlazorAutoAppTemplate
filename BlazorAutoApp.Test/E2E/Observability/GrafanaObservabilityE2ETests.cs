@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using BlazorAutoApp.Test.E2E.Support;
 using Microsoft.Playwright;
 using Xunit;
+using BlazorAutoApp.Test.TestSupport.Integration;
 
 namespace BlazorAutoApp.Test.E2E.Observability;
 
+[Collection(TestCollectionNames.E2E)]
 public sealed class GrafanaObservabilityE2ETests : BlazorE2ETestBase
 {
     [Fact(Skip = "Set RUN_E2E=1 and RUN_OBSERVABILITY_E2E=1 to run Grafana observability E2E tests.", SkipUnless = nameof(E2ETestGuard.IsObservabilityEnabled), SkipType = typeof(E2ETestGuard))]

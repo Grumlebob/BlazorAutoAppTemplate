@@ -18,6 +18,8 @@ internal sealed class TestAuthenticationHandler(
 {
     public const string SchemeName = "Test";
     public const string UserHeader = "X-Test-User";
+    /// <summary>Comma- or semicolon-separated role names added as role claims.</summary>
+    public const string RolesHeader = "X-Test-Roles";
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -28,11 +30,20 @@ internal sealed class TestAuthenticationHandler(
         }
 
         await EnsureUserExistsAsync(userName);
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, userName),
             new Claim(ClaimTypes.Name, userName)
         };
+        var roles = Request.Headers[RolesHeader]
+            .SelectMany(value => value?.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);

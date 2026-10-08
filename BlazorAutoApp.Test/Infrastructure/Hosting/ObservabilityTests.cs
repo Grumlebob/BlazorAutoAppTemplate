@@ -7,6 +7,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
+[Collection(TestCollectionNames.StartupIntegration)]
 public sealed class ObservabilityTests
 {
     [Theory]

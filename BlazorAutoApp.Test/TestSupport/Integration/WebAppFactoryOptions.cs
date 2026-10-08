@@ -1,7 +1,20 @@
+using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BlazorAutoApp.Test.TestSupport.Integration;
 
 public sealed class WebAppFactoryOptions
 {
+    /// <summary>Extra configuration values applied after the factory defaults.</summary>
+    public Dictionary<string, string?> ConfigurationOverrides { get; init; } = [];
+
+    /// <summary>Extra service registrations applied after the test authentication setup.</summary>
+    public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+
+    /// <summary>Set to false for factories that never call ResetDatabaseAsync.</summary>
+    public bool InitializeDatabaseRespawner { get; init; } = true;
+
     public string? PostgresConnectionString { get; init; }
 
     public string? RedisConnectionString { get; init; }

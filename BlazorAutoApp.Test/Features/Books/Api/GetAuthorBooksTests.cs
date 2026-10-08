@@ -11,7 +11,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Books.Api;
 
-[Collection("IntegrationTestCollection")]
+[Collection(TestCollectionNames.Integration)]
 public class GetAuthorBooksTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;

@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using Microsoft.Playwright;
 using Xunit;
 using BlazorAutoApp.Test.E2E.Support;
+using BlazorAutoApp.Test.TestSupport.Integration;
 
 namespace BlazorAutoApp.Test.E2E.VisualRegression;
 
+[Collection(TestCollectionNames.E2E)]
 public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
 {
     [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]

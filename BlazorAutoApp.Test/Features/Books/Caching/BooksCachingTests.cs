@@ -20,7 +20,7 @@ using BlazorAutoApp.Test.Features.Books.TestData;
 
 namespace BlazorAutoApp.Test.Features.Books.Caching;
 
-[Collection("IntegrationTestCollection")]
+[Collection(TestCollectionNames.Integration)]
 public class BooksCachingTests : IAsyncLifetime, IDisposable
 {
     private readonly HttpClient _client;

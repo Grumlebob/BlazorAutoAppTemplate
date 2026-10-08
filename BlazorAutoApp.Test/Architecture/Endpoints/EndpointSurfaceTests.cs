@@ -9,7 +9,7 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Architecture.Endpoints;
 
-[Collection("IntegrationTestCollection")]
+[Collection(TestCollectionNames.Integration)]
 public class EndpointSurfaceTests(WebAppFactory factory)
 {
     private readonly IServiceProvider _services = factory.Services;

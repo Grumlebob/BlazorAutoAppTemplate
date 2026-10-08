@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Threading.Tasks;
 using BlazorAutoApp.Features.Books.Caching;
 using BlazorAutoApp.Infrastructure.Persistence;
@@ -22,9 +24,11 @@ namespace BlazorAutoApp.Test.TestSupport.Integration;
 public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const int MaxWaitTimeMinutes = 5;
-    private const int DefaultGlobalPermitLimit = 600;
-    private const int DefaultApiPermitLimit = 60;
-    private const int DefaultAuthenticationPermitLimit = 20;
+    // Integration tests share one client IP; generous defaults keep unrelated tests
+    // from tripping limits. Rate-limit tests set low limits explicitly.
+    private const int DefaultGlobalPermitLimit = 10_000;
+    private const int DefaultApiPermitLimit = 1_000;
+    private const int DefaultAuthenticationPermitLimit = 1_000;
     private const string RyukImageEnvironmentVariable = "TESTCONTAINERS_RYUK_CONTAINER_IMAGE";
     private const string ConnectionStringEnvironmentVariable = "ConnectionStrings__DefaultConnection";
     private const string RedisConfigurationEnvironmentVariable = "Redis__Configuration";
@@ -58,8 +62,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private string _connectionString = default!;
     private string _redisConnectionString = "CHANGE_ME";
-    private Respawner _respawner = default!;
+    private Respawner? _respawner;
     private EnvironmentVariableScope? _environmentOverrides;
+    private int _disposed;
     public HttpClient HttpClient { get; private set; } = default!;
     internal string ConnectionString => _connectionString;
 
@@ -74,6 +79,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         if (string.IsNullOrWhiteSpace(options.PostgresConnectionString))
         {
             _dbContainer = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
+                .WithCreateParameterModifier(TestContainerImages.ConfigurePostgreSqlData)
+                .WithLabel(TestContainerLabels.For("web-app-factory-postgres"))
+                .WithCleanUp(true)
                 .Build();
         }
     }
@@ -112,6 +120,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 values["Cache:Invalidation:NodeId"] = _options.CacheInvalidationNodeId;
             }
 
+            foreach (var (key, value) in _options.ConfigurationOverrides)
+            {
+                values[key] = value;
+            }
+
             if (_options.LocalListTtlSeconds is not null)
             {
                 values["Cache:Books:LocalListTtlSeconds"] = _options.LocalListTtlSeconds.Value.ToString();
@@ -142,11 +155,19 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                 TestAuthenticationHandler.SchemeName,
                 _ => { });
+
+            _options.ConfigureTestServices?.Invoke(services);
         });
     }
 
     public async Task ResetDatabaseAsync()
     {
+        if (_respawner is null)
+        {
+            throw new InvalidOperationException(
+                "Database respawner was not initialized. Set WebAppFactoryOptions.InitializeDatabaseRespawner to true before using ResetDatabaseAsync.");
+        }
+
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
         await _respawner.ResetAsync(connection);
@@ -225,7 +246,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             await using var context = await dbFactory.CreateDbContextAsync();
             await context.Database.MigrateAsync();
         }
-        await InitializeRespawner();
+
+        if (_options.InitializeDatabaseRespawner)
+        {
+            await InitializeRespawner();
+        }
     }
 
     private async Task InitializeRespawner()
@@ -244,15 +269,56 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public new async ValueTask DisposeAsync()
     {
-        HttpClient?.Dispose();
-        await base.DisposeAsync();
-
-        if (_dbContainer is not null)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
-            await _dbContainer.StopAsync();
+            return;
         }
 
-        _environmentOverrides?.Dispose();
-        _environmentOverrides = null;
+        List<Exception> failures = [];
+        try
+        {
+            HttpClient?.Dispose();
+            await base.DisposeAsync();
+        }
+        catch (Exception exception)
+        {
+            failures.Add(exception);
+        }
+
+        try
+        {
+            // DisposeAsync removes the container; StopAsync left it on the runner.
+            if (_dbContainer is not null)
+            {
+                await _dbContainer.DisposeAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            failures.Add(exception);
+        }
+        finally
+        {
+            try
+            {
+                _environmentOverrides?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+
+            _environmentOverrides = null;
+        }
+
+        if (failures.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        }
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException("One or more integration resources failed to dispose.", failures);
+        }
     }
 }

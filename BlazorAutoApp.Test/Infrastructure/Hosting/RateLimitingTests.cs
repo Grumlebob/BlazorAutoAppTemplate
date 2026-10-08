@@ -8,14 +8,14 @@ using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
-[Collection("IntegrationTestCollection")]
-public sealed class RateLimitingTests(WebAppFactory factory)
+[Collection(TestCollectionNames.StartupIntegration)]
+public sealed class RateLimitingTests(RateLimitingWebAppFixture fixture) : IClassFixture<RateLimitingWebAppFixture>
 {
-    private const int ApiPermitLimit = 60;
-    private const int AuthenticationPermitLimit = 20;
+    internal const int ApiPermitLimit = 60;
+    internal const int AuthenticationPermitLimit = 20;
 
-    private readonly WebAppFactory _factory = factory;
-    private readonly HttpClient _client = factory.HttpClient;
+    private readonly WebAppFactory _factory = fixture.Factory;
+    private readonly HttpClient _client = fixture.Factory.HttpClient;
 
     [Fact]
     public async Task BooksApi_ReturnsTooManyRequests_WhenApiLimitIsExceeded()
@@ -95,5 +95,25 @@ public sealed class StaticAssetRateLimitPathTests
     public void ApplicationPaths_AreNotExcludedFromGlobalRateLimit(string path)
     {
         Assert.False(AppRateLimiting.IsStaticAssetRequest(path));
+    }
+}
+
+public sealed class RateLimitingWebAppFixture : IAsyncLifetime
+{
+    public WebAppFactory Factory { get; } = new(new WebAppFactoryOptions
+    {
+        ApiRateLimitPermitLimit = RateLimitingTests.ApiPermitLimit,
+        AuthenticationRateLimitPermitLimit = RateLimitingTests.AuthenticationPermitLimit,
+        InitializeDatabaseRespawner = false
+    });
+
+    public async ValueTask InitializeAsync()
+    {
+        await Factory.InitializeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Factory.DisposeAsync();
     }
 }
