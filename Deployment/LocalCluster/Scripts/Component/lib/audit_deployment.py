@@ -83,6 +83,11 @@ required_files = [
     "Deployment/LocalCluster/Scripts/check-node-main-capacity.sh",
     "Deployment/LocalCluster/Scripts/localcluster-capacity-thresholds.sh",
     "Scripts/CI/check-runner-capacity.sh",
+    "Deployment/Common/Scripts/validate_release_manifest.py",
+    "Deployment/Common/Scripts/Tests/test_ci_provenance.py",
+    "Deployment/Common/Scripts/Tests/test_release_contract.py",
+    "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
+    "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
     "Scripts/CI/migration_staging_artifact.py",
     "Scripts/CI/tests/test_migration_staging_artifact.py",
     "Deployment/Common/Scripts/install-ansible.sh",
@@ -660,7 +665,7 @@ for seeded_path in [
 
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
-    ("${APP_IMAGE}:${APP_VERSION}", "immutable image variables"),
+    ("image: ${APP_IMAGE_REF:?APP_IMAGE_REF is required}", "exact release image reference"),
     ("ASPNETCORE_HTTP_PORTS: ${APP_PORT}", "configured app listen port"),
     ('"${APP_PORT}:${APP_PORT}"', "configured published app port"),
     ('Database__RunMigrationsAtStartup: "false"', "production startup migrations disabled"),
@@ -848,6 +853,9 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh", "Docker smoke resource lifecycle test"),
     ("python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py", "migration staging provenance tests"),
+    ("Deployment/Common/Scripts/Tests/test_release_contract.py", "release manifest contract tests"),
+    ("Deployment/Common/Scripts/Tests/test_ci_provenance.py", "CI provenance selection tests"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
     ("global-json-file: global.json", "SDK pinned by global.json"),
     ("ansible-playbook", "LocalCluster playbook syntax check"),
@@ -1027,10 +1035,20 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
     ("bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname", "public hostname setting"),
-    ("echo \"APP_VERSION=${GITHUB_SHA}\"", "automatic selected-ref image tag"),
-    ("bash Deployment/LocalCluster/Scripts/find-successful-ci-run.sh", "successful CI gate"),
+    ('TARGET_SHA="${INPUT_TARGET_SHA:-$GITHUB_SHA}"', "target SHA defaults to the dispatched main commit"),
+    ('git merge-base --is-ancestor "$TARGET_SHA" "$GITHUB_SHA"', "only commits on main can deploy"),
+    ("echo \"APP_VERSION=${TARGET_SHA}\"", "target commit image tag"),
+    ("find-successful-ci-run.py --target-sha \"$TARGET_SHA\" --json", "successful CI gate for the target commit"),
     ("CI_RUN_ID=", "CI run id export"),
-    ("docker manifest inspect \"${APP_IMAGE}:${APP_VERSION}\"", "image existence check"),
+    ("CI_RUN_ATTEMPT=", "CI run attempt export"),
+    ("validate_release_manifest.py", "release manifest validation"),
+    ('--expected-ci-run-attempt "$CI_RUN_ATTEMPT"', "release manifest bound to the CI attempt"),
+    ("release_image_digest=${RELEASE_IMAGE_DIGEST}", "digest-pinned deployment"),
+    ('-e @"${GHCR_EXTRA_VARS_FILE}"', "workflow-token registry credentials"),
+    ("GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "workflow token instead of a stored PAT"),
+    ('rm -f "${GHCR_EXTRA_VARS_FILE}"', "registry credential file cleanup"),
+    ("verify-release-identity.sh", "running release identity verification"),
+    ("timeout-minutes: 60", "bounded deploy job"),
     ("uses: actions/download-artifact@v8", "CI migration artifact download"),
     ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact download name"),
     ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
@@ -1046,6 +1064,22 @@ for needle, why in [
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/cd-localcluster.yml: missing {why}")
+download_step = re.search(r"(?ms)^      - name: Download release artifact from CI\n.*?(?=^      - name: |\Z)", deploy_lan)
+if download_step is None or "if:" in download_step.group(0):
+    fail(".github/workflows/cd-localcluster.yml: download the release artifact for every deploy; the manifest is always needed")
+if "vault_ghcr_token" in read("Deployment/LocalCluster/inventory/prod/vault.example.yml").replace("# vault_ghcr_token", ""):
+    fail("Deployment/LocalCluster/inventory/prod/vault.example.yml: GHCR credentials must stay optional")
+app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
+for needle, why in [
+    ("Pull application image with command-owned registry credentials", "single command-owned registry login and pull"),
+    ('export DOCKER_CONFIG="$docker_config"', "temporary registry credential store"),
+    ("docker compose up -d --pull always --remove-orphans", "pull and start the exact image"),
+    ("no_log: true", "registry credentials kept out of logs"),
+]:
+    if needle not in app_tasks:
+        fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
+if "- name: Log in to GHCR" in app_tasks:
+    fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
 if "image_tag" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: manual image_tag input should not be required")
 if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
@@ -1059,8 +1093,9 @@ for needle, why in [
     ("GITHUB_SHA", "commit input"),
     ("GITHUB_TOKEN", "GitHub token input"),
     ("actions/workflows", "workflow runs API"),
-    ("conclusion\") == \"success\"", "successful CI conclusion requirement"),
-    ("event\") != \"pull_request\"", "pull request run exclusion"),
+    ('selected["conclusion"] != "success"', "successful CI conclusion requirement"),
+    ('ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "pull request run exclusion"),
+    ('branch != "main"', "main branch run requirement"),
 ]:
     if needle not in find_ci:
         fail(f"Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py: missing {why}")
@@ -1096,6 +1131,19 @@ for needle, why in [
 ]:
     if needle not in site:
         fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
+stage_pos = site.find("Stage the exact app image before any app interruption")
+stop_pos = site.find("- name: Stop app containers before migration")
+apps_pos = site.find("- name: Deploy app servers")
+caddy_pos = site.find("- name: Deploy Caddy and Cloudflare Tunnel")
+if stage_pos < 0 or stop_pos < 0 or stage_pos > stop_pos:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: stage the exact app image before stopping apps")
+if "Require the registry digest on the staged image" not in site:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: staged image must be checked against the release digest")
+apps_play = site[apps_pos:site.find("\n- name:", apps_pos + 1)] if apps_pos >= 0 else ""
+if "serial: 1" not in apps_play or "any_errors_fatal: true" not in apps_play:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: deploy app servers one at a time and stop on the first failure")
+if caddy_pos < 0 or caddy_pos < apps_pos:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: deploy Caddy and Cloudflare Tunnel after app readiness")
 if re.search(r"name: Stop existing app stack[\s\S]+?failed_when: false", site):
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: Stop existing app stack must not suppress all failures")
 
@@ -1135,6 +1183,8 @@ for path, checks in {
         ("COMPOSE_PROJECT_NAME={{ app_name }}", "explicit Compose project name"),
         ("APP_NAME={{ app_name }}", "app identity env marker"),
         ("APP_PORT={{ app_port }}", "app port env rendering"),
+        ("APP_IMAGE_REF=", "exact release image reference"),
+        ("release_image_digest", "digest-pinned image reference"),
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
     ],

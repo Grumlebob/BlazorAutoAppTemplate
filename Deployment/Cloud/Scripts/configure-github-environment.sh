@@ -110,14 +110,6 @@ else
 fi
 
 set_secret_interactive_if_missing \
-  CLOUD_GHCR_USERNAME \
-  CLOUD_GHCR_USERNAME \
-  "Paste the GitHub username that owns the GHCR read token, for example Grumlebob. This is not your email."
-set_secret_interactive_if_missing \
-  CLOUD_GHCR_TOKEN \
-  CLOUD_GHCR_TOKEN \
-  "Paste a GitHub personal access token (classic) with read:packages access to ghcr.io/grumlebob/books. This is not the Hetzner token, not the Cloudflare token, and not your GitHub password."
-set_secret_interactive_if_missing \
   CLOUD_CLOUDFLARE_TUNNEL_TOKEN \
   CLOUD_CLOUDFLARE_TUNNEL_TOKEN \
   "Paste the long token value from the Cloudflare cloudflared install command copied in Step 9."

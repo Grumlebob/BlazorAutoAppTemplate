@@ -10,9 +10,14 @@ REQUIRED_KEYS = [
     "vault_postgres_password",
     "vault_postgres_db",
     "vault_redis_password",
+    "vault_cloudflare_tunnel_token",
+]
+
+# CD passes registry credentials from the workflow token. These keys are only
+# needed for manual deploys of a private image without `gh` or GHCR_* env vars.
+OPTIONAL_KEYS = [
     "vault_ghcr_username",
     "vault_ghcr_token",
-    "vault_cloudflare_tunnel_token",
 ]
 
 DOTENV_SAFE_PASSWORD = re.compile(r"^[A-Za-z0-9._@%+-]{16,128}$")
@@ -46,7 +51,7 @@ def parse_simple_yaml(text: str) -> tuple[dict[str, str], list[str]]:
 
 def validate(values: dict[str, str]) -> list[str]:
     errors: list[str] = []
-    allowed = set(REQUIRED_KEYS)
+    allowed = set(REQUIRED_KEYS + OPTIONAL_KEYS)
 
     for key in REQUIRED_KEYS:
         if key not in values:
@@ -72,6 +77,9 @@ def validate(values: dict[str, str]) -> list[str]:
             errors.append(
                 f"{key} must be 16-128 characters using only letters, numbers, dot, underscore, at, percent, plus, or hyphen"
             )
+
+    if bool(values.get("vault_ghcr_username")) != bool(values.get("vault_ghcr_token")):
+        errors.append("vault_ghcr_username and vault_ghcr_token must be set together or both omitted")
 
     ghcr_username = values.get("vault_ghcr_username", "")
     if ghcr_username and not re.match(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$", ghcr_username):

@@ -35,6 +35,50 @@
     - role: observability_agent
       when: observability_enabled | default(false) | bool
 
+- name: Stage the exact app image before any app interruption
+  hosts: app_servers
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+    - ../../inventory/prod/vault.yml
+  vars:
+    staged_app_image_ref: "{{ app_image ~ '@' ~ release_image_digest if release_image_digest | default('') | length > 0 else app_image ~ ':' ~ app_version }}"
+  tasks:
+    - name: Pull exact app image before app stop
+      ansible.builtin.shell: |
+        set -eu
+        docker_config="$(mktemp -d /tmp/{{ app_name }}-ghcr.XXXXXX)"
+        trap 'rm -rf -- "$docker_config"' EXIT
+        export DOCKER_CONFIG="$docker_config"
+        {% if vault_ghcr_token | default('') | length > 0 %}
+        echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
+        {% endif %}
+        docker pull "{{ staged_app_image_ref }}"
+      args:
+        executable: /bin/bash
+      no_log: true
+      become_user: deploy
+      register: staged_app_image
+      retries: 5
+      delay: 15
+      until: staged_app_image.rc == 0
+      changed_when: false
+
+    - name: Inspect staged app image
+      ansible.builtin.command: docker image inspect "{{ staged_app_image_ref }}"
+      register: staged_app_image_inspect
+      become_user: deploy
+      changed_when: false
+
+    - name: Require the registry digest on the staged image
+      ansible.builtin.assert:
+        that:
+          - (release_image_digest | default('') | length == 0)
+            or (release_image_digest in ((staged_app_image_inspect.stdout | from_json)[0].RepoDigests | default([]) | join(' ')))
+        fail_msg: "The staged app image does not expose the expected registry digest."
+
 - name: Stop app containers before migration
   hosts: app_servers
   become: true
@@ -70,16 +114,6 @@
   roles:
     - postgres
     - redis
-
-- name: Deploy Caddy and Cloudflare Tunnel
-  hosts: load_balancer
-  become: true
-  vars_files:
-    - ../../../Common/release.yml
-    - ../../inventory/prod/vault.yml
-  roles:
-    - caddy
-    - cloudflared
 
 - name: Run database migrations once
   hosts: node_db
@@ -145,14 +179,28 @@
       become_user: deploy
       when: run_migrations | default(false) | bool
 
+# One node at a time: the role waits for /health/ready before the next node
+# starts, so a deploy without migrations keeps one node serving.
 - name: Deploy app servers
   hosts: app_servers
+  serial: 1
+  any_errors_fatal: true
   become: true
   vars_files:
     - ../../../Common/release.yml
     - ../../inventory/prod/vault.yml
   roles:
     - app
+
+- name: Deploy Caddy and Cloudflare Tunnel after app readiness
+  hosts: load_balancer
+  become: true
+  vars_files:
+    - ../../../Common/release.yml
+    - ../../inventory/prod/vault.yml
+  roles:
+    - caddy
+    - cloudflared
 
 - name: Write LocalCluster app ownership markers
   hosts: all

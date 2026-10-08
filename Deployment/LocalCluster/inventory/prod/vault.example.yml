@@ -2,6 +2,8 @@ vault_postgres_user: REPLACE_WITH_POSTGRES_USER
 vault_postgres_password: REPLACE_WITH_STRONG_DB_PASSWORD
 vault_postgres_db: REPLACE_WITH_POSTGRES_DATABASE
 vault_redis_password: REPLACE_WITH_STRONG_REDIS_PASSWORD
-vault_ghcr_username: REPLACE_WITH_GITHUB_USERNAME
-vault_ghcr_token: REPLACE_WITH_GHCR_READ_TOKEN
 vault_cloudflare_tunnel_token: REPLACE_WITH_CLOUDFLARE_TUNNEL_TOKEN
+# Optional. CD deploys pull with the workflow token. Add both keys only if you
+# deploy a private image manually from a control machine without `gh` login:
+# vault_ghcr_username: <github-username>
+# vault_ghcr_token: <token with read:packages>

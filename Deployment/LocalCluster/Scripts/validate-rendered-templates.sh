@@ -60,6 +60,16 @@ def render_env(path: Path, values: dict[str, str]) -> str:
     rendered = re.sub(r"\{\{\s*hostvars\[groups\['load_balancer'\]\[0\]\]\.ansible_host\s*\}\}", "10.10.0.10", rendered)
     rendered = re.sub(r"\{\{\s*hostvars\[inventory_hostname\]\.ansible_host\s*\}\}", "10.10.0.20", rendered)
     rendered = re.sub(r"\{\{\s*inventory_hostname\s*\}\}", values["inventory_hostname"], rendered)
+    image_ref = (
+        f"{values['app_image']}@{values['release_image_digest']}"
+        if values.get("release_image_digest")
+        else f"{values['app_image']}:{values['app_version']}"
+    )
+    rendered = re.sub(
+        r"\{\{\s*app_image ~ '@' ~ release_image_digest if release_image_digest \| default\(''\) \| length > 0 else app_image ~ ':' ~ app_version\s*\}\}",
+        image_ref,
+        rendered,
+    )
     rendered = re.sub(r"\{\{\s*\(observability_enabled\s*\|\s*default\(false\)\s*\|\s*bool\)\s*\|\s*lower\s*\}\}", values["observability_enabled"], rendered)
     rendered = re.sub(r"\{\{\s*observability_trace_sample_ratio\s*\|\s*default\('0\.25'\)\s*\}\}", values["observability_trace_sample_ratio"], rendered)
     rendered = re.sub(r"\{\{\s*observability_postgres_exporter_port\s*\|\s*default\(9187\)\s*\}\}", values["observability_postgres_exporter_port"], rendered)
@@ -74,7 +84,8 @@ def render_compose(path: Path, env: dict[str, str]) -> str:
     def repl(match: re.Match[str]) -> str:
         key = match.group(1)
         return env.get(key, f"UNSET_{key}")
-    rendered = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", repl, text)
+    # ${VAR} and ${VAR:?message} must resolve; ${VAR:-default} is left to Compose.
+    rendered = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::\?[^}]*)?\}", repl, text)
     if "UNSET_" in rendered:
         fail(f"compose file {path} has unresolved environment variable")
     return rendered
@@ -192,10 +203,20 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         fail("rendered app env is missing stable app node name")
     if "COMPOSE_PROJECT_NAME=notes" not in app_env or "COMPOSE_PROJECT_NAME=notes" not in db_env:
         fail("rendered env files are missing explicit Compose project names")
+    if "APP_IMAGE_REF=ghcr.io/example/notes:abcdef123456" not in app_env:
+        fail("rendered app env must fall back to the app_version tag when no release digest is set")
+    release_digest = "sha256:" + "a" * 64
+    digest_env = render_env(
+        ROOT / "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2",
+        {**app_values, "release_image_digest": release_digest},
+    )
+    if f"APP_IMAGE_REF=ghcr.io/example/notes@{release_digest}" not in digest_env:
+        fail("rendered app env must pin APP_IMAGE_REF to the release digest when one is set")
 
     compose_env = {
         "APP_IMAGE": "ghcr.io/example/notes",
         "APP_VERSION": "abcdef123456",
+        "APP_IMAGE_REF": "ghcr.io/example/notes@sha256:" + "a" * 64,
         "APP_NODE_NAME": "node-app1",
         "APP_NAME": "notes",
         "APP_PORT": "8080",
@@ -223,6 +244,8 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     app_compose.write_text(render_compose(ROOT / "Deployment/LocalCluster/compose/app-server/docker-compose.yml", compose_env), encoding="utf-8")
     if "hostname: node-app1" not in app_compose.read_text(encoding="utf-8"):
         fail("rendered app compose is missing stable container hostname")
+    if "image: ghcr.io/example/notes@sha256:" + "a" * 64 not in app_compose.read_text(encoding="utf-8"):
+        fail("rendered app compose must run the exact APP_IMAGE_REF")
     db_compose_text = render_compose(ROOT / "Deployment/LocalCluster/compose/node-db/docker-compose.yml", compose_env)
     db_compose.write_text(db_compose_text, encoding="utf-8")
     for required in [
