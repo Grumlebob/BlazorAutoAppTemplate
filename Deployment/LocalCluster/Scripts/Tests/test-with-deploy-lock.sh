@@ -139,14 +139,19 @@ bash -c 'exit 0' &
 dead_pid=$!
 wait "$dead_pid"
 printf '%s\n' "$(hostname):pid=$dead_pid:repo=test:run=1-1:started=now" > "$LOCK_DIR/owner"
+# The release tool refuses while any ansible-playbook runs for this user. On a
+# shared node-main another app may be deploying, so skip rather than fail then.
 if pgrep -u "$(id -u)" -f ansible-playbook >/dev/null 2>&1; then
   echo "skip - verified release (an ansible-playbook process runs for this user)"
 elif bash "$RELEASE_TOOL" --release --token dead-token >/dev/null 2>&1 && [[ ! -e "$LOCK_DIR" ]]; then
   pass "verified release of an abandoned lock succeeds"
+elif pgrep -u "$(id -u)" -f ansible-playbook >/dev/null 2>&1; then
+  echo "skip - verified release (an ansible-playbook process started during the test)"
 else
   fail_test "verified release of an abandoned lock succeeds"
 fi
 
+reset_lock
 if bash "$RELEASE_TOOL" --inspect | grep -Fq "deployment lock is free"; then
   pass "inspect reports a free lock"
 else
