@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 
@@ -27,7 +28,12 @@ internal static class PersistenceExtensions
             });
         }
 
-        services.AddDbContextFactory<AppDbContext>(ConfigureDbContext);
+        // Features can observe SQL by registering DbCommandInterceptor services.
+        services.AddDbContextFactory<AppDbContext>((serviceProvider, options) =>
+        {
+            ConfigureDbContext(options);
+            options.AddInterceptors(serviceProvider.GetServices<DbCommandInterceptor>());
+        });
         services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
         healthChecks.AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace BlazorAutoApp.Features.Login.Account;
@@ -10,7 +11,9 @@ internal static class LoginFeatureExtensions
         IConfiguration configuration)
     {
         services.AddCascadingAuthenticationState();
+        services.AddHttpContextAccessor();
         services.AddScoped<IdentityRedirectManager>();
+        services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
         services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
         services.AddAuthorization();
 
@@ -20,6 +23,9 @@ internal static class LoginFeatureExtensions
             options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
         });
         authenticationBuilder.AddIdentityCookies();
+        services.Configure<CookieAuthenticationOptions>(
+            IdentityConstants.ApplicationScheme,
+            ConfigureApiCookieChallenges);
 
         services
             .AddIdentityCore<ApplicationUser>(options =>
@@ -47,4 +53,40 @@ internal static class LoginFeatureExtensions
 
         return services;
     }
+
+    // API callers (the hydrated WebAssembly client, scripts) need status codes,
+    // not an HTML login page behind a 302.
+    private static void ConfigureApiCookieChallenges(CookieAuthenticationOptions options)
+    {
+        var events = options.Events ??= new CookieAuthenticationEvents();
+        events.OnRedirectToLogin = context =>
+        {
+            if (IsApiRequest(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            }
+            else
+            {
+                context.Response.Redirect(context.RedirectUri);
+            }
+
+            return Task.CompletedTask;
+        };
+        events.OnRedirectToAccessDenied = context =>
+        {
+            if (IsApiRequest(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            }
+            else
+            {
+                context.Response.Redirect(context.RedirectUri);
+            }
+
+            return Task.CompletedTask;
+        };
+    }
+
+    private static bool IsApiRequest(HttpRequest request) =>
+        request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
 }

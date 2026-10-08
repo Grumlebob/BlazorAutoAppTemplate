@@ -16,7 +16,8 @@ public static class BookEndpoints
     {
         var group = routes.MapGroup("/api/books")
             .WithTags("Books")
-            .RequireRateLimiting(AppRateLimiting.ApiPolicyName);
+            .RequireRateLimiting(AppRateLimiting.ApiPolicyName)
+            .WithPrivateNoStoreResponses();
 
         group.MapGet("/", ListBooksAsync)
             .WithName("ListBooks")

@@ -35,6 +35,11 @@ services:
       ASPNETCORE_Kestrel__Certificates__Default__Password: "localdevpassword"
       APP_VERSION: ${APP_VERSION:-local}
       Database__RunMigrationsAtStartup: "true"
+      # Local E2E and simulation runs come from one IP; keep production-like limits out of the way.
+      # Override in .env when you want to exercise the real limits locally.
+      RateLimiting__Global__PermitLimit: ${RateLimiting__Global__PermitLimit:-10000}
+      RateLimiting__Api__PermitLimit: ${RateLimiting__Api__PermitLimit:-1000}
+      RateLimiting__Authentication__PermitLimit: ${RateLimiting__Authentication__PermitLimit:-1000}
       Observability__OpenTelemetry__Enabled: ${OBSERVABILITY_ENABLED:-false}
       Observability__OpenTelemetry__Endpoint: ${OBSERVABILITY_OTLP_ENDPOINT:-http://alloy:4317}
       Observability__OpenTelemetry__Protocol: ${OBSERVABILITY_OTLP_PROTOCOL:-Grpc}

@@ -1,12 +1,13 @@
 using System.Security.Claims;
-using BlazorAutoApp.Features.Login.Account;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 
-namespace BlazorAutoApp.Features.Books.Services;
+namespace BlazorAutoApp.Features.Login.Account;
 
 internal interface ICurrentUserAccessor
 {
+    ValueTask<string?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default);
+
     ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default);
 }
 
@@ -17,19 +18,18 @@ internal sealed class CurrentUserAccessor(
 {
     private readonly AuthenticationStateProvider? _authenticationStateProvider = authenticationStateProviders.FirstOrDefault();
 
-    public async ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<string?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default)
     {
-        var principal = httpContextAccessor.HttpContext?.User;
+        var httpContext = httpContextAccessor.HttpContext;
+        var principal = httpContext?.User;
         var userId = GetUserId(principal);
-        if (string.IsNullOrWhiteSpace(userId))
+        if (string.IsNullOrWhiteSpace(userId)
+            && httpContext is null
+            && _authenticationStateProvider is not null)
         {
-            // Interactive component calls may not have a useful HttpContext principal.
-            if (_authenticationStateProvider is not null)
-            {
-                var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-                principal = authenticationState.User;
-                userId = GetUserId(principal);
-            }
+            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            principal = authenticationState.User;
+            userId = GetUserId(principal);
         }
 
         if (string.IsNullOrWhiteSpace(userId))
@@ -37,8 +37,14 @@ internal sealed class CurrentUserAccessor(
             userId = await ResolveUserIdByNameAsync(principal);
         }
 
+        return userId;
+    }
+
+    public async ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = await GetCurrentUserIdAsync(cancellationToken);
         return string.IsNullOrWhiteSpace(userId)
-            ? throw new UnauthorizedAccessException("An authenticated user is required for user books.")
+            ? throw new UnauthorizedAccessException("An authenticated user is required.")
             : userId;
     }
 

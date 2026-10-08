@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Xunit;
 
@@ -68,5 +69,31 @@ public sealed class RateLimitingTests(WebAppFactory factory)
 
         Assert.Equal(HttpStatusCode.TooManyRequests, lastStatusCode);
         Assert.True(lastResponseHadRetryAfter);
+    }
+}
+
+public sealed class StaticAssetRateLimitPathTests
+{
+    [Theory]
+    [InlineData("/_framework/blazor.web.js")]
+    [InlineData("/_framework/dotnet.wasm")]
+    [InlineData("/_content/library.css")]
+    [InlineData("/assets/images/cover.webp")]
+    [InlineData("/app.css")]
+    [InlineData("/favicon.png")]
+    public void StaticAssetPaths_AreExcludedFromGlobalRateLimit(string path)
+    {
+        Assert.True(AppRateLimiting.IsStaticAssetRequest(path));
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/books")]
+    [InlineData("/api/books")]
+    [InlineData("/api/author-books/1")]
+    [InlineData("/Account/Login")]
+    public void ApplicationPaths_AreNotExcludedFromGlobalRateLimit(string path)
+    {
+        Assert.False(AppRateLimiting.IsStaticAssetRequest(path));
     }
 }

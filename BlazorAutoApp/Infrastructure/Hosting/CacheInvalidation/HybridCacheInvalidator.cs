@@ -13,21 +13,33 @@ internal sealed class HybridCacheInvalidator(
     private readonly CacheInvalidationOptions _options = options.Value;
     private readonly ILogger<HybridCacheInvalidator> _logger = logger;
 
-    public async Task InvalidateAsync(CacheInvalidationRequest request, CancellationToken cancellationToken = default)
+    public async Task<CacheInvalidationResult> InvalidateAsync(
+        CacheInvalidationRequest request,
+        CancellationToken cancellationToken = default)
     {
+        var warnings = new List<string>();
+        var localApplied = false;
+
         try
         {
-            using var applyTimeout = new CancellationTokenSource(_options.ApplyTimeout);
+            using var applyTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            applyTimeout.CancelAfter(_options.ApplyTimeout);
             await _applier.ApplyAsync(request, applyTimeout.Token);
+            localApplied = true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
+            warnings.Add($"Local cache invalidation failed: {ex.Message}");
             _logger.LogWarning(ex, "Local cache invalidation failed for {CacheInvalidationScope}", request.Scope);
         }
 
         if (!_options.Enabled)
         {
-            return;
+            return new CacheInvalidationResult(localApplied, publishAttempted: false, published: false, warnings);
         }
 
         var message = new CacheInvalidationMessage(
@@ -42,12 +54,20 @@ internal sealed class HybridCacheInvalidator(
 
         try
         {
-            using var publishTimeout = new CancellationTokenSource(_options.PublishTimeout);
+            using var publishTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            publishTimeout.CancelAfter(_options.PublishTimeout);
             await _publisher.PublishAsync(message, publishTimeout.Token);
+            return new CacheInvalidationResult(localApplied, publishAttempted: true, published: true, warnings);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
+            warnings.Add($"Cache invalidation publish failed: {ex.Message}");
             _logger.LogWarning(ex, "Failed to publish cache invalidation for {CacheInvalidationScope}", request.Scope);
+            return new CacheInvalidationResult(localApplied, publishAttempted: true, published: false, warnings);
         }
     }
 }

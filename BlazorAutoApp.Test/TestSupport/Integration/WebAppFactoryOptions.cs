@@ -31,4 +31,16 @@ public sealed class WebAppFactoryOptions
     public bool? OpenTelemetryEnabled { get; init; }
 
     public string? OpenTelemetryEndpoint { get; init; }
+
+    public int? GlobalRateLimitPermitLimit { get; init; }
+
+    public int? ApiRateLimitPermitLimit { get; init; }
+
+    public int? AuthenticationRateLimitPermitLimit { get; init; }
+
+    /// <summary>
+    /// Challenge anonymous requests with the real Identity cookie scheme instead of
+    /// the test scheme, so tests can assert redirect versus 401 behaviour.
+    /// </summary>
+    public bool UseIdentityCookieChallenge { get; init; }
 }

@@ -1,4 +1,9 @@
 @inherits LayoutComponentBase
+@* Stable hook for E2E tests to wait for interactivity instead of sleeping. *@
+<span hidden
+      data-testid="app-interactivity-probe"
+      data-current-renderer="@RendererInfo.Name"
+      data-interactive="@RendererInfo.IsInteractive.ToString().ToLowerInvariant()"></span>
 <div class="relative flex min-w-0 flex-col md:flex-row">
     <main class="min-w-0 flex-1 overflow-x-hidden bg-stone-50 text-gray-900">
         <NavMenu/>
