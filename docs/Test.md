@@ -92,6 +92,33 @@ Conventions:
 - `Architecture/Persistence` verifies EF model and entity configuration placement.
 - `Architecture/Support` contains shared reflection/source-search helpers for architecture tests.
 
+## Test Collections And Parallelism
+
+Test classes that share expensive fixtures run in named xUnit collections (`BlazorAutoApp.Test/TestSupport/Integration/TestCollections.cs`). Each named collection runs its tests one at a time; up to two collections or plain unit-test classes run in parallel (`MaxParallelThreads = 2`).
+
+| Collection | Use it for |
+| --- | --- |
+| `Integration` | Feature/API tests on the shared `WebAppFactory` (PostgreSQL + Redis Testcontainers, database reset between tests). |
+| `StartupIntegration` | Tests that start their own factory with different configuration (rate limits, hosting behaviour). |
+| `StartupSeed` | Tests of startup seeding against their own database. |
+| `CrossNodeRedis` | Two app hosts sharing PostgreSQL and Redis (cache invalidation). |
+| `EnvironmentMutation` | Tests that change process environment variables. |
+| `E2E` | Playwright browser tests. |
+
+Pure unit tests need no collection. Put a test into a collection whenever it uses a container fixture, the shared factory or process-wide state.
+
+## Test Containers
+
+- Containers use the pinned images in `TestContainerImages.cs`; keep them equal to `docker-compose.yml` and the CI preflight pulls.
+- PostgreSQL and Redis keep their data on tmpfs, so tests never create Docker volumes.
+- Every container carries `localcluster.ci.*` labels (repository, owner `tests`, purpose, run id and attempt, session, creation time). The maintenance workflow uses them to remove leaked containers of finished CI runs only.
+- Fixtures dispose their containers explicitly; Ryuk stays enabled as the backstop.
+- `TestContainerLifecycleTests` proves that disposal removes containers and creates no volumes. It runs only with `RUN_TESTCONTAINER_LIFECYCLE=1`; CI runs it as a separate step.
+
+## Rate Limits In Integration Tests
+
+`WebAppFactory` raises the rate limits (global 10 000, API 1 000, authentication 1 000 per window) so shared-fixture tests never hit `429`. A test that exercises the real limits uses its own factory with lower values, for example `new WebAppFactoryOptions { ApiRateLimitPermitLimit = 60 }` in a `StartupIntegration` fixture, as `RateLimitingTests` does. `ConfigurationOverrides` and `ConfigureTestServices` change any other setting or service for one factory.
+
 ## Infrastructure Hosting Tests
 
 `BlazorAutoApp.Test/Infrastructure/Hosting/RateLimitingTests.cs` verifies that the Books API returns `429 Too Many Requests` and a `Retry-After` header when the configured API limit is exceeded.
@@ -203,6 +230,33 @@ Guidelines:
 - Prefer `data-testid` for workflow controls that are hard to select reliably.
 - Keep E2E tests behind `RUN_E2E=1`.
 - Do not make headless the default local behavior.
+
+## E2E Helpers
+
+`BlazorE2ETestBase` provides helpers so tests do not sleep or poll render-mode text:
+
+- `WaitForInteractivityAsync()` waits for the hidden `app-interactivity-probe` element to report an interactive renderer.
+- `RegisterUniqueUserAsync()` and `LoginAsLocalAdminAsync()` create or sign in users; tracked users and books are deleted after the test.
+- `AssertNoCriticalOrSeriousAxeViolationsAsync()` runs axe-core from `BlazorAutoApp.Client/node_modules` (`npm ci` first).
+- `AssertNoPageHorizontalOverflowAsync()`, `AssertNoVisibleBrokenImagesAsync()` and `SetViewportAsync()` cover responsive layout checks.
+- Failure-only traces and screenshots go to the paths in `E2EArtifactPaths`.
+
+Interactive controls rendered before hydration must stay disabled until the component is interactive. `PreHydrationControlsE2ETests` blocks the Blazor script and checks that the book editor's save button is disabled, then reloads and checks that it becomes enabled.
+
+## CI Docker And Browser Smoke
+
+For every pull request, and before every `main` publish, CI runs `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` against the freshly built image. It starts the image with disposable PostgreSQL and Redis containers and checks:
+
+- `/health/ready`,
+- the server-rendered home page,
+- that anonymous `/api/books` returns 401 without a redirect,
+- the browser smoke tests `RenderModeE2ETests` and `PreHydrationControlsE2ETests`.
+
+To run it locally against an image you built:
+
+```bash
+APP_IMAGE=<image> APP_VERSION=<tag> bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+```
 
 ## Failure Artifacts
 

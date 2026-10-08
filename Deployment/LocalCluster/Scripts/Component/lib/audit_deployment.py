@@ -313,11 +313,15 @@ for needle, why in [
     ("secondnotes", "side-by-side example app"),
     ("LOCALCLUSTER_RUNNER_LABEL", "side-by-side runner label variable guidance"),
     ("Repository -> Settings -> Secrets and variables -> Actions -> Variables", "GitHub repository variables UI path"),
-    ("Tokens (classic)", "GHCR classic token UI guidance"),
-    ("Select only `read:packages`", "minimum GHCR token permission guidance"),
-    ("GitHub only shows it once", "GitHub token one-time visibility warning"),
+    ("No GitHub token goes into the vault.", "no stored registry token guidance"),
+    ("only `read:packages`", "minimum registry permission for optional manual-deploy tokens"),
     ("Name: ANSIBLE_VAULT_PASSWORD", "manual GitHub vault secret guidance"),
-    ("This secret is the Ansible Vault password, not the GHCR token.", "vault secret distinction"),
+    ("This secret is the Ansible Vault password.", "vault secret purpose"),
+    ("release-manifest.json", "release manifest explanation"),
+    ("### Runner And Docker Storage Maintenance", "maintenance workflow guidance"),
+    ("### Deployment lock", "deployment lock recovery guidance"),
+    ("### Tool provisioning: --check versus --provision", "check-only versus provisioning guidance"),
+    ("Runner policy:", "self-hosted runner policy"),
     ("summary.sh", "deployment summary command guidance"),
     ("doctor.sh", "doctor readiness command guidance"),
     ("acceptance-check.sh", "acceptance check guidance"),
@@ -1136,6 +1140,8 @@ for needle, why in [
         fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
 if "- name: Log in to GHCR" in app_tasks:
     fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
+if "Tokens (classic)" in guide or "vault_ghcr_token: <github-token" in guide:
+    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: CD no longer needs a stored GHCR token; do not instruct users to create one")
 if "image_tag" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: manual image_tag input should not be required")
 if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:

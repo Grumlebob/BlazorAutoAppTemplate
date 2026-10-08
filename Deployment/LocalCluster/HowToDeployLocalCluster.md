@@ -83,7 +83,7 @@ Required values:
 | `migration_bundle_name` | `Deployment/Common/release.yml` | Use `<app_name>-migrate` unless you have a naming conflict. |
 | `migration_runtime` | `Deployment/Common/release.yml` | Keep `linux-x64` for the current x86_64 LocalCluster and Hetzner target. |
 | `migration_artifact_name` | Derived by `Deployment/Common/Scripts/read-release-setting.sh` | Derived as `<migration_bundle_name>-<migration_runtime>`. |
-| GHCR read token | `Deployment/LocalCluster/inventory/prod/vault.yml` | A GitHub personal access token classic for an account that can read the package; select `read:packages`. |
+| GHCR read access | Nothing to store | CD nodes pull the image with the deploy job's own `GITHUB_TOKEN`. Manual `deploy.sh` runs use `GHCR_USERNAME`/`GHCR_TOKEN` or an authenticated `gh` CLI; see step 9.2. |
 | Cloudflare tunnel token | `Deployment/LocalCluster/inventory/prod/vault.yml` | Copy the long `eyJ...` token from Cloudflare's generated `cloudflared` connector command. |
 | Ansible Vault password | Password manager and GitHub secret | Choose it when `setup-secrets.sh` creates `vault.yml`; the GitHub secret must contain the same password. |
 
@@ -359,7 +359,7 @@ For a second fork on the same nodes, do not reuse these values from the first ap
 - GitHub runner name derived from `app_name`
 - GitHub runner label derived from `app_name`
 
-The second fork normally reuses the same machine IPs, `Deployment/LocalCluster/machines.yml` values, `cloudflare_tunnel_name`, and Cloudflare tunnel token. It should have its own vault file and can use its own PostgreSQL database name, PostgreSQL password, Redis password, and GHCR token.
+The second fork normally reuses the same machine IPs, `Deployment/LocalCluster/machines.yml` values, `cloudflare_tunnel_name`, and Cloudflare tunnel token. It should have its own vault file and can use its own PostgreSQL database name, PostgreSQL password, and Redis password.
 
 All side-by-side apps that reuse the default `cloudflared` service must use a tunnel in the same Cloudflare account. A separate Cloudflare account or a separate tunnel token on the same `node-main` requires a custom multi-service `cloudflared` design that this guide does not cover.
 
@@ -874,15 +874,13 @@ This checks that the tunnel named in `all.yml` contains this app's `public_hostn
 
 This section creates the encrypted Ansible Vault file used by Ansible and the GitHub repository secret used by CD to decrypt it. Do not continue until you have the Cloudflare tunnel token from step 8.
 
-You need seven vault values:
+You need five vault values:
 
 ```yaml
 vault_postgres_user: <postgres-user>
 vault_postgres_password: <strong-db-password>
 vault_postgres_db: <postgres-database>
 vault_redis_password: <strong-redis-password>
-vault_ghcr_username: <github-username>
-vault_ghcr_token: <github-token-with-read-packages>
 vault_cloudflare_tunnel_token: <cloudflare-tunnel-token>
 ```
 
@@ -915,39 +913,17 @@ The DB and Redis password character limits are intentional. Those values are ren
 
 For a first deployment, choose these values once and keep them. After the app is live, changing the database name, database user, or database password is a deliberate migration/rotation task, not a normal rerun step.
 
-### 9.2 Create The GHCR Read Token
+### 9.2 Registry Access: No Token Needed For CD
 
-`vault_ghcr_username` is the GitHub username that owns the token. `vault_ghcr_token` is a GitHub personal access token classic with package read access. Use a classic token here because GitHub Container Registry package pulls outside GitHub Actions use personal access tokens classic.
+No GitHub token goes into the vault. `CD - Deploy LocalCluster` passes the deploy job's own short-lived `GITHUB_TOKEN` to the nodes for the image pull, and the nodes log in with a temporary Docker config that is deleted after the pull.
 
-Create the token:
+Manual deploys from the control machine (`deploy.sh`) need registry credentials only for a private image. They use, in order:
 
-1. Open GitHub in the browser while signed in as the account that can read the container package.
-2. Click your profile picture.
-3. Open `Settings`.
-4. Open `Developer settings`.
-5. Open `Personal access tokens`.
-6. Open `Tokens (classic)`.
-7. Click `Generate new token`.
-8. Choose `Generate new token (classic)`.
-9. Set `Note` to something recognizable, for example `localcluster-ghcr-read-<app_name>`.
-10. Set an expiration you can maintain. Ninety days is reasonable for a demo; one year is easier for a home server. Put the renewal date somewhere you will see it.
-11. Select only `read:packages`.
-12. Click `Generate token`.
-13. Copy the token immediately. GitHub only shows it once.
+1. `GHCR_USERNAME` and `GHCR_TOKEN` environment variables,
+2. an authenticated GitHub CLI (`gh auth login`), whose token can read your packages,
+3. the optional vault keys `vault_ghcr_username` and `vault_ghcr_token`.
 
-If the package is owned by an organization that enforces SSO, authorize the token for that organization after creating it. If the package is private and a later pull says `unauthorized`, open the package settings in GitHub and confirm this user or one of its teams has read access to the package.
-
-Optional login check if Docker is installed on the control machine:
-
-```bash
-read -r -s -p "GHCR token: " GHCR_TOKEN
-echo
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
-docker logout ghcr.io
-unset GHCR_TOKEN
-```
-
-This only checks the token can authenticate to GHCR. The actual image tag does not exist until CI builds it in step 10.
+If you choose the vault keys, set both or neither. Use a personal access token with only `read:packages`, and authorize it for the package owner's organization if it enforces SSO.
 
 ### 9.3 Confirm The Cloudflare Tunnel Token
 
@@ -981,8 +957,6 @@ vault_postgres_user: my_app
 vault_postgres_password: <generated-db-password>
 vault_postgres_db: my_app
 vault_redis_password: <generated-redis-password>
-vault_ghcr_username: <github-username-that-owns-the-token>
-vault_ghcr_token: <github-token-classic-with-read-packages>
 vault_cloudflare_tunnel_token: <cloudflare-tunnel-token-from-step-8>
 ```
 
@@ -994,7 +968,7 @@ If GitHub CLI is authenticated, the script also sets this repository secret auto
 ANSIBLE_VAULT_PASSWORD
 ```
 
-This secret is the Ansible Vault password, not the GHCR token. CD needs it so the self-hosted runner can decrypt the committed encrypted `vault.yml`.
+This secret is the Ansible Vault password. CD needs it so the self-hosted runner can decrypt the committed encrypted `vault.yml`.
 
 If the script prints that `gh` is missing, not authenticated, or could not set the secret automatically, set the GitHub secret manually:
 
@@ -1023,8 +997,7 @@ Where the values come from:
 | `vault_postgres_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
 | `vault_postgres_db` | Choose a database name, usually `app_name` with hyphens changed to underscores. Use only letters, numbers, and underscores; do not start with a number. Example: `my-app` becomes `my_app`. |
 | `vault_redis_password` | Generate a strong password using only letters, numbers, `.`, `_`, `@`, `%`, `+`, and `-`. Use at least 16 characters. |
-| `vault_ghcr_username` | Use the GitHub account that owns or can read the GHCR package. |
-| `vault_ghcr_token` | Create a GitHub personal access token classic for that account. Select `read:packages`; do not select write or delete package permissions. |
+| `vault_ghcr_username`, `vault_ghcr_token` | Optional, manual deploys of a private image only (step 9.2). Set both or neither. |
 | `vault_cloudflare_tunnel_token` | Copy the `eyJ...` tunnel token from the Cloudflare connector command in the previous step. |
 
 Checkpoint:
@@ -1081,7 +1054,9 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
-This repository runs CI, Dependabot auto-merge, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label `localcluster-books`. External fork pull requests must be skipped before self-hosted runner allocation because this repository is public.
+Runner policy: this repository runs CI, Dependabot auto-merge, maintenance, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label (`localcluster-books` here; a fork sets `LOCALCLUSTER_RUNNER_LABEL`). Every job skips external fork pull requests before a runner is allocated, so untrusted code never runs on `node-main`. Never add GitHub-hosted runner labels; the deployment audit rejects them.
+
+CI has two jobs. `validate` runs for every pull request and push; on pull requests it is the required `build-test-push` check. It also builds the Docker image for pull requests and runs a Docker and browser smoke test, but never pushes. `publish-main` runs only for `main` after `validate` succeeds and carries the `build-test-push` name there.
 
 For a fork or a newly created repository, confirm GitHub Actions is enabled before pushing the deployment commit:
 
@@ -1099,11 +1074,13 @@ Use this normal path:
 Merge/push the deployment commit to main and wait for CI to pass.
 ```
 
-For `main`, the CI workflow builds/tests the app, builds the migration bundle artifact, and pushes:
+For `main`, `publish-main` builds and smoke-tests the image, pushes:
 
 ```text
 <app_image>:<selected-commit-sha>
 ```
+
+and uploads the release artifact `<migration_artifact_name>` with two files: the migration bundle and `release-manifest.json`. The manifest records the repository, commit, CI run id and attempt, the image's registry digest, the ordered migration ids, the bundle's SHA-256 and the .NET SDK. CD validates every field before it touches a node, and deploys the image by digest, not by tag.
 
 CI and CD are intentionally tied to the same commit:
 
@@ -1115,9 +1092,9 @@ Migration bundle artifact: <migration_artifact_name>
 Migration bundle file: <migration_bundle_name>
 ```
 
-The CD workflow first finds a successful CI run for the selected commit, verifies the GHCR image tag exists, and then downloads the migration bundle artifact from that CI run when `run_migrations` is `true`. If any of those values do not line up, deploy should stop instead of mixing artifacts from different commits.
+The CD workflow first finds the newest successful `main` CI run for the selected commit, downloads its release artifact, and checks `release-manifest.json` against the registry digest and the downloaded bundle. If any of those values do not line up, deploy stops instead of mixing artifacts from different commits or runs.
 
-CI uploads migration bundle artifacts with 7-day retention and prunes old matching `books-migrate-linux-x64` artifacts after successful `main` publishes, keeping the newest 2. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
+Release artifacts have 7-day retention. The maintenance workflow keeps the newest 2 and never deletes the artifacts behind the last two successful deploys. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
 
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
@@ -1502,6 +1479,8 @@ Wrapper script with a local migration bundle:
 bash ./Deployment/LocalCluster/Scripts/deploy.sh <git-sha> --migrate <path-to-migration-bundle>
 ```
 
+Pin the exact image with `--digest sha256:<digest>` (copy it from the CI run's `release-manifest.json`). A manual deploy skips the CI and manifest checks that CD performs, so prefer the CD workflow.
+
 ## Routine Deployments
 
 [github]
@@ -1561,10 +1540,10 @@ ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "<deploy-
 
 [control]
 
-Before a migration, deploy the previous app image:
+Before a migration, deploy the previous app image. Run `CD - Deploy LocalCluster` with `target_sha` set to the previous commit on `main` and `run_migrations=false`; CD re-validates that commit's CI run and release manifest. The release artifacts of the last two successful deploys are kept for this. From the control machine, the manual equivalent is:
 
 ```bash
-bash ./Deployment/LocalCluster/Scripts/deploy.sh <previous-git-sha>
+bash ./Deployment/LocalCluster/Scripts/deploy.sh <previous-git-sha> --digest sha256:<digest>
 ```
 
 After a migration, prefer a forward-fix migration. Restoring a database backup can lose data created after the backup. Run `verify-backup.sh` first, then restore only when you have decided that data loss risk is acceptable and know exactly which backup file to use.
@@ -1632,7 +1611,7 @@ bash ./Deployment/LocalCluster/Scripts/release-deploy-lock.sh --release --token 
 
 ### Low Runner Disk
 
-CI only reports disk space; it never prunes the shared Docker daemon on `node-main`, because other apps' containers, images and build cache live there too. If CI fails with "Less than 10 GB free", inspect on `node-main`:
+CI only reports disk space; it never prunes the shared Docker daemon on `node-main`, because other apps' containers, images and build cache live there too. If CI fails with "node-main is below its /opt capacity reserve" (20 GiB and 5 % free inodes by default, set in `localcluster-capacity-thresholds.sh`), run the maintenance workflow (see Runner And Docker Storage Maintenance below) or inspect on `node-main`:
 
 ```bash
 bash ./Deployment/LocalCluster/Scripts/prune-docker-residue.sh --dry-run --force
@@ -1641,6 +1620,36 @@ du -xh --max-depth=1 /opt | sort -h
 ```
 
 Without extra flags, `prune-docker-residue.sh --force` removes only old tags of LocalCluster app images that no deployment uses. Host-wide prunes of stopped containers, dangling images, build cache and networks affect every app on the host; run them only after checking what they remove, with `--include-unlabelled-host-residue`. Docker volumes are never pruned: they hold PostgreSQL and Redis data.
+
+### Runner And Docker Storage Maintenance
+
+`.github/workflows/localcluster-docker-maintenance.yml` runs `Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh` on `node-main` under the shared deployment lock, so it never overlaps a deploy of any app. It ships manual-only (`Actions -> LocalCluster Docker Maintenance -> Run workflow`); a fork that wants it daily uncomments the `schedule:` block.
+
+Stages, each bounded by a timeout:
+
+| Stage | Removes | Never removes |
+| --- | --- | --- |
+| `runner` | Old Actions runner versions, `_work/_update` and `_work/_temp` entries older than 24 h, `_diag` logs older than 14 days | The active runner version, any workspace, anything in use |
+| `ci-residue` | This repository's labelled CI containers and networks whose run attempt finished more than 24 h ago | Other repositories' resources, anything with persistent mounts, volumes |
+| `docker` | Dangling images labelled by this repository's CI, old tags of this app's image that no container or deployment uses | Running or deployed images, other apps' images, volumes |
+| `remote-docker` | The same app-image residue on app and database nodes | Database data, backups, volumes |
+| volume inventory, disk and inode report | Nothing (report only) | |
+
+On Sunday runs, and on every manual run, a second job prunes old release artifacts. It keeps the newest 2 and protects the artifacts of the CI runs behind the last two successful deploys. If it cannot resolve those runs, it deletes nothing.
+
+Exit codes: `0` done, `1` failure, `2` still below the capacity reserve after cleanup, `75` deferred because protected candidates were skipped.
+
+Low-disk recovery on `node-main`, in order:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/check-node-main-capacity.sh
+bash ./Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh --capacity-only   # needs GITHUB_WORKSPACE; prefer the workflow
+bash ./Deployment/LocalCluster/Scripts/prune-docker-residue.sh --dry-run --force
+```
+
+### Tool provisioning: --check versus --provision
+
+CI, CD and maintenance only check the toolchain. They run `install-ansible.sh --check` and `ensure-actions-runner-prereqs.sh --check`, which never call `apt` or `sudo`. Install or upgrade tools explicitly on the control machine with `setup-control-machine.sh`, which calls `install-ansible.sh --provision`. Both repositories that share `node-main` use the same generation under `~/.local/share/books-ansible/current`. If a workflow fails with a missing or invalid Ansible generation, provision once on `node-main` and re-run the workflow.
 
 Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, regenerate `Deployment/LocalCluster/inventory/prod/hosts.yml`, change secrets in `Deployment/LocalCluster/inventory/prod/vault.yml`, change shared release artifact settings in `Deployment/Common/release.yml`, and change LocalCluster non-secret deployment settings in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml`.
 
@@ -1653,6 +1662,7 @@ Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, re
 - Password SSH login is disabled after SSH hardening.
 - Protect `~/.ssh/<app_name>_deploy`; it can administer the deployment.
 - GHCR images remain private.
-- GHCR deploy token is read-only.
+- No long-lived registry token is stored; nodes pull with the deploy job's short-lived `GITHUB_TOKEN` through a temporary Docker config.
+- CD deploys only commits on `main` with a successful CI run and a validated release manifest, and verifies the running image digest on every app node.
 - Secrets live in Ansible Vault or GitHub Secrets, never plaintext repo files.
 - Do not run untrusted pull request code on the self-hosted runner.

@@ -193,6 +193,25 @@ docker compose down --volumes --remove-orphans
 docker compose up -d --build web
 ```
 
+## Local Docker Storage Maintenance
+
+`RunLocal.ps1` builds the local `web` image by default. Docker Compose tags the newest build as `<project>-web:latest`, so older local app builds become dangling `<none>:<none>` images, and Docker Desktop does not remove them automatically. After each successful build, `RunLocal.ps1` removes dangling images. Skip that for one run with:
+
+```powershell
+.\Scripts\RunLocal.ps1 -SkipDockerCleanup
+```
+
+For a broader cleanup, run the cleanup script yourself. By default it removes dangling images, stopped containers older than 24 hours, unused networks older than 24 hours, and unused build cache older than 48 hours. Those can belong to other projects on the same Docker Desktop, so check the dry run first:
+
+```powershell
+.\Scripts\PruneLocalDockerResidue.ps1 -DryRun
+.\Scripts\PruneLocalDockerResidue.ps1
+```
+
+For a one-off cleanup of everything old, use `-Aggressive`. The script never prunes Docker volumes, so local PostgreSQL, Redis Insight, Grafana and other named-volume state is preserved.
+
+Stop the stack with `.\Scripts\RunLocal.ps1 -StopStack`. Use `-ResetDatabase` (alone, or with `-StopStack`) only when you intentionally want to delete the local Docker volumes.
+
 ## Run Without Docker
 
 Use this only when compatible PostgreSQL and Redis services already exist outside Docker.
