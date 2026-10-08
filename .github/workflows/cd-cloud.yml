@@ -118,8 +118,14 @@ jobs:
           test -f "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
           chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
-      - name: Install Ansible
-        run: bash Deployment/Common/Scripts/install-ansible.sh
+      # Check only: CI/CD jobs never run apt. Provision the runner host with
+      # Deployment/Common/Scripts/install-ansible.sh --provision.
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/Common/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-playbook"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
 
       - name: Determine runner SSH CIDR
         run: |

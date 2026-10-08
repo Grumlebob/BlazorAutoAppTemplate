@@ -33,7 +33,7 @@ jobs:
           test "$(hostname)" = "node-main"
 
       - name: Ensure self-hosted runner prerequisites
-        run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh
+        run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh --check
 
       # Report only. node-main's Docker daemon is shared with other apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
@@ -77,6 +77,9 @@ jobs:
 
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+
+      - name: Test Ansible check-only setup
+        run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
 
       - name: Setup Python
         run: |
