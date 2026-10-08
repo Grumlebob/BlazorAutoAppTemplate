@@ -303,6 +303,21 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
     prometheus_config = backend_root / "prometheus" / "prometheus.yml"
     prometheus_config.write_text(render_jinja(backend_template_root / "prometheus.yml.j2", backend_context), encoding="utf-8")
     check_prometheus_config(prometheus_config)
+
+    # Side-by-side apps publish observability on non-default host ports. Targets on
+    # the backend host must still use the container ports over the Docker network.
+    side_by_side_context = {
+        **backend_context,
+        "observability_alloy_http_port": "12346",
+        "observability_node_exporter_port": "9101",
+    }
+    side_by_side_prometheus = render_jinja(backend_template_root / "prometheus.yml.j2", side_by_side_context)
+    for expected in ["- alloy:12345", "- node-exporter:9100", "- 10.10.0.11:12346", "- 10.10.0.11:9101"]:
+        if expected not in side_by_side_prometheus:
+            fail(f"rendered side-by-side Prometheus config is missing target {expected}")
+    for unexpected in ["alloy:12346", "node-exporter:9101"]:
+        if unexpected in side_by_side_prometheus:
+            fail(f"rendered side-by-side Prometheus config uses a host port inside the Docker network: {unexpected}")
     (backend_root / "loki" / "loki.yml").write_text(render_jinja(backend_template_root / "loki.yml.j2", backend_context), encoding="utf-8")
     (backend_root / "tempo" / "tempo.yml").write_text(render_jinja(backend_template_root / "tempo.yml.j2", backend_context), encoding="utf-8")
     (agent_root / ".env").write_text(render_jinja(agent_template_root / "agent.env.j2", agent_context), encoding="utf-8")

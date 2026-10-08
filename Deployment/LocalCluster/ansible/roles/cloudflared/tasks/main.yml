@@ -18,6 +18,12 @@
     url: "https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-amd64.deb"
     dest: "/tmp/cloudflared-{{ cloudflared_version }}-amd64.deb"
     mode: "0644"
+    force: true
+    timeout: 60
+  register: cloudflared_package_download
+  retries: 5
+  delay: 10
+  until: cloudflared_package_download is succeeded
 
 - name: Install cloudflared package
   ansible.builtin.apt:

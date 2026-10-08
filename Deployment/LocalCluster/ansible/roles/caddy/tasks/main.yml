@@ -23,6 +23,11 @@
     url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
     dest: /etc/apt/sources.list.d/caddy-stable.list
     mode: "0644"
+    timeout: 60
+  register: caddy_repository_download
+  retries: 5
+  delay: 10
+  until: caddy_repository_download is succeeded
 
 - name: Install Caddy
   ansible.builtin.apt:

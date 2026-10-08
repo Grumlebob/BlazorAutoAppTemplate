@@ -48,7 +48,13 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `ensure-actions-runner-prereqs.sh` verifies or installs self-hosted CI prerequisites on `node-main`.
 
-`prune-docker-residue.sh` safely prunes routine self-hosted runner Docker residue without deleting volumes.
+`prune-docker-residue.sh` removes old unused LocalCluster app image tags without deleting volumes. Host-wide prunes (stopped containers, dangling images, build cache, networks) run only with `--include-unlabelled-host-residue`, because they affect every app on the Docker host.
+
+`release-deploy-lock.sh` inspects (`--inspect`) or manually releases (`--release --token <token>`) the shared `node-main` deployment lock after verifying the owner is gone. The lock is never released automatically.
+
+`validate-inventory-dns.sh` checks that each inventory host resolves to its inventory IP. It runs from `preflight.sh` and is skipped unless `inventory_dns_suffix` is set in `group_vars/all.yml`.
+
+`Tests/test-with-deploy-lock.sh` exercises the lock wrapper and the release tool against a temporary lock directory; CI runs it.
 
 `Deployment/Common/Scripts/prune-actions-artifacts.sh` prunes old GitHub Actions artifacts by exact artifact name after successful CI publishes.
 

@@ -256,7 +256,8 @@ Where the values come from:
 | `public_hostname` | Choose the hostname users will visit. It must be inside a domain/zone you manage in Cloudflare, for example `books.example.com`. |
 | `deploy_root` | Use `/opt/<app_name>` unless you have a reason to place runtime files elsewhere. |
 | `cloudflare_tunnel_name` | Choose a tunnel name now, usually `<app_name>-prod`. Use this exact value when Cloudflare asks for the tunnel name later. |
-| `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. |
+| `cloudflared_version` | Keep the checked-in pinned version unless you are deliberately upgrading `cloudflared`. Use an exact release version, never `latest`. Apps that share the same nodes share one `cloudflared` install, so keep this version identical across those apps; the last deploy wins. |
+| `inventory_dns_suffix` | Optional, default empty. Set it (for example `home`) when your router publishes `node-main.home`-style names; preflight then fails fast if `hosts.yml` IPs no longer match DNS. Leave it unset otherwise. |
 | `observability_enabled` | Keep `true` to deploy the LocalCluster Grafana/Prometheus/Loki/Tempo/Alloy stack. Set `false` only when deliberately disabling production observability. The app role still creates the external observability Docker network so app startup stays safe when telemetry export is disabled. |
 | `observability_root` | Use `/opt/<app_name>-observability`. This keeps observability runtime files separate from app/database runtime files. |
 | `observability_docker_network` | Use `<app_name>_observability`. App containers and local Alloy agents join this Docker network on each node. |
@@ -1488,6 +1489,13 @@ bash ./Deployment/LocalCluster/Scripts/deploy.sh <git-sha>
 
 This acquires the same deployment lock on `node-main` that GitHub Actions uses, so a manual deploy and a CD deploy cannot mutate the four nodes at the same time.
 
+The manual path connects to `node-main` with strict SSH host-key checking. Seed and verify `node-main`'s host key on the control machine first; a first-seen key is not accepted automatically, because LAN IPs get reused:
+
+```bash
+ssh-keyscan -H <node-main-ip> >> ~/.ssh/known_hosts
+ssh-keygen -lf <(ssh-keyscan <node-main-ip> 2>/dev/null)   # compare with the fingerprint shown on node-main's console
+```
+
 Wrapper script with a local migration bundle:
 
 ```bash
@@ -1605,6 +1613,34 @@ If the public hostname fails:
 ```
 
 If local Caddy health returns `503` while both app-node health checks pass, Caddy has matched the hostname but does not yet consider any upstream app node healthy. The acceptance script retries this case because it can happen immediately after app containers restart. If it still fails after the retry window, use the rendered Caddy site and Caddy logs printed by `acceptance-check.sh` to verify the app-node IPs and port.
+
+### Deployment lock
+
+Every deploy that mutates the cluster, from GitHub Actions or a manual `deploy.sh`, holds one lock directory on `node-main`: `/tmp/localcluster-deploy.lockdir`. Apps deployed side by side on the same nodes share it, so a deploy of one app waits for a deploy of another.
+
+The lock is never removed automatically, not even when it is old. A cancelled job can leave `ansible-playbook` running, and another app may hold the lock for hours. If a deploy times out waiting for the lock, the log prints the owner line. On `node-main`, inspect it:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/release-deploy-lock.sh --inspect
+```
+
+Release it only when the owner is provably gone. The script refuses when the token does not match, the owner process is alive, an `ansible-playbook` process is running, or the lock contains another app's metadata files (use that app's own recovery tool then). When the owner was a manual deploy from a control machine, check that machine first and pass `--owner-host-checked`:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/release-deploy-lock.sh --release --token <token from --inspect>
+```
+
+### Low Runner Disk
+
+CI only reports disk space; it never prunes the shared Docker daemon on `node-main`, because other apps' containers, images and build cache live there too. If CI fails with "Less than 10 GB free", inspect on `node-main`:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/prune-docker-residue.sh --dry-run --force
+docker system df
+du -xh --max-depth=1 /opt | sort -h
+```
+
+Without extra flags, `prune-docker-residue.sh --force` removes only old tags of LocalCluster app images that no deployment uses. Host-wide prunes of stopped containers, dangling images, build cache and networks affect every app on the host; run them only after checking what they remove, with `--include-unlabelled-host-residue`. Docker volumes are never pruned: they hold PostgreSQL and Redis data.
 
 Important rule: change machine IPs in `Deployment/LocalCluster/machines.yml`, regenerate `Deployment/LocalCluster/inventory/prod/hosts.yml`, change secrets in `Deployment/LocalCluster/inventory/prod/vault.yml`, change shared release artifact settings in `Deployment/Common/release.yml`, and change LocalCluster non-secret deployment settings in `Deployment/LocalCluster/inventory/prod/group_vars/all.yml`.
 

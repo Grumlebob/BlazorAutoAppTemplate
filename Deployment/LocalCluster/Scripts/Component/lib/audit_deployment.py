@@ -166,6 +166,8 @@ required_files = [
     "Deployment/LocalCluster/Scripts/verify-backup.sh",
     "Deployment/LocalCluster/Scripts/verify-deployment.sh",
     "Deployment/LocalCluster/Scripts/with-deploy-lock.sh",
+    "Deployment/LocalCluster/Scripts/release-deploy-lock.sh",
+    "Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh",
     ".github/workflows/auto-merge-dependabot.yml",
     ".github/workflows/cd-cloud.yml",
     "BlazorAutoApp/Program.cs",
@@ -805,8 +807,9 @@ for needle, why in [
     ("Prune old migration bundle artifacts", "old migration artifact pruning step"),
     ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
     ("--keep 2", "bounded migration artifact keep count"),
-    ("Clean self-hosted Docker build residue", "self-hosted Docker cleanup step"),
-    ("bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh", "LocalCluster Docker cleanup script call"),
+    ("Remove this run's local Docker image", "owned CI image cleanup step"),
+    ('docker image rm "${APP_IMAGE}:${{ github.sha }}"', "exact-tag CI image removal"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
     ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -829,6 +832,20 @@ for path, checks in {
     for needle, why in checks:
         if needle not in text:
             fail(f"{path}: missing {why}")
+# node-main's Docker daemon is shared by every app on the cluster. CI may only
+# remove resources it created; host-wide pruning belongs to reviewed maintenance.
+for forbidden in ("prune-docker-residue.sh --force", "docker system prune", "docker container prune", "docker builder prune", "docker network prune", "docker volume prune"):
+    if forbidden in ci:
+        fail(f".github/workflows/ci.yml: CI must not run host-wide Docker cleanup: {forbidden}")
+prune_script = read("Deployment/LocalCluster/Scripts/prune-docker-residue.sh")
+for needle, why in [
+    ("--include-unlabelled-host-residue", "explicit opt-in for host-wide prunes"),
+    ("Docker volumes are protected", "volume protection statement"),
+]:
+    if needle not in prune_script:
+        fail(f"Deployment/LocalCluster/Scripts/prune-docker-residue.sh: missing {why}")
+if "docker volume prune" in prune_script or "system prune" in prune_script:
+    fail("Deployment/LocalCluster/Scripts/prune-docker-residue.sh: must never prune volumes or the whole system")
 if "${APP_IMAGE}:latest" in ci or "docker push \"${APP_IMAGE}:latest\"" in ci:
     fail(".github/workflows/ci.yml: CI must publish only immutable Git SHA image tags")
 if "secrets.ANSIBLE_VAULT_PASSWORD" in ci:
@@ -1200,11 +1217,21 @@ for needle, why in [
     ("mkdir \"$LOCK_DIR\"", "directory-based cross-repo deployment lock"),
     ("LOCALCLUSTER_DEPLOY_LOCK_DIR", "configurable lock directory"),
     ("LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS", "configurable lock timeout"),
-    ("LOCALCLUSTER_DEPLOY_LOCK_STALE_SECONDS", "stale lock cleanup"),
-    ("created_epoch", "stale lock age marker"),
+    ("release_lock", "token-checked lock release"),
+    ("wait_for_owned_command_then_exit", "lock held until the owned command exits"),
+    ("trap 'handle_signal 143' TERM", "termination handling that keeps the lock"),
+    ("! -name token ! -name owner ! -name created_epoch", "foreign lock metadata protection"),
 ]:
     if needle not in deploy_lock:
         fail(f"Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh: missing {why}")
+# A shared lock must never be reclaimed by age: a dead shell can leave live
+# children, and another app on the same node-main may hold it for hours.
+for lock_script in (
+    "Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh",
+    "Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh",
+):
+    for forbidden in ("LOCK_STALE_SECONDS", "cleanup_stale_lock", "StrictHostKeyChecking=accept-new"):
+        require_not_contains(lock_script, forbidden, "automatic or unverified deployment lock handling")
 
 node_main_deploy_lock = read("Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh")
 for needle, why in [
@@ -1213,7 +1240,7 @@ for needle, why in [
     ("ssh", "remote lock transport"),
     ("try_acquire_lock", "remote lock acquisition"),
     ("LOCALCLUSTER_DEPLOY_LOCK_DIR", "shared lock directory"),
-    ("LOCK_STALE_SECONDS", "stale lock cleanup"),
+    ("! -name token ! -name owner ! -name created_epoch", "foreign lock metadata protection"),
 ]:
     if needle not in node_main_deploy_lock:
         fail(f"Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh: missing {why}")
