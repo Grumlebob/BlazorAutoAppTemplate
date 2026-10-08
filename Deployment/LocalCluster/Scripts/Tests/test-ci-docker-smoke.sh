@@ -69,6 +69,7 @@ for name in sleep pwsh dotnet; do
 #!/usr/bin/env bash
 if [[ "$(basename "$0")" == dotnet ]]; then
   [[ "$*" == *"RenderModeE2ETests"*"PreHydrationControlsE2ETests"* ]] || exit 3
+  [[ "${E2E_CLEANUP_CONNECTION_STRING:-}" == *"Host=127.0.0.1;Port=34567;"* ]] || exit 4
   exit "${FAIL_BROWSER:-0}"
 fi
 exit 0
@@ -101,6 +102,7 @@ for args in calls:
         assert name.startswith("sample-ci-"), name
         if "postgres" in name:
             assert "/var/lib/postgresql:rw,size=1073741824" in args
+            assert "127.0.0.1::5432" in args, "postgres must publish only on loopback"
         if "redis" in name:
             assert "/data:rw,size=67108864" in args
             assert "--appendonly" in args

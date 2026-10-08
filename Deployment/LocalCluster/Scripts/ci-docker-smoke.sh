@@ -94,7 +94,10 @@ redis_ready() {
 }
 
 docker network create "${owned_label_args[@]}" "$network"
+# Loopback-only random host port: the browser tests clean up the users they
+# register directly in this disposable database.
 docker run -d --name "$postgres" --network "$network" "${owned_label_args[@]}" \
+  -p 127.0.0.1::5432 \
   --tmpfs /var/lib/postgresql:rw,size=1073741824 \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=app \
@@ -155,7 +158,11 @@ if grep -qi '^location:' <<< "$api_headers"; then
 fi
 echo "HTTP smoke passed"
 
+postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
+[[ -n "$postgres_host_port" ]] || { echo "postgres container did not publish port 5432" >&2; exit 1; }
+
 pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
+E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
 RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \
   E2E_HEADLESS=1 \
