@@ -142,6 +142,14 @@ jobs:
       - name: Test release identity verification
         run: bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh
 
+      - name: Test maintenance and cleanup safeguards
+        run: |
+          bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh
+          bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh
+          bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh
+          python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py
+          python3 -m unittest Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py
+
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
 
@@ -602,34 +610,3 @@ jobs:
             --field source_run_head_sha="$SOURCE_RUN_HEAD_SHA" \
             --field source_run_head_branch="$SOURCE_RUN_HEAD_BRANCH" \
             --field source_run_url="$SOURCE_RUN_URL"
-
-  prune-migration-artifacts:
-    needs: publish-main
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
-    permissions:
-      actions: write
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Verify node-main runner
-        run: |
-          echo "Runner name: ${RUNNER_NAME:-unknown}"
-          echo "Host: $(hostname)"
-          test "$(hostname)" = "node-main"
-
-      - name: Load release settings
-        run: |
-          echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)" >> "$GITHUB_ENV"
-
-      # Kept until the maintenance workflow owns artifact retention.
-      - name: Prune old migration bundle artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          bash Deployment/Common/Scripts/prune-actions-artifacts.sh \
-            --artifact-name "${MIGRATION_ARTIFACT_NAME}" \
-            --keep 3

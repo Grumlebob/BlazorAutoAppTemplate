@@ -85,6 +85,32 @@ def list_artifacts(api_root: str, repo: str, token: str, artifact_name: str) -> 
     return artifacts
 
 
+def artifact_run_id(artifact: dict[str, Any]) -> int | None:
+    workflow_run = artifact.get("workflow_run")
+    run_id = workflow_run.get("id") if isinstance(workflow_run, dict) else None
+    return run_id if isinstance(run_id, int) else None
+
+
+def select_deletions(
+    artifacts: list[dict[str, Any]], keep: int, protected_run_ids: set[int]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return (delete, protected): keep the newest `keep`, never delete protected runs.
+
+    An artifact whose CI run cannot be identified is kept whenever any run is
+    protected, so a malformed API response cannot delete a deployed release.
+    """
+    ordered = sorted(artifacts, key=lambda artifact: str(artifact.get("created_at", "")), reverse=True)
+    delete: list[dict[str, Any]] = []
+    protected: list[dict[str, Any]] = []
+    for artifact in ordered[keep:]:
+        run_id = artifact_run_id(artifact)
+        if protected_run_ids and (run_id is None or run_id in protected_run_ids):
+            protected.append(artifact)
+        else:
+            delete.append(artifact)
+    return delete, protected
+
+
 def size_mib(artifact: dict[str, Any]) -> float:
     size = artifact.get("size_in_bytes")
     return round(float(size or 0) / 1024 / 1024, 1)
@@ -116,6 +142,13 @@ def main() -> int:
         default=optional_env("GITHUB_API_URL") or DEFAULT_API_ROOT,
         help="GitHub API root URL.",
     )
+    parser.add_argument(
+        "--protect-run-id",
+        type=int,
+        action="append",
+        default=[],
+        help="Never delete artifacts produced by this CI run id (repeatable), for example deployed releases.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print deletions without deleting.")
     args = parser.parse_args()
 
@@ -130,15 +163,20 @@ def main() -> int:
     if args.keep < 1:
         fail("--keep must be at least 1")
 
+    if any(run_id < 1 for run_id in args.protect_run_id):
+        fail("--protect-run-id must be a positive CI run id")
+
     artifacts = list_artifacts(args.api_root, args.repo, args.token, artifact_name)
-    artifacts.sort(key=lambda artifact: str(artifact.get("created_at", "")), reverse=True)
-    stale_artifacts = artifacts[args.keep :]
+    stale_artifacts, protected_artifacts = select_deletions(artifacts, args.keep, set(args.protect_run_id))
 
     print(
         "artifact prune: "
         f"name={artifact_name} found={len(artifacts)} "
-        f"keep={args.keep} delete={len(stale_artifacts)} dry_run={args.dry_run}"
+        f"keep={args.keep} protected={len(protected_artifacts)} "
+        f"delete={len(stale_artifacts)} dry_run={args.dry_run}"
     )
+    for artifact in protected_artifacts:
+        print(f"keep protected artifact id={artifact.get('id')} run_id={artifact_run_id(artifact)}")
 
     for artifact in stale_artifacts:
         artifact_id = artifact.get("id")

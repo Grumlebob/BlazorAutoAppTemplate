@@ -83,6 +83,11 @@ required_files = [
     "Deployment/LocalCluster/Scripts/check-node-main-capacity.sh",
     "Deployment/LocalCluster/Scripts/localcluster-capacity-thresholds.sh",
     "Scripts/CI/check-runner-capacity.sh",
+    ".github/workflows/localcluster-docker-maintenance.yml",
+    "Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh",
+    "Deployment/LocalCluster/Scripts/prune-actions-runner-residue.sh",
+    "Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh",
+    "Deployment/LocalCluster/Scripts/prune-ci-residue.py",
     "Deployment/Common/Scripts/validate_release_manifest.py",
     "Deployment/Common/Scripts/Tests/test_ci_provenance.py",
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
@@ -845,12 +850,6 @@ for needle, why in [
     ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
     ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
     ("retention-days: 7", "short migration artifact retention"),
-    ("prune-migration-artifacts:", "dedicated artifact pruning job"),
-    ("needs: publish-main", "artifact pruning waits for the main release publisher"),
-    ("actions: write", "permission to prune old CI artifacts"),
-    ("Prune old migration bundle artifacts", "old migration artifact pruning step"),
-    ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
-    ("--keep 3", "bounded migration artifact keep count"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
     ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact-tag CI image removal"),
     ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
@@ -861,6 +860,11 @@ for needle, why in [
     ("Deployment/Common/Scripts/Tests/test_release_contract.py", "release manifest contract tests"),
     ("Deployment/Common/Scripts/Tests/test_ci_provenance.py", "CI provenance selection tests"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh", "maintenance fixture test"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
+    ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
+    ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
     ("global-json-file: global.json", "SDK pinned by global.json"),
     ("ansible-playbook", "LocalCluster playbook syntax check"),
@@ -914,6 +918,48 @@ push_pos = ci.find('docker push "${APP_IMAGE}:${GITHUB_SHA}"')
 upload_pos = ci.find("Upload migration bundle")
 if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
     fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
+# Artifact retention and host cleanup belong to the maintenance workflow,
+# which runs under the deployment lock and protects deployed releases.
+maintenance = read(".github/workflows/localcluster-docker-maintenance.yml")
+for needle, why in [
+    ("workflow_dispatch:", "manual maintenance trigger"),
+    ("# schedule:", "schedule shipped commented out for forks to enable"),
+    ("localcluster-books", "app-specific self-hosted runner label fallback"),
+    ("bash Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh", "locked maintenance runner"),
+    ("install-ansible.sh --check", "check-only Ansible activation"),
+    ("prune-migration-artifacts:", "artifact retention job"),
+    ("actions: write", "permission to prune old CI artifacts"),
+    ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
+    ("--keep 2", "bounded migration artifact keep count"),
+    ("--protect-run-id", "deployed release artifacts are protected"),
+    ("find-successful-ci-run.py --target-sha", "deployed commits mapped to their CI runs"),
+]:
+    if needle not in maintenance:
+        fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
+if re.search(r"(?m)^\s+schedule:", maintenance):
+    fail(".github/workflows/localcluster-docker-maintenance.yml: ship the schedule commented out; forks enable it")
+maintenance_runner = read("Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh")
+for needle, why in [
+    ('exec bash "$SCRIPT_DIR/with-deploy-lock.sh"', "maintenance runs under the deployment lock"),
+    ("prune-actions-runner-residue.sh", "runner residue stage"),
+    ("prune-ci-residue.py", "finished-CI residue stage"),
+    ("prune-docker-residue.sh", "node-main Docker stage"),
+    ("prune-cluster-docker-residue.sh", "cluster Docker stage"),
+    ("check-node-main-capacity.sh", "final capacity check"),
+]:
+    if needle not in maintenance_runner:
+        fail(f"Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh: missing {why}")
+for path in (
+    "Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh",
+    "Deployment/LocalCluster/Scripts/prune-actions-runner-residue.sh",
+    "Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh",
+    "Deployment/LocalCluster/Scripts/prune-ci-residue.py",
+):
+    text = read(path)
+    if "docker volume prune" in text or "system prune" in text or "volume rm" in text:
+        fail(f"{path}: maintenance must never prune Docker volumes or the whole system")
+if ".home" in read("Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh"):
+    fail("Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh: do not hard-code a DNS suffix")
 if "TESTCONTAINERS_RYUK_DISABLED" in ci:
     fail(".github/workflows/ci.yml: keep Ryuk enabled as the Testcontainers cleanup backstop")
 if "actions/setup-python" in ci:
@@ -929,7 +975,7 @@ ci_jobs = {
     ]
     for index, match in enumerate(ci_job_matches)
 }
-allowed_ci_jobs = {"validate", "publish-main", "prune-migration-artifacts", "notify-dependabot-automerge"}
+allowed_ci_jobs = {"validate", "publish-main", "notify-dependabot-automerge"}
 for required_job in ("validate", "publish-main"):
     if required_job not in ci_jobs:
         fail(f".github/workflows/ci.yml: missing required job {required_job}")
@@ -1537,13 +1583,14 @@ for needle, why in [
     ("actions/runners/$RUNNER_ID/labels", "runner label repair API call"),
     ("check-github-runner.sh", "post-install runner verification"),
     ("agentName", "configured runner name verification"),
-    ("RUNNER_NEEDS_RECONFIGURE", "incomplete runner reconfiguration state"),
-    ("Cleaning incomplete GitHub Actions runner directory", "incomplete runner cleanup"),
+    ("has unreadable or incomplete identity; inspect it manually", "fail-closed handling of an unreadable runner identity"),
     ("/opt/actions-runner-${APP_NAME}", "app-specific runner directory"),
     ("sudo ./svc.sh install deploy", "runner service install as deploy"),
 ]:
     if needle not in runner_setup:
         fail(f"Deployment/LocalCluster/Scripts/install-github-runner.sh: missing {why}")
+if "RUNNER_NEEDS_RECONFIGURE" in runner_setup or "-exec rm -rf" in runner_setup:
+    fail("Deployment/LocalCluster/Scripts/install-github-runner.sh: never delete a runner directory automatically")
 runner_configured_pos = runner_setup.find("RUNNER_CONFIGURED=")
 runner_token_pos = runner_setup.find('RUNNER_TOKEN="$(gh api')
 if runner_configured_pos < 0 or runner_token_pos < 0 or runner_token_pos < runner_configured_pos:
