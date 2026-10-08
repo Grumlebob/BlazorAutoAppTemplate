@@ -56,8 +56,11 @@ __pycache__/
 # Local app runtime data
 /data/storage/
 
-# Local planning scratch space. Use docs/plans for retained plans.
-/Plans/
+# Local planning scratch space. Retained plans live in Plans/ (tracked).
+/Plans.local/
+
+# Personal Claude Code settings
+.claude/settings.local.json
 
 # LocalCluster generated local inventory
 /Deployment/LocalCluster/machines.yml
