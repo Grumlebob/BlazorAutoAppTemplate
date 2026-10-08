@@ -1,0 +1,16 @@
+# Reproducible Python CI dependency set.
+#
+# CI installs these into a per-run virtual environment under $RUNNER_TEMP and
+# exports PIP_CONSTRAINT, so every pip install in the workflow resolves to the
+# same versions. Update this file as one reviewed change after a CI run proves
+# the new set. It is a constraints file, not a requirements file: each CI step
+# still names the packages it needs.
+
+pip==26.2.1
+
+# Deployment validation (template rendering and YAML lint).
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+pathspec==1.1.1
+PyYAML==6.0.3
+yamllint==1.38.0

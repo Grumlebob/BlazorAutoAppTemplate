@@ -77,6 +77,14 @@ def deployment_text_files() -> list[Path]:
 required_files = [
     "Deployment/Common/README.md",
     "Deployment/Common/release.yml",
+    "Deployment/Common/ci-python-constraints.txt",
+    "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh",
+    "Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh",
+    "Deployment/LocalCluster/Scripts/check-node-main-capacity.sh",
+    "Deployment/LocalCluster/Scripts/localcluster-capacity-thresholds.sh",
+    "Scripts/CI/check-runner-capacity.sh",
+    "Scripts/CI/migration_staging_artifact.py",
+    "Scripts/CI/tests/test_migration_staging_artifact.py",
     "Deployment/Common/Scripts/install-ansible.sh",
     "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
@@ -795,7 +803,11 @@ for needle, why in [
     ("bash Deployment/Cloud/Scripts/validate-cloud-settings.sh", "Cloud settings validation step"),
     ("bash Deployment/LocalCluster/Scripts/audit-deployment.sh", "deployment audit step"),
     ("bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh", "rendered deployment template validation step"),
-    ("python -m pip install --upgrade yamllint", "deployment lint tool install"),
+    ("python -m pip install --constraint \"$CI_PYTHON_CONSTRAINTS\" yamllint", "pinned deployment lint tool install"),
+    ("python -m pip install --constraint \"$CI_PYTHON_CONSTRAINTS\" jinja2", "pinned template render tool install"),
+    ("CI_PYTHON_CONSTRAINTS", "pinned Python CI dependency path"),
+    ("PIP_CONSTRAINT", "bounded pip dependency resolution"),
+    ("pip==26.2.1", "pinned pip bootstrap"),
     ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
     ("rhysd/actionlint:1.7.12", "current actionlint container"),
     ("node-version: 24", "current Node.js LTS setup"),
@@ -813,18 +825,27 @@ for needle, why in [
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
     ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
     ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
-    ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact upload name"),
+    ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
     ("retention-days: 7", "short migration artifact retention"),
     ("prune-migration-artifacts:", "dedicated artifact pruning job"),
-    ("needs: build-test-push", "artifact pruning waits for successful build/test/push"),
+    ("needs: publish-main", "artifact pruning waits for the main release publisher"),
     ("actions: write", "permission to prune old CI artifacts"),
     ("Prune old migration bundle artifacts", "old migration artifact pruning step"),
     ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
-    ("--keep 2", "bounded migration artifact keep count"),
+    ("--keep 3", "bounded migration artifact keep count"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
-    ('docker image rm "${APP_IMAGE}:${{ github.sha }}"', "exact-tag CI image removal"),
+    ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact-tag CI image removal"),
+    ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
+    ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
+    ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
+    ("bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh", "Docker smoke resource lifecycle test"),
+    ("python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py", "migration staging provenance tests"),
+    ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
+    ("global-json-file: global.json", "SDK pinned by global.json"),
+    ("ansible-playbook", "LocalCluster playbook syntax check"),
+    ("--syntax-check", "LocalCluster playbook syntax check"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
-    ("docker push \"${APP_IMAGE}:${{ github.sha }}\"", "immutable configured image push"),
+    ("docker push \"${APP_IMAGE}:${GITHUB_SHA}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
@@ -868,10 +889,118 @@ if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
     fail(".github/workflows/ci.yml: CI must not run dummy-vault Ansible linting")
 if "cache: npm" in ci or "cache-dependency-path" in ci:
     fail(".github/workflows/ci.yml: CI must not use GitHub cloud npm cache on the self-hosted runner")
-push_pos = ci.find('docker push "${APP_IMAGE}:${{ github.sha }}"')
+push_pos = ci.find('docker push "${APP_IMAGE}:${GITHUB_SHA}"')
 upload_pos = ci.find("Upload migration bundle")
 if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
     fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
+if "TESTCONTAINERS_RYUK_DISABLED" in ci:
+    fail(".github/workflows/ci.yml: keep Ryuk enabled as the Testcontainers cleanup backstop")
+if "actions/setup-python" in ci:
+    fail(".github/workflows/ci.yml: use a per-run venv under RUNNER_TEMP, not actions/setup-python")
+
+# Job structure: PRs validate without publishing; main publishes from a
+# separate job that carries the required `build-test-push` check name.
+ci_jobs_text = ci.split("jobs:\n", 1)[1] if "jobs:\n" in ci else ""
+ci_job_matches = list(re.finditer(r"(?m)^  ([A-Za-z0-9_-]+):\n", ci_jobs_text))
+ci_jobs = {
+    match.group(1): ci_jobs_text[
+        match.end():ci_job_matches[index + 1].start() if index + 1 < len(ci_job_matches) else len(ci_jobs_text)
+    ]
+    for index, match in enumerate(ci_job_matches)
+}
+allowed_ci_jobs = {"validate", "publish-main", "prune-migration-artifacts", "notify-dependabot-automerge"}
+for required_job in ("validate", "publish-main"):
+    if required_job not in ci_jobs:
+        fail(f".github/workflows/ci.yml: missing required job {required_job}")
+if not set(ci_jobs) <= allowed_ci_jobs:
+    fail(f".github/workflows/ci.yml: unexpected CI jobs {sorted(set(ci_jobs) - allowed_ci_jobs)}")
+for job_id, job_body in ci_jobs.items():
+    job_if = re.search(r"(?m)^    if:.*$", job_body)
+    job_entry = re.search(r"(?m)^    (?:runs-on|uses):", job_body)
+    guarded = job_if is not None and (
+        "github.event.pull_request.head.repo.full_name == github.repository" in job_if.group(0)
+        or "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'" in job_if.group(0)
+    )
+    if not guarded or job_entry is None or job_if.start() > job_entry.start():
+        fail(f".github/workflows/ci.yml: {job_id} must guard fork PRs before runner allocation")
+
+
+def workflow_step(job_id: str, step_name: str) -> str:
+    match = re.search(
+        rf"(?ms)^      - name: {re.escape(step_name)}\n.*?(?=^      - name: |^      # |\Z)",
+        ci_jobs.get(job_id, ""),
+    )
+    if match is None:
+        fail(f".github/workflows/ci.yml: missing {step_name} in {job_id}")
+        return ""
+    return match.group(0)
+
+
+def workflow_job_permissions(job_id: str) -> str:
+    match = re.search(r"(?m)^    permissions:\n(?P<body>(?:^      .*\n)+)", ci_jobs.get(job_id, ""))
+    if match is None:
+        fail(f".github/workflows/ci.yml: {job_id} needs explicit permissions")
+        return ""
+    return match.group("body")
+
+
+if "validate" in ci_jobs and "publish-main" in ci_jobs:
+    validate_job = ci_jobs["validate"]
+    publisher_job = ci_jobs["publish-main"]
+    validate_permissions = workflow_job_permissions("validate")
+    publish_permissions = workflow_job_permissions("publish-main")
+    if "contents: read" not in validate_permissions or "packages: write" in validate_permissions:
+        fail(".github/workflows/ci.yml: validate must have contents: read and no package-write permission")
+    if "contents: read" not in publish_permissions or "packages: write" not in publish_permissions:
+        fail(".github/workflows/ci.yml: publish-main must own contents: read and packages: write")
+    if any("packages: write" in workflow_job_permissions(job_id) for job_id in ci_jobs if job_id != "publish-main"):
+        fail(".github/workflows/ci.yml: packages: write must stay scoped to publish-main")
+    publisher_gate = workflow_step("publish-main", "Validate required CI results")
+    if (
+        "name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'validate' || 'build-test-push' }}" not in validate_job
+        or "name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'build-test-push' || 'publish-main' }}" not in publisher_job
+        or "needs: validate" not in publisher_job
+        or "!cancelled()" not in publisher_job
+        or "needs.validate.result == 'success'" not in publisher_job
+        or publisher_job.find("Validate required CI results") > publisher_job.find("- name: Checkout")
+        or "VALIDATE_RESULT: ${{ needs.validate.result }}" not in publisher_gate
+        or "Main release requires validate=success" not in publisher_gate
+        or "Unexpected CI event/ref" not in publisher_gate
+    ):
+        fail(".github/workflows/ci.yml: publish-main must keep the build-test-push name on main and fail closed before checkout")
+    if "docker/login-action@" in validate_job or "docker push" in validate_job:
+        fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
+    if "dotnet ef migrations bundle" in publisher_job:
+        fail(".github/workflows/ci.yml: publish-main must not rebuild the migration bundle")
+    staging_upload = workflow_step("validate", "Upload migration staging artifact")
+    if (
+        "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in staging_upload
+        or "migration-provenance.json" not in staging_upload
+        or "retention-days: 1" not in staging_upload
+        or "if-no-files-found: error" not in staging_upload
+    ):
+        fail(".github/workflows/ci.yml: staging artifact must use a unique short-retention name and the provenance file")
+    staging_validation = workflow_step("publish-main", "Validate migration staging artifact")
+    if (
+        "migration_staging_artifact.py validate" not in staging_validation
+        or "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in publisher_job
+        or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Build Docker image")
+        or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Login to GHCR")
+    ):
+        fail(".github/workflows/ci.yml: publish-main must verify the exact staging input before building or publishing")
+    if publisher_job.find("ci-docker-smoke.sh") < 0 or publisher_job.find("ci-docker-smoke.sh") > publisher_job.find("Push Docker image"):
+        fail(".github/workflows/ci.yml: publish-main must smoke-test the image before pushing it")
+    final_upload = workflow_step("publish-main", "Upload migration bundle")
+    if (
+        "release-manifest.json" not in final_upload
+        or "migration-provenance.json" in final_upload
+        or "retention-days: 7" not in final_upload
+    ):
+        fail(".github/workflows/ci.yml: final release artifact must be the bundle plus release-manifest.json")
+    manifest_step = workflow_step("publish-main", "Resolve pushed image digest and write release manifest")
+    for needle in ('"schema_version": 1', '"image_digest": digest', '"ordered_migration_ids"', '"bundle_sha256"'):
+        if needle not in manifest_step:
+            fail(f".github/workflows/ci.yml: release manifest step is missing {needle}")
 
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [

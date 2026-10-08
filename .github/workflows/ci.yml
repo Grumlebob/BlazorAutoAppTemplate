@@ -7,50 +7,113 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 permissions:
   contents: read
 
+# Only superseded PR validation shares a cancellable group. Each main run keeps
+# its own group so release provenance cannot be displaced by another push.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  build-test-push:
+  # Validates every change. On pull requests this job is the required
+  # `build-test-push` check; on main it is named `validate` and the publishing
+  # job below carries the `build-test-push` name instead.
+  validate:
+    name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'validate' || 'build-test-push' }}
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 75
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          clean: true
 
-      - name: Verify node-main runner
+      - name: Isolate registry credentials for this job
         run: |
+          docker_config="$(mktemp -d "${RUNNER_TEMP}/ci-docker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          chmod 0700 "$docker_config"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
+
+      - name: Verify self-hosted runner profile
+        run: |
+          set -euo pipefail
           echo "Runner name: ${RUNNER_NAME:-unknown}"
           echo "Host: $(hostname)"
+          test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
+          test -d "${GITHUB_WORKSPACE:?GitHub workspace is required}"
+          case "$GITHUB_WORKSPACE" in
+            /mnt/*)
+              echo "CI workspace must use the runner's Linux filesystem: $GITHUB_WORKSPACE" >&2
+              exit 1
+              ;;
+          esac
+          test "$(docker info --format '{{.OSType}}')" = "linux"
           test "$(hostname)" = "node-main"
 
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh --check
 
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-playbook"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+
+      - name: Validate LocalCluster Ansible playbook syntax
+        run: |
+          set -euo pipefail
+          syntax_root="$(mktemp -d "${RUNNER_TEMP:-/tmp}/ansible_syntax.XXXXXX")"
+          trap 'rm -rf -- "$syntax_root"' EXIT
+          mkdir -p \
+            "$syntax_root/Deployment/LocalCluster/ansible/playbooks" \
+            "$syntax_root/Deployment/LocalCluster/inventory/prod" \
+            "$syntax_root/Deployment/Common"
+          cp Deployment/LocalCluster/ansible/playbooks/site.yml \
+            "$syntax_root/Deployment/LocalCluster/ansible/playbooks/site.yml"
+          cp Deployment/Common/release.yml \
+            "$syntax_root/Deployment/Common/release.yml"
+          printf '%s\n' '---' '{}' > \
+            "$syntax_root/Deployment/LocalCluster/inventory/prod/vault.yml"
+          printf '%s\n' \
+            '[all]' 'localhost' '' \
+            '[node_db]' 'localhost' '' \
+            '[load_balancer]' 'localhost' '' \
+            '[app_servers]' 'localhost' \
+            > "$syntax_root/inventory.ini"
+          ANSIBLE_ROLES_PATH="$GITHUB_WORKSPACE/Deployment/LocalCluster/ansible/roles" \
+            ansible-playbook \
+              --inventory "$syntax_root/inventory.ini" \
+              --syntax-check \
+              "$syntax_root/Deployment/LocalCluster/ansible/playbooks/site.yml"
+
       # Report only. node-main's Docker daemon is shared with other apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
-        run: |
-          df -h /
-          free_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
-          if [ "$free_kb" -lt 10485760 ]; then
-            echo "::error::Less than 10 GB free on the runner root filesystem. Inspect with 'bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh --dry-run' on node-main, then run a reviewed cleanup. See Deployment/LocalCluster/HowToDeployLocalCluster.md."
-            docker system df || true
-            exit 1
-          fi
+        run: bash Scripts/CI/check-runner-capacity.sh
 
       - name: Configure self-hosted tool paths
         run: |
           echo "DOTNET_INSTALL_DIR=${RUNNER_TEMP}/dotnet" >> "$GITHUB_ENV"
           echo "DOTNET_ROOT=${RUNNER_TEMP}/dotnet" >> "$GITHUB_ENV"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Verify .NET formatting
+        run: dotnet format --verify-no-changes --verbosity minimal --no-restore
 
       - name: Deployment shell lint
         run: |
@@ -58,10 +121,20 @@ jobs:
             find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
             find Deployment/Cloud/Scripts -type f -name '*.sh' -print0
             find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
+            find Scripts/CI -type f -name '*.sh' -print0
           } | xargs -0 shellcheck --severity=warning
 
       - name: Test LocalCluster deployment lock
         run: bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh
+
+      - name: Test Ansible check-only setup
+        run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
+
+      - name: Test Docker smoke resource lifecycle
+        run: bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh
+
+      - name: Test migration staging provenance
+        run: python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py
 
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
@@ -78,42 +151,42 @@ jobs:
       - name: Deployment audit
         run: bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 
-      - name: Test Ansible check-only setup
-        run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
-
       - name: Setup Python
         run: |
           python_venv="${RUNNER_TEMP}/ci-python"
-          rm -rf "$python_venv"
+          if [ -e "$python_venv" ]; then
+            rm -rf "$python_venv"
+          fi
           python3 -m venv "$python_venv"
+          constraints_file="${GITHUB_WORKSPACE}/Deployment/Common/ci-python-constraints.txt"
+          test -r "$constraints_file"
           echo "${python_venv}/bin" >> "$GITHUB_PATH"
-          "${python_venv}/bin/python" -m pip install --upgrade pip
+          {
+            echo "CI_PYTHON_CONSTRAINTS=${constraints_file}"
+            echo "PIP_CONSTRAINT=${constraints_file}"
+            echo "PIP_DISABLE_PIP_VERSION_CHECK=1"
+            echo "PIP_NO_INPUT=1"
+          } >> "$GITHUB_ENV"
+          "${python_venv}/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-input \
+            --constraint "$constraints_file" \
+            "pip==26.2.1"
 
       - name: Deployment template render validation
         run: |
-          python -m pip install jinja2
+          python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" jinja2
           bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 
       - name: Deployment YAML lint
         run: |
-          python -m pip install --upgrade yamllint
+          python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" yamllint
           yamllint .github Deployment docker-compose.yml .yamllint.yml
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
-
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Verify .NET formatting
-        run: dotnet format --verify-no-changes --verbosity minimal --no-restore
 
       - name: Audit .NET packages for vulnerabilities
         run: dotnet list BlazorAutoApp.sln package --vulnerable --include-transitive
@@ -122,7 +195,10 @@ jobs:
         run: dotnet list BlazorAutoApp.sln package --deprecated
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: |
+          dotnet build --configuration Release --no-restore
+          test -s BlazorAutoApp.Test/bin/Release/net10.0/BlazorAutoApp.Test.dll
+          test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
 
       - name: Traffic simulation wrapper help
         run: pwsh -File ./Scripts/RunSimulation.ps1 -Help
@@ -133,10 +209,24 @@ jobs:
           docker pull postgres:18.4-alpine3.23
           docker pull redis:8.8.0-alpine3.23
 
+      # Ryuk stays enabled as the backstop; the fixtures also dispose their
+      # containers explicitly and label them with localcluster.ci.* labels.
       - name: Test
+        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=ci.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/suite"
+
+      - name: Prove Testcontainers lifecycle cleanup
         env:
-          TESTCONTAINERS_RYUK_DISABLED: "true"
-        run: dotnet test --configuration Release --no-build
+          RUN_TESTCONTAINER_LIFECYCLE: "1"
+        run: dotnet test --configuration Release --no-build --filter "FullyQualifiedName~TestContainerLifecycleTests" --logger "trx;LogFileName=lifecycle.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/lifecycle"
+
+      - name: Upload .NET test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/test-results/${{ github.run_id }}-${{ github.run_attempt }}/**/*.trx
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Install frontend dependencies
         working-directory: BlazorAutoApp.Client
@@ -157,15 +247,52 @@ jobs:
         run: dotnet tool restore
 
       - name: Load release settings
+        id: release_settings
         run: |
+          app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+          migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
+          ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           {
-            echo "APP_IMAGE=$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
-            echo "MIGRATION_BUNDLE_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
-            echo "MIGRATION_RUNTIME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
-            echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+            echo "APP_IMAGE=${app_image}"
+            echo "CI_IMAGE_TAG=${ci_image_tag}"
+            echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
+            echo "MIGRATION_RUNTIME=${migration_runtime}"
           } >> "$GITHUB_ENV"
+          echo "migration_bundle_name=${migration_bundle_name}" >> "$GITHUB_OUTPUT"
+
+      # Pull requests and non-main runs build the image and smoke-test it, but
+      # never push. Main builds and publishes in publish-main instead.
+      - name: Build Docker image
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        run: |
+          docker build \
+            --pull \
+            --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
+            --label localcluster.ci.owner=ci-build \
+            --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
+            --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
+            -f BlazorAutoApp/Dockerfile \
+            -t "${APP_IMAGE}:${CI_IMAGE_TAG}" \
+            .
+
+      - name: Docker smoke and browser smoke
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        env:
+          APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+      # Owned cleanup only: remove the exact image tag this job built. Unscoped
+      # prunes are not allowed here because node-main's Docker daemon is shared.
+      - name: Remove this run's local Docker image
+        if: ${{ always() && (github.event_name == 'pull_request' || github.ref != 'refs/heads/main') }}
+        run: |
+          if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
+            docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
+          fi
 
       - name: Build EF migration bundle
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p artifacts/migrations
           dotnet ef migrations bundle \
@@ -176,46 +303,263 @@ jobs:
             --runtime "${MIGRATION_RUNTIME}" \
             --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
 
+      - name: Create migration staging provenance
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          python3 Scripts/CI/migration_staging_artifact.py create \
+            --directory artifacts/migrations \
+            --bundle-filename "${MIGRATION_BUNDLE_NAME}" \
+            --runtime "${MIGRATION_RUNTIME}" \
+            --repository-root "${GITHUB_WORKSPACE}"
+
+      - name: Upload migration staging artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.release_settings.outputs.migration_bundle_name }}-staging-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
+            artifacts/migrations/migration-provenance.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report runner capacity
+        if: always()
+        run: |
+          df -h /opt
+          df -Pi /opt
+          echo "CI cleans only resources it owns; scoped maintenance handles the rest."
+
+  # Publishes the release for main: the image, the migration bundle and a
+  # release manifest that binds them to this commit and CI run.
+  publish-main:
+    name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'build-test-push' || 'publish-main' }}
+    needs: validate
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' }}
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Validate required CI results
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+        run: |
+          set -euo pipefail
+          case "${CI_EVENT_NAME}:${CI_REF}" in
+            push:refs/heads/main|workflow_dispatch:refs/heads/main) ;;
+            *)
+              echo "Unexpected CI event/ref: ${CI_EVENT_NAME}:${CI_REF}" >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$VALIDATE_RESULT" != "success" ]]; then
+            echo "Main release requires validate=success, got ${VALIDATE_RESULT}" >&2
+            exit 1
+          fi
+          echo "Required main CI result passed."
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          clean: true
+
+      - name: Isolate registry credentials for this job
+        run: |
+          docker_config="$(mktemp -d "${RUNNER_TEMP}/ci-docker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          chmod 0700 "$docker_config"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
+
+      - name: Verify self-hosted runner profile
+        run: |
+          set -euo pipefail
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
+          test -d "${GITHUB_WORKSPACE:?GitHub workspace is required}"
+          case "$GITHUB_WORKSPACE" in
+            /mnt/*)
+              echo "CI workspace must use the runner's Linux filesystem: $GITHUB_WORKSPACE" >&2
+              exit 1
+              ;;
+          esac
+          test "$(docker info --format '{{.OSType}}')" = "linux"
+          test "$(hostname)" = "node-main"
+
+      - name: Ensure self-hosted runner prerequisites
+        run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh --check
+
+      - name: Check self-hosted runner disk
+        run: bash Scripts/CI/check-runner-capacity.sh
+
+      - name: Configure self-hosted tool paths
+        run: |
+          echo "DOTNET_INSTALL_DIR=${RUNNER_TEMP}/dotnet" >> "$GITHUB_ENV"
+          echo "DOTNET_ROOT=${RUNNER_TEMP}/dotnet" >> "$GITHUB_ENV"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Load release settings
+        id: release_settings
+        run: |
+          app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+          migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
+          migration_artifact_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          {
+            echo "APP_IMAGE=${app_image}"
+            echo "CI_IMAGE_TAG=${ci_image_tag}"
+            echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
+            echo "MIGRATION_RUNTIME=${migration_runtime}"
+            echo "MIGRATION_ARTIFACT_NAME=${migration_artifact_name}"
+          } >> "$GITHUB_ENV"
+          {
+            echo "migration_bundle_name=${migration_bundle_name}"
+            echo "migration_artifact_name=${migration_artifact_name}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download exact migration staging artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.release_settings.outputs.migration_bundle_name }}-staging-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/migrations
+
+      - name: Validate migration staging artifact
+        run: |
+          python3 Scripts/CI/migration_staging_artifact.py validate \
+            --directory artifacts/migrations \
+            --bundle-filename "${MIGRATION_BUNDLE_NAME}" \
+            --runtime "${MIGRATION_RUNTIME}"
+
+      - name: Build browser smoke test binaries
+        run: |
+          dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release
+          test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
+
       - name: Build Docker image
         run: |
           docker build \
             --pull \
+            --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
+            --label localcluster.ci.owner=ci-build \
+            --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
+            --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
             -f BlazorAutoApp/Dockerfile \
-            -t "${APP_IMAGE}:${{ github.sha }}" \
+            -t "${APP_IMAGE}:${CI_IMAGE_TAG}" \
             .
 
+      - name: Docker smoke and browser smoke
+        env:
+          APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
       - name: Login to GHCR
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.5.2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Tag Docker image for release
+        run: docker tag "${APP_IMAGE}:${CI_IMAGE_TAG}" "${APP_IMAGE}:${GITHUB_SHA}"
+
       - name: Push Docker image
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker push "${APP_IMAGE}:${GITHUB_SHA}"
+
+      - name: Resolve pushed image digest and write release manifest
         run: |
-          docker push "${APP_IMAGE}:${{ github.sha }}"
+          set -euo pipefail
+          docker image inspect "${APP_IMAGE}:${GITHUB_SHA}" \
+            --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-image-repodigests.json"
+          python3 - "${RUNNER_TEMP}/release-image-repodigests.json" <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import re
+          import sys
+
+          inspect_path = pathlib.Path(sys.argv[1])
+          payload = json.loads(inspect_path.read_text(encoding="utf-8"))
+          if not isinstance(payload, list):
+              raise SystemExit("docker image inspect did not return RepoDigests")
+          image_prefix = f"{os.environ['APP_IMAGE']}@"
+          matches = [
+              value.split("@", 1)[1]
+              for value in payload
+              if isinstance(value, str) and value.startswith(image_prefix)
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f"expected one pushed RepoDigest for {image_prefix!r}, got {matches!r}")
+          digest = matches[0]
+          if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+              raise SystemExit("docker image inspect did not return a registry digest")
+
+          staging_path = pathlib.Path("artifacts/migrations/migration-provenance.json")
+          bundle_path = pathlib.Path("artifacts/migrations") / os.environ["MIGRATION_BUNDLE_NAME"]
+          staging = json.loads(staging_path.read_text(encoding="utf-8"))
+          bundle_bytes = bundle_path.read_bytes()
+          bundle_sha256 = hashlib.sha256(bundle_bytes).hexdigest()
+          if not bundle_bytes or bundle_sha256 != staging["bundle_sha256"]:
+              raise SystemExit("verified migration bundle changed before manifest creation")
+          manifest = {
+              "schema_version": 1,
+              "repository": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "ci_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "image_ref": f"{os.environ['APP_IMAGE']}:{os.environ['GITHUB_SHA']}",
+              "image_digest": digest,
+              "ordered_migration_ids": staging["ordered_migration_ids"],
+              "bundle": {
+                  "file": staging["bundle_filename"],
+                  "sha256": bundle_sha256,
+                  "runtime": staging["runtime"],
+              },
+              "tools": {"dotnet_sdk": staging["dotnet_sdk_version"]},
+          }
+          pathlib.Path("artifacts/migrations/release-manifest.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
 
       - name: Upload migration bundle
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
-          path: artifacts/migrations/${{ env.MIGRATION_BUNDLE_NAME }}
+          name: ${{ steps.release_settings.outputs.migration_artifact_name }}
+          path: |
+            artifacts/migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
+            artifacts/migrations/release-manifest.json
+          if-no-files-found: error
           retention-days: 7
 
-      # Owned cleanup only: remove the exact image tag this job built. Unscoped
-      # prunes are not allowed here because node-main's Docker daemon is shared.
-      - name: Remove this run's local Docker image
+      # Keep :<sha> for fast redeploys; remove only the per-run build tag.
+      - name: Remove this run's build tag
         if: always()
         run: |
-          if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${{ github.sha }}" >/dev/null 2>&1; then
-            docker image rm "${APP_IMAGE}:${{ github.sha }}"
+          if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
+            docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
           fi
 
+      - name: Report runner capacity
+        if: always()
+        run: |
+          df -h /opt
+          df -Pi /opt
+          echo "CI cleans only resources it owns; scoped maintenance handles the rest."
+
   prune-migration-artifacts:
-    needs: build-test-push
+    needs: publish-main
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     permissions:
@@ -224,7 +568,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Verify node-main runner
         run: |
@@ -236,10 +580,11 @@ jobs:
         run: |
           echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)" >> "$GITHUB_ENV"
 
+      # Kept until the maintenance workflow owns artifact retention.
       - name: Prune old migration bundle artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash Deployment/Common/Scripts/prune-actions-artifacts.sh \
             --artifact-name "${MIGRATION_ARTIFACT_NAME}" \
-            --keep 2
+            --keep 3
