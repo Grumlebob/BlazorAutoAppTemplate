@@ -1550,6 +1550,40 @@ require_contains(
     "Verify GitHub CLI",
     "self-hosted auto-merge gh availability check",
 )
+# Dependabot auto-merge must merge only the exact commit CI tested, keep major
+# bumps and deployment/workflow logic changes for a human, and keep the
+# branches Dependabot tracks.
+auto_merge = read(".github/workflows/auto-merge-dependabot.yml")
+for needle, why in [
+    ("startsWith(github.event.workflow_run.head_branch, 'dependabot/')", "Dependabot branch scope"),
+    ('"$source_workflow_path" != \'.github/workflows/ci.yml\'', "CI workflow identity check"),
+    ('"$head_sha" != "$SOURCE_SHA"', "exact tested head check"),
+    ("semver-major", "major update manual review"),
+    ("deployment-surface", "deployment surface manual review"),
+    ("workflow-change-not-limited-to-action-version-updates", "workflow logic manual review"),
+    ("gh pr merge \"$pr\" --disable-auto", "auto-merge disabled when manual review is required"),
+    ("expected_head_sha=\"$SOURCE_SHA\"", "branch refresh pinned to the tested head"),
+    ("secrets.GH_TOKEN || secrets.GITHUB_TOKEN", "optional workflow-capable token"),
+    ("Auto-merge deferred", "visible deferral reason"),
+    ("gh pr merge \"$pr\" --merge --auto", "queued merge after required checks"),
+]:
+    if needle not in auto_merge:
+        fail(f".github/workflows/auto-merge-dependabot.yml: missing {why}")
+if "--delete-branch" in auto_merge:
+    fail(".github/workflows/auto-merge-dependabot.yml: do not delete Dependabot branches; Dependabot tracks them")
+callback_job = ci_jobs.get("notify-dependabot-automerge")
+if callback_job is None:
+    fail(".github/workflows/ci.yml: missing notify-dependabot-automerge callback job")
+elif (
+    workflow_job_permissions("notify-dependabot-automerge").strip() != "actions: write"
+    or "needs: validate" not in callback_job
+    or "github.actor == 'github-actions[bot]'" not in callback_job
+    or "startsWith(github.ref_name, 'dependabot/')" not in callback_job
+    or "Verify node-main runner" not in callback_job
+    or "gh workflow run auto-merge-dependabot.yml" not in callback_job
+    or "actions/checkout" in callback_job
+):
+    fail(".github/workflows/ci.yml: Dependabot callback must stay branch-gated, checkout-free and actions:write-only")
 
 
 if failures:
