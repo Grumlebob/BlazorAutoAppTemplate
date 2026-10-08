@@ -10,6 +10,11 @@
     url: https://download.docker.com/linux/ubuntu/gpg
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
+    timeout: 60
+  register: docker_apt_key_download
+  retries: 5
+  delay: 10
+  until: docker_apt_key_download is succeeded
 
 - name: Read Ubuntu base codename from Linux Mint
   ansible.builtin.shell: |

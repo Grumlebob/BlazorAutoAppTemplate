@@ -22,7 +22,7 @@ wait_for_public_health() {
   local url="$1"
 
   for _ in {1..60}; do
-    if curl -fsS "$url"; then
+    if curl --fail --silent --show-error --connect-timeout 5 --max-time 20 "$url"; then
       echo
       return 0
     fi
@@ -30,11 +30,11 @@ wait_for_public_health() {
   done
 
   echo "public HTTPS health still failed after 120 seconds: $url" >&2
-  curl -fSv "$url"
+  curl --fail --verbose --connect-timeout 5 --max-time 20 "$url"
 }
 
 echo "checking app nodes"
-ansible app_servers -i "$INVENTORY" -a "curl -fsS http://127.0.0.1:${APP_PORT}/health/ready"
+ansible app_servers -i "$INVENTORY" -a "curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://127.0.0.1:${APP_PORT}/health/ready"
 ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
 ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps --services --filter status=running | grep -Fx web"
 
@@ -48,7 +48,7 @@ ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} &
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && redis_version=\"\$(docker compose exec -T redis redis-server --version)\" && printf '%s\n' \"\$redis_version\" && if ! printf '%s\n' \"\$redis_version\" | grep -Fq 'v=8.8.0'; then printf 'expected Redis 8.8.0, got: %s\n' \"\$redis_version\" >&2; exit 1; fi"
 
 echo "checking load balancer for ${PUBLIC_HOSTNAME}"
-ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "APP_NAME=${APP_NAME} PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME} bash -lc 'set -u; for attempt in \$(seq 1 60); do if curl -fsS -H \"Host: \$PUBLIC_HOSTNAME\" http://127.0.0.1/health/ready; then exit 0; fi; sleep 2; done; echo \"local Caddy health still failed after 120 seconds for \$PUBLIC_HOSTNAME\" >&2; echo \"rendered Caddy app site:\" >&2; sed -n \"1,120p\" \"/etc/caddy/sites/\${APP_NAME}.caddy\" >&2 || true; echo \"recent Caddy logs:\" >&2; journalctl -u caddy --no-pager -n 80 >&2 || true; curl -fSv -H \"Host: \$PUBLIC_HOSTNAME\" http://127.0.0.1/health/ready'"
+ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "APP_NAME=${APP_NAME} PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME} bash -lc 'set -u; for attempt in \$(seq 1 60); do if curl --fail --silent --show-error --connect-timeout 3 --max-time 10 -H \"Host: \$PUBLIC_HOSTNAME\" http://127.0.0.1/health/ready; then exit 0; fi; sleep 2; done; echo \"local Caddy health still failed after 120 seconds for \$PUBLIC_HOSTNAME\" >&2; echo \"rendered Caddy app site:\" >&2; sed -n \"1,120p\" \"/etc/caddy/sites/\${APP_NAME}.caddy\" >&2 || true; echo \"recent Caddy logs:\" >&2; journalctl -u caddy --no-pager -n 80 >&2 || true; curl --fail --verbose --connect-timeout 3 --max-time 10 -H \"Host: \$PUBLIC_HOSTNAME\" http://127.0.0.1/health/ready'"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active caddy"
 ansible load_balancer -i "$INVENTORY" -a "systemctl is-active cloudflared"
 

@@ -35,26 +35,16 @@ jobs:
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh
 
+      # Report only. node-main's Docker daemon is shared with other apps, so CI
+      # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
         run: |
           df -h /
           free_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
           if [ "$free_kb" -lt 10485760 ]; then
-            echo "Less than 10 GB free on runner root filesystem; running Docker cleanup before failing." >&2
-            bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh \
-              --force \
-              --min-free-mb 10240 \
-              --container-until 24h \
-              --dangling-image-until 168h \
-              --localcluster-image-until 168h \
-              --builder-until 48h \
-              --network-until 24h
-            df -h /
-            free_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
-            if [ "$free_kb" -lt 10485760 ]; then
-              echo "Less than 10 GB free on runner root filesystem after Docker cleanup." >&2
-              exit 1
-            fi
+            echo "::error::Less than 10 GB free on the runner root filesystem. Inspect with 'bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh --dry-run' on node-main, then run a reviewed cleanup. See Deployment/LocalCluster/HowToDeployLocalCluster.md."
+            docker system df || true
+            exit 1
           fi
 
       - name: Configure self-hosted tool paths
@@ -69,6 +59,9 @@ jobs:
             find Deployment/Cloud/Scripts -type f -name '*.sh' -print0
             find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
           } | xargs -0 shellcheck --severity=warning
+
+      - name: Test LocalCluster deployment lock
+        run: bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh
 
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
@@ -209,19 +202,13 @@ jobs:
           path: artifacts/migrations/${{ env.MIGRATION_BUNDLE_NAME }}
           retention-days: 7
 
-      - name: Clean self-hosted Docker build residue
+      # Owned cleanup only: remove the exact image tag this job built. Unscoped
+      # prunes are not allowed here because node-main's Docker daemon is shared.
+      - name: Remove this run's local Docker image
         if: always()
         run: |
-          if ! bash Deployment/LocalCluster/Scripts/prune-docker-residue.sh \
-            --force \
-            --remove-image "${APP_IMAGE:-}:${{ github.sha }}" \
-            --min-free-mb 20480 \
-            --container-until 24h \
-            --dangling-image-until 168h \
-            --localcluster-image-until 168h \
-            --builder-until 48h \
-            --network-until 24h; then
-            echo "::warning::Docker residue cleanup failed; inspect runner disk before the next deployment."
+          if [ -n "${APP_IMAGE:-}" ] && docker image inspect "${APP_IMAGE}:${{ github.sha }}" >/dev/null 2>&1; then
+            docker image rm "${APP_IMAGE}:${{ github.sha }}"
           fi
 
   prune-migration-artifacts:

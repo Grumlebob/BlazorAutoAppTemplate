@@ -37,6 +37,7 @@ fi
 [[ -f "$SSH_PUB" ]] || fail "missing SSH public key: $SSH_PUB"
 
 ansible-inventory -i "$INVENTORY" --list >/dev/null
+bash "$SCRIPT_DIR/validate-inventory-dns.sh" "$INVENTORY"
 
 if [[ "$MODE" == "bootstrap" ]]; then
   [[ -f "$BOOTSTRAP_INVENTORY" ]] || fail "missing bootstrap inventory: $BOOTSTRAP_INVENTORY. Run Deployment/LocalCluster/Scripts/generate-inventory.sh."
