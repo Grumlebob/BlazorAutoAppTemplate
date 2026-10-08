@@ -6,6 +6,7 @@ using BlazorAutoApp.Core.Features.Books.UseCases.GetBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Features.Books.Caching;
+using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;
@@ -159,7 +160,11 @@ internal class BooksServerService(
     {
         try
         {
-            await _cacheInvalidator.InvalidateAsync(BooksCacheKeys.ForChangedBook(userId, id), CancellationToken.None);
+            var result = await _cacheInvalidator.InvalidateAsync(BooksCacheKeys.ForChangedBook(userId, id), CancellationToken.None);
+            foreach (var warning in result.Warnings)
+            {
+                _logger.LogWarning("Books cache invalidation for book {BookId}: {CacheInvalidationWarning}", id, warning);
+            }
         }
         catch (Exception ex)
         {

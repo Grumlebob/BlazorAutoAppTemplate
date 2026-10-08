@@ -10,6 +10,34 @@ internal static class AppRateLimiting
     public const string ApiPolicyName = "api";
     public const string AuthenticationPolicyName = "authentication";
 
+    // A WebAssembly boot downloads dozens of framework files. Counting them
+    // against the per-client global limit makes ordinary page loads hit 429.
+    private static readonly HashSet<string> StaticAssetExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".avif",
+        ".br",
+        ".css",
+        ".dat",
+        ".dll",
+        ".gif",
+        ".gz",
+        ".ico",
+        ".jpeg",
+        ".jpg",
+        ".js",
+        ".json",
+        ".map",
+        ".otf",
+        ".png",
+        ".pdb",
+        ".svg",
+        ".ttf",
+        ".wasm",
+        ".webp",
+        ".woff",
+        ".woff2"
+    };
+
     public static IServiceCollection AddAppRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -30,6 +58,11 @@ internal static class AppRateLimiting
 
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
             {
+                if (IsStaticAssetRequest(context.Request.Path))
+                {
+                    return RateLimitPartition.GetNoLimiter("static-assets");
+                }
+
                 var isAccountWrite = IsAccountWriteRequest(context);
                 var policy = isAccountWrite ? AuthenticationPolicyName : "global";
                 var rule = isAccountWrite ? configuredOptions.Authentication : configuredOptions.Global;
@@ -89,6 +122,31 @@ internal static class AppRateLimiting
         return context.Request.Path.StartsWithSegments("/Account")
             && !HttpMethods.IsGet(context.Request.Method)
             && !HttpMethods.IsHead(context.Request.Method);
+    }
+
+    internal static bool IsStaticAssetRequest(PathString path)
+    {
+        if (path.StartsWithSegments("/_framework") ||
+            path.StartsWithSegments("/_content") ||
+            path.StartsWithSegments("/assets"))
+        {
+            return true;
+        }
+
+        var value = path.Value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var fileNameStart = value.LastIndexOf('/');
+        var extensionStart = value.LastIndexOf('.');
+        if (extensionStart <= fileNameStart)
+        {
+            return false;
+        }
+
+        return StaticAssetExtensions.Contains(value[extensionStart..]);
     }
 
     private static FixedWindowRateLimiterOptions ToFixedWindow(RateLimitRuleOptions rule)

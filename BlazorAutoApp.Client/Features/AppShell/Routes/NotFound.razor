@@ -1,7 +1,10 @@
 @page "/not-found"
 @layout BlazorAutoApp.Client.Features.AppShell.Layout.MainLayout
 
-<PageTitle>Not Found</PageTitle>
+<PageTitle>Page not found</PageTitle>
 
-<h1 class="text-2xl font-semibold mb-2">Not Found</h1>
-<p class="text-gray-700">The page you are looking for does not exist.</p>
+<section class="mx-auto max-w-xl py-10 text-center" data-testid="app-not-found-page">
+    <h1 class="mb-2 text-2xl font-semibold">Page not found</h1>
+    <p class="text-gray-700">The page you are looking for does not exist.</p>
+    <a class="mt-4 inline-flex h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white hover:bg-gray-700" href="/">Go to the home page</a>
+</section>

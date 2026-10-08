@@ -7,6 +7,7 @@ using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,9 @@ namespace BlazorAutoApp.Test.TestSupport.Integration;
 public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const int MaxWaitTimeMinutes = 5;
+    private const int DefaultGlobalPermitLimit = 600;
+    private const int DefaultApiPermitLimit = 60;
+    private const int DefaultAuthenticationPermitLimit = 20;
     private const string RyukImageEnvironmentVariable = "TESTCONTAINERS_RYUK_CONTAINER_IMAGE";
     private const string ConnectionStringEnvironmentVariable = "ConnectionStrings__DefaultConnection";
     private const string RedisConfigurationEnvironmentVariable = "Redis__Configuration";
@@ -34,6 +38,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private const string StartupMigrationsEnvironmentVariable = "Database__RunMigrationsAtStartup";
     private const string ForwardedHeaderKnownNetworkV4EnvironmentVariable = "ForwardedHeaders__KnownNetworks__0";
     private const string ForwardedHeaderKnownNetworkV6EnvironmentVariable = "ForwardedHeaders__KnownNetworks__1";
+    private const string GlobalRateLimitEnvironmentVariable = "RateLimiting__Global__PermitLimit";
     private const string ApiRateLimitEnvironmentVariable = "RateLimiting__Api__PermitLimit";
     private const string AuthenticationRateLimitEnvironmentVariable = "RateLimiting__Authentication__PermitLimit";
     private const string LocalAccountsEnabledEnvironmentVariable = "LocalAccounts__Enabled";
@@ -94,8 +99,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["LocalAccounts:Enabled"] = "false",
                 ["ForwardedHeaders:KnownNetworks:0"] = "0.0.0.0/0",
                 ["ForwardedHeaders:KnownNetworks:1"] = "::/0",
-                ["RateLimiting:Api:PermitLimit"] = "60",
-                ["RateLimiting:Authentication:PermitLimit"] = "20",
+                ["RateLimiting:Global:PermitLimit"] = (_options.GlobalRateLimitPermitLimit ?? DefaultGlobalPermitLimit).ToString(),
+                ["RateLimiting:Api:PermitLimit"] = (_options.ApiRateLimitPermitLimit ?? DefaultApiPermitLimit).ToString(),
+                ["RateLimiting:Authentication:PermitLimit"] = (_options.AuthenticationRateLimitPermitLimit ?? DefaultAuthenticationPermitLimit).ToString(),
                 ["Observability:OpenTelemetry:Enabled"] = (_options.OpenTelemetryEnabled ?? false).ToString(),
                 ["Observability:OpenTelemetry:Endpoint"] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317",
                 ["Cache:Invalidation:Enabled"] = (_options.CacheInvalidationEnabled ?? !string.Equals(_redisConnectionString, "CHANGE_ME", StringComparison.Ordinal)).ToString()
@@ -129,7 +135,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
-                options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
+                options.DefaultChallengeScheme = _options.UseIdentityCookieChallenge
+                    ? IdentityConstants.ApplicationScheme
+                    : TestAuthenticationHandler.SchemeName;
             })
             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                 TestAuthenticationHandler.SchemeName,
@@ -198,8 +206,9 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [LocalAccountsEnabledEnvironmentVariable] = "false",
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
                 [ForwardedHeaderKnownNetworkV6EnvironmentVariable] = "::/0",
-                [ApiRateLimitEnvironmentVariable] = "60",
-                [AuthenticationRateLimitEnvironmentVariable] = "20",
+                [GlobalRateLimitEnvironmentVariable] = (_options.GlobalRateLimitPermitLimit ?? DefaultGlobalPermitLimit).ToString(),
+                [ApiRateLimitEnvironmentVariable] = (_options.ApiRateLimitPermitLimit ?? DefaultApiPermitLimit).ToString(),
+                [AuthenticationRateLimitEnvironmentVariable] = (_options.AuthenticationRateLimitPermitLimit ?? DefaultAuthenticationPermitLimit).ToString(),
                 [OpenTelemetryEnabledEnvironmentVariable] = (_options.OpenTelemetryEnabled ?? false).ToString(),
                 [OpenTelemetryEndpointEnvironmentVariable] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317"
             });

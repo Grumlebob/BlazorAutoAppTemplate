@@ -92,7 +92,13 @@ internal static class AppCachingExtensions
             dataProtection.ProtectKeysWithDpapi();
         }
 
-        services.AddHybridCache();
+        services.AddHybridCache(options =>
+        {
+            options.MaximumKeyLength = 1024;
+            options.MaximumPayloadBytes = 1024 * 1024;
+            // Tag metrics add a dimension per cache tag; keep metric cardinality bounded.
+            options.ReportTagMetrics = false;
+        });
         services.AddAppCacheInvalidation(configuration, environment, hasRedis);
         return services;
     }

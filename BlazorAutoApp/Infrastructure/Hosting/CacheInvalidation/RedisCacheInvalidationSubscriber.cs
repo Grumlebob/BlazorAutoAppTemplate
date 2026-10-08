@@ -33,7 +33,9 @@ internal sealed class RedisCacheInvalidationSubscriber(
 
             try
             {
-                queue = await _redis.GetSubscriber().SubscribeAsync(channel);
+                queue = await _redis.GetSubscriber()
+                    .SubscribeAsync(channel)
+                    .WaitAsync(stoppingToken);
                 _logger.LogInformation("Subscribed to cache invalidation channel {CacheInvalidationChannel}", channel);
 
                 while (!stoppingToken.IsCancellationRequested)
@@ -95,6 +97,12 @@ internal sealed class RedisCacheInvalidationSubscriber(
             return;
         }
 
+        if (!IsUsableMessage(message))
+        {
+            _logger.LogDebug("Ignored incomplete cache invalidation message");
+            return;
+        }
+
         if (!string.Equals(message.AppName, _options.AppName, StringComparison.Ordinal)
             || !string.Equals(message.EnvironmentName, _options.EnvironmentName, StringComparison.Ordinal))
         {
@@ -137,4 +145,12 @@ internal sealed class RedisCacheInvalidationSubscriber(
                 message.SourceNodeId);
         }
     }
+
+    private static bool IsUsableMessage(CacheInvalidationMessage message) =>
+        !string.IsNullOrWhiteSpace(message.AppName)
+        && !string.IsNullOrWhiteSpace(message.EnvironmentName)
+        && !string.IsNullOrWhiteSpace(message.SourceNodeId)
+        && !string.IsNullOrWhiteSpace(message.Scope)
+        && message.Keys is not null
+        && message.Tags is not null;
 }
