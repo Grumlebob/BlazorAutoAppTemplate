@@ -294,6 +294,19 @@ rm -f "$host_key_candidate"
 
 [CurrentPC]
 
+Before the first commit, check that Git has an author identity:
+
+```bash
+git var GIT_AUTHOR_IDENT
+```
+
+If Git reports "Author identity unknown", set the identity for this checkout. Use your GitHub email or your GitHub no-reply address:
+
+```bash
+git config user.name "Your Name"
+git config user.email "your-email@example.com"
+```
+
 Run the fast local checks:
 
 ```bash
@@ -320,12 +333,11 @@ Do not commit:
 ```text
 .env
 Deployment/LocalCluster/machines.yml
-Deployment/LocalCluster/inventory/prod/vault.yml
 Deployment/LocalCluster/inventory/prod/bootstrap-hosts.yml
 artifacts/
 ```
 
-These are ignored by git and should stay local.
+These are ignored by git and should stay local. LocalCluster `vault.yml` is different: it is tracked because CD needs the encrypted file. Never commit plaintext vault contents or the vault password. Create the fork's own encrypted vault in section 12 and commit it only after setup-secrets.sh succeeds.
 
 ## 10. Prepare The Fork On The Control Machine
 
@@ -413,6 +425,8 @@ Do not point Cloudflare directly at app, PostgreSQL, Redis, Grafana, Prometheus,
 
 [ControlPC]
 
+For a new fork, the inherited encrypted vault uses the upstream repository's password. Remove only that inherited file before setup; the script creates a new vault from vault.example.yml with your chosen password. Do not remove a vault already created for your own fork.
+
 Create or edit the encrypted vault:
 
 ```bash
@@ -432,6 +446,14 @@ vault_cloudflare_tunnel_token: <existing shared tunnel token>
 No GitHub token is stored in the vault. CD lets the nodes pull the image with the workflow's own `GITHUB_TOKEN`. Manual deploys with `deploy.sh` take registry credentials from `GHCR_USERNAME`/`GHCR_TOKEN` or an authenticated `gh` CLI; add the optional `vault_ghcr_username` and `vault_ghcr_token` keys only if neither is available and the image is private.
 
 For a side-by-side fork, use a new PostgreSQL database name, database password, and Redis password. Reusing the same Cloudflare tunnel token is normal when the fork shares the existing `cloudflared` service.
+
+After setup-secrets.sh succeeds, commit the encrypted vault so CD can read it:
+
+```bash
+git add Deployment/LocalCluster/inventory/prod/vault.yml
+git commit -m "Configure encrypted fork deployment vault"
+git push
+```
 
 `setup-secrets.sh` also tries to set the GitHub repository secret:
 

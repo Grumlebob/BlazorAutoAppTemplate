@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 merged as #110 (`0e925771`) with green main CI. P8 merged as #111 (`3960b485`) with green main CI. P10 merged as #112 (`7b6699fc`) with green main CI. P11 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P11 remains in the branch stack. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: executing (2026-10-09). D15 and P1–P11 are merged; main validation and publishing are green at `f5949378b5fe3db8db2d11ef305c4bc5ae8325e6`. P12 integration and fresh-fork closeout are in progress. P13 (LocalSingleNode target, tested on node-demo) has not started. Continue at 11.2 item 4. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
 
 Execution context updated 2026-10-09: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator confirms node-demo is installed and the repository is cloned; no further node setup has been done. Authentication, bootstrap, runner readiness and site availability remain pending. The phase records below remain the 2026-10-08 handoff except for the explicit preflight updates in 11.6.
 Prepared: 2026-10-08.
@@ -252,8 +252,8 @@ When a phase touches `BlazorAutoApp.Client/Styles` or Razor markup classes, also
 | P8 | [#111](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/111) | `3960b4855751a99d5e70866601522df7cdf6b390` | Local gate: 163 passed, 11 opt-in skipped; six shell suites and 51 Python tests passed. Exact-head PR CI [37949131184](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37949131184) and main CI [37950400186](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37950400186) succeeded, including publishing. No live maintenance. | Merged, verified |
 | P9 | Local developer ergonomics | local Docker residue | low | P0 |
 | P10 | [#112](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/112) | `7b6699fcfddbcd378a0c2158843a49f5363ee5de` | Local gate: 167 passed, 11 opt-in skipped; all four agent guardrails passed; links and ignore rules checked. Exact-head PR CI [37952225896](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37952225896) and main CI [37953161424](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37953161424) succeeded, including publishing. | Merged, verified |
-| P11 | branch `upgrade/p11-docs` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites, 68 Python tests and local links in 11 changed Markdown documents passed. | Local gate passed; PR/main CI pending |
-| P12 | Integration and closeout | - | - | all |
+| P11 | [#113](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/113) | `f5949378b5fe3db8db2d11ef305c4bc5ae8325e6` | Local gate: 167 passed, 11 opt-in skipped; seven shell suites and 68 Python tests passed. Exact-head PR CI [37969690167](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37969690167) and main CI [37970580512](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37970580512) succeeded, including publishing. | Merged, verified |
+| P12 | branch `upgrade/p12-integration` | - | Full local gate: 169 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites and 68 Python tests passed. All 136 triage rows reviewed; fresh-fork checks and local commit passed. P12.4 skipped (Q1). | Local gate passed; PR/main CI and branch cleanup pending |
 | P13 | LocalSingleNode deployment target (node-demo) | new target; target selection | high (new deploy path, moves shared scripts) | P7 P8 (merged) |
 
 Order constraints: P1 first (it removes hazards to other apps on shared nodes). P2, P4, P9 and P10 can run in any order after P0. P8.1 and P8.2 (check-only provisioning, small PR `upgrade/p08a-check-only-provisioning`) must merge before P5, because the new CI calls `--check`. P5 must come after P3, because P5 makes CI run the new lifecycle test. P6, P7 and the rest of P8 come after P5. P11 is last before P12.
@@ -757,7 +757,7 @@ Branch `upgrade/p10-agent-rules`.
 
 Branch `upgrade/p11-docs`. Edit template docs. Do not paste ImprovedDb text that mentions its product or values.
 
-- [ ] P11.1 `docs/HowToForkThisRepo.md`:
+- [x] P11.1 `docs/HowToForkThisRepo.md`:
   - §1 table: add `inventory_dns_suffix` (optional) and a note that all node values come from the fork's own `machines.yml`.
   - New note in §2: apps sharing nodes share host-level services (Caddy, cloudflared, Docker, the deploy lock). Keep `cloudflared_version` and other host-level versions aligned across every app on the same nodes, because the last deploy wins.
   - §8: scan each node's host key into a temporary file, compare its fingerprint on the node console, and append that same key to `known_hosts` only after it matches. Manual deploy paths use strict host-key checking.
@@ -768,21 +768,21 @@ Branch `upgrade/p11-docs`. Edit template docs. Do not paste ImprovedDb text that
   - §17: mention `verify-release-identity.sh` if ported.
   - New section: daily maintenance workflow, what it deletes and never deletes, and the exit codes.
   - §19 checklist: update accordingly.
-- [ ] P11.2 `Deployment/LocalCluster/HowToDeployLocalCluster.md`: port these ImprovedDb sections, generalised: runner policy (self-hosted only; external fork PRs skipped before runner allocation; no untrusted code on self-hosted runners), release manifest paragraph, "Runner And Docker Storage Maintenance", low-disk recovery commands, "Deployment lock" (new: how to read `owner`, `release-deploy-lock.sh --inspect/--release`, never delete by age), the known_hosts note, and `--check` vs `--provision`. Remove the GHCR PAT instructions.
-- [ ] P11.3 `Deployment/LocalCluster/Scripts/README.md`: document every new script (`release-deploy-lock.sh`, `ci-docker-smoke.sh`, capacity scripts, prune scripts, maintenance, validate-inventory-dns, verify-release-identity) and exit codes.
-- [ ] P11.4 `Deployment/Common/README.md`: release manifest, provenance and validation helpers.
-- [ ] P11.5 `docs/Test.md`: test collections and what goes where (P3.5), tmpfs/labels/lifecycle test, raised integration rate limits and how to lower them per test, E2E helpers (`WaitForInteractivityAsync`, axe, overflow), the CI Docker smoke, and the local gate list (the same list as AGENTS.md references).
-- [ ] P11.6 `docs/HowToRunLocally.md`: port ImprovedDb's "Local Docker Storage Maintenance" section with template names.
-- [ ] P11.7 `docs/HowToAddANewFeature.md`: link `docs/Requirements.md`; add the lessons: disable controls before hydration; `PersistentComponentState` only for bounded data; put a schema version in cache keys so a deploy that changes a cached response shape does not read old entries (`books:v2:...`); user-specific responses `private, no-store`; no passive DTO tests; feature-owned operational entities may live in the server feature `Persistence` folder.
-- [ ] P11.8 `README.md`: add `docs/Requirements.md`, `AGENTS.md` and `Plans/` to "Start Here" and "Repository Layout"; update the CI description (validate/publish, manifest, smoke) and the LocalCluster description (maintenance workflow).
-- [ ] P11.9 `docs/MigrateProjectPlanningPrompt.md`: add `AGENTS.md` and `docs/Requirements.md` to "First actions" reading list; replace "docs/MigrateProjectPlan.md" with "Plans/MigrateProjectPlan.md" if P10.3 made Plans tracked; mention the release manifest in CI/CD context.
-- [ ] P11.10 Link check: every relative Markdown link in changed `.md` files must resolve to an existing file (write a 10-line Python script that finds `](target)` links, skips `http`/`#` targets, and checks the path relative to the file). Gate, PR, merge. Docs-only PRs still run CI; that is fine.
+- [x] P11.2 `Deployment/LocalCluster/HowToDeployLocalCluster.md`: port these ImprovedDb sections, generalised: runner policy (self-hosted only; external fork PRs skipped before runner allocation; no untrusted code on self-hosted runners), release manifest paragraph, "Runner And Docker Storage Maintenance", low-disk recovery commands, "Deployment lock" (new: how to read `owner`, `release-deploy-lock.sh --inspect/--release`, never delete by age), the known_hosts note, and `--check` vs `--provision`. Remove the GHCR PAT instructions.
+- [x] P11.3 `Deployment/LocalCluster/Scripts/README.md`: document every new script (`release-deploy-lock.sh`, `ci-docker-smoke.sh`, capacity scripts, prune scripts, maintenance, validate-inventory-dns, verify-release-identity) and exit codes.
+- [x] P11.4 `Deployment/Common/README.md`: release manifest, provenance and validation helpers.
+- [x] P11.5 `docs/Test.md`: test collections and what goes where (P3.5), tmpfs/labels/lifecycle test, raised integration rate limits and how to lower them per test, E2E helpers (`WaitForInteractivityAsync`, axe, overflow), the CI Docker smoke, and the local gate list (the same list as AGENTS.md references).
+- [x] P11.6 `docs/HowToRunLocally.md`: port ImprovedDb's "Local Docker Storage Maintenance" section with template names.
+- [x] P11.7 `docs/HowToAddANewFeature.md`: link `docs/Requirements.md`; add the lessons: disable controls before hydration; `PersistentComponentState` only for bounded data; put a schema version in cache keys so a deploy that changes a cached response shape does not read old entries (`books:v2:...`); user-specific responses `private, no-store`; no passive DTO tests; feature-owned operational entities may live in the server feature `Persistence` folder.
+- [x] P11.8 `README.md`: add `docs/Requirements.md`, `AGENTS.md` and `Plans/` to "Start Here" and "Repository Layout"; update the CI description (validate/publish, manifest, smoke) and the LocalCluster description (maintenance workflow).
+- [x] P11.9 `docs/MigrateProjectPlanningPrompt.md`: add `AGENTS.md` and `docs/Requirements.md` to "First actions" reading list; replace "docs/MigrateProjectPlan.md" with "Plans/MigrateProjectPlan.md" if P10.3 made Plans tracked; mention the release manifest in CI/CD context.
+- [x] P11.10 Link check: every relative Markdown link in changed `.md` files must resolve to an existing file (write a 10-line Python script that finds `](target)` links, skips `http`/`#` targets, and checks the path relative to the file). Gate, PR, merge. Docs-only PRs still run CI; that is fine.
 
 ### P12. Integration and closeout
 
 - [ ] P12.1 Confirm every phase PR is merged and `main` CI is green on the final merge commit. Record: final template `main` SHA, CI run URL, list of PRs.
-- [ ] P12.2 Walk the triage inventory: every PORT/ADAPT/REVIEW row must be handled or have a written reason. Add a short "Execution notes" section at the end of `Plans/Support/BlazorAutoAppTemplateUpgrade/FileTriage.md` (in this repository). Include rows you handled differently from the table.
-- [ ] P12.3 Fresh-fork rehearsal (no deploy). In a temporary clone of the upgraded template, follow `docs/HowToForkThisRepo.md` §1–§9 with fake values (`APP_SLUG=rehearsal`, IPs from `192.0.2.0/24`, hostname `rehearsal.example.com`). Run `validate-common-release.sh`, `validate-deploy-settings.sh`, `generate-inventory.sh` (with a fake `machines.yml`), `summary.sh`, `validate-rendered-templates.sh` and the audit. Every step must pass or fail with a clear message. Fix doc or script gaps found. Do not push the rehearsal clone.
+- [x] P12.2 Walk the triage inventory: every PORT/ADAPT/REVIEW row must be handled or have a written reason. Add a short "Execution notes" section at the end of `Plans/Support/BlazorAutoAppTemplateUpgrade/FileTriage.md` (in this repository). Include rows you handled differently from the table.
+- [x] P12.3 Fresh-fork rehearsal (no deploy). In a temporary clone of the upgraded template, follow `docs/HowToForkThisRepo.md` §1–§9 with fake values (`APP_SLUG=rehearsal`, IPs from `192.0.2.0/24`, hostname `rehearsal.example.com`). Run `validate-common-release.sh`, `validate-deploy-settings.sh`, `generate-inventory.sh` (with a fake `machines.yml`), `summary.sh`, `validate-rendered-templates.sh` and the audit. Every step must pass or fail with a clear message. Fix doc or script gaps found. Do not push the rehearsal clone.
 - [ ] P12.4 Skipped by decision Q1 (section 10). Kept for a later follow-up: live deploy, dispatch `CD - Deploy LocalCluster` with `run_migrations=true` on the template's own cluster configuration, after confirming with the operator that the template's committed inventory points to machines they want changed (section 9). Watch it to completion, run `acceptance-check.sh`, record the run URL and deployed digest. If it fails, stop and report; do not retry blindly.
 - [ ] P12.5 Record the P0–P12 closeout with the final template SHA and date. The overall plan status remains "executing" until the required P13 live test and P13.13 closeout are complete. Delete merged upgrade branches in the template after recording each branch's last SHA in the closeout.
 
@@ -1245,13 +1245,13 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 | P8 | [#111](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/111) | `3960b4855751a99d5e70866601522df7cdf6b390` | Local gate: 163 passed, 11 opt-in skipped; six shell suites and 51 Python tests passed. Exact-head PR CI [37949131184](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37949131184) and main CI [37950400186](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37950400186) succeeded, including publishing. No live maintenance. | Merged, verified |
 | P9 | #107 | `37565a7a5cb3cd432b0295792b5f87f1381ed1f9` | PR CI green (`2f4afe3`, run 37776821466). `main` run 37780109019 success. | Merged |
 | P10 | [#112](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/112) | `7b6699fcfddbcd378a0c2158843a49f5363ee5de` | Local gate: 167 passed, 11 opt-in skipped; all four agent guardrails passed; links and ignore rules checked. Exact-head PR CI [37952225896](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37952225896) and main CI [37953161424](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37953161424) succeeded, including publishing. | Merged, verified |
-| P11 | branch `upgrade/p11-docs` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites, 68 Python tests and local links in 11 changed Markdown documents passed. | Local gate passed; PR/main CI pending |
-| P12 | - | - | Fresh-fork rehearsal (P12.3) run locally on the P11 stack with fake values: all checks passed. P12.4 skipped (Q1). Closeout not started. | Not started |
+| P11 | [#113](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/113) | `f5949378b5fe3db8db2d11ef305c4bc5ae8325e6` | Local gate: 167 passed, 11 opt-in skipped; seven shell suites and 68 Python tests passed. Exact-head PR CI [37969690167](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37969690167) and main CI [37970580512](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37970580512) succeeded, including publishing. | Merged, verified |
+| P12 | branch `upgrade/p12-integration` | - | Full local gate: 169 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites and 68 Python tests passed. All 136 triage rows reviewed; fresh-fork checks and local commit passed. P12.4 skipped (Q1). | Local gate passed; PR/main CI and branch cleanup pending |
 | P13 | - | - | Planned 2026-10-08 (Q4). Needs P7 and P8 merged first. | Not started |
 
 ### 11.2 Open items, in order
 
-Current checkpoint (2026-10-09): items 0 and 2 are complete. P7 and P8 in item 1 are merged with green main validation and publishing; P10 is merged with green main CI; P11 is in progress. The commands and original stack SHAs below retain the execution history. After P10/P11, continue at item 4. Item 3 remains observational.
+Current checkpoint (2026-10-09): items 0, 1 and 2 are complete. P7, P8, P10 and P11 are merged with green main validation and publishing. P12 integration is in progress (item 4). Item 3 remains observational; P13 follows the verified P12 merge.
 
 Rechecked 2026-10-08, after 13:40 UTC. Template `main` is at `7136072` (Dependabot #100, lighthouse 13.5.0, merged), and every `main` CI run since P3 is green.
 
@@ -1356,6 +1356,8 @@ Resolved since the first handoff:
 
 ### 11.7 Corrections to earlier statements
 
+- 2026-10-09 P12 review: the old stack lacked the generic favicon tests and shared ProblemDetails helper; the integration PR completes both. The triage inventory records specific substitutions and deferrals for every remaining unchanged or absent PORT/ADAPT/REVIEW row. A changed filename alone was not treated as proof of implementation.
+
 - 2026-10-09 P11 review: SSH onboarding now verifies the fingerprint before trusting the same scanned key. Deployment docs explicitly require a successful main push and publish-main on the exact CI attempt. D15 local-account guidance survived the clean rebase unchanged. The audit enforces the new documentation contract.
 - 2026-10-09 P8 review: observability now reads the shared disk thresholds; CI network deletion requires both ownership provenance and an app-specific network name; runner reuse rejects missing repository identity. Offline fixtures and the audit enforce these changes. The P8 rebase onto verified P7 main was clean. No maintenance was dispatched.
 - 2026-10-09 Dependabot cleanup: #45, #61, #68, #75, #76, #87, #94, #96, #97, #98 and #99 were rechecked against main `0e925771` and closed with replacement-version comments. Their branches were retained.
@@ -1394,4 +1396,29 @@ Record these short SHAs before deleting. Get full SHAs with `git ls-remote origi
 - `upgrade/p08a-check-only-provisioning` `552a61aa5`
 - `upgrade/p09-local-dev` `2f4afe3aa`
 
-Keep `upgrade/p07-cd`, `upgrade/p08-maintenance`, `upgrade/p10-agent-rules` and `upgrade/p11-docs` until they merge.
+All original upgrade branches are now merged. The full head ledger below preserves them before deletion; delete only after checking that each remote head still matches its merged PR.
+
+
+### 11.10 P0–P12 integration checkpoint (2026-10-09)
+
+P1–P11 and D15 are merged. Verified main checkpoint: `f5949378b5fe3db8db2d11ef305c4bc5ae8325e6`, [CI 37970580512](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37970580512), validation and publishing successful. P12 adds the remaining generic favicon tests and shared ProblemDetails helper, records all triage decisions and reruns the fresh-fork rehearsal. Its exact-head and final main CI evidence will be recorded in the integration PR description after merge. P12.4 remains skipped under Q1. The overall status stays executing until P13 live testing and closeout.
+
+Merged branch heads recorded before deletion:
+
+| PR | Branch | Last head | Merge |
+| --- | --- | --- | --- |
+| #101 | `upgrade/p01-shared-cluster-safety` | `bbf109c091d86374d56fea8bed1c92f6b2ca0ef4` | `5f1a86024c224daf6b5143a715d68d95a2b0ff59` |
+| #102 | `upgrade/p02-app-runtime` | `fdba3a1b744a76968a89a75c1e327d1f2d992df8` | `d99b65e857cb4786f1d899f9210b38778241c21c` |
+| #103 | `upgrade/p08a-check-only-provisioning` | `552a61aa5f279fe1ff3c9684e492c4bebcd9c98f` | `c683e789af52af3a466bff85aadc0ad5b7419b69` |
+| #104 | `upgrade/p04-dependencies` | `2934b6ed4c087743ad810d898de57a03fbc73b26` | `d72d22a725c6570465f3b5fccbdb260d8f9542b2` |
+| #105 | `upgrade/p03-test-infrastructure` | `26bb59a56077ef183f369dc4e4b509959a0e1c41` | `675bf5e8167a4cf418d24b2d49fe6bc5d9cd41f4` |
+| #106 | `upgrade/p05-ci` | `0d750a91001315f2371966344d57252155febfc1` | `3c13fef3f26c80b782be5d4f56a69c1c7a86efe2` |
+| #107 | `upgrade/p09-local-dev` | `2f4afe3aab245be0cc32884dd0d7557be8206862` | `37565a7a5cb3cd432b0295792b5f87f1381ed1f9` |
+| #108 | `upgrade/p06-dependabot` | `b18a154eb8d595a3bb2d28d2930d93b504d338c2` | `4f476922362af635565859d54f000704a849d2d6` |
+| #109 | `upgrade/d15-no-seeded-accounts` | `c338bb7b6702846f4517d392f00e0b5be3478e65` | `0115995228fabcfcdbe76e05e5a68d10d08ecf2f` |
+| #110 | `upgrade/p07-cd` | `e255f900ce2930b7b81577c516a2b0145edea7a2` | `0e9257717434d0457eb74a84c19c82b2d7e9b921` |
+| #111 | `upgrade/p08-maintenance` | `eb35e1b6b75cbdf90eb3a3f4f0bb91a78e6ca97a` | `3960b4855751a99d5e70866601522df7cdf6b390` |
+| #112 | `upgrade/p10-agent-rules` | `e9c0a741ff6c717701f651fbee555fbaeb1c8b57` | `7b6699fcfddbcd378a0c2158843a49f5363ee5de` |
+| #113 | `upgrade/p11-docs` | `5c58a33595db8d73a6ef0a6df8b956cc4f61c6ed` | `f5949378b5fe3db8db2d11ef305c4bc5ae8325e6` |
+
+P12 local verification: 169 passed, 11 existing opt-in skips; build 0 warnings/errors. Gate `upgrade-p12-integration-gate-20261009T181339Z.log`; fixtures `upgrade-p12-integration-fixtures-20261009T181339Z.log` (seven shell suites, 68 Python tests); fresh-fork `p12-fresh-fork-20261009T180512Z.log` (six checks, ignored-file checks, encrypted-vault assertion and local commit, no push or deploy). The first local commit attempt reported missing Git author identity; the guide now explains checkout-local author settings. Review also corrected the false claim that LocalCluster vault.yml is ignored: only its encrypted contents are tracked, and a fork creates its own vault/password. Live SSH trust and external dashboard/authentication steps were not exercised in the offline rehearsal.

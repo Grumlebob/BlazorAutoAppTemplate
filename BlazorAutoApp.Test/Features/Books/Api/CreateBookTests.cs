@@ -133,7 +133,7 @@ public class CreateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PostAsJsonAsync("/api/books", create);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await ProblemDetailsAssert.IsValidationProblemAsync(response, nameof(CreateBookRequest.Url));
+        await HttpProblemDetailsAssert.IsValidationProblemAsync(response, nameof(CreateBookRequest.Url));
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

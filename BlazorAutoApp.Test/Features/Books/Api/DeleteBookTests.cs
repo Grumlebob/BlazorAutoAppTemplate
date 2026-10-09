@@ -56,7 +56,7 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
     {
         var response = await _client.DeleteAsync("/api/books/10101010");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class DeleteBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.DeleteAsync($"/api/books/{book.Id}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
 
         await using var verifyDb = await _dbFactory.CreateDbContextAsync();
         var stillThere = await verifyDb.Books.AsNoTracking().FirstOrDefaultAsync(m => m.Id == book.Id);
