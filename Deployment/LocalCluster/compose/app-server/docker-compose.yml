@@ -6,7 +6,7 @@ x-localcluster-logging: &localcluster-logging
 
 services:
   web:
-    image: ${APP_IMAGE}:${APP_VERSION}
+    image: ${APP_IMAGE_REF:?APP_IMAGE_REF is required}
     hostname: ${APP_NODE_NAME}
     restart: unless-stopped
     logging: *localcluster-logging

@@ -31,8 +31,9 @@ jobs:
       CLOUD_BASTION_HOST: ${{ secrets.CLOUD_BASTION_HOST }}
       CLOUD_TEMP_SSH_FIREWALL_ID: ${{ secrets.CLOUD_TEMP_SSH_FIREWALL_ID }}
       CLOUD_HETZNER_API_TOKEN: ${{ secrets.CLOUD_HETZNER_API_TOKEN }}
-      CLOUD_GHCR_USERNAME: ${{ secrets.CLOUD_GHCR_USERNAME }}
-      CLOUD_GHCR_TOKEN: ${{ secrets.CLOUD_GHCR_TOKEN }}
+      # Cloud nodes pull the image with this job's token; no GHCR PAT is stored.
+      CLOUD_GHCR_USERNAME: ${{ github.actor }}
+      CLOUD_GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CLOUD_POSTGRES_USER: ${{ secrets.CLOUD_POSTGRES_USER }}
       CLOUD_POSTGRES_PASSWORD: ${{ secrets.CLOUD_POSTGRES_PASSWORD }}
       CLOUD_POSTGRES_DB: ${{ secrets.CLOUD_POSTGRES_DB }}
@@ -54,7 +55,7 @@ jobs:
           test "$(hostname)" = "node-main"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Validate deployment settings
         run: |
@@ -94,11 +95,11 @@ jobs:
           echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.5.2
         with:
           registry: ghcr.io
-          username: ${{ secrets.CLOUD_GHCR_USERNAME }}
-          password: ${{ secrets.CLOUD_GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify image exists
         run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null

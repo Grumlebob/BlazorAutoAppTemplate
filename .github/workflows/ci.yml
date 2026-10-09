@@ -136,6 +136,12 @@ jobs:
       - name: Test migration staging provenance
         run: python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py
 
+      - name: Test release provenance and manifest contract
+        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_ci_provenance.py Deployment/Common/Scripts/Tests/test_release_contract.py
+
+      - name: Test release identity verification
+        run: bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh
+
       - name: GitHub Actions workflow lint
         run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
 

@@ -18,7 +18,7 @@ head -n 1 "$VAULT" | grep -q '^\$ANSIBLE_VAULT;' || fail "vault.yml is not encry
 
 CONTENT="$(ansible-vault view "$VAULT")" || fail "could not decrypt vault.yml"
 
-if grep -q "REPLACE_WITH" <<< "$CONTENT"; then
+if grep -v '^[[:space:]]*#' <<< "$CONTENT" | grep -q "REPLACE_WITH"; then
   fail "vault.yml still contains REPLACE_WITH placeholders"
 fi
 

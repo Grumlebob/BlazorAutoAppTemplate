@@ -38,21 +38,18 @@
     group: deploy
     mode: "0640"
 
-- name: Log in to GHCR
+- name: Pull application image with command-owned registry credentials
   ansible.builtin.shell: |
     set -eu
+    docker_config="$(mktemp -d /tmp/{{ app_name }}-ghcr.XXXXXX)"
+    trap 'rm -rf -- "$docker_config"' EXIT
+    export DOCKER_CONFIG="$docker_config"
+    {% if vault_ghcr_token | default('') | length > 0 %}
     echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
+    {% endif %}
+    docker compose up -d --pull always --remove-orphans
   args:
     executable: /bin/bash
-  become: true
-  become_user: deploy
-  register: app_ghcr_login
-  changed_when: false
-  no_log: true
-
-- name: Pull and start app container
-  ansible.builtin.command: docker compose up -d --pull always
-  args:
     chdir: "{{ deploy_root }}"
   become: true
   become_user: deploy
@@ -63,6 +60,7 @@
   changed_when: >-
     (app_compose_up.stdout ~ app_compose_up.stderr)
     is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+  no_log: true
 
 - name: Wait for app health endpoint
   ansible.builtin.uri:

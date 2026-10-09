@@ -1,4 +1,5 @@
 name: CD - Deploy LocalCluster
+run-name: "CD LocalCluster @ ${{ inputs.target_sha || github.sha }}"
 
 on:
   workflow_dispatch:
@@ -11,6 +12,11 @@ on:
         options:
           - "true"
           - "false"
+      target_sha:
+        description: Commit on main to deploy (full SHA). Empty deploys the dispatched main commit.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -24,6 +30,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 60
     environment:
       name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 
@@ -35,6 +42,24 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve target commit
+        env:
+          INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          TARGET_SHA="${INPUT_TARGET_SHA:-$GITHUB_SHA}"
+          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "target_sha must be a full lowercase 40-character commit SHA, got '${TARGET_SHA}'." >&2
+            exit 1
+          fi
+          echo "TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
+
+      - name: Isolate registry credentials for this job
+        run: |
+          docker_config="$(mktemp -d "${RUNNER_TEMP}/cd-docker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          chmod 0700 "$docker_config"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
+
       - name: Verify node-main runner
         run: |
           echo "Runner name: ${RUNNER_NAME:-unknown}"
@@ -42,7 +67,19 @@ jobs:
           test "$(hostname)" = "node-main"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Only commits already on main can deploy; the workflow code itself always
+      # comes from the dispatched main commit.
+      - name: Verify target is on main
+        run: |
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$GITHUB_SHA" || {
+            echo "target_sha ${TARGET_SHA} is not an ancestor of main ${GITHUB_SHA}." >&2
+            exit 1
+          }
 
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
@@ -63,11 +100,11 @@ jobs:
             echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
             echo "RUNNER_LABEL=${RUNNER_LABEL}"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
-            echo "APP_VERSION=${GITHUB_SHA}"
+            echo "APP_VERSION=${TARGET_SHA}"
           } >> "$GITHUB_ENV"
           {
             echo "Deploying image:"
-            printf '%s:%s\n' "${APP_IMAGE}" "${GITHUB_SHA}"
+            printf '%s:%s\n' "${APP_IMAGE}" "${TARGET_SHA}"
             echo
             echo "Public hostname:"
             printf '%s\n' "${PUBLIC_HOSTNAME}"
@@ -80,22 +117,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CI_RUN_ID="$(bash Deployment/LocalCluster/Scripts/find-successful-ci-run.sh)"
-          echo "CI_RUN_ID=${CI_RUN_ID}" >> "$GITHUB_ENV"
-          echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
+            echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
+            exit 1
+          }
+          CI_RUN_ID="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["id"])' "$ci_result")"
+          CI_RUN_ATTEMPT="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["run_attempt"])' "$ci_result")"
+          {
+            echo "CI_RUN_ID=${CI_RUN_ID}"
+            echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
+          } >> "$GITHUB_ENV"
+          echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Login to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify image exists
-        run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
-
-      - name: Download migration bundle from CI
-        if: inputs.run_migrations == 'true'
+      # The release artifact holds the migration bundle and the release manifest.
+      # It is needed for every deploy, with or without migrations.
+      - name: Download release artifact from CI
         uses: actions/download-artifact@v8
         with:
           name: ${{ env.MIGRATION_ARTIFACT_NAME }}
@@ -103,11 +140,37 @@ jobs:
           run-id: ${{ env.CI_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare migration bundle
-        if: inputs.run_migrations == 'true'
+      - name: Login to GHCR
+        uses: docker/login-action@v4.5.2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture registry release descriptor
         run: |
-          test -f "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          docker pull --quiet "${APP_IMAGE}:${TARGET_SHA}"
+          docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
+            --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-registry-repodigests.json"
+          echo "REGISTRY_MANIFEST_PATH=${RUNNER_TEMP}/release-registry-repodigests.json" >> "$GITHUB_ENV"
+
+      - name: Validate release manifest
+        run: |
+          set -euo pipefail
+          test -f artifacts/migrations/release-manifest.json
+          RELEASE_IMAGE_DIGEST="$(python3 Deployment/Common/Scripts/validate_release_manifest.py \
+            --manifest artifacts/migrations/release-manifest.json \
+            --registry-json "$REGISTRY_MANIFEST_PATH" \
+            --bundle-dir artifacts/migrations \
+            --expected-repository "$SOURCE_REPO_URL" \
+            --expected-sha "$TARGET_SHA" \
+            --expected-ci-run-id "$CI_RUN_ID" \
+            --expected-ci-run-attempt "$CI_RUN_ATTEMPT" \
+            --expected-image "$APP_IMAGE" \
+            --expected-bundle-name "$MIGRATION_BUNDLE_NAME")"
+          echo "RELEASE_IMAGE_DIGEST=${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_ENV"
           chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          echo "Release manifest verified: ${APP_IMAGE}:${TARGET_SHA} ${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
 
       # Check only: CI/CD jobs never run apt. Provision on the control machine with
       # Deployment/LocalCluster/Scripts/install-ansible.sh --provision.
@@ -122,8 +185,35 @@ jobs:
         run: |
           umask 077
           VAULT_PASSWORD_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}_ansible_vault_password.XXXXXX")"
-          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "${VAULT_PASSWORD_FILE}"
           echo "ANSIBLE_VAULT_PASSWORD_FILE=${VAULT_PASSWORD_FILE}" >> "$GITHUB_ENV"
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > "${VAULT_PASSWORD_FILE}"
+
+      # Nodes pull the image with this job's token, so no long-lived registry
+      # token is stored in the vault. Extra vars override vault values.
+      - name: Write GHCR deploy credentials
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          umask 077
+          GHCR_EXTRA_VARS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}_ghcr_deploy_vars.XXXXXX")"
+          echo "GHCR_EXTRA_VARS_FILE=${GHCR_EXTRA_VARS_FILE}" >> "$GITHUB_ENV"
+          export GHCR_EXTRA_VARS_FILE
+          python3 - <<'PY'
+          import json
+          import os
+
+          values = {
+              "vault_ghcr_username": os.environ["GHCR_USERNAME"],
+              "vault_ghcr_token": os.environ["GHCR_TOKEN"],
+          }
+          with open(os.environ["GHCR_EXTRA_VARS_FILE"], "w", encoding="utf-8") as output:
+              json.dump(values, output, sort_keys=True)
+              output.write("\n")
+          PY
+
+      - name: Check node-main capacity
+        run: bash Deployment/LocalCluster/Scripts/check-node-main-capacity.sh
 
       - name: Deployment preflight
         run: bash Deployment/LocalCluster/Scripts/preflight.sh deploy
@@ -135,7 +225,9 @@ jobs:
           bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
+            -e @"${GHCR_EXTRA_VARS_FILE}" \
             -e "app_version=${APP_VERSION}" \
+            -e "release_image_digest=${RELEASE_IMAGE_DIGEST}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
             -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
@@ -147,11 +239,16 @@ jobs:
           bash ../Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
+            -e @"${GHCR_EXTRA_VARS_FILE}" \
             -e "app_version=${APP_VERSION}" \
+            -e "release_image_digest=${RELEASE_IMAGE_DIGEST}" \
             -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check
         run: bash Deployment/LocalCluster/Scripts/acceptance-check.sh
+
+      - name: Verify running release identity
+        run: bash Deployment/LocalCluster/Scripts/verify-release-identity.sh "${APP_IMAGE}" "${RELEASE_IMAGE_DIGEST}"
 
       - name: Run observability doctor
         run: |
@@ -161,9 +258,15 @@ jobs:
             echo "observability_enabled is false; skipping observability doctor"
           fi
 
-      - name: Remove Ansible Vault password file
+      - name: Remove temporary credential files
         if: always()
         run: |
           if [ -n "${ANSIBLE_VAULT_PASSWORD_FILE:-}" ]; then
             rm -f "${ANSIBLE_VAULT_PASSWORD_FILE}"
+          fi
+          if [ -n "${GHCR_EXTRA_VARS_FILE:-}" ]; then
+            rm -f "${GHCR_EXTRA_VARS_FILE}"
+          fi
+          if [ -n "${DOCKER_CONFIG:-}" ] && [ -d "${DOCKER_CONFIG}" ]; then
+            rm -rf "${DOCKER_CONFIG}"
           fi
