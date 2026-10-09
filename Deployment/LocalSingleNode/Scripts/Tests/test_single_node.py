@@ -29,6 +29,13 @@ class MachineTests(unittest.TestCase):
     def test_valid(self):
         self.assertEqual(FACTS, machine.validate(FACTS, False))
 
+    def test_hostnames_preserve_case_and_reject_invalid_labels(self):
+        for name in ('Operator-Laptop', '7demo', 'a' * 63):
+            self.assertEqual(name, machine.validate({**FACTS, 'name': name}, False)['name'])
+        for name in ('-node', 'node-', 'node_name', 'a' * 64, None, True, False):
+            with self.assertRaisesRegex(ValueError, 'hostname'):
+                machine.validate({**FACTS, 'name': name}, False)
+
     def test_reject_bad_facts(self):
         for key, value in (("name", "REPLACE_WITH_NAME"), ("ip", "bad"), ("ip", "127.0.0.1"), ("ip", str(ipaddress.IPv4Address(0))), ("ip", "192.0.2.0"), ("ip", "192.0.2.255"), ("install_user", "root"), ("install_user", "deploy")):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):

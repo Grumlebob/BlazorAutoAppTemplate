@@ -14,7 +14,7 @@ import time
 import urllib.request
 
 from ls_settings import ROOT, TARGET, command, settings
-from machine import detect, read_yaml, validate, yaml
+from machine import detect, read_yaml, valid_hostname, validate, yaml
 from platform_check import native
 
 VERSION = 1
@@ -32,7 +32,7 @@ def guard(args):
         raise ValueError("Fixture paths are not permitted for privileged bootstrap")
     if not args.yes:
         raise ValueError("Use the complete operator command with --yes")
-    if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", args.node) or not re.fullmatch(r"[A-Za-z0-9-]+", args.github_login):
+    if not valid_hostname(args.node) or not re.fullmatch(r"[A-Za-z0-9-]+", args.github_login):
         raise ValueError("Invalid node name or GitHub login")
     facts = detect()
     if args.expected_address and facts["ip"] != args.expected_address:

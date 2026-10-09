@@ -11,7 +11,7 @@ import sys
 
 from bootstrap import VERSION
 from ls_settings import ETC, ROOT, TARGET, command, read_yaml, settings
-from machine import detect, validate
+from machine import detect, valid_hostname, validate
 from platform_check import native
 
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     try:
-        if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", args.node):
+        if not valid_hostname(args.node):
             raise ValueError("Invalid node name")
         result, code = status(args.node, args.expected_address)
         print(json.dumps(result) if args.json else "\n".join(result[key] for key in ("summary", "human_message", "command") if result[key]))

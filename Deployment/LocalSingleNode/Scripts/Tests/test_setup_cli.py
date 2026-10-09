@@ -25,7 +25,7 @@ def say(value):
 if name == 'uname':
     say('Linux' if '-s' in args else 'fixture-native-kernel')
 elif name == 'hostname':
-    say('node-rehearsal')
+    say(state.get('hostname', 'node-rehearsal'))
 elif name == 'id':
     say('operator')
 elif name == 'ip':
@@ -135,6 +135,13 @@ class StatusCliTests(unittest.TestCase):
         code, state = self.invoke(dict(ci_capacity=False, ci_registered_offline=True, ci=False))
         self.assertEqual((10, 'ci'), (code, state['step']))
         self.assertFalse(state['ci_runner'])
+
+    def test_initial_mixed_case_hostname_reaches_the_one_root_command(self):
+        code, state = self.invoke(dict(hostname='Operator-Laptop', root=False))
+        self.assertEqual((20, 'root'), (code, state['step']))
+        self.assertEqual('Operator-Laptop', state['facts']['name'])
+        self.assertIn('Native host: Operator-Laptop', state['human_message'])
+        self.assertIn('--node node-rehearsal', state['command'])
 
 
 if __name__ == '__main__':

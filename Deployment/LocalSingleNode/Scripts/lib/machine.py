@@ -10,12 +10,16 @@ import sys
 from ls_settings import command, read_yaml
 
 
+def valid_hostname(value):
+    return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", value))
+
+
 def validate(values, on_node=True):
     if set(values) != {"name", "ip", "lan_cidr", "install_user"}:
         raise ValueError("machine needs name, ip, lan_cidr and install_user")
     if any("REPLACE_WITH_" in str(value) for value in values.values()):
         raise ValueError("replace every machine placeholder")
-    if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", str(values["name"])):
+    if not valid_hostname(values["name"]):
         raise ValueError("invalid node hostname")
     if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", str(values["install_user"])) or values["install_user"] in ("root", "deploy"):
         raise ValueError("install_user must be the original unprivileged Linux user")
