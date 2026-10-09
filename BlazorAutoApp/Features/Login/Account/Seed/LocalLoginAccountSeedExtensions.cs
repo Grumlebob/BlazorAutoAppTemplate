@@ -8,21 +8,36 @@ internal static class LocalLoginAccountSeedExtensions
     private const string AdminRole = "Admin";
     private const string UserRole = "User";
 
+    // Earlier versions seeded these accounts in every Docker deployment and reset their
+    // passwords on each start. Deployments lock any that still use the published password.
+    internal static readonly IReadOnlyList<(string Email, string Password)> PublishedDefaultAccounts =
+    [
+        ("admin@admin.com", "Admin123"),
+        ("user@user.com", "User123"),
+    ];
+
     public static async Task SeedLocalLoginAccountsAsync(this WebApplication app)
     {
-        var isLocalEnvironment = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker");
-        var enabled = app.Configuration.GetValue($"{SectionName}:Enabled", isLocalEnvironment);
-        if (!enabled)
-        {
-            return;
-        }
-
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("LocalLoginAccountSeed");
 
-        if (!isLocalEnvironment)
+        if (!IsSeedingEnabled(app.Environment, app.Configuration))
         {
-            logger.LogWarning("Local login account seeding is enabled but skipped outside Development/Docker.");
+            if (app.Configuration.GetValue($"{SectionName}:Enabled", false))
+            {
+                logger.LogWarning("Local login account seeding is enabled but skipped outside Development/Docker.");
+            }
+
+            // Deployments run in the Docker environment with seeding off.
+            if (app.Environment.IsEnvironment("Docker"))
+            {
+                using var lockScope = app.Services.CreateScope();
+                await LockPublishedDefaultAccountsAsync(
+                    lockScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
+                    logger,
+                    PublishedDefaultAccounts);
+            }
+
             return;
         }
 
@@ -50,6 +65,50 @@ internal static class LocalLoginAccountSeedExtensions
 
             logger.LogInformation("Local login account ready: {Email} / {Role}", account.Email, account.Role);
         }
+    }
+
+    // On by default only in Development. Deployments also use the Docker environment,
+    // so a Docker run seeds only when LocalAccounts:Enabled is set (docker-compose.yml does).
+    internal static bool IsSeedingEnabled(IHostEnvironment environment, IConfiguration configuration)
+    {
+        var enabled = configuration.GetValue($"{SectionName}:Enabled", environment.IsDevelopment());
+        return enabled && (environment.IsDevelopment() || environment.IsEnvironment("Docker"));
+    }
+
+    internal static async Task<int> LockPublishedDefaultAccountsAsync(
+        UserManager<ApplicationUser> userManager,
+        ILogger logger,
+        IEnumerable<(string Email, string Password)> accounts)
+    {
+        var locked = 0;
+        foreach (var (email, password) in accounts)
+        {
+            try
+            {
+                var user = await userManager.FindByEmailAsync(email);
+                if (user is null
+                    || await userManager.IsLockedOutAsync(user)
+                    || !await userManager.CheckPasswordAsync(user, password))
+                {
+                    continue;
+                }
+
+                ThrowIfFailed(await userManager.SetLockoutEnabledAsync(user, true), $"enable lockout for '{email}'");
+                ThrowIfFailed(await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue), $"lock '{email}'");
+                ThrowIfFailed(await userManager.UpdateSecurityStampAsync(user), $"sign out '{email}'");
+                locked++;
+                logger.LogWarning(
+                    "Locked {Email}: it still used the published default password. Delete it, or reset its password and unlock it.",
+                    email);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Never block startup; the warning tells the operator to remove the account.
+                logger.LogError(exception, "Could not check or lock the published default account {Email}.", email);
+            }
+        }
+
+        return locked;
     }
 
     private static string GetValue(IConfiguration configuration, string key, string fallback) =>

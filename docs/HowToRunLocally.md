@@ -164,7 +164,7 @@ Local login seeds:
 - Password: `User123`
 - Role: `User`
 
-These accounts are created only in `Development` and `Docker` environments after EF migrations run. The seed writes the local password hashes directly so these short local-only passwords work without weakening the normal Identity password rules for registration and password reset flows.
+These accounts are created after EF migrations run in `Development`, and in the local Docker stack because root `docker-compose.yml` explicitly sets `LocalAccounts__Enabled: "true"`. Deployment compose files set it to `false`. On startup, a deployment locks any published demo account that still uses its default password and invalidates its existing sessions. Accounts with changed passwords are preserved. The seed writes the local password hashes directly so these short local-only passwords work without weakening the normal Identity password rules for registration and password reset flows.
 
 If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `docker compose up -d --build`. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
 
