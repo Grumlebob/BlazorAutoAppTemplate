@@ -58,13 +58,15 @@ jobs:
        inputs.source_run_head_sha != '' &&
        inputs.source_run_head_branch != '' &&
        inputs.source_run_url != '')
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     steps:
-      - name: Verify node-main runner
+      - name: Verify CI runner
+        env:
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}
         run: |
           echo "Runner name: ${RUNNER_NAME:-unknown}"
           echo "Host: $(hostname)"
-          test "$(hostname)" = "node-main"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
 
       - name: Verify GitHub CLI
         run: command -v gh

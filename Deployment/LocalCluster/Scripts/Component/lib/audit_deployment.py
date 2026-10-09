@@ -90,6 +90,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/prune-ci-residue.py",
     "Deployment/Common/Scripts/validate_release_manifest.py",
     "Deployment/Common/Scripts/Tests/test_ci_provenance.py",
+    "Deployment/Common/Scripts/Tests/test_target_gate.py",
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
     "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
@@ -828,7 +829,7 @@ ci = read(".github/workflows/ci.yml")
 for needle, why in [
     ("github.event.pull_request.head.repo.full_name == github.repository", "external-fork pull request guard before self-hosted runner allocation"),
     ("localcluster-books", "app-specific self-hosted runner label fallback"),
-    ("Verify node-main runner", "explicit node-main runner verification"),
+    ("Verify CI runner", "explicit CI runner verification"),
     ("Ensure self-hosted runner prerequisites", "node-main prerequisite bootstrap step"),
     ("RUNNER_TEMP", "temporary self-hosted runner tool install directories"),
     ("find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
@@ -870,6 +871,7 @@ for needle, why in [
     ("python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py", "migration staging provenance tests"),
     ("Deployment/Common/Scripts/Tests/test_release_contract.py", "release manifest contract tests"),
     ("Deployment/Common/Scripts/Tests/test_ci_provenance.py", "CI provenance selection tests"),
+    ("Deployment/Common/Scripts/Tests/test_target_gate.py", "exact deployment target gate fixtures"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh", "maintenance fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
@@ -991,6 +993,8 @@ if "TESTCONTAINERS_RYUK_DISABLED" in ci:
     fail(".github/workflows/ci.yml: keep Ryuk enabled as the Testcontainers cleanup backstop")
 if "actions/setup-python" in ci:
     fail(".github/workflows/ci.yml: use a per-run venv under RUNNER_TEMP, not actions/setup-python")
+
+require_file("Deployment/Common/Scripts/Tests/test_target_gate.py")
 
 # Job structure: PRs validate without publishing; main publishes from a
 # separate job that carries the required `build-test-push` check name.
@@ -1689,8 +1693,41 @@ for workflow in workflow_paths:
             if hosted_runner in stripped:
                 fail(f"{workflow}:{line_number}: contains forbidden GitHub-hosted runner label: {stripped}")
     if has_runs_on:
-        require_contains(workflow, "localcluster-books", "app-specific node-main runner fallback")
-        require_contains(workflow, "Verify node-main runner", "explicit node-main runner verification")
+        require_contains(workflow, "localcluster-books", "app-specific self-hosted runner fallback")
+        if workflow in (".github/workflows/ci.yml", ".github/workflows/auto-merge-dependabot.yml"):
+            require_contains(workflow, "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'", "neutral CI label with existing fallback")
+            jobs = re.split(r"(?m)^  [a-zA-Z0-9_-]+:\n", read(workflow).split("jobs:\n", 1)[1])[1:]
+            for job in jobs:
+                if "runs-on:" not in job:
+                    continue
+                runner_line = re.search(r"(?m)^    runs-on:.*$", job)
+                if runner_line is None or "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'" not in runner_line.group(0):
+                    fail(f"{workflow}: every CI job must use the neutral CI label and preserve its fallbacks")
+                profile = re.search(r"(?ms)^      - name: Verify CI runner\n.*?(?=^      - name: |\Z)", job)
+                if profile is None or any(needle not in profile.group(0) for needle in (
+                    "CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}",
+                    'test "$(hostname)" = "$CI_RUNNER_HOST"',
+                )):
+                    fail(f"{workflow}: every CI job must verify the configured CI host with node-main fallback")
+        else:
+            require_contains(workflow, "Verify node-main runner", "explicit node-main runner verification")
+    if Path(workflow).name.startswith("cd-") or Path(workflow).name.endswith("-maintenance.yml"):
+        target = "cloud" if Path(workflow).name == "cd-cloud.yml" else ("localsinglenode" if "localsinglenode" in Path(workflow).name else "localcluster")
+        first_steps = re.findall(r"(?m)^    steps:\n(?P<body>(?:^      .*\n|^        .*\n|^          .*\n|^\n)+)", read(workflow))
+        if not first_steps:
+            fail(f"{workflow}: deployment workflow must have job steps")
+        for steps in first_steps:
+            first = re.split(r"(?m)^      - name: ", steps)[1]
+            for needle in (
+                "Require this deployment target to be enabled\n",
+                "DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}",
+                f"TARGET: {target}\n",
+                'targets=",${DEPLOY_TARGETS// /},"',
+                'if [[ "$targets" != *",${TARGET},"* ]]; then',
+                'exit 1',
+            ):
+                if needle not in first:
+                    fail(f"{workflow}: each deployment job must fail closed on an exact enabled-target match before other steps")
 require_contains(
     ".github/workflows/auto-merge-dependabot.yml",
     "Verify GitHub CLI",
@@ -1725,7 +1762,7 @@ elif (
     or "needs: validate" not in callback_job
     or "github.actor == 'github-actions[bot]'" not in callback_job
     or "startsWith(github.ref_name, 'dependabot/')" not in callback_job
-    or "Verify node-main runner" not in callback_job
+    or "Verify CI runner" not in callback_job
     or "gh workflow run auto-merge-dependabot.yml" not in callback_job
     or "actions/checkout" in callback_job
 ):
