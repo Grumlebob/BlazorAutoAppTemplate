@@ -24,6 +24,31 @@ dotnet test .\BlazorAutoApp.sln --no-build
 
 Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
+## Local Gate
+
+Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
+
+```bash
+git diff --check
+dotnet restore BlazorAutoApp.sln
+dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
+dotnet build BlazorAutoApp.sln --configuration Release --no-restore
+dotnet test BlazorAutoApp.sln --configuration Release --no-build          # needs Docker
+bash Deployment/Common/Scripts/validate-common-release.sh
+bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
+bash Deployment/Common/observability/scripts/validate-observability.sh
+bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+python3 -m venv /tmp/tpl-venv && /tmp/tpl-venv/bin/pip install --constraint Deployment/Common/ci-python-constraints.txt jinja2 yamllint
+PATH="/tmp/tpl-venv/bin:$PATH" bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
+PATH="/tmp/tpl-venv/bin:$PATH" yamllint .github Deployment docker-compose.yml .yamllint.yml
+find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+```
+
+When a change touches `BlazorAutoApp.Client/Styles` or Razor markup classes, also run `cd BlazorAutoApp.Client && npm ci && npm run css:build` and commit `BlazorAutoApp/wwwroot/tailwind.css` if it changed.
+
+When a change touches deployment scripts, also run the script tests under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/` and `Scripts/CI/tests/`. The CI `validate` job lists them.
+
 ## Cross-Node Cache Invalidation Tests
 
 Books cross-node cache invalidation tests start two in-memory app hosts against one shared PostgreSQL Testcontainer and one shared Redis Testcontainer. These tests verify the production shape where multiple app servers share Redis and need Redis pub/sub to invalidate each other's in-process `HybridCache` entries.
