@@ -16,7 +16,7 @@ import time
 
 API_ROOT = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
 API_VERSION = "2026-03-10"
-ALLOWED_EVENTS = {"push", "workflow_dispatch"}
+ALLOWED_EVENTS = {"push"}
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 
@@ -204,6 +204,47 @@ def verify_current_run(result: dict[str, object], current: dict[str, object], re
     return direct
 
 
+
+def verify_publishing_job(result: dict[str, object], jobs: object) -> dict[str, object]:
+    """Overall success is insufficient when the publishing job was skipped."""
+    if result.get("outcome") != "success":
+        return result
+    selected = result["selected"]
+    if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
+        return {"schema_version": 1, "outcome": "invalid_provenance",
+                "diagnostic": "Publishing-job metadata is malformed."}
+    publishing = [job for job in jobs if job.get("name") == "build-test-push"]
+    # On main, ci.yml's publish-main job is named build-test-push. Validation
+    # is a separate job named validate, so it cannot substitute for publishing.
+    if len(publishing) != 1:
+        return {"schema_version": 1, "outcome": "invalid_provenance",
+                "diagnostic": "Expected exactly one publish-main (build-test-push) job."}
+    job = publishing[0]
+    if (job.get("run_id") != selected["id"]
+            or job.get("run_attempt") != selected["run_attempt"]
+            or job.get("head_sha") != selected["head_sha"]):
+        return {"schema_version": 1, "outcome": "invalid_provenance",
+                "diagnostic": "Publishing job does not match the selected CI run, attempt and commit."}
+    if job.get("status") != "completed" or job.get("conclusion") != "success":
+        return {"schema_version": 1, "outcome": "failed", "selected": selected,
+                "diagnostic": "Selected CI attempt has no successful publish-main job."}
+    return result
+
+
+def get_attempt_jobs(repo: str, run_id: int, attempt: int, token: str) -> list[object]:
+    jobs = []
+    for page in range(1, 101):
+        payload = github_get(
+            f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100&page={page}", token)
+        page_jobs = payload.get("jobs")
+        if not isinstance(page_jobs, list):
+            fail("unexpected workflow jobs response")
+        jobs.extend(page_jobs)
+        if len(page_jobs) < 100:
+            return jobs
+    fail("CI job history exceeds the safe pagination limit")
+
+
 def main() -> int:
     import argparse
 
@@ -215,6 +256,7 @@ def main() -> int:
     parser.add_argument("--expected-run-attempt", default=os.environ.get("EXPECTED_CI_RUN_ATTEMPT", ""))
     parser.add_argument("--runs-json-file", type=Path, help="select from previously queried workflow-run pages using the same eligibility policy")
     parser.add_argument("--current-run-json-file", type=Path, help="independently queried current run metadata for offline revalidation")
+    parser.add_argument("--jobs-json-file", type=Path, help="exact-attempt jobs response for offline publishing verification")
     parser.add_argument("--json", action="store_true", help="emit one structured outcome object")
     args = parser.parse_args()
     repo = args.repository.strip()
@@ -273,6 +315,23 @@ def main() -> int:
             current = json.loads(args.current_run_json_file.read_text(encoding="utf-8"))
             result = verify_current_run(result, current, repo, sha, workflow_file)
         elif args.runs_json_file is None:
+            current = github_get(f"/repos/{repo}/actions/runs/{result['selected']['id']}", token)
+            result = verify_current_run(result, current, repo, sha, workflow_file)
+    if result["outcome"] == "success":
+        if args.jobs_json_file is not None:
+            try:
+                payload = json.loads(args.jobs_json_file.read_text(encoding="utf-8"))
+                jobs = payload.get("jobs") if isinstance(payload, dict) else payload
+            except (OSError, json.JSONDecodeError) as exc:
+                fail(f"workflow-job input is unavailable or malformed: {exc}")
+        elif args.runs_json_file is not None:
+            fail("offline CI provenance requires --jobs-json-file")
+        else:
+            selected = result["selected"]
+            jobs = get_attempt_jobs(repo, selected["id"], selected["run_attempt"], token)
+        result = verify_publishing_job(result, jobs)
+        # A rerun beginning during job verification invalidates frozen evidence.
+        if result["outcome"] == "success" and args.runs_json_file is None:
             current = github_get(f"/repos/{repo}/actions/runs/{result['selected']['id']}", token)
             result = verify_current_run(result, current, repo, sha, workflow_file)
     if args.json:

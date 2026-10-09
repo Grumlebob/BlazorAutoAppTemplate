@@ -663,6 +663,11 @@ for seeded_path in [
     if 'LocalAccounts__Enabled: "false"' not in read(seeded_path):
         fail(f'{seeded_path}: missing LocalAccounts__Enabled: "false" (no seeded demo logins in deployments)')
 
+ci_provenance = read("Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py")
+for needle in ['ALLOWED_EVENTS = {"push"}', "verify_publishing_job", "/attempts/{attempt}/jobs", 'job.get("run_attempt")', 'job.get("head_sha")']:
+    if needle not in ci_provenance:
+        fail(f"CI release provenance: missing publishing verification contract {needle}")
+
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
     ("image: ${APP_IMAGE_REF:?APP_IMAGE_REF is required}", "exact release image reference"),
@@ -1094,7 +1099,7 @@ for needle, why in [
     ("GITHUB_TOKEN", "GitHub token input"),
     ("actions/workflows", "workflow runs API"),
     ('selected["conclusion"] != "success"', "successful CI conclusion requirement"),
-    ('ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "pull request run exclusion"),
+    ('ALLOWED_EVENTS = {"push"}', "pull request run exclusion"),
     ('branch != "main"', "main branch run requirement"),
 ]:
     if needle not in find_ci:

@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: executing (2026-10-09). D15 is implemented and passed the local gate; its PR and main CI remain required. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P7, P8, P10 and P11 are a clean branch stack waiting for merge. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P7, P8, P10 and P11 are a clean branch stack waiting for merge. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
 
 Execution context updated 2026-10-09: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator confirms node-demo is installed and the repository is cloned; no further node setup has been done. Authentication, bootstrap, runner readiness and site availability remain pending. The phase records below remain the 2026-10-08 handoff except for the explicit preflight updates in 11.6.
 Prepared: 2026-10-08.
@@ -784,7 +784,7 @@ Branch `upgrade/p11-docs`. Edit template docs. Do not paste ImprovedDb text that
 - [ ] P12.2 Walk the triage inventory: every PORT/ADAPT/REVIEW row must be handled or have a written reason. Add a short "Execution notes" section at the end of `Plans/Support/BlazorAutoAppTemplateUpgrade/FileTriage.md` (in this repository). Include rows you handled differently from the table.
 - [ ] P12.3 Fresh-fork rehearsal (no deploy). In a temporary clone of the upgraded template, follow `docs/HowToForkThisRepo.md` §1–§9 with fake values (`APP_SLUG=rehearsal`, IPs from `192.0.2.0/24`, hostname `rehearsal.example.com`). Run `validate-common-release.sh`, `validate-deploy-settings.sh`, `generate-inventory.sh` (with a fake `machines.yml`), `summary.sh`, `validate-rendered-templates.sh` and the audit. Every step must pass or fail with a clear message. Fix doc or script gaps found. Do not push the rehearsal clone.
 - [ ] P12.4 Skipped by decision Q1 (section 10). Kept for a later follow-up: live deploy, dispatch `CD - Deploy LocalCluster` with `run_migrations=true` on the template's own cluster configuration, after confirming with the operator that the template's committed inventory points to machines they want changed (section 9). Watch it to completion, run `acceptance-check.sh`, record the run URL and deployed digest. If it fails, stop and report; do not retry blindly.
-- [ ] P12.5 Update this plan's status line to "complete" with the final template SHA and date (in the closeout PR), and delete merged upgrade branches in the template (record each branch's last SHA in the closeout).
+- [ ] P12.5 Record the P0–P12 closeout with the final template SHA and date. The overall plan status remains "executing" until the required P13 live test and P13.13 closeout are complete. Delete merged upgrade branches in the template after recording each branch's last SHA in the closeout.
 
 ### P13. LocalSingleNode deployment target (tested on node-demo)
 
@@ -863,7 +863,7 @@ Deployment/
 
 #### P13.C Steps
 
-- [ ] P13.0 **Preconditions.** 11.2 items 1 to 3 are done: P7, P8, P10 and P11 are merged and `main` CI is green. Create each P13 branch from the newest `origin/main`.
+- [ ] P13.0 **Preconditions.** 11.2 items 1, 2 and 4 are done: P7, P8, P10 and P11 are merged, P12 closeout is recorded and `main` CI is green. Item 3 is an observation of the next Dependabot PR, not a prerequisite requiring a new PR to appear. Create each P13 branch from the newest `origin/main`.
 
 - [ ] P13.1 **Reuse inventory (P13a PR body).** This was checked on 2026-10-08 against `upgrade/p11-docs`. Re-run the greps on current `main` and note any difference:
   ```bash
@@ -1232,7 +1232,7 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 
 | Phase | Template PR | Merge commit on template `main` | Verification | Status |
 | --- | --- | --- | --- | --- |
-| D15 | branch `upgrade/d15-no-seeded-accounts` | - | Local gate passed on 2026-10-09: 163 tests passed, 11 opt-in tests skipped; build 0 warnings/errors; audit mutation checks passed for both deployment app compose files. Reference ImprovedDb #238 at `6d79bcbb4ec0b6fbe4c9ee0952e116fa6612483a`. | Implemented, PR/main CI pending |
+| D15 | [#109](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/109) | `0115995228fabcfcdbe76e05e5a68d10d08ecf2f` | Local gate: 163 passed, 11 opt-in skipped; both audit mutation checks passed. Exact-head PR CI [37940054202](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37940054202) and main CI [37943481306](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37943481306) succeeded, including publishing. | Merged, verified |
 | P0 | - | - | Runner worked (last `main` CI success 2026-09-28). 12 stale Dependabot PRs. Findings in 2.4. | Done |
 | P1 | #101 | `5f1a86024c224daf6b5143a715d68d95a2b0ff59` | PR CI green (`bbf109c`, run 37768420570). `main` run 37771507324 success. | Merged |
 | P2 | #102 | `d99b65e857cb4786f1d899f9210b38778241c21c` | PR CI green (`fdba3a1`, run 37771774997). Covered by the green `main` run 37776013256 of P3. | Merged |
@@ -1241,7 +1241,7 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 | P8a | #103 | `c683e789af52af3a466bff85aadc0ad5b7419b69` | PR CI green (`552a61a`, run 37771861192). Its `main` run 37773351490 was cancelled (see 11.7). | Merged |
 | P5 | #106 | `3c13fef3f26c80b782be5d4f56a69c1c7a86efe2` | PR CI green (`0d750a9`, run 37776653144). `main` run 37778029231: `validate` success; publish job `build-test-push` (job 113324747811) success 13:15–13:18 UTC (smoke, push, manifest, upload); artifact `books-migrate-linux-x64` (id 11552703711) present. | Merged, verified |
 | P6 | #108 | `4f476922362af635565859d54f000704a849d2d6` | PR CI green (`b18a154`, run 37778084296). `main` run 37782129527 success. First real Dependabot PR not yet observed (P6.4). | Merged |
-| P7 | branch `upgrade/p07-cd` at `cb60566` | - | Render validation, Ansible syntax check, identity fixture test and audit pass. Not live. | Implemented, not merged |
+| P7 | branch `upgrade/p07-cd` | - | Full local gate: 163 passed, 11 opt-in skipped; build 0 warnings/errors. 24 provenance/manifest tests, identity fixtures, Ansible syntax check, render validation and live exact-attempt publishing verification passed. No live deploy. | Local gate passed; PR/main CI pending |
 | P8 | branch `upgrade/p08-maintenance` at `9cdcac9` (includes P7) | - | Fixture tests pass: maintenance, low-disk prune, runner residue, CI residue sweeper, artifact retention, lock. | Implemented, not merged |
 | P9 | #107 | `37565a7a5cb3cd432b0295792b5f87f1381ed1f9` | PR CI green (`2f4afe3`, run 37776821466). `main` run 37780109019 success. | Merged |
 | P10 | branch `upgrade/p10-agent-rules` at `313e5ee` | - | 32/32 architecture tests pass (before the final rebase). | Implemented, not merged |
@@ -1264,7 +1264,7 @@ Rechecked 2026-10-08, after 13:40 UTC. Template `main` is at `7136072` (Dependab
 1. **Merge the stack P7 → P8 → P10 → P11.** The branches form a linear stack on `4f47692`: P7 `cb60566` ← P8 `9cdcac9` ← P10 `313e5ee` ← P11 `ac45b73`. Each one merges cleanly into `7136072` (`git merge-tree`). For P7:
    ```bash
    git fetch origin && git switch upgrade/p07-cd && git rebase origin/main
-   # Q7: in .github/workflows/cd-cloud.yml set actions/checkout@v7 (2 places) and docker/login-action@v4.5.2; commit that file.
+   # Q7: in .github/workflows/cd-cloud.yml set actions/checkout@v7 and docker/login-action@v4.5.2; commit that file.
    # Run the 3.6 gate. Then:
    git push --force-with-lease origin upgrade/p07-cd
    gh pr create --repo Grumlebob/BlazorAutoAppTemplate --base main --head upgrade/p07-cd --fill-first
@@ -1354,6 +1354,9 @@ Resolved since the first handoff:
 
 ### 11.7 Corrections to earlier statements
 
+- 2026-10-09 P7 helper adaptation: the template downloads the named release artifact from the verified CI run with actions/download-artifact@v8, then validates repository, SHA, run, attempt, registry digest and bundle checksum with `validate_release_manifest.py`. It retains its P5 migration staging validator. The reference ZIP extraction helpers (`release_artifact.py`, `validate-ci-release-artifact.py` and their two test modules) consume coordinator-frozen artifact IDs/digests and are not copied as unused code. These rows are handled by the template release validators and tests; P12 records the mapping in the triage inventory.
+- 2026-10-09 execution: P12 closeout does not mark the full plan complete before P13. The next Dependabot PR is observational (11.2 item 3) and does not block P13; the goal completion definition requires items 0, 1, 2, 4 and 5. P13 starts after P12 closeout and green main CI.
+- 2026-10-09 P7 review: the existing branch selected a successful overall CI run but did not explicitly require the publish-main job. The helper now verifies the successful `build-test-push` publishing job on the selected main push, exact run attempt and SHA, then rechecks run identity to reject a rerun race. Main workflow_dispatch runs are excluded as required by P7.4.7. The deployment audit and fixtures enforce this contract.
 - 2026-10-09 D15: the reference audit covers three ImprovedDb compose files, including its product-only data runner. The template has two deployment app compose files. Both are enforced here; P13 adds the LocalSingleNode equivalent when that target exists. No data-runner content is ported.
 - 2026-10-09 setup: the earlier WSL 1/missing-tool observations are superseded by the prepared WSL 2 checkout and environment checks in 11.6. Windows `main` and the new native WSL checkout now match `origin/main`; the reviewed plan/config changes remain uncommitted. Ubuntu shutdown protection was added after reproducing the Docker shared-mount and interop failures.
 - 2026-10-09 preflight: MB3 previously inferred branch protection from successful PR merges. GitHub now reports no classic protection and no effective rules for `main`. Keep the plan's CI gates mandatory, without changing repository protection under Q5. The operator also confirmed installation and clone are done on node-demo; only subsequent setup remains. Main CI, template admin access, the existing CI runner and the D15 source merge were rechecked in 11.6.

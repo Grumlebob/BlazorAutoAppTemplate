@@ -131,5 +131,36 @@ class CiSelectionTests(unittest.TestCase):
         self.assertEqual(self.select([runs[1]], "9", "2")["outcome"], "success")
 
 
+    def test_main_dispatch_is_not_release_provenance(self) -> None:
+        self.assertEqual(self.select([run(9, "2026-09-24T11:00:00Z", event="workflow_dispatch")])["outcome"], "no_eligible_run")
+
+    def publishing_job(self, **overrides) -> dict[str, object]:
+        job = {"name": "build-test-push", "run_id": 9, "run_attempt": 1,
+               "head_sha": self.target, "status": "completed", "conclusion": "success"}
+        job.update(overrides)
+        return job
+
+    def verify_jobs(self, jobs) -> dict[str, object]:
+        result = self.select([run(9, "2026-09-24T11:00:00Z")])
+        return MODULE.verify_publishing_job(result, jobs)
+
+    def test_successful_publishing_job_is_required(self) -> None:
+        self.assertEqual(self.verify_jobs([self.publishing_job()])["outcome"], "success")
+        for conclusion in ("skipped", "failure", "cancelled", None):
+            with self.subTest(conclusion=conclusion):
+                self.assertEqual(self.verify_jobs([self.publishing_job(conclusion=conclusion)])["outcome"], "failed")
+
+    def test_missing_duplicate_and_malformed_publishing_jobs_fail_closed(self) -> None:
+        for jobs in ([], [self.publishing_job(name="validate")],
+                     [self.publishing_job(), self.publishing_job()], None, [None]):
+            with self.subTest(jobs=jobs):
+                self.assertEqual(self.verify_jobs(jobs)["outcome"], "invalid_provenance")
+
+    def test_publishing_job_identity_is_bound_to_selected_run_attempt_and_sha(self) -> None:
+        for values in ({"run_id": 8}, {"run_attempt": 2}, {"head_sha": "b" * 40}):
+            with self.subTest(values=values):
+                self.assertEqual(self.verify_jobs([self.publishing_job(**values)])["outcome"], "invalid_provenance")
+
+
 if __name__ == "__main__":
     unittest.main()
