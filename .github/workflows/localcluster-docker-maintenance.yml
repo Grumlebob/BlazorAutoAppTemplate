@@ -1,0 +1,104 @@
+name: LocalCluster Docker Maintenance
+
+# Manual by default. To run it daily, uncomment the schedule below in your fork.
+# The minute offset keeps it off the top of the hour; Sunday also prunes old
+# release artifacts. See Deployment/LocalCluster/HowToDeployLocalCluster.md.
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "17 3 * * 1-6"
+  #   - cron: "17 3 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: localcluster-docker-maintenance
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-playbook"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+
+      - name: Run LocalCluster maintenance under the deployment lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: bash Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh
+
+  prune-migration-artifacts:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * 0'
+    # Independent of host/Docker cleanup so an unavailable node does not
+    # silently prevent the retention policy from being applied.
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 15
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Verify node-main runner
+        run: |
+          echo "Runner name: ${RUNNER_NAME:-unknown}"
+          echo "Host: $(hostname)"
+          test "$(hostname)" = "node-main"
+
+      - name: Load release settings
+        run: |
+          echo "MIGRATION_ARTIFACT_NAME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)" >> "$GITHUB_ENV"
+
+      # The CI runs behind the last two successful deploys keep their release
+      # artifacts, so a redeploy or rollback still finds its manifest. Any
+      # lookup failure stops the job before anything is deleted.
+      - name: Find CI runs of recent deployments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          deployments="$(gh run list --workflow cd-localcluster.yml --status success --limit 2 --json displayTitle,headSha \
+            --jq '.[] | ((.displayTitle | capture("@ (?<sha>[0-9a-f]{40})$").sha) // .headSha)')"
+          protect_args=""
+          while IFS= read -r target_sha; do
+            [[ -n "$target_sha" ]] || continue
+            run_id="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$target_sha")"
+            [[ "$run_id" =~ ^[0-9]+$ ]] || { echo "could not resolve the CI run for deployed ${target_sha}" >&2; exit 1; }
+            echo "Protecting CI run ${run_id} (deployed ${target_sha})"
+            protect_args+=" --protect-run-id ${run_id}"
+          done <<< "$deployments"
+          echo "PROTECT_ARGS=${protect_args}" >> "$GITHUB_ENV"
+
+      - name: Prune old migration bundle artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # shellcheck disable=SC2086 # PROTECT_ARGS holds validated numeric flags.
+          bash Deployment/Common/Scripts/prune-actions-artifacts.sh \
+            --artifact-name "${MIGRATION_ARTIFACT_NAME}" \
+            --keep 2 \
+            ${PROTECT_ARGS}
