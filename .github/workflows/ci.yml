@@ -308,10 +308,15 @@ jobs:
             .
 
       - name: Docker smoke and browser smoke
+        id: ci_smoke
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         env:
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+      - name: Remove this run's smoke resources after interruption
+        if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
       # Owned cleanup only: remove the exact image tag this job built. Unscoped
       # prunes are not allowed here because node-main's Docker daemon is shared.
@@ -492,9 +497,14 @@ jobs:
             .
 
       - name: Docker smoke and browser smoke
+        id: ci_smoke
         env:
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+      - name: Remove this run's smoke resources after interruption
+        if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
       - name: Login to GHCR
         uses: docker/login-action@v4.5.2

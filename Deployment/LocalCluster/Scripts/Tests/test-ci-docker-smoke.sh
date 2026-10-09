@@ -130,4 +130,32 @@ status=0
 GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/collision" 2>&1 || status=$?
 [[ "$status" == 125 && -f "$SMOKE_STATE/sample-ci-web-123-2" ]]
 [[ "$(find "$SMOKE_STATE" -type f | wc -l)" == 1 ]]
-echo "smoke success/failure, HTTP checks, bounded storage, local uniqueness, and foreign sentinel fixtures passed"
+# A fresh always-run step recovers owned leftovers after the prior process was killed.
+export SMOKE_CLEANUP_OFFSET
+SMOKE_CLEANUP_OFFSET="$(wc -l < "$SMOKE_CALLS")"
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+root = Path(os.environ['SMOKE_STATE'])
+labels = {'localcluster.ci.repository': 'example/repo', 'localcluster.ci.owner': 'ci-smoke', 'localcluster.ci.run_id': '123', 'localcluster.ci.run_attempt': '2'}
+for name in ('sample-ci-postgres-123-2', 'sample-ci-redis-123-2', 'sample-ci-123-2'):
+    (root / name).write_text(json.dumps(labels))
+(root / 'sample-ci-postgres-456-1').write_text(json.dumps({**labels, 'localcluster.ci.run_id': '456', 'localcluster.ci.run_attempt': '1'}))
+PY
+GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" --cleanup-only
+GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" --cleanup-only
+[[ -f "$SMOKE_STATE/sample-ci-web-123-2" && -f "$SMOKE_STATE/sample-ci-postgres-456-1" ]]
+[[ "$(find "$SMOKE_STATE" -type f | wc -l)" == 2 ]]
+status=0
+env -u GITHUB_RUN_ID bash "$SCRIPT" --cleanup-only > "$TMP_ROOT/missing-cleanup-identity" 2>&1 || status=$?
+[[ "$status" == 2 ]]
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+calls = [json.loads(line) for line in Path(os.environ['SMOKE_CALLS']).read_text().splitlines()][int(os.environ['SMOKE_CLEANUP_OFFSET']):]
+assert all(args[0] in ('inspect', 'rm', 'network') for args in calls)
+assert not any(args[:2] == ['network', 'create'] for args in calls)
+assert not any('456-1' in value for args in calls for value in args), 'another run was touched'
+assert not any('prune' in args or 'volume' in args for args in calls)
+PY
+echo "smoke success/failure, interruption recovery, HTTP checks, bounded storage, local uniqueness, and foreign sentinel fixtures passed"

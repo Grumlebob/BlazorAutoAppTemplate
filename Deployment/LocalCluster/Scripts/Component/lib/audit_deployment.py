@@ -863,6 +863,8 @@ for needle, why in [
     ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
     ("retention-days: 7", "short migration artifact retention"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
+    ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
+    ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
     ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact-tag CI image removal"),
     ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
     ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
@@ -911,6 +913,12 @@ for path, checks in {
 for forbidden in ("prune-docker-residue.sh --force", "docker system prune", "docker container prune", "docker builder prune", "docker network prune", "docker volume prune"):
     if forbidden in ci:
         fail(f".github/workflows/ci.yml: CI must not run host-wide Docker cleanup: {forbidden}")
+if ci.count("run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only") != 2:
+    fail(".github/workflows/ci.yml: both smoke jobs must recover their own interrupted resources")
+if ci.index("ci-docker-smoke.sh --cleanup-only") > ci.index("name: Remove this run's local Docker image"):
+    fail(".github/workflows/ci.yml: owned smoke resources must be removed before their exact image tag")
+for needle in ("Cleanup-only requires the exact GitHub repository, run ID and attempt.", "expected_identity", "Owned smoke container remains", "Owned smoke network remains"):
+    require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", needle, "exact-run interrupted cleanup and residue verification")
 prune_script = read("Deployment/LocalCluster/Scripts/prune-docker-residue.sh")
 for needle, why in [
     ("--include-unlabelled-host-residue", "explicit opt-in for host-wide prunes"),

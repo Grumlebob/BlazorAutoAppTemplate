@@ -6,6 +6,14 @@
 # removes only resources whose labels match this repository and run. Nothing
 # here prunes, and PostgreSQL/Redis use tmpfs, so no Docker volume is created.
 set -euo pipefail
+CLEANUP_ONLY=false
+if [[ $# -gt 0 ]]; then
+  [[ $# == 1 && "$1" == --cleanup-only ]] || { echo 'Usage: ci-docker-smoke.sh [--cleanup-only]' >&2; exit 2; }
+  CLEANUP_ONLY=true
+  [[ -n "${GITHUB_REPOSITORY:-}" && "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] || {
+    echo 'Cleanup-only requires the exact GitHub repository, run ID and attempt.' >&2; exit 2;
+  }
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -P "$SCRIPT_DIR/../../.." && pwd)"
@@ -61,8 +69,13 @@ cleanup() {
     owned_container "$container" && docker rm -f "$container" >/dev/null 2>&1 || true
   done
   owned_network "$network" && docker network rm "$network" >/dev/null 2>&1 || true
+  for container in "$web" "$postgres" "$redis"; do
+    if owned_container "$container"; then echo "Owned smoke container remains: $container" >&2; status=1; fi
+  done
+  if owned_network "$network"; then echo "Owned smoke network remains: $network" >&2; status=1; fi
   exit "$status"
 }
+if [[ "$CLEANUP_ONLY" == true ]]; then cleanup; fi
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
