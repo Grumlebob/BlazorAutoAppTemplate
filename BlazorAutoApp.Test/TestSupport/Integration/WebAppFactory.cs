@@ -5,13 +5,11 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using BlazorAutoApp.Features.Books.Caching;
-using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -102,7 +100,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["ConnectionStrings:DefaultConnection"] = _connectionString,
                 ["Redis:Configuration"] = _redisConnectionString,
                 ["Redis:AllowMissing"] = redisAllowMissing.ToString(),
-                ["Database:RunMigrationsAtStartup"] = _options.RunStartupMigrations.ToString(),
+                ["Database:RunMigrationsAtStartup"] = _options.RunMigrationsAtStartup.ToString(),
                 ["AuthorBooks:SeedAtStartup"] = _options.AuthorBooksSeedAtStartup.ToString(),
                 ["LocalAccounts:Enabled"] = "false",
                 ["ForwardedHeaders:KnownNetworks:0"] = "0.0.0.0/0",
@@ -222,7 +220,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [CacheBooksLocalListTtlEnvironmentVariable] = _options.LocalListTtlSeconds?.ToString(),
                 [CacheBooksLocalItemTtlEnvironmentVariable] = _options.LocalItemTtlSeconds?.ToString(),
                 [CacheBooksDisableLocalEnvironmentVariable] = _options.DisableLocalCache?.ToString(),
-                [StartupMigrationsEnvironmentVariable] = _options.RunStartupMigrations.ToString(),
+                [StartupMigrationsEnvironmentVariable] = _options.RunMigrationsAtStartup.ToString(),
                 [AuthorBooksSeedAtStartupEnvironmentVariable] = _options.AuthorBooksSeedAtStartup.ToString(),
                 [LocalAccountsEnabledEnvironmentVariable] = "false",
                 [ForwardedHeaderKnownNetworkV4EnvironmentVariable] = "0.0.0.0/0",
@@ -237,15 +235,6 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         HttpClient = CreateClient();
         HttpClient.Timeout = TimeSpan.FromMinutes(MaxWaitTimeMinutes);
-
-        using var scope = Services.CreateScope();
-        var services = scope.ServiceProvider;
-        var dbFactory = services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        if (_options.RunMigrations && !_options.RunStartupMigrations)
-        {
-            await using var context = await dbFactory.CreateDbContextAsync();
-            await context.Database.MigrateAsync();
-        }
 
         if (_options.InitializeDatabaseRespawner)
         {

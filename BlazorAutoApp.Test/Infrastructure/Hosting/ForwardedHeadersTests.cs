@@ -1,12 +1,15 @@
 using System.Collections.Generic;
+using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using BlazorAutoApp.Test.TestSupport.Integration;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
@@ -84,6 +87,8 @@ public sealed class ForwardedHeadersTests
                 {
                     configuration.AddInMemoryCollection(testConfiguration);
                 });
+                builder.ConfigureTestServices(services =>
+                    services.AddScoped<IUserStore<ApplicationUser>, EmptyIdentityUserEmailStore>());
             });
     }
 }

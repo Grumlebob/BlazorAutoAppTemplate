@@ -16,7 +16,7 @@ public sealed class RedisConnectionReuseTests(SharedIntegrationEnvironment envir
     {
         await using var factory = environment.CreateFactory(
             $"redis-reuse-{Guid.NewGuid():N}",
-            runMigrations: true);
+            runMigrationsAtStartup: true);
         await factory.InitializeAsync();
 
         var multiplexer = factory.Services.GetRequiredService<IConnectionMultiplexer>();

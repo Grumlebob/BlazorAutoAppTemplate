@@ -66,8 +66,7 @@ public sealed class AuthorBookSeedTests
         new(new WebAppFactoryOptions
         {
             PostgresConnectionString = connectionString,
-            RunMigrations = false,
-            RunStartupMigrations = true,
+            RunMigrationsAtStartup = true,
             AuthorBooksSeedAtStartup = true
         });
 

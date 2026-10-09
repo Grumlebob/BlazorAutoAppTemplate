@@ -10,9 +10,10 @@ internal static class LocalLoginAccountSeedExtensions
     private static readonly (string Email, string Password) PublishedDefaultAdminAccount =
         ("admin@admin.com", "Admin123");
 
-    // Earlier versions seeded these accounts in every Docker deployment and reset their
-    // passwords on each start. Startup locks any account that still uses its published password.
-    internal static readonly IReadOnlyList<(string Email, string Password)> PublishedDefaultAccounts =
+    // Earlier versions seeded these accounts in Docker deployments and reset their passwords on
+    // each start. Lock the legacy Admin everywhere, and both published accounts when Docker
+    // local seeding is disabled.
+    private static readonly IReadOnlyList<(string Email, string Password)> PublishedDefaultAccounts =
     [
         PublishedDefaultAdminAccount,
         ("user@user.com", "User123"),
@@ -79,7 +80,7 @@ internal static class LocalLoginAccountSeedExtensions
             ? PublishedDefaultAccounts
             : [PublishedDefaultAdminAccount];
 
-    internal static IReadOnlyList<LocalSeedAccount> GetLocalSeedAccounts(IConfiguration configuration) =>
+    private static IReadOnlyList<LocalSeedAccount> GetLocalSeedAccounts(IConfiguration configuration) =>
     [
         new LocalSeedAccount(
             GetValue(configuration, "User:Email", "user@user.com"),
@@ -87,12 +88,11 @@ internal static class LocalLoginAccountSeedExtensions
             GetValue(configuration, "User:Role", UserRole))
     ];
 
-    internal static async Task<int> LockPublishedDefaultAccountsAsync(
+    internal static async Task LockPublishedDefaultAccountsAsync(
         UserManager<ApplicationUser> userManager,
         ILogger logger,
         IEnumerable<(string Email, string Password)> accounts)
     {
-        var locked = 0;
         foreach (var (email, password) in accounts)
         {
             try
@@ -114,19 +114,19 @@ internal static class LocalLoginAccountSeedExtensions
                 ThrowIfFailed(await userManager.SetLockoutEnabledAsync(user, true), $"enable lockout for '{email}'");
                 ThrowIfFailed(await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue), $"lock '{email}'");
                 ThrowIfFailed(await userManager.UpdateSecurityStampAsync(user), $"sign out '{email}'");
-                locked++;
                 logger.LogWarning(
                     "Locked {Email}: it still used the published default password. Delete it, or reset its password and unlock it.",
                     email);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                // Never block startup; the warning tells the operator to remove the account.
-                logger.LogError(exception, "Could not check or lock the published default account {Email}.", email);
+                logger.LogCritical(
+                    exception,
+                    "Could not verify or lock the published default account {Email}. Startup cannot safely continue.",
+                    email);
+                throw;
             }
         }
-
-        return locked;
     }
 
     private static string GetValue(IConfiguration configuration, string key, string fallback) =>
@@ -231,5 +231,5 @@ internal static class LocalLoginAccountSeedExtensions
         throw new InvalidOperationException($"Failed to {action}: {errors}");
     }
 
-    internal sealed record LocalSeedAccount(string Email, string Password, string Role);
+    private sealed record LocalSeedAccount(string Email, string Password, string Role);
 }
