@@ -2,17 +2,19 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="$(cd "$SCRIPT_DIR/.." && pwd)"
+COMMON_SOURCE="$(cd "$SOURCE/../../Common/Scripts" && pwd)"
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
-mkdir -p "$TMP_ROOT/scripts/Component" "$TMP_ROOT/bin" "$TMP_ROOT/runner/_work/repo/repo"
+mkdir -p "$TMP_ROOT/Deployment/Common/Scripts/Component" "$TMP_ROOT/Deployment/LocalCluster/Scripts/Component" "$TMP_ROOT/bin" "$TMP_ROOT/runner/_work/repo/repo"
 export GITHUB_WORKSPACE="$TMP_ROOT/runner/_work/repo/repo"
 export LOCALCLUSTER_DEPLOY_LOCK_DIR="$TMP_ROOT/operation.lock"
 export LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS=0
 export CALLS="$TMP_ROOT/calls"
 export PATH="$TMP_ROOT/bin:$PATH"
-cp "$SOURCE/run-localcluster-maintenance.sh" "$SOURCE/with-deploy-lock.sh" "$SOURCE/localcluster-capacity-thresholds.sh" "$SOURCE/check-node-main-capacity.sh" "$TMP_ROOT/scripts/"
-cp "$SOURCE/Component/with-deploy-lock.sh" "$TMP_ROOT/scripts/Component/"
-cat > "$TMP_ROOT/scripts/prune-ci-residue.py" <<'PY'
+cp "$SOURCE/run-localcluster-maintenance.sh" "$SOURCE/localcluster-capacity-thresholds.sh" "$SOURCE/check-node-main-capacity.sh" "$TMP_ROOT/Deployment/LocalCluster/Scripts/"
+cp "$COMMON_SOURCE/with-deploy-lock.sh" "$TMP_ROOT/Deployment/Common/Scripts/"
+cp "$COMMON_SOURCE/Component/with-deploy-lock.sh" "$TMP_ROOT/Deployment/Common/Scripts/Component/"
+cat > "$TMP_ROOT/Deployment/LocalCluster/Scripts/prune-ci-residue.py" <<'PY'
 import os
 from pathlib import Path
 if __name__ == "__main__":
@@ -23,7 +25,9 @@ if __name__ == "__main__":
     raise SystemExit(int(os.environ.get("CI_STATUS", "0")))
 PY
 for filename in prune-actions-runner-residue.sh prune-docker-residue.sh prune-cluster-docker-residue.sh; do
-  cat > "$TMP_ROOT/scripts/$filename" <<'SH'
+  destination="$TMP_ROOT/Deployment/LocalCluster/Scripts"
+  [[ "$filename" != prune-actions-runner-residue.sh ]] || destination="$TMP_ROOT/Deployment/Common/Scripts"
+  cat > "$destination/$filename" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 test -f "$LOCALCLUSTER_DEPLOY_LOCK_DIR/token"
@@ -53,7 +57,7 @@ run_case() {
   local expected="$1" status=0
   shift
   : > "$CALLS"
-  bash "$TMP_ROOT/scripts/run-localcluster-maintenance.sh" "$@" > "$TMP_ROOT/output" 2>&1 || status=$?
+  bash "$TMP_ROOT/Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh" "$@" > "$TMP_ROOT/output" 2>&1 || status=$?
   [[ "$status" == "$expected" ]] || { cat "$TMP_ROOT/output" >&2; echo "expected $expected, got $status" >&2; exit 1; }
   [[ ! -e "$LOCALCLUSTER_DEPLOY_LOCK_DIR" ]] || { echo "lock leaked" >&2; exit 1; }
 }
@@ -81,7 +85,7 @@ DISK_QUERY_STATUS=1 run_case 1 --capacity-only
 # Test the capacity gate directly.
 for variable in INODE_QUERY_STATUS DISK_QUERY_STATUS; do
   status=0
-  env "$variable=1" bash "$TMP_ROOT/scripts/check-node-main-capacity.sh" > "$TMP_ROOT/capacity" 2>&1 || status=$?
+  env "$variable=1" bash "$TMP_ROOT/Deployment/LocalCluster/Scripts/check-node-main-capacity.sh" > "$TMP_ROOT/capacity" 2>&1 || status=$?
   [[ "$status" == 1 ]] || { echo "capacity gate hid $variable" >&2; exit 1; }
 done
 RUNNER_STATUS=1 run_case 1 --capacity-only
@@ -90,6 +94,6 @@ run_case 1 --under-lock
 mkdir "$LOCALCLUSTER_DEPLOY_LOCK_DIR"
 printf foreign > "$LOCALCLUSTER_DEPLOY_LOCK_DIR/token"
 status=0
-bash "$TMP_ROOT/scripts/run-localcluster-maintenance.sh" > "$TMP_ROOT/blocked" 2>&1 || status=$?
+bash "$TMP_ROOT/Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh" > "$TMP_ROOT/blocked" 2>&1 || status=$?
 [[ "$status" == 1 && "$(cat "$LOCALCLUSTER_DEPLOY_LOCK_DIR/token")" == foreign && ! -s "$CALLS" ]]
 echo "maintenance coordination, stage outcomes, pressure-only mode, and capacity fixtures passed"

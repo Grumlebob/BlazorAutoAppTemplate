@@ -9,7 +9,7 @@ Current shared ownership:
 - `Scripts/validate-common-release.sh` validates `release.yml`.
 - `migration_artifact_name` is derived by the reader as `<migration_bundle_name>-<migration_runtime>`.
 - `Scripts/install-ansible.sh` installs the pinned Ansible toolchain used by deployment runners/control machines.
-- `Scripts/Component/lib/find-successful-ci-run.py` selects the newest trusted CI run for a commit (main branch, push or dispatch, this repository, current attempt) and fails unless it succeeded. `--json` prints the run id and attempt for CD.
+- `Scripts/Component/lib/find-successful-ci-run.py` selects the newest trusted CI run for a commit (main branch push, this repository, current attempt with a successful publisher) and fails unless it succeeded. `--json` prints the run id and attempt for CD.
 - `Scripts/validate_release_manifest.py` validates the `release-manifest.json` that CI publishes next to the migration bundle: repository, commit, CI run id and attempt, the image's registry digest, ordered migration ids, bundle SHA-256 and .NET SDK. CD deploys the digest it prints.
 - `Scripts/Component/lib/prune-actions-artifacts.py` keeps the newest release artifacts and never deletes those of protected (deployed) CI runs.
 - `ci-python-constraints.txt` pins the Python packages CI installs into its per-run virtual environment.
@@ -22,4 +22,12 @@ Current shared ownership:
 - `observability/scripts` contains shared validation/cardinality/resource helper scripts.
 - `observability/scripts/test-alertmanager-route.sh` sends a short-lived synthetic alert to prove Alertmanager accepts routed alerts.
 
-Keep this folder small. Do not move LocalCluster inventory, Caddy, firewall, compose, or bootstrap logic here until LocalCluster and Cloud have both proven the shared boundary.
+Shared host building blocks also live here:
+
+- `ansible/roles/` contains Docker, SSH hardening, cloudflared, Mint base, app markers and Caddy installation. LocalCluster keeps its topology-specific Caddy site and firewall roles.
+- `caddy/Caddyfile` imports each app's independently owned site file.
+- `Scripts/with-deploy-lock.sh` and `Scripts/release-deploy-lock.sh` preserve the shared lock path and existing ownership contract.
+- `Scripts/ensure-actions-runner-prereqs.sh` keeps check-only CI separate from root provisioning.
+- `Scripts/prune-actions-runner-residue.sh` requires explicit runner selection (`--runner-root`, `--app-name`, or `--all-localcluster-runners`); it does not read target settings.
+
+Keep inventory, target firewall, Compose and bootstrap behavior in their target folders. Shared roles use optional guards rather than assuming a cluster topology.

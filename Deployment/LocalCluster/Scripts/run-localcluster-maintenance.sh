@@ -12,6 +12,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMON_SCRIPT_DIR="$(cd "$SCRIPT_DIR/../../Common/Scripts" && pwd)"
 CAPACITY_ONLY=false
 UNDER_LOCK=false
 for argument in "$@"; do
@@ -25,7 +26,7 @@ done
 # Same lock as CD. Re-execute under it; never run the stages without it.
 if [[ "$UNDER_LOCK" == false ]]; then
   export LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS="${LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS:-300}"
-  exec bash "$SCRIPT_DIR/with-deploy-lock.sh" bash "$0" --under-lock "$@"
+  exec bash "$COMMON_SCRIPT_DIR/with-deploy-lock.sh" bash "$0" --under-lock "$@"
 fi
 lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-}"
 lock_token="${LOCALCLUSTER_DEPLOY_LOCK_TOKEN:-}"
@@ -68,7 +69,7 @@ stage() {
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   printf '### LocalCluster maintenance\n\n| Stage | Exit code |\n| --- | --- |\n' >> "$GITHUB_STEP_SUMMARY"
 fi
-stage runner 180 bash "$SCRIPT_DIR/prune-actions-runner-residue.sh" \
+stage runner 180 bash "$COMMON_SCRIPT_DIR/prune-actions-runner-residue.sh" \
   --force --runner-root "$runner_root" --min-free-mb 0 \
   --stale-version-until 168h --update-until 24h --temp-until 24h \
   --diag-until 336h --defer-if-skipped

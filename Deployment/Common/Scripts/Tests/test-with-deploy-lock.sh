@@ -76,29 +76,64 @@ else
 fi
 
 # 4. On SIGTERM the wrapper keeps the lock until the owned command exits.
+# A lock token is written before the child starts. Wait for the child's own
+# ready handshake, then acknowledge the wrapper's signal handler. This proves
+# retention during an active command without assuming scheduler timing.
 reset_lock
 marker="$WORK_DIR/child-finished"
-bash "$LOCK_WRAPPER" bash -c "trap '' TERM; sleep 3; touch '$marker'" >/dev/null 2>&1 &
+ready="$WORK_DIR/child-ready"
+allow_exit="$WORK_DIR/child-allow-exit"
+wrapper_log="$WORK_DIR/termination.log"
+bash "$LOCK_WRAPPER" bash -c '
+  trap "" TERM
+  printf "%s\n" "$$" > "$1"
+  while [[ ! -f "$2" ]]; do sleep 0.05; done
+  touch "$3"
+' fixture-child "$ready" "$allow_exit" "$marker" >"$wrapper_log" 2>&1 &
 wrapper_pid=$!
-for _ in $(seq 1 50); do
-  [[ -f "$LOCK_DIR/token" ]] && break
-  sleep 0.1
+child_ready=false
+for _ in $(seq 1 100); do
+  if [[ -f "$ready" ]]; then child_ready=true; break; fi
+  sleep 0.05
 done
-kill -TERM "$wrapper_pid"
-sleep 1
-if [[ -d "$LOCK_DIR" && ! -f "$marker" ]]; then
-  held_during_child=true
-else
-  held_during_child=false
+signal_acknowledged=false
+if [[ "$child_ready" == true ]]; then
+  kill -TERM "$wrapper_pid" || true
+  for _ in $(seq 1 100); do
+    if grep -Fq "termination received; waiting for owned command PID" "$wrapper_log"; then
+      signal_acknowledged=true
+      break
+    fi
+    sleep 0.05
+  done
 fi
+held_during_child=false
+if [[ "$signal_acknowledged" == true && -d "$LOCK_DIR" && ! -f "$marker" ]]   && kill -0 "$wrapper_pid" 2>/dev/null; then
+  held_during_child=true
+fi
+# Always let the owned child finish, including when a handshake assertion fails.
+touch "$allow_exit"
+if [[ "$child_ready" != true ]]; then kill -TERM "$wrapper_pid" 2>/dev/null || true; fi
 set +e
 wait "$wrapper_pid"
 status=$?
 set -e
-if [[ "$held_during_child" == "true" && -f "$marker" && ! -e "$LOCK_DIR" && "$status" == "143" ]]; then
+if [[ "$child_ready" == true ]]; then
+  # Even a broken wrapper must not leave the fixture child waiting forever.
+  for _ in $(seq 1 100); do
+    [[ -f "$marker" ]] && break
+    sleep 0.05
+  done
+  if [[ ! -f "$marker" ]]; then
+    child_pid="$(cat "$ready")"
+    [[ "$child_pid" =~ ^[0-9]+$ ]] && kill -KILL "$child_pid" 2>/dev/null || true
+  fi
+fi
+if [[ "$held_during_child" == true && -f "$marker" && ! -e "$LOCK_DIR" && "$status" == 143 ]]; then
   pass "termination waits for the owned command before releasing the lock"
 else
-  fail_test "termination waits for the owned command (held=$held_during_child status=$status)"
+  fail_test "termination waits for the owned command (ready=$child_ready acknowledged=$signal_acknowledged held=$held_during_child status=$status)"
+  cat "$wrapper_log" >&2
 fi
 
 # 5. release-deploy-lock.sh refuses unsafe releases and allows a verified one.

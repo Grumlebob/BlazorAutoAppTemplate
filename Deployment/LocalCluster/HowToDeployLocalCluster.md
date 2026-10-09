@@ -1609,13 +1609,13 @@ Every deploy that mutates the cluster, from GitHub Actions or a manual `deploy.s
 The lock is never removed automatically, not even when it is old. A cancelled job can leave `ansible-playbook` running, and another app may hold the lock for hours. If a deploy times out waiting for the lock, the log prints the owner line. On `node-main`, inspect it:
 
 ```bash
-bash ./Deployment/LocalCluster/Scripts/release-deploy-lock.sh --inspect
+bash ./Deployment/Common/Scripts/release-deploy-lock.sh --inspect
 ```
 
 Release it only when the owner is provably gone. The script refuses when the token does not match, the owner process is alive, an `ansible-playbook` process is running, or the lock contains another app's metadata files (use that app's own recovery tool then). When the owner was a manual deploy from a control machine, check that machine first and pass `--owner-host-checked`:
 
 ```bash
-bash ./Deployment/LocalCluster/Scripts/release-deploy-lock.sh --release --token <token from --inspect>
+bash ./Deployment/Common/Scripts/release-deploy-lock.sh --release --token <token from --inspect>
 ```
 
 ### Low Runner Disk

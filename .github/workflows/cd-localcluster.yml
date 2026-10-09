@@ -222,7 +222,7 @@ jobs:
         if: inputs.run_migrations == 'true'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          bash ../Scripts/with-deploy-lock.sh \
+          bash ../../Common/Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e @"${GHCR_EXTRA_VARS_FILE}" \
@@ -236,7 +236,7 @@ jobs:
         if: inputs.run_migrations == 'false'
         working-directory: Deployment/LocalCluster/ansible
         run: |
-          bash ../Scripts/with-deploy-lock.sh \
+          bash ../../Common/Scripts/with-deploy-lock.sh \
             ansible-playbook -i ../inventory/prod/hosts.yml playbooks/site.yml \
             --vault-password-file "${ANSIBLE_VAULT_PASSWORD_FILE}" \
             -e @"${GHCR_EXTRA_VARS_FILE}" \

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -61,7 +62,8 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
         bool cacheInvalidationEnabled = true,
         int? localListTtlSeconds = null,
         int? localItemTtlSeconds = null,
-        bool? disableLocalCache = null) =>
+        bool? disableLocalCache = null,
+        Action<IServiceCollection>? configureTestServices = null) =>
         new(new WebAppFactoryOptions
         {
             PostgresConnectionString = PostgresConnectionString,
@@ -74,6 +76,7 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
             UseProcessEnvironmentOverrides = true,
             LocalListTtlSeconds = localListTtlSeconds,
             LocalItemTtlSeconds = localItemTtlSeconds,
-            DisableLocalCache = disableLocalCache
+            DisableLocalCache = disableLocalCache,
+            ConfigureTestServices = configureTestServices
         });
 }
