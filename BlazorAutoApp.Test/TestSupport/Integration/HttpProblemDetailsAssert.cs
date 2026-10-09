@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
-namespace BlazorAutoApp.Test.Features.Books.Api;
+namespace BlazorAutoApp.Test.TestSupport.Integration;
 
-internal static class ProblemDetailsAssert
+internal static class HttpProblemDetailsAssert
 {
     public static async Task<ProblemDetails> IsProblemAsync(HttpResponseMessage response, int statusCode, string title)
     {

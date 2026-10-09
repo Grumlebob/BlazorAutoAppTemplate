@@ -332,3 +332,57 @@ Diff column: lines added/removed going from the template to ImprovedDb.
 
 All Books feature files, Books dashboards, `.codex/config.toml` and `docs/MigrateProjectPlanningPrompt.md` exist only in the template. Keep them all. ImprovedDb removed Books because it replaced the sample product, not because Books was wrong.
 
+## Execution notes (2026-10-09)
+
+P12 reviewed all 136 PORT/ADAPT/REVIEW rows against the retained phase implementation and the reference source. The phase evidence is in plan section 11.1 and the linked PR descriptions. The inventory is historical: paths below identify the P0–P12 implementation before the P13 common-folder moves.
+
+The non-exception rows were handled as follows:
+
+- P1 (#101): bounded network/download operations, explicit shared-host ownership, locks without automatic reclamation, DNS validation, Ansible timeout and container-internal observability ports. Rendering and lock fixtures exercise these contracts.
+- P2 (#102): interactivity probe, portable error/not-found markup, fingerprinted favicon, cache limits and invalidation cancellation/results, interceptor registration, authentication challenge behavior, static-asset rate-limit exemption and local Compose identity/rate limits. Runtime and hosting tests cover the new behavior.
+- P3 (#105): slice coverage and passive DTO guards, shared assertions in composition/endpoint tests, named collections, bounded concurrency, tmpfs/labels/lifecycle, reliable disposal, startup options, hosting tests and reusable E2E waits/artifacts/credentials/accessibility helpers. Grafana tests keep Books dashboards; visual snapshots use the portable artifact path helper. The two missing generic ports are completed in the P12 integration PR below.
+- P4 (#104): transitive pinning, newest dependency versions, axe-core and regenerated npm lock file. No dependency was downgraded.
+- P5 (#106): separate validation/publishing, exact release identity, migration staging provenance, disposable Docker/browser smoke, constraints and scoped runner capacity checks. PR validation never publishes releases.
+- P6 (#108): exact-head Dependabot evaluation, run identity, bounded branch refresh and disabling auto-merge for excluded changes. Observation of a future Dependabot run remains pending and does not block P13.
+- P7 (#110): exact main-push run/attempt and publisher verification, manifest/digest/checksum validation, staged images, serial rollout and proxy changes after readiness. Cloud keeps its newer SSH hardening. Generic settings checks were retained; product import/provider settings were excluded. Coordinator archive helpers have the explicit substitutions below.
+- P8a (#103) and P8 (#111): check/provision separation, bounded package operations, runner identity checks, shared disk thresholds, locked cleanup with repo/name ownership, deployed-artifact protection and offline fixtures. The maintenance schedule stays commented as required by the plan; no live maintenance was dispatched.
+- P9 (#107): scoped local Docker cleanup and RunLocal opt-out. No agent port reservation or product data cleanup was copied.
+- P10 (#112): portable agent rules, CLAUDE pointer, tracked-plan convention, requirements and four architecture guardrails. Ignore rules were already present on main; no duplicate edit was necessary.
+- P11 (#113): contributor, local-development, testing, common release and deployment documentation, verified SSH host keys, workflow authentication, lock recovery and release provenance. Books remains the example feature.
+- D15 (#109): deployment seed accounts disabled, local opt-in explicit and previously seeded accounts locked. This security correction is separate from the original inventory.
+
+### Exceptions, substitutions and final missing ports
+
+| Inventory path | Handling and reason |
+| --- | --- |
+| `BlazorAutoApp.Test/Architecture/Boundaries/HttpClientUsageTests.cs` | Keep the current strict rule. The reference removes duplicate helper code; it does not fix a demonstrated template false positive. |
+| `BlazorAutoApp.Test/Architecture/Persistence/EntityConfigurationLocationTests.cs` | Keep the current rule. The reference exception supports product ImportRun entities; Books has no such operational entity. |
+| `BlazorAutoApp.Test/Architecture/Slices/ArchitectureTests.cs` | Keep the current rule. Product cache decorators do not require a broader template boundary. |
+| `BlazorAutoApp.Test/BlazorAutoApp.Test.csproj` | No bUnit dependency: no bUnit tests were selected. Product project and plan fixture references stay excluded. |
+| `BlazorAutoApp.Test/E2E/Support/E2ETestGuard.cs` | Existing Enabled and Observability guards already satisfy the selected contract. Do not add product LocalData/provider flags. |
+| `BlazorAutoApp/Infrastructure/Hosting/AppRateLimitingOptions.cs` | Static-asset exemption is implemented in AppRateLimiting.cs and covered by RateLimitingTests; it needs no new options setting. |
+| `BlazorAutoApp/Program.cs` | User-specific API responses receive private, no-store through the Books endpoint filter. Avoid a redundant global middleware and product registrations. |
+| `Deployment/Common/observability/scripts/smoke-observability.sh` | Keep Books names and routes. The reference diff changes product dashboard/query names, with no selected timeout fix. |
+| `Deployment/Common/observability/scripts/validate-observability.sh` | Keep Books dashboard validation. Reference differences are product naming. |
+| `Deployment/LocalCluster/Scripts/check-github-runner.sh` | Keep the template runner check. The reference depends on the excluded desktop CI runner contract. Runner installation itself now fails closed on malformed or missing repository identity. |
+| `Deployment/LocalCluster/Scripts/observability-capacity-check.sh` | P8 now sources localcluster-capacity-thresholds.sh; shared thresholds replace the old duplicated constants. |
+| `Deployment/LocalCluster/Scripts/observability-doctor.sh` | Keep Books dashboard matching; reference differences are product names. |
+| `Deployment/LocalCluster/ansible/roles/observability_backend/templates/docker-compose.yml.j2` | Keep the Books dashboard mount. The one-line reference change points at product dashboards. |
+| `Scripts/AnalyzeSimulationReports.ps1` | Keep the template report fields. Product-renamed simulator fields are explicitly deferred in plan 11.4. |
+| `docs/ObservabilityGuide.md` | Keep Books queries, routes and names. Reference differences describe the product domain. |
+| `.github/actionlint.yaml` | Not needed: actionlint 1.7.12 accepts the custom self-hosted labels without warnings. |
+| `.github/workflows/localcluster-readonly-diagnostics.yml` | Optional workflow deferred. Current doctor, capacity and identity scripts provide the selected diagnostics without another live workflow surface. |
+| `BlazorAutoApp.Test/E2E/AppShell/ThemeAndIconE2ETests.cs` | Optional product theme/icon browser checks deferred. Generic favicon link and served PNG checks are covered by AppHeadAssetTests; no product theme is imposed. |
+| `BlazorAutoApp.Test/E2E/Support/BrowserSmokeCatalog.cs` | Reference is product data preparation, not a generic filter catalog. Template smoke selects Books/render-mode tests in ci-docker-smoke.sh; no product seeder is copied. |
+| `BlazorAutoApp.Test/Infrastructure/Hosting/AppHeadAssetTests.cs` | P12 adds two generic tests: standard PNG favicon declaration and served declared asset matching the canonical PNG. Both work with fingerprinted asset URLs. Product logo, theme, dimensions and historical checksum assertions are excluded. |
+| `BlazorAutoApp.Test/TestSupport/Integration/HttpProblemDetailsAssert.cs` | P12 moves the equivalent Books-local helper into shared integration support and updates all five callers. Existing content-type/status/title/error-key assertions remain intact. |
+| `BlazorAutoApp.Test/TestSupport/Integration/PostgresTestDatabaseFixture.cs` | No unused second database fixture. Current startup/seed coverage owns resources through WebAppFactory, SharedIntegrationEnvironment or its explicit test fixture, with labels/tmpfs and disposal verified by lifecycle tests. StartupSeedCollection has no tests requiring a shared standalone fixture. |
+| `Deployment/Common/Scripts/Component/lib/release_artifact.py` | Substitute the active template download-artifact path, validate_release_manifest.py and Scripts/CI/migration_staging_artifact.py. The reference ZIP extractor requires coordinator-frozen artifact IDs/digests, which the template does not have. |
+| `Deployment/Common/Scripts/Tests/test_release_artifact.py` | Substitute test_release_contract.py and Scripts/CI/tests/test_migration_staging_artifact.py for the active template validators. No unused extractor test module is added. |
+| `Deployment/LocalCluster/Scripts/Tests/test_ci_release_artifact.py` | Same active-validator substitution. Exact run/attempt provenance is covered by test_ci_provenance.py, including publisher jobs and rerun races. |
+| `Deployment/LocalCluster/Scripts/Tests/test_verify_release_identity.sh` | Implemented as Tests/test-verify-release-identity.sh. Hyphenated name follows the template shell fixture convention. |
+| `Deployment/LocalCluster/Scripts/capture-current-release-identities.sh` | Optional capture helper omitted. verify-release-identity.sh verifies each running digest directly after deployment; no coordinator identity snapshot is required. |
+| `Deployment/LocalCluster/Scripts/validate-ci-release-artifact.py` | Substitute manifest validation plus the P5 staging validator as above; these checks are called by CI/CD and have fixtures. |
+| `docs/Architecture.md` | Optional separate document omitted. README layout, Requirements.md, feature guide and executable architecture tests cover the template structure without duplicate guidance. |
+
+P12.4 live LocalCluster deployment remains skipped under Q1. This inventory closeout does not complete the goal: all four P13 PRs, node-demo live acceptance and P13.13 evidence are still required.

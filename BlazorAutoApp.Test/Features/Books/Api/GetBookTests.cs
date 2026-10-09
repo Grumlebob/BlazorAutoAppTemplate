@@ -78,7 +78,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.GetAsync($"/api/books/{book.Id}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class GetBookTests : IAsyncLifetime, IDisposable
     {
         var response = await _client.GetAsync("/api/books/999999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();

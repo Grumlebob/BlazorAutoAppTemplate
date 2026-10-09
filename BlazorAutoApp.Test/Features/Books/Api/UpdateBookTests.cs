@@ -91,7 +91,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/books/{book.Id}", update);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status400BadRequest, "Book id mismatch");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status400BadRequest, "Book id mismatch");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync("/api/books/424242", update);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/books/{book.Id}", update);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Book not found");
 
         await using var verifyDb = await _dbFactory.CreateDbContextAsync();
         var refreshed = await verifyDb.Books.AsNoTracking().FirstAsync(m => m.Id == book.Id);
@@ -161,7 +161,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/books/{book.Id}", update);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await ProblemDetailsAssert.IsValidationProblemAsync(
+        await HttpProblemDetailsAssert.IsValidationProblemAsync(
             response,
             nameof(UpdateBookRequest.Title));
     }
@@ -187,7 +187,7 @@ public class UpdateBookTests : IAsyncLifetime, IDisposable
 
         var response = await _client.PutAsJsonAsync($"/api/books/{book.Id}", update);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await ProblemDetailsAssert.IsValidationProblemAsync(response, nameof(UpdateBookRequest.Url));
+        await HttpProblemDetailsAssert.IsValidationProblemAsync(response, nameof(UpdateBookRequest.Url));
     }
 
     [Fact]

@@ -58,7 +58,7 @@ public class GetAuthorBookTests : IAsyncLifetime, IDisposable
     {
         var response = await _client.GetAsync("/api/author-books/999999");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        await ProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Author book not found");
+        await HttpProblemDetailsAssert.IsProblemAsync(response, StatusCodes.Status404NotFound, "Author book not found");
     }
 
     public async ValueTask InitializeAsync() => await _resetDatabase();
