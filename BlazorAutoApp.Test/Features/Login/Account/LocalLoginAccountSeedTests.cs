@@ -44,6 +44,47 @@ public sealed class LocalLoginAccountSeedingRulesTests
         Assert.Null(configuration["LocalAccounts:User:Password"]);
     }
 
+    [Fact]
+    public void DevelopmentSettings_DoNotConfigureAnAdminAccount()
+    {
+        var path = Path.Combine(SourceRoot(), "BlazorAutoApp", "appsettings.Development.json");
+        var configuration = new ConfigurationBuilder().AddJsonFile(path).Build();
+
+        Assert.True(configuration.GetValue<bool>("LocalAccounts:Enabled"));
+        Assert.Null(configuration["LocalAccounts:Admin:Email"]);
+        Assert.Null(configuration["LocalAccounts:Admin:Password"]);
+        Assert.Null(configuration["LocalAccounts:Admin:Role"]);
+    }
+
+    [Fact]
+    public void LocalSeeder_SeedsOnlyTheUserDemoAccount()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+
+        var accounts = LocalLoginAccountSeedExtensions.GetLocalSeedAccounts(configuration);
+
+        Assert.Equal(
+            new LocalLoginAccountSeedExtensions.LocalSeedAccount("user@user.com", "User123", "User"),
+            Assert.Single(accounts));
+    }
+
+    [Theory]
+    [InlineData("Development", true, "admin@admin.com")]
+    [InlineData("Development", false, "admin@admin.com")]
+    [InlineData("Docker", true, "admin@admin.com")]
+    [InlineData("Docker", false, "admin@admin.com,user@user.com")]
+    [InlineData("Production", false, "admin@admin.com")]
+    public void PublishedAccountsToLock_AlwaysIncludesLegacyAdminAndLocksUserOnlyInDeployments(
+        string environment,
+        bool seedingEnabled,
+        string expectedEmails)
+    {
+        var accounts = LocalLoginAccountSeedExtensions.GetAccountsToLock(
+            new StubEnvironment(environment), seedingEnabled);
+
+        Assert.Equal(expectedEmails.Split(','), accounts.Select(account => account.Email));
+    }
+
     private static string SourceRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -80,6 +121,8 @@ public sealed class LocalLoginAccountLockTests(WebAppFactory factory)
 
         var defaultUser = await CreateUserAsync(userManager, defaultEmail, publishedPassword);
         var changedUser = await CreateUserAsync(userManager, changedEmail, "Changed-Pass-456");
+        Assert.True((await userManager.SetLockoutEnabledAsync(defaultUser, true)).Succeeded);
+        Assert.True((await userManager.SetLockoutEndDateAsync(defaultUser, DateTimeOffset.UtcNow.AddMinutes(5))).Succeeded);
         var stampBefore = await userManager.GetSecurityStampAsync(defaultUser);
 
         try
@@ -100,9 +143,11 @@ public sealed class LocalLoginAccountLockTests(WebAppFactory factory)
             Assert.Equal(0, lockedAgain);
             defaultUser = (await userManager.FindByEmailAsync(defaultEmail))!;
             Assert.True(await userManager.IsLockedOutAsync(defaultUser));
+            Assert.Equal(DateTimeOffset.MaxValue, await userManager.GetLockoutEndDateAsync(defaultUser));
             Assert.NotEqual(stampBefore, await userManager.GetSecurityStampAsync(defaultUser));
             changedUser = (await userManager.FindByEmailAsync(changedEmail))!;
             Assert.False(await userManager.IsLockedOutAsync(changedUser));
+            Assert.True(await userManager.CheckPasswordAsync(changedUser, "Changed-Pass-456"));
         }
         finally
         {

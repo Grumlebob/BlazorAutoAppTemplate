@@ -5,55 +5,52 @@ namespace BlazorAutoApp.Features.Login.Account.Seed;
 internal static class LocalLoginAccountSeedExtensions
 {
     private const string SectionName = "LocalAccounts";
-    private const string AdminRole = "Admin";
     private const string UserRole = "User";
 
+    private static readonly (string Email, string Password) PublishedDefaultAdminAccount =
+        ("admin@admin.com", "Admin123");
+
     // Earlier versions seeded these accounts in every Docker deployment and reset their
-    // passwords on each start. Deployments lock any that still use the published password.
+    // passwords on each start. Startup locks any account that still uses its published password.
     internal static readonly IReadOnlyList<(string Email, string Password)> PublishedDefaultAccounts =
     [
-        ("admin@admin.com", "Admin123"),
+        PublishedDefaultAdminAccount,
         ("user@user.com", "User123"),
     ];
 
-    public static async Task SeedLocalLoginAccountsAsync(this WebApplication app)
-    {
-        var logger = app.Services.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("LocalLoginAccountSeed");
+    public static Task SeedLocalLoginAccountsAsync(this WebApplication app) =>
+        SeedLocalLoginAccountsAsync(app.Environment, app.Configuration, app.Services);
 
-        if (!IsSeedingEnabled(app.Environment, app.Configuration))
+    internal static async Task SeedLocalLoginAccountsAsync(
+        IHostEnvironment environment,
+        IConfiguration configuration,
+        IServiceProvider services)
+    {
+        var logger = services.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("LocalLoginAccountSeed");
+        var seedingEnabled = IsSeedingEnabled(environment, configuration);
+
+        using (var lockScope = services.CreateScope())
         {
-            if (app.Configuration.GetValue($"{SectionName}:Enabled", false))
+            await LockPublishedDefaultAccountsAsync(
+                lockScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
+                logger,
+                GetAccountsToLock(environment, seedingEnabled));
+        }
+
+        if (!seedingEnabled)
+        {
+            if (configuration.GetValue($"{SectionName}:Enabled", false))
             {
                 logger.LogWarning("Local login account seeding is enabled but skipped outside Development/Docker.");
-            }
-
-            // Deployments run in the Docker environment with seeding off.
-            if (app.Environment.IsEnvironment("Docker"))
-            {
-                using var lockScope = app.Services.CreateScope();
-                await LockPublishedDefaultAccountsAsync(
-                    lockScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
-                    logger,
-                    PublishedDefaultAccounts);
             }
 
             return;
         }
 
-        var accounts = new[]
-        {
-            new LocalSeedAccount(
-                GetValue(app.Configuration, "Admin:Email", "admin@admin.com"),
-                GetValue(app.Configuration, "Admin:Password", "Admin123"),
-                GetValue(app.Configuration, "Admin:Role", AdminRole)),
-            new LocalSeedAccount(
-                GetValue(app.Configuration, "User:Email", "user@user.com"),
-                GetValue(app.Configuration, "User:Password", "User123"),
-                GetValue(app.Configuration, "User:Role", UserRole))
-        };
+        var accounts = GetLocalSeedAccounts(configuration);
 
-        using var scope = app.Services.CreateScope();
+        using var scope = services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
@@ -67,13 +64,28 @@ internal static class LocalLoginAccountSeedExtensions
         }
     }
 
-    // On by default only in Development. Deployments also use the Docker environment,
-    // so a Docker run seeds only when LocalAccounts:Enabled is set (docker-compose.yml does).
+    // Local demo account seeding is on by default only in Development. Docker runs seed only
+    // when LocalAccounts:Enabled is set (the root docker-compose.yml does this for the User).
     internal static bool IsSeedingEnabled(IHostEnvironment environment, IConfiguration configuration)
     {
         var enabled = configuration.GetValue($"{SectionName}:Enabled", environment.IsDevelopment());
         return enabled && (environment.IsDevelopment() || environment.IsEnvironment("Docker"));
     }
+
+    internal static IReadOnlyList<(string Email, string Password)> GetAccountsToLock(
+        IHostEnvironment environment,
+        bool seedingEnabled) =>
+        environment.IsEnvironment("Docker") && !seedingEnabled
+            ? PublishedDefaultAccounts
+            : [PublishedDefaultAdminAccount];
+
+    internal static IReadOnlyList<LocalSeedAccount> GetLocalSeedAccounts(IConfiguration configuration) =>
+    [
+        new LocalSeedAccount(
+            GetValue(configuration, "User:Email", "user@user.com"),
+            GetValue(configuration, "User:Password", "User123"),
+            GetValue(configuration, "User:Role", UserRole))
+    ];
 
     internal static async Task<int> LockPublishedDefaultAccountsAsync(
         UserManager<ApplicationUser> userManager,
@@ -87,8 +99,14 @@ internal static class LocalLoginAccountSeedExtensions
             {
                 var user = await userManager.FindByEmailAsync(email);
                 if (user is null
-                    || await userManager.IsLockedOutAsync(user)
                     || !await userManager.CheckPasswordAsync(user, password))
+                {
+                    continue;
+                }
+
+                var lockoutEnabled = await userManager.GetLockoutEnabledAsync(user);
+                var lockoutEnd = await userManager.GetLockoutEndDateAsync(user);
+                if (lockoutEnabled && lockoutEnd == DateTimeOffset.MaxValue)
                 {
                     continue;
                 }
@@ -213,5 +231,5 @@ internal static class LocalLoginAccountSeedExtensions
         throw new InvalidOperationException($"Failed to {action}: {errors}");
     }
 
-    private sealed record LocalSeedAccount(string Email, string Password, string Role);
+    internal sealed record LocalSeedAccount(string Email, string Password, string Role);
 }

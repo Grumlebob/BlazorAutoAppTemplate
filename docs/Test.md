@@ -236,7 +236,7 @@ Guidelines:
 `BlazorE2ETestBase` provides helpers so tests do not sleep or poll render-mode text:
 
 - `WaitForInteractivityAsync()` waits for the hidden `app-interactivity-probe` element to report an interactive renderer.
-- `RegisterUniqueUserAsync()` and `LoginAsLocalAdminAsync()` create or sign in users; tracked users and books are deleted after the test.
+- `RegisterUniqueUserAsync()` creates and tracks a unique test user; tracked users and books are deleted after the test.
 - `AssertNoCriticalOrSeriousAxeViolationsAsync()` runs axe-core from `BlazorAutoApp.Client/node_modules` (`npm ci` first).
 - `AssertNoPageHorizontalOverflowAsync()`, `AssertNoVisibleBrokenImagesAsync()` and `SetViewportAsync()` cover responsive layout checks.
 - Failure-only traces and screenshots go to the paths in `E2EArtifactPaths`.

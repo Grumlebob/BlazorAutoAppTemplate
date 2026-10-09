@@ -45,7 +45,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             TrackCreatedBook(title, url);
             TrackCreatedBook(updatedTitle, url);
 
-            await LoginAsync("admin@admin.com", "Admin123");
+            await RegisterUniqueUserAsync("e2e-books");
             await GoHomeAndWaitForInteractivityAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
             await Expect(Page.GetByTestId("user-bookcase-title")).ToHaveTextAsync("Your Bookcase");
