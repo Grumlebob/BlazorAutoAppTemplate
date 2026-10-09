@@ -35,6 +35,17 @@ jobs:
       name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 
     steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localcluster
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            exit 1
+          fi
+
       - name: Require main branch
         run: |
           if [ "${GITHUB_REF}" != "refs/heads/main" ]; then

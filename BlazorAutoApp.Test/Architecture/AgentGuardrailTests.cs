@@ -80,6 +80,28 @@ public sealed class AgentGuardrailTests
         Assert.Contains("Docker volumes are protected", script, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DeploymentWorkflows_RequireEnabledTarget()
+    {
+        var workflows = EnumerateRepoFiles(".github/workflows", "cd-*.yml")
+            .Concat(EnumerateRepoFiles(".github/workflows", "*-maintenance.yml"))
+            .ToList();
+
+        Assert.NotEmpty(workflows);
+        foreach (var file in workflows)
+        {
+            var workflow = File.ReadAllText(file);
+            Assert.Contains("Require this deployment target to be enabled", workflow, StringComparison.Ordinal);
+            Assert.Contains("vars.DEPLOY_TARGETS", workflow, StringComparison.Ordinal);
+            var firstSteps = Regex.Matches(workflow, @"(?m)^    steps:\r?\n      - name: (?<name>[^\r\n]+)");
+            Assert.NotEmpty(firstSteps);
+            foreach (Match step in firstSteps)
+            {
+                Assert.Equal("Require this deployment target to be enabled", step.Groups["name"].Value);
+            }
+        }
+    }
+
     private static string ReadRepoFile(params string[] parts) =>
         File.ReadAllText(Path.Combine([RepoRoot, .. parts]));
 

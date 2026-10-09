@@ -23,7 +23,7 @@ jobs:
   validate:
     name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'validate' || 'build-test-push' }}
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     timeout-minutes: 75
     permissions:
       contents: read
@@ -41,7 +41,9 @@ jobs:
           chmod 0700 "$docker_config"
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
-      - name: Verify self-hosted runner profile
+      - name: Verify CI runner
+        env:
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}
         run: |
           set -euo pipefail
           echo "Runner name: ${RUNNER_NAME:-unknown}"
@@ -55,7 +57,7 @@ jobs:
               ;;
           esac
           test "$(docker info --format '{{.OSType}}')" = "linux"
-          test "$(hostname)" = "node-main"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
 
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
@@ -138,6 +140,9 @@ jobs:
 
       - name: Test release provenance and manifest contract
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_ci_provenance.py Deployment/Common/Scripts/Tests/test_release_contract.py
+
+      - name: Test deployment target gates and CI runner profiles
+        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_target_gate.py
 
       - name: Test release identity verification
         run: bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh
@@ -352,7 +357,7 @@ jobs:
     name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'build-test-push' || 'publish-main' }}
     needs: validate
     if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     timeout-minutes: 60
     permissions:
       contents: read
@@ -391,7 +396,9 @@ jobs:
           chmod 0700 "$docker_config"
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
-      - name: Verify self-hosted runner profile
+      - name: Verify CI runner
+        env:
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}
         run: |
           set -euo pipefail
           echo "Runner name: ${RUNNER_NAME:-unknown}"
@@ -405,7 +412,7 @@ jobs:
               ;;
           esac
           test "$(docker info --format '{{.OSType}}')" = "linux"
-          test "$(hostname)" = "node-main"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
 
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
@@ -580,15 +587,17 @@ jobs:
     name: Notify Dependabot auto-merge
     needs: validate
     if: ${{ needs.validate.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]' && startsWith(github.ref_name, 'dependabot/') }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     permissions:
       actions: write
     steps:
-      - name: Verify node-main runner
+      - name: Verify CI runner
+        env:
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}
         run: |
           echo "Runner name: ${RUNNER_NAME:-unknown}"
           echo "Host: $(hostname)"
-          test "$(hostname)" = "node-main"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
       - name: Verify GitHub CLI
         run: command -v gh
       - name: Dispatch auto-merge for the exact validated commit
