@@ -1,6 +1,6 @@
 # Migrate Project Planning Prompt
 
-Use this prompt after forking this repository and before moving code from the old `ImprovedDb` Blazor Server app. It is designed to make another AI produce a careful `docs/MigrateProjectPlan.md` from evidence in both repositories.
+Use this prompt after forking this repository and before moving code from the old `ImprovedDb` Blazor Server app. It is designed to make another AI produce a careful `Plans/MigrateProjectPlan.md` from evidence in both repositories.
 
 Fill the placeholders before running it.
 
@@ -8,7 +8,7 @@ Fill the placeholders before running it.
 You are a senior .NET migration architect and pragmatic coding agent.
 
 Goal:
-Create a thorough, evidence-based migration plan named docs/MigrateProjectPlan.md for moving the old ImprovedDb Blazor Server application into a new fork of this BlazorAutoApp template.
+Create a thorough, evidence-based migration plan named Plans/MigrateProjectPlan.md for moving the old ImprovedDb Blazor Server application into a new fork of this BlazorAutoApp template.
 
 Important context:
 - The old app is called ImprovedDb.
@@ -17,7 +17,7 @@ Important context:
 - The migration must be feature-by-feature. Each feature must be rebuilt into the new architecture instead of copied across with old layering.
 - The target fork should remain deployable after each migrated feature.
 - The initial fork/deploy path can reuse the existing four LocalCluster nodes through docs/HowToForkThisRepo.md.
-- Do not implement the migration yet. Only inspect, reason, and write docs/MigrateProjectPlan.md.
+- Do not implement the migration yet. Only inspect, reason, and write Plans/MigrateProjectPlan.md.
 
 Inputs:
 - New fork repo path: <NEW_FORK_REPO_PATH>
@@ -30,6 +30,8 @@ Inputs:
 
 First actions:
 1. Open the new fork repo and read:
+   - AGENTS.md
+   - docs/Requirements.md
    - README.md
    - docs/HowToForkThisRepo.md
    - docs/HowToAddANewFeature.md
@@ -43,7 +45,7 @@ First actions:
    - .github/workflows/ci.yml
    - .github/workflows/cd-localcluster.yml
 2. Inspect the old ImprovedDb repo. Identify projects, pages/components, services, data access, database migrations/schema, authentication, authorization, configuration, external dependencies, JavaScript/CSS, files/storage, background jobs, integrations, reports, and deployment assumptions.
-3. If the old repo path is unavailable, stop and write docs/MigrateProjectPlan.md with a clear "Blocked: old repo unavailable" section plus the exact files and facts needed. Do not invent old-app features.
+3. If the old repo path is unavailable, stop and write Plans/MigrateProjectPlan.md with a clear "Blocked: old repo unavailable" section plus the exact files and facts needed. Do not invent old-app features.
 4. If the new fork path is unavailable, stop and ask for the correct path. Do not write a plan against an unknown target.
 
 Planning rules:
@@ -69,7 +71,7 @@ Target architecture reminders:
 - BlazorAutoApp.Simulation: synthetic traffic only for workflows that matter to demos/observability.
 - Deployment/Common and Deployment/LocalCluster: deployment settings only when the migration changes runtime configuration or infrastructure.
 
-The generated docs/MigrateProjectPlan.md must have this structure:
+The generated Plans/MigrateProjectPlan.md must have this structure:
 
 # Migrate ImprovedDb Into Fork
 
@@ -87,7 +89,7 @@ The generated docs/MigrateProjectPlan.md must have this structure:
 
 ## 3. Current Target Repo Shape
 - Summarize the target app architecture and rules that affect migration.
-- Summarize CI/CD, LocalCluster, testing, observability, and simulation surfaces that must stay working.
+- Summarize CI/CD, LocalCluster, testing, observability, and simulation surfaces that must stay working. CI publishes the image, the migration bundle and a release-manifest.json from main; CD deploys only commits whose manifest validates, so every phase must keep main CI green.
 - Mention that the target is Interactive Auto and explain the practical implications for prerendering, hydration, Core contracts, and client services.
 
 ## 4. Old ImprovedDb Inventory
@@ -250,7 +252,7 @@ Write a ready-to-copy prompt for the first feature migration. It must:
 - Require build/test commands.
 - Require a short final report of changed files, deferred behavior, and verification.
 
-Quality bar for docs/MigrateProjectPlan.md:
+Quality bar for Plans/MigrateProjectPlan.md:
 - It must be specific enough that a weaker AI can follow it without broad architectural judgment.
 - It must not assume the old app's behavior without evidence.
 - It must be ordered so the fork can be created and deployed before large feature migration work.
@@ -259,7 +261,7 @@ Quality bar for docs/MigrateProjectPlan.md:
 - It must clearly mark manual steps.
 - It must avoid root clutter and keep docs under docs/.
 
-After writing docs/MigrateProjectPlan.md:
+After writing Plans/MigrateProjectPlan.md:
 - Run markdown/reference sanity checks where practical.
 - Do not modify application code unless explicitly asked.
 - Report the file created, evidence reviewed, missing information, and the most important risks.

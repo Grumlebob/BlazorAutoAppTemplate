@@ -46,6 +46,9 @@ Pick these values before editing files. Write them down once and use them consis
 | `CLOUDFLARE_TUNNEL_NAME` | `books-prod` | Reuse the existing tunnel name when sharing the current `cloudflared` service on `node-main`. |
 | `RUNNER_LABEL` | `localcluster-recipes` | Derived from `APP_SLUG` unless overridden in `all.yml`. |
 | `GITHUB_ENVIRONMENT` | `localcluster-recipes` | Optional but recommended for a side-by-side fork. |
+| `INVENTORY_DNS_SUFFIX` | empty, or `lan` | Optional `inventory_dns_suffix` in `all.yml`. When set, preflight checks that `<node>.<suffix>` resolves to each inventory IP. Leave it empty if your network has no local DNS names. |
+
+Every node value (LAN IPs, MAC addresses, install users) comes from your fork's own ignored `Deployment/LocalCluster/machines.yml`. Do not copy IPs, DNS names or domains from another deployment; the values committed in this template are the template's own demo deployment.
 
 Do not rename the LocalCluster nodes. `node-main`, `node-app1`, `node-app2`, and `node-db` are infrastructure roles, not product names.
 
@@ -60,6 +63,8 @@ Use one of these paths.
 | Fresh cluster | You want new machines. | Do not use this guide. Follow `Deployment/LocalCluster/HowToDeployLocalCluster.md` from step 0. |
 
 For the fastest and safest fork demo, use side by side. The existing database and Redis instances can stay untouched, and the fork gets its own PostgreSQL and Redis ports.
+
+Apps that share nodes also share host-level services: Docker, Caddy, `cloudflared`, the GitHub runner host and the deployment lock on `node-main`. Keep `cloudflared_version` and other host-level versions in `all.yml` the same in every app on the same nodes, because the last deploy wins. Deploys from different apps never overlap: each takes the shared lock `/tmp/localcluster-deploy.lockdir` on `node-main` and waits for the other to finish.
 
 ## 3. Change The Repository Identity
 
@@ -269,6 +274,22 @@ Deployment/LocalCluster/inventory/prod/hosts.yml
 
 Do not rerun `bootstrap-node.sh` or `prepare-fresh-linux-machines.sh` for a side-by-side fork on already-prepared nodes. Those scripts are for first-time machine bootstrap.
 
+Seed and verify SSH host keys before the first deploy. Manual deploy, maintenance and lock tools use strict host-key checking and refuse unknown keys. On the ControlPC, for each node IP in `hosts.yml`:
+
+```bash
+host_key_candidate="$(mktemp)"
+ssh-keyscan -T 10 -t ed25519 -H <node-ip> > "$host_key_candidate"
+ssh-keygen -lf "$host_key_candidate"
+```
+
+Compare that fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the node's own console. Append the same scanned key only after the fingerprints match. If they differ, stop. Skip nodes already in `known_hosts` with the verified key.
+
+```bash
+mkdir -p ~/.ssh
+cat "$host_key_candidate" >> ~/.ssh/known_hosts
+rm -f "$host_key_candidate"
+```
+
 ## 9. Commit And Push The Fork Settings
 
 [CurrentPC]
@@ -405,10 +426,10 @@ vault_postgres_user: <APP_SLUG>_app
 vault_postgres_password: <strong unique password>
 vault_postgres_db: <APP_SLUG>
 vault_redis_password: <strong unique password>
-vault_ghcr_username: <github username or bot account>
-vault_ghcr_token: <classic PAT with read:packages>
 vault_cloudflare_tunnel_token: <existing shared tunnel token>
 ```
+
+No GitHub token is stored in the vault. CD lets the nodes pull the image with the workflow's own `GITHUB_TOKEN`. Manual deploys with `deploy.sh` take registry credentials from `GHCR_USERNAME`/`GHCR_TOKEN` or an authenticated `gh` CLI; add the optional `vault_ghcr_username` and `vault_ghcr_token` keys only if neither is available and the image is private.
 
 For a side-by-side fork, use a new PostgreSQL database name, database password, and Redis password. Reusing the same Cloudflare tunnel token is normal when the fork shares the existing `cloudflared` service.
 
@@ -523,6 +544,15 @@ Repository -> Settings -> Actions -> General -> Workflow permissions
 
 The repository or organization must allow the CI workflow's requested `packages: write` permission. If an organization policy blocks package writes, CI will fail at the GHCR push step.
 
+Optional secret for Dependabot auto-merge:
+
+```text
+GH_TOKEN = fine-grained personal access token for this repository with
+           Contents: write, Pull requests: write, Workflows: write
+```
+
+Without it, auto-merge still works for most Dependabot pull requests. It only cannot refresh an out-of-date Dependabot branch that changes workflow files; the run summary then says so and nothing else breaks.
+
 ## 15. Run CI
 
 [GitHub]
@@ -533,11 +563,12 @@ Run or wait for:
 Actions -> CI
 ```
 
-CI must pass on `main`. It validates deployment settings, builds and tests the solution, builds the EF migration bundle, builds the Docker image, and pushes:
+CI has two jobs:
 
-```text
-<APP_IMAGE>:<commit-sha>
-```
+- `validate` checks every pull request and every `main` push: deployment settings and audit, script tests, build, tests (with Docker), Tailwind output, and for pull requests a Docker image plus an HTTP and browser smoke test. Pull requests never push images. On pull requests this job is the required `build-test-push` check.
+- `publish-main` runs only for `main` after `validate` succeeds, and carries the `build-test-push` name there. It builds and smoke-tests the image, pushes `<APP_IMAGE>:<commit-sha>`, and uploads the migration bundle together with `release-manifest.json`. The manifest binds the commit, the CI run and attempt, the image digest and the migration IDs, and CD checks every one of them.
+
+CI must pass on `main` before you deploy.
 
 If the GHCR push fails, check:
 
@@ -546,6 +577,8 @@ If the GHCR push fails, check:
 - The fork is not blocked by an organization policy.
 
 ## 16. Deploy The Fork
+
+CD requires a successful main `push` CI run with a successful `publish-main` job on the same run attempt. A manual `workflow_dispatch` CI run does not satisfy this provenance gate.
 
 [GitHub]
 
@@ -564,16 +597,20 @@ run_migrations: true
 
 Use `run_migrations: true` for the first deploy. The database is new for a side-by-side fork, so migrations must run.
 
+Optional input `target_sha`: deploy an earlier commit, for example to roll back. It must be a full commit SHA that is already on `main`; empty deploys the current `main` commit.
+
 The CD workflow:
 
 - selects the app-specific runner through `LOCALCLUSTER_RUNNER_LABEL`,
-- reads `Deployment/Common/release.yml`,
-- reads LocalCluster `all.yml`,
-- downloads the migration bundle from the successful CI run,
-- deploys PostgreSQL and Redis on `node-db`,
-- deploys the app containers on `node-app1` and `node-app2`,
-- renders Caddy on `node-main`,
-- runs acceptance checks,
+- refuses commits that are not on `main`,
+- finds the newest successful `main` CI run for the commit,
+- downloads that run's release artifact and validates `release-manifest.json` against the registry digest and the migration bundle,
+- reads `Deployment/Common/release.yml` and LocalCluster `all.yml`,
+- stages the exact image digest on both app nodes before stopping anything,
+- deploys PostgreSQL and Redis on `node-db` and runs migrations when requested,
+- deploys the app containers on `node-app1` and `node-app2` one at a time,
+- renders Caddy and `cloudflared` on `node-main`,
+- runs acceptance checks and verifies that every app node runs the released digest,
 - runs the observability doctor when observability is enabled.
 
 ## 17. Verify The Fork
@@ -588,6 +625,12 @@ if [ "$(bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh observabil
   bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
 fi
 bash ./Deployment/LocalCluster/Scripts/list-deployed-apps.sh
+```
+
+To confirm by hand which image every app node runs, pass the image and the digest from the CD run summary:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/verify-release-identity.sh <APP_IMAGE> sha256:<digest>
 ```
 
 [CurrentPC]
@@ -618,7 +661,21 @@ CONTROLPC_SSH_TARGET=<your-control-user>@node-main bash ./Deployment/LocalCluste
 
 Then open `http://127.0.0.1:3001`. If `node-main` does not resolve from CurrentPC, use the node-main LAN IP in `CONTROLPC_SSH_TARGET`.
 
-## 18. What Not To Rename For A Fast Fork
+## 18. Runner And Cluster Maintenance
+
+`.github/workflows/localcluster-docker-maintenance.yml` cleans up `node-main` and the cluster under the shared deployment lock. It ships manual-only; to run it daily, uncomment its `schedule:` block in your fork.
+
+It deletes only:
+
+- old Actions runner versions, stale `_work/_update` and `_work/_temp` entries, and old runner diagnostic logs,
+- this repository's CI containers and networks whose run finished more than 24 hours ago,
+- dangling images labelled by this repository's CI, and old tags of this app's image that no container uses,
+- the same app-image residue on the app and database nodes,
+- release artifacts beyond the newest two, except those of the last two successful deploys.
+
+It never deletes Docker volumes, database data, backups, `/opt/<app>` data, another app's images or containers, or anything while a deploy holds the lock. Exit codes: `0` done, `1` failure, `2` still below the disk reserve, `75` deferred because protected candidates were skipped.
+
+## 19. What Not To Rename For A Fast Fork
 
 Do not rename these just to deploy quickly:
 
@@ -636,7 +693,7 @@ node-main/node-app1/node-app2/node-db
 
 Renaming projects and namespaces is a larger refactor. It touches solution files, project references, namespaces, tests, Dockerfile paths, GitHub workflows, docs, and scripts. Do it after the fork is live unless the new repository must have a complete internal rebrand before first deploy.
 
-## 19. Fork Customization Checklist
+## 20. Fork Customization Checklist
 
 Before first deploy:
 
@@ -648,10 +705,11 @@ Before first deploy:
 - `Deployment/LocalCluster/inventory/prod/hosts.yml` was regenerated for the fork `app_name`.
 - `Deployment/LocalCluster/inventory/prod/vault.yml` exists on ControlPC and has no placeholders.
 - Cloudflare has a public hostname route to `http://127.0.0.1:80`.
-- GitHub has `ANSIBLE_VAULT_PASSWORD`.
+- GitHub has `ANSIBLE_VAULT_PASSWORD`. No GHCR token is needed.
+- `~/.ssh/known_hosts` on the ControlPC has verified host keys for every node.
 - GitHub variables target the app-specific runner label and environment.
-- CI passed on `main`.
-- CD passed on `main`.
+- CI passed on `main`, and the run has a release artifact with `release-manifest.json`.
+- CD passed on `main`, including the release identity check.
 - `acceptance-check.sh` passed.
 - `observability-doctor.sh` passed if observability is enabled.
 

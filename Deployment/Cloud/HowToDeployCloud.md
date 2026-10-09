@@ -731,51 +731,7 @@ No Cloudflare API token is required by this guide. If GitHub Actions later recei
 
 Only continue after Step 7 has applied OpenTofu and Step 9 has produced the Cloudflare tunnel token.
 
-Prepare the values the script may prompt for:
-
-```text
-CLOUD_GHCR_USERNAME
-```
-
-Use the GitHub username for the account that owns the package-read token. For this repo, that is usually:
-
-```text
-Grumlebob
-```
-
-```text
-CLOUD_GHCR_TOKEN
-```
-
-Use a GitHub personal access token for pulling the app image from GitHub Container Registry. This is not the Hetzner token, not the Cloudflare tunnel token, and not your GitHub password.
-
-Create it in GitHub:
-
-1. Open:
-
-```text
-https://github.com/settings/tokens
-```
-
-2. Select `Generate new token`.
-3. Select `Generate new token (classic)`.
-4. Note:
-
-```text
-bookscloud-ghcr-read
-```
-
-5. Expiration: choose a sensible rotation window.
-6. Scopes: select only:
-
-```text
-read:packages
-```
-
-7. Generate the token.
-8. Copy it immediately. It will usually start with `ghp_`.
-
-If GitHub shows an organization SSO authorization button for the token, authorize it for the organization that owns `ghcr.io/grumlebob/books`.
+Prepare the values the script may prompt for. No GitHub package token is needed: `CD - Cloud` pulls the app image with the workflow's own `GITHUB_TOKEN` (`github.actor`), which can read this repository's packages.
 
 ```text
 CLOUD_CLOUDFLARE_TUNNEL_TOKEN
@@ -790,7 +746,7 @@ cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/Cloud/Scripts/configure-github-environment.sh
 ```
 
-The script creates the `cloud-hetzner` environment, reads OpenTofu outputs, sets infrastructure secrets, creates missing PostgreSQL/Redis secrets, and prompts for any missing GHCR or Cloudflare secrets. `CLOUD_GHCR_USERNAME` and `CLOUD_GHCR_TOKEN` must be able to pull `ghcr.io/grumlebob/books`.
+The script creates the `cloud-hetzner` environment, reads OpenTofu outputs, sets infrastructure secrets, creates missing PostgreSQL/Redis secrets, and prompts for a missing Cloudflare secret.
 
 Existing PostgreSQL and Redis secrets are kept by default. To intentionally rotate disposable Cloud data secrets, run:
 
@@ -809,8 +765,6 @@ CLOUD_SSH_PRIVATE_KEY
 CLOUD_BASTION_HOST
 CLOUD_HETZNER_API_TOKEN
 CLOUD_TEMP_SSH_FIREWALL_ID
-CLOUD_GHCR_USERNAME
-CLOUD_GHCR_TOKEN
 CLOUD_POSTGRES_USER
 CLOUD_POSTGRES_PASSWORD
 CLOUD_POSTGRES_DB

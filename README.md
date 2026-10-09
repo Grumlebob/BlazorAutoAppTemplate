@@ -4,6 +4,8 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Start Here
 
+- `AGENTS.md` has the working rules for people and coding agents (checks, hard stops on the shared cluster).
+- `docs/Requirements.md` lists the product rules every feature must meet.
 - `docs/HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
@@ -11,6 +13,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
 - `docs/HowToForkThisRepo.md` explains how to customize a fork and deploy it quickly on the existing LocalCluster.
 - `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.
+- `Plans/` holds tracked plans for multi-step changes; see `Plans/README.md`.
 
 ## Tech Stack
 
@@ -21,7 +24,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - Built-in ASP.NET Core rate limiting for API and account endpoints.
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - Serilog console logging with OpenTelemetry trace/span correlation.
-- GitHub Actions CI on the `node-main-books` self-hosted runner for deployment audit, restore, build, tests, EF migration bundle artifact publishing, Docker image build, and GHCR push on `main`.
+- GitHub Actions CI on the app's `node-main` self-hosted runner: a `validate` job (deployment audit, script tests, build, tests, Docker and browser smoke for pull requests) and a `main`-only `publish-main` job that pushes the image to GHCR and publishes the migration bundle with a release manifest.
 - Centralized NuGet package versions in `Directory.Packages.props`.
 
 ## Observability
@@ -63,15 +66,19 @@ Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evid
 - `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
 - `BlazorAutoApp.Simulation` contains the synthetic traffic simulator.
 - `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
+- `Deployment/Common` contains release settings and helpers shared by LocalCluster and Cloud (CI provenance, release manifest validation, artifact retention).
+- `Scripts/CI` contains CI helpers (runner capacity check, migration staging provenance).
 - `docker-compose.yml` runs the local app stack.
-- `docs/plans` contains historical planning notes that are not required for normal template use.
+- `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.
 
 ## LocalCluster Deployment
 
 The LocalCluster deployment flow is intentionally kept in this repository. It uses:
 
-- `.github/workflows/ci.yml` to run deployment checks on `node-main-books`, build the migration bundle, build the Docker image, push the image to GHCR on `main`, and prune old migration artifacts.
-- `.github/workflows/cd-localcluster.yml` to deploy from the app-specific self-hosted LocalCluster runner.
+- `.github/workflows/ci.yml` to validate every change and, on `main`, publish the image, the migration bundle and a `release-manifest.json` that binds them to the commit and CI run.
+- `.github/workflows/cd-localcluster.yml` to deploy a commit on `main` from the app-specific self-hosted runner. It requires a successful CI run, validates the release manifest, deploys the image by digest, and verifies every app node runs it.
+- `.github/workflows/localcluster-docker-maintenance.yml` for scoped runner and Docker cleanup under the shared deployment lock (manual by default; forks can enable its schedule).
+- `.github/workflows/auto-merge-dependabot.yml` to merge exactly-tested, low-risk Dependabot updates.
 - `Deployment/LocalCluster/Scripts/audit-deployment.sh` and `validate-rendered-templates.sh` as deployment safety checks.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` as the operating guide.
 
@@ -154,7 +161,7 @@ Redis is required outside development/test environments. It backs distributed `H
 
 Rate limiting is enabled by default:
 
-- Global app limit: `600` requests per minute per user/IP.
+- Global app limit: `600` requests per minute per user/IP. Static assets (`_framework`, `_content`, `/assets` and static files) are not counted, so a WebAssembly boot does not use up the budget.
 - Books API limit: `60` requests per minute per user/IP.
 - Account POST endpoint limit: `120` requests per five minutes per user/IP.
 

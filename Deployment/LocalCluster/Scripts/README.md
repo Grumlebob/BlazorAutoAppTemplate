@@ -8,7 +8,7 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `Component/node-db/` contains backup and restore scripts copied onto the database node by Ansible.
 
-`deploy.sh <git-sha> --migrate <bundle>` deploys a selected app image and optionally runs the matching EF migration bundle once before starting the app servers.
+`deploy.sh <git-sha> [--digest sha256:<digest>] [--migrate <bundle>]` deploys a selected app image from a control machine and optionally runs the matching EF migration bundle once before starting the app servers. `--digest` pins the exact image. It skips the CI and release-manifest checks that CD performs, so prefer the CD workflow.
 
 `summary.sh` prints the concrete deployment target without contacting remote nodes.
 
@@ -48,15 +48,29 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `ensure-actions-runner-prereqs.sh` verifies (`--check`, used by CI) or installs (`--provision`, the default) self-hosted CI prerequisites on `node-main`. If CI reports a missing tool, run it with `--provision` on `node-main` as an administrator.
 
-`prune-docker-residue.sh` removes old unused LocalCluster app image tags without deleting volumes. Host-wide prunes (stopped containers, dangling images, build cache, networks) run only with `--include-unlabelled-host-residue`, because they affect every app on the Docker host.
+`prune-docker-residue.sh` removes dangling images labelled by this repository's CI and old unused tags of this app's image, then frees more with low-disk fallbacks when still below `--min-free-mb`. Host-wide prunes (stopped containers, dangling images, build cache, networks) run only with `--include-unlabelled-host-residue`, because they affect every app on the Docker host. Docker volumes are never pruned. Exit codes: `0` done, `1` failure, `2` still below the reserve, `75` deferred (protected candidates skipped, with `--defer-if-skipped`).
 
 `release-deploy-lock.sh` inspects (`--inspect`) or manually releases (`--release --token <token>`) the shared `node-main` deployment lock after verifying the owner is gone. The lock is never released automatically.
 
 `validate-inventory-dns.sh` checks that each inventory host resolves to its inventory IP. It runs from `preflight.sh` and is skipped unless `inventory_dns_suffix` is set in `group_vars/all.yml`.
 
-`Tests/test-with-deploy-lock.sh` exercises the lock wrapper and the release tool against a temporary lock directory; CI runs it.
+`ci-docker-smoke.sh` starts the freshly built image with disposable, labelled PostgreSQL and Redis containers on tmpfs, checks `/health/ready`, the SSR home page and the anonymous API 401, then runs the browser smoke tests. It removes only the resources it created. CI runs it for pull requests and before every `main` publish.
 
-`Deployment/Common/Scripts/prune-actions-artifacts.sh` prunes old GitHub Actions artifacts by exact artifact name after successful CI publishes.
+`check-node-main-capacity.sh` checks the `/opt` reserve on `node-main` (defaults in `localcluster-capacity-thresholds.sh`: 20 GiB and 5 % free inodes; 2 GiB on app nodes, 4 GiB on the database node). Exit codes: `0` ok, `1` cannot measure, `2` below the reserve.
+
+`run-localcluster-maintenance.sh [--capacity-only]` runs the maintenance stages under the deployment lock: runner residue, finished-CI residue, node-main Docker, app/db node Docker, a volume inventory (report only) and the capacity check. Exit codes: `0` done, `1` failure, `2` below the reserve, `75` deferred. The `LocalCluster Docker Maintenance` workflow calls it.
+
+`prune-actions-runner-residue.sh` removes old Actions runner versions and stale `_work/_update`, `_work/_temp` and `_diag` entries, keeping the active version and every workspace.
+
+`prune-ci-residue.py [--apply]` removes this repository's labelled CI containers and networks whose GitHub run attempt finished more than 24 hours ago. Read-only without `--apply`; with it, it must run under the deployment lock on `node-main`. It never removes volumes.
+
+`prune-cluster-docker-residue.sh` copies `prune-docker-residue.sh` to the app and database nodes and runs the same scoped cleanup there. It requires every node's SSH host key to be in `known_hosts` already.
+
+`verify-release-identity.sh <app-image> <sha256-digest>` checks that the web container on every app node runs the released image digest. CD runs it after the acceptance check.
+
+`Tests/` holds fixture tests for these scripts (deploy lock, Ansible check-only setup, Docker smoke lifecycle, release identity, maintenance, Docker and runner cleanup, CI residue); CI runs all of them.
+
+`Deployment/Common/Scripts/prune-actions-artifacts.sh` prunes old GitHub Actions artifacts by exact artifact name; `--protect-run-id <id>` keeps the artifacts of deployed CI runs. The maintenance workflow runs it.
 
 `Component/with-deploy-lock.sh` serializes deploys that run on the same `node-main` runner host.
 

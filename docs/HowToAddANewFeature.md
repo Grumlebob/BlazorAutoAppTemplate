@@ -4,7 +4,7 @@ This guide explains how to add a coherent vertical feature slice to this reposit
 
 The examples use `Sample` as the singular feature concept and `Samples` as the plural feature area. Replace those names with the real domain language, such as `Review` and `Reviews`.
 
-This guide is written for incremental migration work. When moving an old project into this template, migrate one feature at a time and leave each feature in a shippable state before starting the next one.
+Read [Requirements.md](Requirements.md) first: it lists the rules every feature must meet. This guide is written for incremental migration work. When moving an old project into this template, migrate one feature at a time and leave each feature in a shippable state before starting the next one.
 
 ## Goal
 
@@ -133,8 +133,20 @@ The test suite actively enforces several boundaries. A new feature should satisf
 - EF entity configurations live under `BlazorAutoApp/Features/{Feature}/Persistence`.
 - Every public Core `*Request` has a matching feature test class with at least one `[Fact]` or `[Theory]`.
 - Every public Core `*Api` interface has exactly one server implementation and is registered in DI.
+- Every Core feature with use cases has a matching feature test folder, and feature tests must exercise behaviour: a test that only constructs a request DTO and checks its properties is rejected.
 
 These tests are there to protect the migration. If they fail, prefer changing the feature shape rather than weakening the tests.
+
+## Lessons From Production
+
+These came from running apps built from this template on a multi-node cluster:
+
+- Disable interactive controls until the component is interactive: `disabled="@(!RendererInfo.IsInteractive)"`. During prerender a button looks clickable but does nothing until WebAssembly or the circuit is ready. Add an E2E check like `PreHydrationControlsE2ETests` for important forms.
+- Use `PersistentComponentState` only for bounded public data. Persisting a large or user-specific response graph bloats every prerendered page.
+- Put a schema version in cache keys (for example `samples:v2:list:...`). A deploy that changes a cached response shape then never reads an old entry written by the previous version on another node.
+- Send user-specific API responses with `Cache-Control: private, no-store`. `.WithPrivateNoStoreResponses()` on the endpoint group does this.
+- API endpoints answer 401/403, never a redirect to the HTML login page; keep new endpoint groups under `/api` so the cookie challenge does this for you.
+- Feature-owned operational entities (outbox rows, import state and similar) may live in the server feature's `Persistence` folder instead of Core when no client ever sees them.
 
 ## 1. Add Core Domain And Use Cases
 
@@ -822,10 +834,11 @@ Test guidance:
 
 ## 10. Run The Local Gate
 
-Run this before committing:
+Run this before committing. The full list, including formatting and deployment checks, is in [Test.md](Test.md#local-gate).
 
 ```powershell
 dotnet restore .\BlazorAutoApp.sln
+dotnet format .\BlazorAutoApp.sln --verify-no-changes --no-restore
 dotnet build .\BlazorAutoApp.sln --no-restore
 dotnet test .\BlazorAutoApp.sln --no-build
 ```
