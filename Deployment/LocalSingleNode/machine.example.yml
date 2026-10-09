@@ -1,0 +1,6 @@
+# Optional override. Detection is the default; never commit machine.yml.
+node:
+  name: REPLACE_WITH_NODE_HOSTNAME
+  ip: REPLACE_WITH_NODE_LAN_IP
+  lan_cidr: REPLACE_WITH_LAN_CIDR
+  install_user: REPLACE_WITH_LINUX_MINT_INSTALL_USER

@@ -97,12 +97,14 @@ docker network create "${owned_label_args[@]}" "$network"
 # Loopback-only random host port: the browser tests clean up the users they
 # register directly in this disposable database.
 docker run -d --name "$postgres" --network "$network" "${owned_label_args[@]}" \
+  --network-alias ci-postgres \
   -p 127.0.0.1::5432 \
   --tmpfs /var/lib/postgresql:rw,size=1073741824 \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=app \
   "$POSTGRES_IMAGE"
 docker run -d --name "$redis" --network "$network" "${owned_label_args[@]}" \
+  --network-alias ci-redis \
   --tmpfs /data:rw,size=67108864 "$REDIS_IMAGE" \
   redis-server --save "" --appendonly no
 
@@ -116,8 +118,8 @@ docker run -d --name "$web" --network "$network" "${owned_label_args[@]}" \
   -e ASPNETCORE_ENVIRONMENT=Docker \
   -e ASPNETCORE_HTTP_PORTS=8080 \
   -e "APP_VERSION=${APP_VERSION}" \
-  -e "ConnectionStrings__DefaultConnection=Host=${postgres};Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
-  -e "Redis__Configuration=${redis}:6379,abortConnect=false" \
+  -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  -e "Redis__Configuration=ci-redis:6379,abortConnect=false" \
   -e Redis__AllowMissing=false \
   -e Database__RunMigrationsAtStartup=true \
   -e RateLimiting__Global__PermitLimit=10000 \
@@ -156,6 +158,7 @@ if grep -qi '^location:' <<< "$api_headers"; then
   echo "anonymous /api/books redirected instead of returning 401" >&2
   exit 1
 fi
+pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -BaseUrl "$base_url"
 echo "HTTP smoke passed"
 
 postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"

@@ -67,6 +67,9 @@ SH
 for name in sleep pwsh dotnet; do
   cat > "$TMP_ROOT/bin/$name" <<'SH'
 #!/usr/bin/env bash
+if [[ "$(basename "$0")" == pwsh && "$*" == *Test-DeployedSite.ps1* ]]; then
+  exit "${FAIL_HTTP_ACCEPTANCE:-0}"
+fi
 if [[ "$(basename "$0")" == dotnet ]]; then
   [[ "$*" == *"RenderModeE2ETests"*"PreHydrationControlsE2ETests"* ]] || exit 3
   [[ "${E2E_CLEANUP_CONNECTION_STRING:-}" == *"Host=127.0.0.1;Port=34567;"* ]] || exit 4
@@ -86,6 +89,7 @@ run_case 0
 FAIL_REDIS=1 run_case 17
 FAIL_API=1 run_case 1
 FAIL_BROWSER=19 run_case 19
+FAIL_HTTP_ACCEPTANCE=23 run_case 23
 env -u GITHUB_RUN_ID -u GITHUB_RUN_ATTEMPT bash "$SCRIPT" > "$TMP_ROOT/local-one"
 env -u GITHUB_RUN_ID -u GITHUB_RUN_ATTEMPT bash "$SCRIPT" > "$TMP_ROOT/local-two"
 python3 - <<'PY'
@@ -101,12 +105,16 @@ for args in calls:
         name = args[args.index("--name") + 1]
         assert name.startswith("sample-ci-"), name
         if "postgres" in name:
+            assert args[args.index("--network-alias") + 1] == "ci-postgres"
             assert "/var/lib/postgresql:rw,size=1073741824" in args
             assert "127.0.0.1::5432" in args, "postgres must publish only on loopback"
         if "redis" in name:
+            assert args[args.index("--network-alias") + 1] == "ci-redis"
             assert "/data:rw,size=67108864" in args
             assert "--appendonly" in args
         if "web" in name:
+            assert any(value.startswith("ConnectionStrings__DefaultConnection=Host=ci-postgres;") for value in args)
+            assert "Redis__Configuration=ci-redis:6379,abortConnect=false" in args
             assert "RateLimiting__Api__PermitLimit=1000" in args
             assert "LocalAccounts__Enabled=false" in args
         else:

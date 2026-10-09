@@ -1,0 +1,14 @@
+---
+- name: Deploy the verified release to the local node
+  hosts: all
+  become: true
+  vars_files:
+    - ../../inventory/group_vars/all.yml
+    - ../../../Common/release.yml
+  vars:
+    app_image_ref: "{{ app_image }}@{{ release_image_digest }}"
+    runner_name: "{{ inventory_hostname }}-{{ app_name }}"
+    runner_label: "localsinglenode-{{ app_name }}"
+    public_hostname: "{{ inventory_hostname }}.local"
+  roles:
+    - single_node_stack

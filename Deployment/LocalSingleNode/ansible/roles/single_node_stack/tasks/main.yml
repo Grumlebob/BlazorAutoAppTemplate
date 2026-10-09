@@ -1,0 +1,198 @@
+---
+- name: Require native host identity and exact release inputs
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == ansible_hostname
+      - "'microsoft' not in ansible_kernel | lower"
+      - app_version is match('^[0-9a-f]{40}$')
+      - release_image_digest is match('^sha256:[0-9a-f]{64}$')
+      - source_repo_url is match('^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
+      - not (run_migrations | default(false) | bool) or migration_bundle_local_path | default('') | length > 0
+- name: Validate dotenv-safe generated secrets
+  ansible.builtin.assert:
+    that:
+      - vault_postgres_password is match('^[A-Za-z0-9]{32,}$')
+      - vault_redis_password is match('^[A-Za-z0-9]{32,}$')
+  no_log: true
+- name: Check port, subnet and directory ownership
+  ansible.builtin.command:
+    argv:
+      - bash
+      - "{{ playbook_dir }}/../../Scripts/check-port-collisions.sh"
+      - --source-repo-url
+      - "{{ source_repo_url }}"
+  changed_when: false
+- name: Stage the exact app image before app interruption
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker_config="$(mktemp -d /tmp/{{ app_name }}-ghcr.XXXXXX)"
+    trap 'rm -rf -- "$docker_config"' EXIT
+    export DOCKER_CONFIG="$docker_config"
+    printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+    docker pull "{{ app_image_ref }}"
+  args:
+    executable: /bin/bash
+  environment:
+    GHCR_TOKEN: "{{ vault_ghcr_token }}"
+    GHCR_USER: "{{ vault_ghcr_username }}"
+  become_user: deploy
+  no_log: true
+  register: pulled_image
+  retries: 5
+  delay: 15
+  until: pulled_image.rc == 0
+  changed_when: false
+- name: Inspect the staged image
+  ansible.builtin.command: "docker image inspect {{ app_image_ref }}"
+  become_user: deploy
+  register: staged_image
+  changed_when: false
+- name: Require the exact repository digest
+  ansible.builtin.assert:
+    that:
+      - app_image_ref in ((staged_image.stdout | from_json)[0].RepoDigests | default([]))
+- name: Render protected app environment
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/app.env.j2"
+    dest: "{{ deploy_root }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0600"
+  no_log: true
+- name: Install app compose file
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../compose/docker-compose.yml"
+    dest: "{{ deploy_root }}/docker-compose.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+- name: Start persistent PostgreSQL and Redis
+  ansible.builtin.command: docker compose up -d postgres redis
+  args:
+    chdir: "{{ deploy_root }}"
+  become_user: deploy
+  changed_when: true
+- name: Require healthy backing services within 120 seconds
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for service in postgres redis; do
+      id="$(docker compose ps -q "$service")"
+      test -n "$id"
+      test "$(docker inspect --format '{{ '{{' }}.State.Health.Status{{ '}}' }}' "$id")" = healthy
+    done
+  args:
+    executable: /bin/bash
+    chdir: "{{ deploy_root }}"
+  become_user: deploy
+  register: backing_health
+  retries: 60
+  delay: 2
+  until: backing_health.rc == 0
+  changed_when: false
+- name: Create pre-migration custom-format backup under the existing deploy lock
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ deploy_root }}/maintenance/lib/backup.py"
+      - --config
+      - "{{ deploy_root }}/maintenance/settings.json"
+  become_user: deploy
+  when: run_migrations | default(false) | bool
+  changed_when: true
+- name: Stop web only before migrations
+  ansible.builtin.command: docker compose stop web
+  args:
+    chdir: "{{ deploy_root }}"
+  become_user: deploy
+  when: run_migrations | default(false) | bool
+  changed_when: true
+- name: Ensure migration directory
+  ansible.builtin.file:
+    path: "{{ deploy_root }}/migrations"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+  when: run_migrations | default(false) | bool
+- name: Copy the manifest-verified migration bundle
+  ansible.builtin.copy:
+    src: "{{ migration_bundle_local_path }}"
+    dest: "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
+    owner: deploy
+    group: deploy
+    mode: "0750"
+  when: run_migrations | default(false) | bool
+- name: Run the migration bundle once against loopback PostgreSQL
+  ansible.builtin.command:
+    argv:
+      - "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
+      - --connection
+      - "Host=127.0.0.1;Port={{ postgres_port }};Database={{ app_name | replace('-', '_') }};Username={{ app_name | replace('-', '_') }};Password={{ vault_postgres_password }}"
+  become_user: deploy
+  no_log: true
+  when: run_migrations | default(false) | bool
+  changed_when: true
+- name: Start and check the web release
+  block:
+    - name: Start web without removing persistent volumes
+      ansible.builtin.command: docker compose up -d --remove-orphans web
+      args:
+        chdir: "{{ deploy_root }}"
+      become_user: deploy
+      changed_when: true
+    - name: Require direct web readiness within 180 seconds
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health/ready"
+        status_code: 200
+        timeout: 5
+      register: web_health
+      retries: 90
+      delay: 2
+      until: web_health.status | default(0) == 200
+    - name: Apply this app's validated HTTP site
+      ansible.builtin.include_role:
+        name: single_node_caddy_site
+    - name: Require LAN Caddy readiness within 180 seconds
+      ansible.builtin.uri:
+        url: "http://{{ node_ip }}:{{ lan_http_port }}/health/ready"
+        status_code: 200
+        timeout: 5
+      register: lan_health
+      retries: 90
+      delay: 2
+      until: lan_health.status | default(0) == 200
+  rescue:
+    - name: Capture bounded web diagnostics
+      ansible.builtin.command: docker compose logs --tail 200 web
+      args:
+        chdir: "{{ deploy_root }}"
+      become_user: deploy
+      register: web_logs
+      changed_when: false
+      failed_when: false
+    - name: Show bounded web diagnostics
+      ansible.builtin.debug:
+        var: web_logs.stdout_lines
+    - name: Stop this failed release
+      ansible.builtin.fail:
+        msg: "Web or LAN readiness failed. Persistent volumes were retained."
+- name: Record shared app ownership marker
+  ansible.builtin.include_role:
+    name: app_marker
+- name: Publish released identity for maintenance
+  ansible.builtin.copy:
+    content: "{{ {'sha': app_version, 'image': app_image, 'digest': release_image_digest, 'source_repo_url': source_repo_url} | to_nice_json }}"
+    dest: "{{ deploy_root }}/release.json"
+    owner: deploy
+    group: deploy
+    mode: "0644"
+- name: Preserve refreshed address and original install user
+  ansible.builtin.copy:
+    src: "{{ machine_local_path }}"
+    dest: /etc/localsinglenode/machine.yml
+    owner: root
+    group: root
+    mode: "0644"
+- name: Report site URL
+  ansible.builtin.debug:
+    msg: "Site URL: http://{{ inventory_hostname }}.local{{ '' if lan_http_port | int == 80 else ':' ~ lan_http_port }}/"

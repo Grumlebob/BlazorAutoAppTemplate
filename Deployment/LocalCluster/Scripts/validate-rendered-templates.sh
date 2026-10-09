@@ -377,3 +377,5 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
 
 print("rendered template validation ok")
 PY
+
+bash "$REPO_ROOT/Deployment/LocalSingleNode/Scripts/validate-rendered-templates.sh"

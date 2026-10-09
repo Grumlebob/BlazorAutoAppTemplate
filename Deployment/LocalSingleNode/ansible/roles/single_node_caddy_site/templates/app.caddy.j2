@@ -1,0 +1,5 @@
+{% for h in ([inventory_hostname ~ '.local'] + lan_hostnames + [node_ip]) %}http://{{ h }}:{{ lan_http_port }}{% if not loop.last %}, {% endif %}{% endfor %} {
+    reverse_proxy 127.0.0.1:{{ app_port }} {
+        health_uri /health/ready
+    }
+}

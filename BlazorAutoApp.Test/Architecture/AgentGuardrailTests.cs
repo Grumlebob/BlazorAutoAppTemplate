@@ -61,6 +61,8 @@ public sealed class AgentGuardrailTests
             .Concat(EnumerateRepoFiles("Deployment/LocalCluster/Scripts", "*.py"))
             .Concat(EnumerateRepoFiles("Deployment/Common/Scripts", "*.sh"))
             .Concat(EnumerateRepoFiles("Deployment/Common/Scripts", "*.py"))
+            .Concat(EnumerateRepoFiles("Deployment/LocalSingleNode/Scripts", "*.sh"))
+            .Concat(EnumerateRepoFiles("Deployment/LocalSingleNode/Scripts", "*.py"))
             .Concat(EnumerateRepoFiles(".github/workflows", "*.yml"))
             .Concat(EnumerateRepoFiles("Scripts", "*.ps1"))
             // The deployment audit and the script tests name these commands to forbid them.

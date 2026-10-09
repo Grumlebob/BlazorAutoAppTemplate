@@ -1,0 +1,75 @@
+---
+- name: Give deploy the protected backup group for every execution context
+  ansible.builtin.user:
+    name: deploy
+    groups: "{{ install_group }}"
+    append: true
+- name: Ensure operator-readable backup directory
+  ansible.builtin.file:
+    path: "{{ backup_root }}"
+    state: directory
+    owner: deploy
+    group: "{{ install_group }}"
+    mode: "0750"
+- name: Create app maintenance directory
+  ansible.builtin.file:
+    path: "{{ deploy_root }}/maintenance/lib"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+- name: Copy stable backup implementation
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../Scripts/lib/backup.py"
+    dest: "{{ deploy_root }}/maintenance/lib/backup.py"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+- name: Copy stable shared lock implementation
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../../Common/Scripts/"
+    dest: "{{ deploy_root }}/maintenance/Common/Scripts/"
+    owner: deploy
+    group: deploy
+    mode: preserve
+- name: Publish nonsecret backup settings
+  ansible.builtin.copy:
+    content: "{{ {'app_name': app_name, 'deploy_root': deploy_root, 'backup_root': backup_root, 'backup_keep_days': backup_keep_days, 'install_group': install_group, 'secrets_file': '/etc/' ~ app_name ~ '/secrets.yml'} | to_nice_json }}"
+    dest: "{{ deploy_root }}/maintenance/settings.json"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+- name: Install protected backup service
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/backup.service.j2"
+    dest: "/etc/systemd/system/{{ app_name }}-backup.service"
+    owner: root
+    group: root
+    mode: "0644"
+- name: Install nightly backup timer
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/backup.timer.j2"
+    dest: "/etc/systemd/system/{{ app_name }}-backup.timer"
+    owner: root
+    group: root
+    mode: "0644"
+- name: Enable persistent nightly backups
+  ansible.builtin.systemd:
+    name: "{{ app_name }}-backup.timer"
+    daemon_reload: true
+    enabled: true
+    state: started
+- name: Ensure root-owned reboot helper directory
+  ansible.builtin.file:
+    path: /usr/local/lib/localsinglenode
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Install root-owned completion-aware reboot helper
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../Scripts/wait-for-successful-run-reboot.sh"
+    dest: /usr/local/lib/localsinglenode/wait-for-successful-run-reboot.sh
+    owner: root
+    group: root
+    mode: "0755"

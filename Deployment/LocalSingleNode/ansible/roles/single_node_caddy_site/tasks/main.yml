@@ -1,0 +1,39 @@
+---
+- name: Remember the app site before validation
+  ansible.builtin.slurp:
+    src: "/etc/caddy/sites/{{ app_name }}.caddy"
+  register: previous_site
+  failed_when: false
+- name: Install and validate the app site
+  block:
+    - name: Render this app's HTTP site
+      ansible.builtin.template:
+        src: app.caddy.j2
+        dest: "/etc/caddy/sites/{{ app_name }}.caddy"
+        owner: root
+        group: caddy
+        mode: "0644"
+    - name: Validate all Caddy sites before reload
+      ansible.builtin.command: caddy validate --config /etc/caddy/Caddyfile
+      changed_when: false
+    - name: Reload Caddy after validation
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded
+  rescue:
+    - name: Restore the previous app site
+      ansible.builtin.copy:
+        content: "{{ previous_site.content | b64decode }}"
+        dest: "/etc/caddy/sites/{{ app_name }}.caddy"
+        owner: root
+        group: caddy
+        mode: "0644"
+      when: previous_site.content is defined
+    - name: Remove only the failed new app site
+      ansible.builtin.file:
+        path: "/etc/caddy/sites/{{ app_name }}.caddy"
+        state: absent
+      when: previous_site.content is not defined
+    - name: Report Caddy validation failure
+      ansible.builtin.fail:
+        msg: "Caddy validation failed; the previous app site was restored."
