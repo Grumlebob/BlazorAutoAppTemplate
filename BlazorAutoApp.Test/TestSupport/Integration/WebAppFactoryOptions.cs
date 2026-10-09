@@ -27,9 +27,8 @@ public sealed class WebAppFactoryOptions
 
     public string? EnvironmentName { get; init; }
 
-    public bool RunMigrations { get; init; } = true;
-
-    public bool RunStartupMigrations { get; init; }
+    /// <summary>Run EF migrations before startup account checks.</summary>
+    public bool RunMigrationsAtStartup { get; init; } = true;
 
     public bool AuthorBooksSeedAtStartup { get; init; }
 

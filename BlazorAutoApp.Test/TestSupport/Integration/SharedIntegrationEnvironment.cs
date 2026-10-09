@@ -58,7 +58,7 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
 
     public WebAppFactory CreateFactory(
         string nodeId,
-        bool runMigrations,
+        bool runMigrationsAtStartup,
         bool cacheInvalidationEnabled = true,
         int? localListTtlSeconds = null,
         int? localItemTtlSeconds = null,
@@ -72,7 +72,7 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
             CacheInvalidationEnabled = cacheInvalidationEnabled,
             AppName = AppName,
             EnvironmentName = EnvironmentName,
-            RunMigrations = runMigrations,
+            RunMigrationsAtStartup = runMigrationsAtStartup,
             UseProcessEnvironmentOverrides = true,
             LocalListTtlSeconds = localListTtlSeconds,
             LocalItemTtlSeconds = localItemTtlSeconds,

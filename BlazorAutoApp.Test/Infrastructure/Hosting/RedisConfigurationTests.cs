@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using BlazorAutoApp.Features.Login.Account;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Xunit;
 
@@ -53,5 +57,7 @@ public sealed class RedisConfigurationTests
                         ["AuthorBooks:SeedAtStartup"] = "false"
                     });
                 });
+                builder.ConfigureTestServices(services =>
+                    services.AddScoped<IUserStore<ApplicationUser>, EmptyIdentityUserEmailStore>());
             });
 }

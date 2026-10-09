@@ -154,7 +154,7 @@ public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnviro
         var suffix = Guid.NewGuid().ToString("N");
         var nodeA = environment.CreateFactory(
             $"node-a-{suffix}",
-            runMigrations: true,
+            runMigrationsAtStartup: true,
             localListTtlSeconds: localListTtlSeconds,
             localItemTtlSeconds: localItemTtlSeconds);
         _factories.Add(nodeA);
@@ -162,7 +162,7 @@ public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnviro
 
         var nodeB = environment.CreateFactory(
             $"node-b-{suffix}",
-            runMigrations: false,
+            runMigrationsAtStartup: false,
             cacheInvalidationEnabled: nodeBInvalidationEnabled,
             localListTtlSeconds: localListTtlSeconds,
             localItemTtlSeconds: localItemTtlSeconds,
