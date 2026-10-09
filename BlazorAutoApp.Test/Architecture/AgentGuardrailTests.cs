@@ -59,6 +59,8 @@ public sealed class AgentGuardrailTests
         var script = ReadRepoFile("Deployment", "LocalCluster", "Scripts", "prune-docker-residue.sh");
         var offenders = EnumerateRepoFiles("Deployment/LocalCluster/Scripts", "*.sh")
             .Concat(EnumerateRepoFiles("Deployment/LocalCluster/Scripts", "*.py"))
+            .Concat(EnumerateRepoFiles("Deployment/Common/Scripts", "*.sh"))
+            .Concat(EnumerateRepoFiles("Deployment/Common/Scripts", "*.py"))
             .Concat(EnumerateRepoFiles(".github/workflows", "*.yml"))
             .Concat(EnumerateRepoFiles("Scripts", "*.ps1"))
             // The deployment audit and the script tests name these commands to forbid them.

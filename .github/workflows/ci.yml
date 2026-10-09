@@ -58,7 +58,7 @@ jobs:
           test "$(hostname)" = "node-main"
 
       - name: Ensure self-hosted runner prerequisites
-        run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh --check
+        run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
 
       - name: Activate validated Ansible generation
         run: |
@@ -88,7 +88,7 @@ jobs:
             '[load_balancer]' 'localhost' '' \
             '[app_servers]' 'localhost' \
             > "$syntax_root/inventory.ini"
-          ANSIBLE_ROLES_PATH="$GITHUB_WORKSPACE/Deployment/LocalCluster/ansible/roles" \
+          ANSIBLE_ROLES_PATH="$GITHUB_WORKSPACE/Deployment/LocalCluster/ansible/roles:$GITHUB_WORKSPACE/Deployment/Common/ansible/roles" \
             ansible-playbook \
               --inventory "$syntax_root/inventory.ini" \
               --syntax-check \
@@ -125,7 +125,7 @@ jobs:
           } | xargs -0 shellcheck --severity=warning
 
       - name: Test LocalCluster deployment lock
-        run: bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh
+        run: bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh
 
       - name: Test Ansible check-only setup
         run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
@@ -146,7 +146,8 @@ jobs:
         run: |
           bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh
           bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh
-          bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh
+          bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh
+          bash Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh
           python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py
           python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py
           python3 -m unittest Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py
@@ -407,7 +408,7 @@ jobs:
           test "$(hostname)" = "node-main"
 
       - name: Ensure self-hosted runner prerequisites
-        run: bash Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh --check
+        run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
 
       - name: Check self-hosted runner disk
         run: bash Scripts/CI/check-runner-capacity.sh

@@ -85,7 +85,7 @@ required_files = [
     "Scripts/CI/check-runner-capacity.sh",
     ".github/workflows/localcluster-docker-maintenance.yml",
     "Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh",
-    "Deployment/LocalCluster/Scripts/prune-actions-runner-residue.sh",
+    "Deployment/Common/Scripts/prune-actions-runner-residue.sh",
     "Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh",
     "Deployment/LocalCluster/Scripts/prune-ci-residue.py",
     "Deployment/Common/Scripts/validate_release_manifest.py",
@@ -121,20 +121,20 @@ required_files = [
     "Deployment/LocalCluster/ansible/playbooks/site.yml",
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2",
-    "Deployment/LocalCluster/ansible/roles/app_marker/tasks/main.yml",
-    "Deployment/LocalCluster/ansible/roles/app_marker/templates/app-marker.env.j2",
+    "Deployment/Common/ansible/roles/app_marker/tasks/main.yml",
+    "Deployment/Common/ansible/roles/app_marker/templates/app-marker.env.j2",
     "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/caddy/templates/app.caddy.j2",
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
-    "Deployment/LocalCluster/ansible/roles/docker/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/docker/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/firewall/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2",
     "Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.service.j2",
-    "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml",
+    "Deployment/Common/ansible/roles/mint_base/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/postgres/tasks/main.yml",
     "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2",
     "Deployment/LocalCluster/ansible/roles/redis/tasks/main.yml",
-    "Deployment/LocalCluster/ansible/roles/ssh_hardening/tasks/main.yml",
+    "Deployment/Common/ansible/roles/ssh_hardening/tasks/main.yml",
     "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
     "Deployment/LocalCluster/compose/node-db/docker-compose.yml",
     "Deployment/LocalCluster/Scripts/README.md",
@@ -147,7 +147,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/deploy.sh",
     "Deployment/LocalCluster/Scripts/doctor.sh",
     "Deployment/LocalCluster/Scripts/discover-machines.sh",
-    "Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh",
+    "Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh",
     "Deployment/LocalCluster/Scripts/audit-deployment.sh",
     "Deployment/LocalCluster/Scripts/find-successful-ci-run.sh",
     "Deployment/LocalCluster/Scripts/generate-inventory.sh",
@@ -172,7 +172,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/setup-control-machine.sh",
     "Deployment/LocalCluster/Scripts/setup-secrets.sh",
     "Deployment/LocalCluster/Scripts/Component/ping-fresh-machines.sh",
-    "Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh",
+    "Deployment/Common/Scripts/Component/with-deploy-lock.sh",
     "Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh",
     "Deployment/LocalCluster/Scripts/status.sh",
     "Deployment/LocalCluster/Scripts/summary.sh",
@@ -183,14 +183,21 @@ required_files = [
     "Deployment/LocalCluster/Scripts/verify-bootstrap.sh",
     "Deployment/LocalCluster/Scripts/verify-backup.sh",
     "Deployment/LocalCluster/Scripts/verify-deployment.sh",
-    "Deployment/LocalCluster/Scripts/with-deploy-lock.sh",
-    "Deployment/LocalCluster/Scripts/release-deploy-lock.sh",
-    "Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh",
+    "Deployment/Common/Scripts/with-deploy-lock.sh",
+    "Deployment/Common/Scripts/release-deploy-lock.sh",
+    "Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh",
     ".github/workflows/auto-merge-dependabot.yml",
     ".github/workflows/cd-cloud.yml",
     "BlazorAutoApp/Program.cs",
     "BlazorAutoApp/BlazorAutoApp.csproj",
 ]
+required_files.extend([
+    "Deployment/Common/caddy/Caddyfile",
+    "Deployment/Common/ansible/roles/caddy_install/tasks/main.yml",
+    "Deployment/Common/ansible/roles/caddy_install/handlers/main.yml",
+    "Deployment/LocalCluster/ansible/roles/caddy/meta/main.yml",
+    "Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh",
+])
 for file in required_files:
     require_file(file)
 
@@ -516,17 +523,17 @@ elif cloudflared_match.group(1) == "latest":
     fail("cloudflared_version must be pinned, not latest")
 
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_version != \"latest\"",
     "cloudflared pinned-version guard",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared --version",
     "cloudflared installed-version verification",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "path: /etc/cloudflared",
     "cloudflared config directory creation",
 )
@@ -537,68 +544,68 @@ require_contains(
     "shared release vars file loaded by LocalCluster playbook",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "This deployment supports only x86_64/amd64 Linux machines.",
     "amd64-only cloudflared guard",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared-linux-amd64.deb",
     "amd64 cloudflared package",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "tunnel-token.sha256",
     "Cloudflare tunnel token change marker",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_tunnel_token_marker_missing",
     "Cloudflare missing marker recovery",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "Compute Cloudflare tunnel token hash",
     "Cloudflare token hash computed before dependent facts",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_tunnel_token_hash_mismatch",
     "Cloudflare token mismatch detection",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_tunnel_token_changed | bool",
     "Cloudflare token change condition coerced to bool",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared service uninstall",
     "Cloudflare tunnel token rotation handling",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_allow_token_rotation",
     "side-by-side-safe Cloudflare tunnel token replacement guard",
 )
 require_not_contains(
-    "Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml",
+    "Deployment/Common/ansible/roles/cloudflared/tasks/main.yml",
     "cloudflared_deb_arch",
     "cloudflared multi-architecture package mapping",
 )
-cloudflared_tasks = read("Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml")
+cloudflared_tasks = read("Deployment/Common/ansible/roles/cloudflared/tasks/main.yml")
 cloudflared_refuse_match = re.search(
     r"- name: Refuse accidental Cloudflare tunnel token replacement[\s\S]+?(?=\n- name:)",
     cloudflared_tasks,
 )
 if cloudflared_refuse_match and "cloudflared_tunnel_token_changed" in cloudflared_refuse_match.group(0):
-    fail("Deployment/LocalCluster/ansible/roles/cloudflared/tasks/main.yml: missing marker must recover, only hash mismatch should refuse token replacement")
+    fail("Deployment/Common/ansible/roles/cloudflared/tasks/main.yml: missing marker must recover, only hash mismatch should refuse token replacement")
 
 
 ansible_cfg = read("Deployment/LocalCluster/ansible/ansible.cfg")
 for needle, why in [
     ("inventory = ../inventory/prod/hosts.yml", "default production inventory"),
-    ("roles_path = roles", "local roles path"),
+    ("roles_path = roles:../../Common/ansible/roles", "local and Common roles path"),
     ("interpreter_python = auto_silent", "Python interpreter auto-detection"),
 ]:
     if needle not in ansible_cfg:
@@ -776,7 +783,7 @@ require_contains(
 # because a host-wide apt lock (for example mint-refresh-ca) breaks CI otherwise.
 for script, needle in [
     ("Deployment/Common/Scripts/install-ansible.sh", '--check) MODE="check"'),
-    ("Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh", '--check) MODE="check"'),
+    ("Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh", '--check) MODE="check"'),
 ]:
     require_contains(script, needle, "check-only mode without apt or sudo")
 require_contains(".github/workflows/ci.yml", "ensure-actions-runner-prereqs.sh --check", "check-only runner prerequisites in CI")
@@ -792,12 +799,12 @@ require_contains(
     "deployment settings validation before control setup",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "Deployment/Common/ansible/roles/caddy_install/tasks/main.yml",
     "creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
     "idempotent Caddy key installation",
 )
 require_contains(
-    "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
+    "Deployment/Common/ansible/roles/caddy_install/tasks/main.yml",
     "set -euo pipefail",
     "strict Caddy key installation shell",
 )
@@ -866,7 +873,7 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh", "maintenance fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
-    ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
+    ("bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
@@ -874,7 +881,7 @@ for needle, why in [
     ("global-json-file: global.json", "SDK pinned by global.json"),
     ("ansible-playbook", "LocalCluster playbook syntax check"),
     ("--syntax-check", "LocalCluster playbook syntax check"),
-    ("bash Deployment/LocalCluster/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
+    ("bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
     ("docker push \"${APP_IMAGE}:${GITHUB_SHA}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -945,7 +952,7 @@ if re.search(r"(?m)^\s+schedule:", maintenance):
     fail(".github/workflows/localcluster-docker-maintenance.yml: ship the schedule commented out; forks enable it")
 maintenance_runner = read("Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh")
 for needle, why in [
-    ('exec bash "$SCRIPT_DIR/with-deploy-lock.sh"', "maintenance runs under the deployment lock"),
+    ('exec bash "$COMMON_SCRIPT_DIR/with-deploy-lock.sh"', "maintenance runs under the deployment lock"),
     ("prune-actions-runner-residue.sh", "runner residue stage"),
     ("prune-ci-residue.py", "finished-CI residue stage"),
     ("prune-docker-residue.sh", "node-main Docker stage"),
@@ -956,13 +963,24 @@ for needle, why in [
         fail(f"Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh: missing {why}")
 for path in (
     "Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh",
-    "Deployment/LocalCluster/Scripts/prune-actions-runner-residue.sh",
+    "Deployment/Common/Scripts/prune-actions-runner-residue.sh",
     "Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh",
     "Deployment/LocalCluster/Scripts/prune-ci-residue.py",
 ):
     text = read(path)
     if "docker volume prune" in text or "system prune" in text or "volume rm" in text:
         fail(f"{path}: maintenance must never prune Docker volumes or the whole system")
+require_contains("Deployment/Common/ansible/roles/mint_base/tasks/main.yml", "mint_base_reboot_after_upgrade | default(true) | bool", "cluster-compatible optional controller reboot")
+require_contains("Deployment/Common/ansible/roles/mint_base/tasks/main.yml", "mint_base_install_deploy_key | default(true) | bool", "cluster-compatible optional deploy key")
+require_contains("Deployment/Common/ansible/roles/caddy_install/tasks/main.yml", "../../../Common/caddy/Caddyfile", "shared Caddy root configuration")
+require_contains("Deployment/LocalCluster/ansible/roles/caddy/meta/main.yml", "- caddy_install", "shared Caddy installation dependency")
+require_contains("Deployment/Common/Scripts/prune-actions-runner-residue.sh", "--app-name", "explicit app runner selection")
+require_contains(".github/workflows/ci.yml", "bash Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh", "check-only prerequisite fixtures")
+if "read-deploy-setting" in read("Deployment/Common/Scripts/prune-actions-runner-residue.sh"):
+    fail("Common runner cleanup must not read target settings")
+for name in ("docker", "ssh_hardening", "cloudflared", "mint_base", "app_marker"):
+    if exists(f"Deployment/LocalCluster/ansible/roles/{name}"):
+        fail(f"shared role {name} must not remain at its old target path")
 ci_residue = read("Deployment/LocalCluster/Scripts/prune-ci-residue.py")
 for needle in ('"Name": ".Name"', "self.network_pattern.fullmatch", "read-deploy-setting.py"):
     if needle not in ci_residue:
@@ -1217,19 +1235,19 @@ if re.search(r"name: Stop existing app stack[\s\S]+?failed_when: false", site):
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: Stop existing app stack must not suppress all failures")
 
 for path, checks in {
-    "Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml": [
+    "Deployment/Common/ansible/roles/mint_base/tasks/main.yml": [
         ("name: deploy", "deploy user creation"),
         ("python3-debian", "deb822 repository module dependency"),
         ("NOPASSWD:ALL", "passwordless sudo for automation"),
         ("90-localcluster-deploy", "neutral LocalCluster sudoers file"),
         ("authorized_keys", "deploy SSH public key installation"),
         ("deploy_private_key_file", "control-node private key installation"),
-        ("inventory_hostname in groups[\"load_balancer\"]", "private key limited to control node"),
+        ("inventory_hostname in groups.get('load_balancer', [])", "private key limited to control node"),
         ("known_hosts", "control-node SSH host key setup"),
         ("ssh-keyscan", "deployment node host key scan"),
         ("path: \"{{ deploy_root }}\"", "deployment root creation"),
     ],
-    "Deployment/LocalCluster/ansible/roles/docker/tasks/main.yml": [
+    "Deployment/Common/ansible/roles/docker/tasks/main.yml": [
         ("UBUNTU_CODENAME", "Linux Mint Ubuntu base codename detection"),
         ("docker_ubuntu_codename.stdout | length > 0", "Ubuntu codename non-empty assertion"),
         ("This deployment supports only x86_64/amd64 Linux machines.", "amd64-only Docker guard"),
@@ -1263,12 +1281,12 @@ for path, checks in {
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
     ],
-    "Deployment/LocalCluster/ansible/roles/app_marker/tasks/main.yml": [
+    "Deployment/Common/ansible/roles/app_marker/tasks/main.yml": [
         ("/etc/localcluster/apps", "app marker directory"),
         ("app-marker.env.j2", "app marker template"),
         ("{{ app_name }}.env", "per-app marker file"),
     ],
-    "Deployment/LocalCluster/ansible/roles/app_marker/templates/app-marker.env.j2": [
+    "Deployment/Common/ansible/roles/app_marker/templates/app-marker.env.j2": [
         ("APP_NAME={{ app_name }}", "marker app name"),
         ("DEPLOY_ROOT={{ deploy_root }}", "marker deploy root"),
         ("PUBLIC_HOSTNAME={{ public_hostname }}", "marker public hostname"),
@@ -1309,8 +1327,8 @@ for path, checks in {
     for needle, why in checks:
         if needle not in text:
             fail(f"{path}: missing {why}")
-if "90-{{ app_name }}-deploy" in read("Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml"):
-    fail("Deployment/LocalCluster/ansible/roles/mint_base/tasks/main.yml: sudoers file must be cluster-neutral, not app-named")
+if "90-{{ app_name }}-deploy" in read("Deployment/Common/ansible/roles/mint_base/tasks/main.yml"):
+    fail("Deployment/Common/ansible/roles/mint_base/tasks/main.yml: sudoers file must be cluster-neutral, not app-named")
 if "iptables -F DOCKER-USER" in read("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"):
     fail("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2: must not flush shared DOCKER-USER chain")
 require_not_contains(
@@ -1482,7 +1500,7 @@ if 'bash "$SCRIPT_DIR/preflight.sh"' in support_ping:
 if 'REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"' in support_ping:
     fail("Deployment/LocalCluster/Scripts/Component/ping-fresh-machines.sh: Component scripts need four levels to reach repo root")
 
-deploy_lock = read("Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh")
+deploy_lock = read("Deployment/Common/Scripts/Component/with-deploy-lock.sh")
 for needle, why in [
     ("mkdir \"$LOCK_DIR\"", "directory-based cross-repo deployment lock"),
     ("LOCALCLUSTER_DEPLOY_LOCK_DIR", "configurable lock directory"),
@@ -1493,11 +1511,11 @@ for needle, why in [
     ("! -name token ! -name owner ! -name created_epoch", "foreign lock metadata protection"),
 ]:
     if needle not in deploy_lock:
-        fail(f"Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh: missing {why}")
+        fail(f"Deployment/Common/Scripts/Component/with-deploy-lock.sh: missing {why}")
 # A shared lock must never be reclaimed by age: a dead shell can leave live
 # children, and another app on the same node-main may hold it for hours.
 for lock_script in (
-    "Deployment/LocalCluster/Scripts/Component/with-deploy-lock.sh",
+    "Deployment/Common/Scripts/Component/with-deploy-lock.sh",
     "Deployment/LocalCluster/Scripts/Component/with-node-main-deploy-lock.sh",
 ):
     for forbidden in ("LOCK_STALE_SECONDS", "cleanup_stale_lock", "StrictHostKeyChecking=accept-new"):

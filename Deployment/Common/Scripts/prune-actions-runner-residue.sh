@@ -5,6 +5,8 @@ SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 REPO_ROOT="$(cd -P "$SCRIPT_DIR/../../.." 2>/dev/null && pwd || echo "$SCRIPT_DIR")"
 
+
+APP_NAME=""
 DRY_RUN="false"
 FORCE="false"
 MIN_FREE_MB="20480"
@@ -26,13 +28,14 @@ usage() {
   cat >&2 <<'USAGE'
 usage: prune-actions-runner-residue.sh [options]
 
-Safely prunes stale self-hosted GitHub Actions runner residue on node-main.
+Safely prunes stale self-hosted GitHub Actions runner residue on this host.
 
 Options:
   --dry-run                         Print commands without deleting files.
   --force                           Run retention cleanup even when /opt already has enough free space.
   --min-free-mb <mb>                Required free /opt space after cleanup. Default: 20480.
   --runner-root <path>              Add one explicit runner root to inspect.
+  --app-name <slug>                 Inspect /opt/actions-runner-<slug> without target settings.
   --all-localcluster-runners        Inspect /opt/actions-runner-* roots.
   --opt-root <path>                 Test fixture root for runner discovery. Default: /opt.
   --stale-version-until <duration>  Retention for inactive bin.* and externals.* dirs. Default: 168h.
@@ -302,10 +305,9 @@ discover_runner_roots() {
     candidates=("$OPT_ROOT"/actions-runner-*)
     shopt -u nullglob
   else
-    app_name="$(bash "$SCRIPT_DIR/read-deploy-setting.sh" app_name 2>/dev/null || true)"
-    if [[ -n "$app_name" ]]; then
-      candidates=("$OPT_ROOT/actions-runner-$app_name")
-    fi
+    app_name="$APP_NAME"
+    [[ "$app_name" =~ ^[a-z][a-z0-9-]*$ ]] || fail "specify --runner-root, --app-name <slug>, or --all-localcluster-runners"
+    candidates=("$OPT_ROOT/actions-runner-$app_name")
   fi
 
   for candidate in "${candidates[@]}"; do
@@ -422,6 +424,12 @@ while [[ $# -gt 0 ]]; do
     --min-free-mb)
       [[ $# -ge 2 ]] || fail "--min-free-mb requires a value"
       MIN_FREE_MB="$2"
+      shift 2
+      ;;
+    --app-name)
+      [[ $# -ge 2 ]] || fail "--app-name requires a value"
+      APP_NAME="$2"
+      [[ "$APP_NAME" =~ ^[a-z][a-z0-9-]*$ ]] || fail "--app-name must be a lowercase app slug"
       shift 2
       ;;
     --runner-root)

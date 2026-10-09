@@ -26,7 +26,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 ## Hard stops
 
 - Never run `docker volume prune`, `docker system prune`, or any unscoped prune on shared LocalCluster hosts. Use the repository's scoped cleanup scripts.
-- Never delete or reclaim a deployment lock automatically. Use `Deployment/LocalCluster/Scripts/release-deploy-lock.sh` after verifying the owner is gone.
+- Never delete or reclaim a deployment lock automatically. Use `Deployment/Common/Scripts/release-deploy-lock.sh` after verifying the owner is gone.
 - Never commit secrets, tokens, passwords, private keys, vault contents or real `.env` files.
 - Never force-push `main` or rewrite history others have pulled.
 - Never dispatch a deployment (`CD - Deploy LocalCluster`, `CD - Cloud`) without the operator's authorisation.

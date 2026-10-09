@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -P "$SCRIPT_DIR/../../../.." && pwd)"
-SCRIPT="$REPO_ROOT/Deployment/LocalCluster/Scripts/prune-actions-runner-residue.sh"
+SCRIPT="$REPO_ROOT/Deployment/Common/Scripts/prune-actions-runner-residue.sh"
 TMP_ROOT="$(mktemp -d)"
 DRY_RUN_LOG="$TMP_ROOT/dry-run.log"
 APPLY_LOG="$TMP_ROOT/apply.log"
@@ -124,4 +124,13 @@ wait "$active_pid" 2>/dev/null || true
 [[ "$deferred_status" -eq 75 ]] || { cat "$TMP_ROOT/deferred.log" >&2; fail "expected active runner residue to return 75, got $deferred_status"; }
 assert_exists "$TMP_ROOT/actions-runner-sample/_work/_update"
 
+# Common helpers select an explicit app without reaching into target settings.
+bash "$SCRIPT" --dry-run --force --opt-root "$TMP_ROOT" --app-name sample --min-free-mb 0 > "$TMP_ROOT/app-selection.log" 2>&1
+grep -Fq "$TMP_ROOT/actions-runner-sample" "$TMP_ROOT/app-selection.log" || fail "app runner was not selected"
+status=0
+bash "$SCRIPT" --dry-run --force --opt-root "$TMP_ROOT" --app-name 'invalid/name' > "$TMP_ROOT/invalid-app.log" 2>&1 || status=$?
+[[ "$status" -eq 1 ]] || fail "invalid app name was accepted"
+status=0
+bash "$SCRIPT" --dry-run --force --opt-root "$TMP_ROOT" > "$TMP_ROOT/no-selection.log" 2>&1 || status=$?
+[[ "$status" -eq 1 ]] || fail "missing runner selection was accepted"
 echo "prune-actions-runner-residue fixture test passed"
