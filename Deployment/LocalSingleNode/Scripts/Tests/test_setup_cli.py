@@ -65,6 +65,8 @@ elif name == 'gh':
         say({'variables': [{'name': key, 'value': value} for key, value in values.items()]})
     elif args[0] == 'api' and '/runners?' in args[1]:
         runners = [{'name': 'fixture-ci', 'status': 'online', 'labels': [{'name': 'localcluster-books'}]}] if state.get('ci_capacity', True) else []
+        if state.get('ci_registered_offline'):
+            runners.append({'name': 'existing-ci-preserve', 'status': 'offline', 'labels': [{'name': 'localcluster-books'}]})
         if state.get('runner', True):
             runners.append({'name': 'node-rehearsal-books', 'status': 'online', 'labels': [{'name': 'localsinglenode-books'}]})
         say({'runners': runners})
@@ -124,6 +126,15 @@ class StatusCliTests(unittest.TestCase):
         self.assertEqual((20, 'root'), (code, state['step']))
         self.assertIn('--ci-runner', state['command'])
         self.assertNotIn('fork', state['done'])
+
+    def test_offline_existing_ci_registration_is_preserved(self):
+        code, state = self.invoke(dict(ci_capacity=False, ci_registered_offline=True, ci=False, root=False))
+        self.assertEqual((20, 'root'), (code, state['step']))
+        self.assertFalse(state['ci_runner'])
+        self.assertNotIn('--ci-runner', state['command'])
+        code, state = self.invoke(dict(ci_capacity=False, ci_registered_offline=True, ci=False))
+        self.assertEqual((10, 'ci'), (code, state['step']))
+        self.assertFalse(state['ci_runner'])
 
 
 if __name__ == '__main__':

@@ -110,7 +110,7 @@ def restore_replacement(value, dump, target, confirmation):
     # Manual recovery creates a new database; it never overwrites the live one.
     import re
     db = value["app_name"].replace("-", "_")
-    if confirmation != value["app_name"] or not re.fullmatch(re.escape(db) + r"_restore_[a-z0-9_]{1,40}", target):
+    if confirmation != value["app_name"] or len(target) > 63 or not re.fullmatch(re.escape(db) + r"_restore_[a-z0-9_]{1,40}", target):
         raise ValueError("Manual restore needs --confirm-restore <app_name> and a new <db>_restore_<suffix> database")
     dump = dump.resolve(strict=True)
     if dump.parent != Path(value["backup_root"]).resolve(strict=True) or not dump.name.startswith(value["app_name"] + '-') or dump.suffix != '.dump':

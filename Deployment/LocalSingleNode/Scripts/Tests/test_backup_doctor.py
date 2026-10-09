@@ -89,6 +89,12 @@ class BackupTests(unittest.TestCase):
             self.assertIn('pg_restore', command.call_args_list[2].args)
             self.assertIn('books_restore_check', command.call_args_list[2].args)
 
+    def test_restore_rejects_postgres_identifier_truncation(self):
+        app = 'a' * 40
+        with patch.object(backup, 'run') as command, self.assertRaises(ValueError):
+            backup.restore_replacement({'app_name': app}, Path('/not-used'), app + '_restore_' + 'b' * 20, app)
+        command.assert_not_called()
+
 
 class DoctorTests(unittest.TestCase):
     def test_unsupported_platform_stops_before_services(self):

@@ -125,7 +125,9 @@ def status(node, expected_address=None):
     marker_path = ETC / "localsinglenode/bootstrap.json"
     host_marker = json.loads(marker_path.read_text()) if marker_path.exists() else {}
     marker = host_marker.get("apps", {}).get(app, host_marker)
-    ci_runner = bool(marker.get("ci_runner")) or not checks["ci_capacity"]
+    # An offline existing CI runner is not permission to move CI to this node.
+    ci_registered = any(ci_label in {label["name"] for label in runner["labels"]} for runner in runners)
+    ci_runner = bool(marker.get("ci_runner")) or not ci_registered
     checks["root"] = marker.get("version") == VERSION and marker.get("node") == node and marker.get("app") == app and marker.get("repo") == repo
     if checks["root"]:
         checks["root"] = subprocess.run(["bash", str(TARGET / "Scripts/doctor.sh"), "--json"], capture_output=True, check=False).returncode == 0
