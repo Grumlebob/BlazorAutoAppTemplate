@@ -1,10 +1,13 @@
 # Remove the Default Admin Seed
 
-Status: Follow-up PR pending.
+Status: Complete.
 
 Last updated: 2026-10-09.
 
 Local gate passed: format verification, Release build, 174 tests (11 opt-in skips), deployment validators, rendered templates, yamllint, shellcheck, and actionlint.
+
+Merged commits: PR #115 `f4ec5d11c5c782ad7e58dcadb0cc2ee664133114`; review hardening PR #118 `eef5809beec83e508afa1c271d5316796a3fc12`.
+Main CI passed on the review-hardening merge commit: [run 37985766148](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37985766148).
 
 ## Goal
 
