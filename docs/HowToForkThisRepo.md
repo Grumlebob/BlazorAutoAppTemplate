@@ -277,11 +277,18 @@ Do not rerun `bootstrap-node.sh` or `prepare-fresh-linux-machines.sh` for a side
 Seed and verify SSH host keys before the first deploy. Manual deploy, maintenance and lock tools use strict host-key checking and refuse unknown keys. On the ControlPC, for each node IP in `hosts.yml`:
 
 ```bash
-ssh-keyscan -H <node-ip> >> ~/.ssh/known_hosts
-ssh-keygen -lf <(ssh-keyscan <node-ip> 2>/dev/null)
+host_key_candidate="$(mktemp)"
+ssh-keyscan -T 10 -t ed25519 -H <node-ip> > "$host_key_candidate"
+ssh-keygen -lf "$host_key_candidate"
 ```
 
-Compare each fingerprint with the one printed on the node's own console (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`). Skip nodes that are already in `known_hosts` with the right key.
+Compare that fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the node's own console. Append the same scanned key only after the fingerprints match. If they differ, stop. Skip nodes already in `known_hosts` with the verified key.
+
+```bash
+mkdir -p ~/.ssh
+cat "$host_key_candidate" >> ~/.ssh/known_hosts
+rm -f "$host_key_candidate"
+```
 
 ## 9. Commit And Push The Fork Settings
 
@@ -570,6 +577,8 @@ If the GHCR push fails, check:
 - The fork is not blocked by an organization policy.
 
 ## 16. Deploy The Fork
+
+CD requires a successful main `push` CI run with a successful `publish-main` job on the same run attempt. A manual `workflow_dispatch` CI run does not satisfy this provenance gate.
 
 [GitHub]
 

@@ -1140,6 +1140,13 @@ for needle, why in [
         fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
 if "- name: Log in to GHCR" in app_tasks:
     fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
+for path in ("Deployment/LocalCluster/HowToDeployLocalCluster.md", "docs/HowToForkThisRepo.md"):
+    release_guide = read(path)
+    for needle in ("Append the same scanned key only after the fingerprints match",
+                   'cat "$host_key_candidate" >> ~/.ssh/known_hosts',
+                   "successful `publish-main` job on the same run attempt"):
+        if needle not in release_guide:
+            fail(f"{path}: document verified SSH host keys and exact-attempt publishing provenance")
 if "Tokens (classic)" in guide or "vault_ghcr_token: <github-token" in guide:
     fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: CD no longer needs a stored GHCR token; do not instruct users to create one")
 if "image_tag" in deploy_lan:

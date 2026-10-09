@@ -1052,7 +1052,7 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 [github]
 
-The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
+The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. The qualifying run must be a `push` to `main`, with a successful `publish-main` job on the same run attempt. A manual `workflow_dispatch` CI run does not satisfy CD provenance. Rerun an existing main push run when recovering a failed publish. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
 Runner policy: this repository runs CI, Dependabot auto-merge, maintenance, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label (`localcluster-books` here; a fork sets `LOCALCLUSTER_RUNNER_LABEL`). Every job skips external fork pull requests before a runner is allocated, so untrusted code never runs on `node-main`. Never add GitHub-hosted runner labels; the deployment audit rejects them.
 
@@ -1469,8 +1469,17 @@ This acquires the same deployment lock on `node-main` that GitHub Actions uses, 
 The manual path connects to `node-main` with strict SSH host-key checking. Seed and verify `node-main`'s host key on the control machine first; a first-seen key is not accepted automatically, because LAN IPs get reused:
 
 ```bash
-ssh-keyscan -H <node-main-ip> >> ~/.ssh/known_hosts
-ssh-keygen -lf <(ssh-keyscan <node-main-ip> 2>/dev/null)   # compare with the fingerprint shown on node-main's console
+host_key_candidate="$(mktemp)"
+ssh-keyscan -T 10 -t ed25519 -H <node-main-ip> > "$host_key_candidate"
+ssh-keygen -lf "$host_key_candidate"
+```
+
+Compare that fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on node-main's own console. Append the same scanned key only after the fingerprints match. If they differ, stop.
+
+```bash
+mkdir -p ~/.ssh
+cat "$host_key_candidate" >> ~/.ssh/known_hosts
+rm -f "$host_key_candidate"
 ```
 
 Wrapper script with a local migration bundle:

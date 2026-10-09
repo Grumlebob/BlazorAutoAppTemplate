@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 merged as #110 (`0e925771`) with green main CI. P8 merged as #111 (`3960b485`) with green main CI. P10 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P10 and P11 remain in the branch stack. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 merged as #110 (`0e925771`) with green main CI. P8 merged as #111 (`3960b485`) with green main CI. P10 merged as #112 (`7b6699fc`) with green main CI. P11 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P11 remains in the branch stack. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
 
 Execution context updated 2026-10-09: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator confirms node-demo is installed and the repository is cloned; no further node setup has been done. Authentication, bootstrap, runner readiness and site availability remain pending. The phase records below remain the 2026-10-08 handoff except for the explicit preflight updates in 11.6.
 Prepared: 2026-10-08.
@@ -251,8 +251,8 @@ When a phase touches `BlazorAutoApp.Client/Styles` or Razor markup classes, also
 | P7 | [#110](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/110) | `0e9257717434d0457eb74a84c19c82b2d7e9b921` | Local gate: 163 passed, 11 opt-in skipped; 24 release tests, identity fixtures and syntax/render checks passed. Exact-head PR CI [37945842490](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37945842490) and main CI [37947192982](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37947192982) succeeded, including publishing. | Merged, verified |
 | P8 | [#111](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/111) | `3960b4855751a99d5e70866601522df7cdf6b390` | Local gate: 163 passed, 11 opt-in skipped; six shell suites and 51 Python tests passed. Exact-head PR CI [37949131184](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37949131184) and main CI [37950400186](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37950400186) succeeded, including publishing. No live maintenance. | Merged, verified |
 | P9 | Local developer ergonomics | local Docker residue | low | P0 |
-| P10 | branch `upgrade/p10-agent-rules` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. All four agent guardrails passed; local Markdown links and ignore rules checked. AGENTS.md is 39 lines. | Local gate passed; PR/main CI pending |
-| P11 | Documentation | all | low | P1–P10 |
+| P10 | [#112](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/112) | `7b6699fcfddbcd378a0c2158843a49f5363ee5de` | Local gate: 167 passed, 11 opt-in skipped; all four agent guardrails passed; links and ignore rules checked. Exact-head PR CI [37952225896](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37952225896) and main CI [37953161424](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37953161424) succeeded, including publishing. | Merged, verified |
+| P11 | branch `upgrade/p11-docs` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites, 68 Python tests and local links in 11 changed Markdown documents passed. | Local gate passed; PR/main CI pending |
 | P12 | Integration and closeout | - | - | all |
 | P13 | LocalSingleNode deployment target (node-demo) | new target; target selection | high (new deploy path, moves shared scripts) | P7 P8 (merged) |
 
@@ -728,7 +728,7 @@ Branch `upgrade/p09-local-dev`.
 
 Branch `upgrade/p10-agent-rules`.
 
-- [ ] P10.1 Create `AGENTS.md` at the template root. Keep it under 60 lines and portable. Include:
+- [x] P10.1 Create `AGENTS.md` at the template root. Keep it under 60 lines and portable. Include:
   - Plans: tracked under `Plans/`; scratch under `Plans.local/` (ignored). A plan-driven change is complete when merged to `main` with CI green; record the merge commit in the plan or PR.
   - Code changes go through a PR with the required `build-test-push` check; docs-only changes may follow the repository owner's documentation rule.
   - Run the local gate (copy the command list from `docs/Test.md`) before pushing; do not use CI as the first test run.
@@ -736,9 +736,9 @@ Branch `upgrade/p10-agent-rules`.
   - Keep build and test sequential in one checkout.
   - Machine-specific paths, hosts, keys and IPs never go in tracked files.
   - Do not copy coordination-script rules from ImprovedDb (`StartAgentTask.ps1` and the rest do not exist in the template).
-- [ ] P10.2 Add `CLAUDE.md` containing one line, `See AGENTS.md.`, so Claude Code sessions load the same rules. Keep `.codex/config.toml` as is.
-- [ ] P10.3 `.gitignore`: remove `/Plans/` from ignored paths and the comment "Use docs/plans for retained plans"; add `/Plans.local/` and `.claude/settings.local.json`. Create `Plans/README.md` explaining the convention. Leave existing `docs/plans` content where it is; mention it in `Plans/README.md` as historical.
-- [ ] P10.4 Create `docs/Requirements.md` for the template, adapted from ImprovedDb's with product lines removed:
+- [x] P10.2 Add `CLAUDE.md` containing one line, `See AGENTS.md.`, so Claude Code sessions load the same rules. Keep `.codex/config.toml` as is.
+- [x] P10.3 `.gitignore`: remove `/Plans/` from ignored paths and the comment "Use docs/plans for retained plans"; add `/Plans.local/` and `.claude/settings.local.json`. Create `Plans/README.md` explaining the convention. Leave existing `docs/plans` content where it is; mention it in `Plans/README.md` as historical.
+- [x] P10.4 Create `docs/Requirements.md` for the template, adapted from ImprovedDb's with product lines removed:
   - Product routes must work in SSR/prerender and after WASM hydration through `InteractiveAuto`. Do not force `InteractiveServer` to hide Auto bugs.
   - Bounded prerender payloads; `PersistentComponentState` only for bounded public data.
   - Components use Core contracts or feature state, never raw `HttpClient`.
@@ -749,9 +749,9 @@ Branch `upgrade/p10-agent-rules`.
   - Redis is required outside development/test. Observability fails open.
   - Test the risk: solution gate for normal changes, E2E for browser/render-mode workflows, Lighthouse when first load changes.
   - Never log or commit secrets, auth headers, cookies or raw request bodies.
-- [ ] P10.5 `BlazorAutoApp.Test/Architecture/AgentGuardrailTests.cs`: port these tests only. `LocalClusterWorkflows_DoNotUseActionsSetupPython`, `DotnetBuildAndTest_AreNotInSameWorkflowStep`, `DockerCleanupScripts_DoNotPruneVolumes` (if not added in P8), `LocalClusterCd_RequiresSuccessfulCiForSelectedCommit` (adapted to the P7 needles: `find-successful-ci-run.py`, `validate_release_manifest.py`, `git merge-base --is-ancestor`). Skip DataImport/CurrentPC tests. If P7 is not merged yet, add the CD test in P7 instead.
-- [ ] P10.6 Port `.github/actionlint.yaml` only if actionlint warns about the custom runner labels (`localcluster-books`); list the labels there.
-- [ ] P10.7 Gate, PR, merge.
+- [x] P10.5 `BlazorAutoApp.Test/Architecture/AgentGuardrailTests.cs`: port these tests only. `LocalClusterWorkflows_DoNotUseActionsSetupPython`, `DotnetBuildAndTest_AreNotInSameWorkflowStep`, `DockerCleanupScripts_DoNotPruneVolumes` (if not added in P8), `LocalClusterCd_RequiresSuccessfulCiForSelectedCommit` (adapted to the P7 needles: `find-successful-ci-run.py`, `validate_release_manifest.py`, `git merge-base --is-ancestor`). Skip DataImport/CurrentPC tests. If P7 is not merged yet, add the CD test in P7 instead.
+- [x] P10.6 Port `.github/actionlint.yaml` only if actionlint warns about the custom runner labels (`localcluster-books`); list the labels there.
+- [x] P10.7 Gate, PR, merge.
 
 ### P11. Documentation
 
@@ -760,7 +760,7 @@ Branch `upgrade/p11-docs`. Edit template docs. Do not paste ImprovedDb text that
 - [ ] P11.1 `docs/HowToForkThisRepo.md`:
   - §1 table: add `inventory_dns_suffix` (optional) and a note that all node values come from the fork's own `machines.yml`.
   - New note in §2: apps sharing nodes share host-level services (Caddy, cloudflared, Docker, the deploy lock). Keep `cloudflared_version` and other host-level versions aligned across every app on the same nodes, because the last deploy wins.
-  - §8: seed and verify `known_hosts` for each node before the first deploy (`ssh-keyscan -H <ip> >> ~/.ssh/known_hosts`, then compare fingerprints on the console). Manual deploy paths use strict host-key checking.
+  - §8: scan each node's host key into a temporary file, compare its fingerprint on the node console, and append that same key to `known_hosts` only after it matches. Manual deploy paths use strict host-key checking.
   - §12: the vault no longer needs `vault_ghcr_username`/`vault_ghcr_token`; CD uses the workflow token. Remove the PAT instructions.
   - §14: optional `GH_TOKEN` secret for Dependabot branch refresh (P6). Keep "Workflow permissions must allow packages: write".
   - §15: CI now has `validate` and `publish-main`. Main publishes the image, migration bundle and `release-manifest.json`. PRs never push images.
@@ -1244,14 +1244,14 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 | P7 | [#110](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/110) | `0e9257717434d0457eb74a84c19c82b2d7e9b921` | Local gate: 163 passed, 11 opt-in skipped; 24 release tests, identity fixtures and syntax/render checks passed. Exact-head PR CI [37945842490](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37945842490) and main CI [37947192982](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37947192982) succeeded, including publishing. | Merged, verified |
 | P8 | [#111](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/111) | `3960b4855751a99d5e70866601522df7cdf6b390` | Local gate: 163 passed, 11 opt-in skipped; six shell suites and 51 Python tests passed. Exact-head PR CI [37949131184](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37949131184) and main CI [37950400186](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37950400186) succeeded, including publishing. No live maintenance. | Merged, verified |
 | P9 | #107 | `37565a7a5cb3cd432b0295792b5f87f1381ed1f9` | PR CI green (`2f4afe3`, run 37776821466). `main` run 37780109019 success. | Merged |
-| P10 | branch `upgrade/p10-agent-rules` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. All four agent guardrails passed; local Markdown links and ignore rules checked. AGENTS.md is 39 lines. | Local gate passed; PR/main CI pending |
-| P11 | branch `upgrade/p11-docs` at `ac45b73` | - | Link check on 14 changed Markdown files, audit, `git diff --check`. | Implemented, not merged |
+| P10 | [#112](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/112) | `7b6699fcfddbcd378a0c2158843a49f5363ee5de` | Local gate: 167 passed, 11 opt-in skipped; all four agent guardrails passed; links and ignore rules checked. Exact-head PR CI [37952225896](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37952225896) and main CI [37953161424](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37953161424) succeeded, including publishing. | Merged, verified |
+| P11 | branch `upgrade/p11-docs` | - | Full local gate: 167 passed, 11 opt-in skipped; build 0 warnings/errors. Seven shell suites, 68 Python tests and local links in 11 changed Markdown documents passed. | Local gate passed; PR/main CI pending |
 | P12 | - | - | Fresh-fork rehearsal (P12.3) run locally on the P11 stack with fake values: all checks passed. P12.4 skipped (Q1). Closeout not started. | Not started |
 | P13 | - | - | Planned 2026-10-08 (Q4). Needs P7 and P8 merged first. | Not started |
 
 ### 11.2 Open items, in order
 
-Current checkpoint (2026-10-09): items 0 and 2 are complete. P7 and P8 in item 1 are merged with green main validation and publishing; P10 is in progress, then P11. The commands and original stack SHAs below retain the execution history. After P10/P11, continue at item 4. Item 3 remains observational.
+Current checkpoint (2026-10-09): items 0 and 2 are complete. P7 and P8 in item 1 are merged with green main validation and publishing; P10 is merged with green main CI; P11 is in progress. The commands and original stack SHAs below retain the execution history. After P10/P11, continue at item 4. Item 3 remains observational.
 
 Rechecked 2026-10-08, after 13:40 UTC. Template `main` is at `7136072` (Dependabot #100, lighthouse 13.5.0, merged), and every `main` CI run since P3 is green.
 
@@ -1356,6 +1356,7 @@ Resolved since the first handoff:
 
 ### 11.7 Corrections to earlier statements
 
+- 2026-10-09 P11 review: SSH onboarding now verifies the fingerprint before trusting the same scanned key. Deployment docs explicitly require a successful main push and publish-main on the exact CI attempt. D15 local-account guidance survived the clean rebase unchanged. The audit enforces the new documentation contract.
 - 2026-10-09 P8 review: observability now reads the shared disk thresholds; CI network deletion requires both ownership provenance and an app-specific network name; runner reuse rejects missing repository identity. Offline fixtures and the audit enforce these changes. The P8 rebase onto verified P7 main was clean. No maintenance was dispatched.
 - 2026-10-09 Dependabot cleanup: #45, #61, #68, #75, #76, #87, #94, #96, #97, #98 and #99 were rechecked against main `0e925771` and closed with replacement-version comments. Their branches were retained.
 - 2026-10-09 P7 helper adaptation: the template downloads the named release artifact from the verified CI run with actions/download-artifact@v8, then validates repository, SHA, run, attempt, registry digest and bundle checksum with `validate_release_manifest.py`. It retains its P5 migration staging validator. The reference ZIP extraction helpers (`release_artifact.py`, `validate-ci-release-artifact.py` and their two test modules) consume coordinator-frozen artifact IDs/digests and are not copied as unused code. These rows are handled by the template release validators and tests; P12 records the mapping in the triage inventory.
