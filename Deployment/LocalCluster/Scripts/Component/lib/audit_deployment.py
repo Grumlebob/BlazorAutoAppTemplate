@@ -650,6 +650,14 @@ for path, checks in {
             fail(f"{path}: missing {why}")
 
 
+# Deployments use Docker, but published demo logins must never be seeded there.
+for seeded_path in [
+    "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
+    "Deployment/Cloud/compose/app-server/docker-compose.yml",
+]:
+    if 'LocalAccounts__Enabled: "false"' not in read(seeded_path):
+        fail(f'{seeded_path}: missing LocalAccounts__Enabled: "false" (no seeded demo logins in deployments)')
+
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
     ("${APP_IMAGE}:${APP_VERSION}", "immutable image variables"),
