@@ -148,6 +148,7 @@ jobs:
           bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh
           bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh
           python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py
+          python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py
           python3 -m unittest Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py
 
       - name: GitHub Actions workflow lint

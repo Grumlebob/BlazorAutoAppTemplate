@@ -6,6 +6,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 INVENTORY="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/hosts.yml"
 export ANSIBLE_CONFIG="$REPO_ROOT/Deployment/LocalCluster/ansible/ansible.cfg"
 
+source "$SCRIPT_DIR/localcluster-capacity-thresholds.sh"
+
 fail() {
   echo "observability capacity check failed: $*" >&2
   exit 1
@@ -63,8 +65,8 @@ printf \"OK    %s has %sMiB available memory and %sMiB free /opt disk\\n\" \"\$(
 }
 
 echo "checking LocalCluster observability capacity"
-check_group load_balancer 896 256 20480
-check_group app_servers 256 96 2048
-check_group node_db 384 128 4096
+check_group load_balancer 896 256 "$LOCALCLUSTER_LOAD_BALANCER_MIN_FREE_MB"
+check_group app_servers 256 96 "$LOCALCLUSTER_APP_SERVERS_MIN_FREE_MB"
+check_group node_db 384 128 "$LOCALCLUSTER_NODE_DB_MIN_FREE_MB"
 
 echo "observability capacity check ok"

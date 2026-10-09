@@ -80,10 +80,14 @@ except Exception:
     print('broken')
     raise SystemExit(0)
 
+if not isinstance(payload, dict):
+    print('broken')
+    raise SystemExit(0)
+
 runner_name = payload.get('agentName') or ''
 repo_url = payload.get('gitHubUrl') or payload.get('serverUrl') or ''
 
-if not runner_name:
+if not runner_name or not repo_url:
     print('broken')
 elif runner_name != expected_runner_name:
     print('wrong-name')

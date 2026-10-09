@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P7, P8, P10 and P11 are a clean branch stack waiting for merge. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: executing (2026-10-09). D15 merged as #109 (`01159952`) with green main CI. P7 merged as #110 (`0e925771`) with green main CI. P8 is in progress. P1–P6, P8a and P9 are merged to template `main`, and `main` CI is green, including the P5 publish job. P8, P10 and P11 remain in the branch stack. P12 and P13 (LocalSingleNode target, tested on node-demo) are not started. Start at 11.2. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
 
 Execution context updated 2026-10-09: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator confirms node-demo is installed and the repository is cloned; no further node setup has been done. Authentication, bootstrap, runner readiness and site availability remain pending. The phase records below remain the 2026-10-08 handoff except for the explicit preflight updates in 11.6.
 Prepared: 2026-10-08.
@@ -248,8 +248,8 @@ When a phase touches `BlazorAutoApp.Client/Styles` or Razor markup classes, also
 | P4 | Dependencies and tooling | transitive pinning, axe-core | low | P0 |
 | P5 | CI workflow rework | D5 D7 (CI side) D12 (CI side) | high (CI is the merge gate) | P1 P3 P4 |
 | P6 | Dependabot auto-merge hardening | D6 | medium | P5 |
-| P7 | CD hardening | D7 D8 D14 | high (deploy path) | P5 |
-| P8 | Runner and cluster maintenance | D3 (replacement) D12 | medium | P1 P5 |
+| P7 | [#110](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/110) | `0e9257717434d0457eb74a84c19c82b2d7e9b921` | Local gate: 163 passed, 11 opt-in skipped; 24 release tests, identity fixtures and syntax/render checks passed. Exact-head PR CI [37945842490](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37945842490) and main CI [37947192982](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37947192982) succeeded, including publishing. | Merged, verified |
+| P8 | branch `upgrade/p08-maintenance` | - | Full local gate: 163 passed, 11 opt-in skipped; build 0 warnings/errors. Six shell fixture suites and 51 Python tests passed. Maintenance remains manual; no live dispatch. | Local gate passed; PR/main CI pending |
 | P9 | Local developer ergonomics | local Docker residue | low | P0 |
 | P10 | Agent rules and repository hygiene | AGENTS.md, Requirements | low | P0 |
 | P11 | Documentation | all | low | P1–P10 |
@@ -658,10 +658,10 @@ Goal: auto-merge only exactly-tested, low-risk Dependabot PRs. Branch `upgrade/p
 
 Goal: deploy exactly what CI built and verified, with no PAT and less downtime. Branch `upgrade/p07-cd`.
 
-- [ ] P7.1 Port release helpers (3.5): `Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py` (ImprovedDb version with `--expected-run-id/--expected-run-attempt/--json`; keep `find-successful-ci-run.sh` as the wrapper and make it print the run id as before), `Deployment/Common/Scripts/validate_release_manifest.py`, `Deployment/Common/Scripts/Component/lib/release_artifact.py` (replace the `improveddb-migration-staging-` prefix check with one derived from the configured bundle name) and `Deployment/LocalCluster/Scripts/validate-ci-release-artifact.py`. Port their tests (`test_ci_provenance.py`, `test_release_artifact.py`, `test_ci_release_artifact.py`) and run them in CI `validate`.
-- [ ] P7.2 `cd-localcluster.yml` inputs: keep `run_migrations` (choice, default `"true"`; template users deploy schema changes more often than they care about 30 s of downtime) and add optional `target_sha` (string, default empty = `GITHUB_SHA`). Do not add ImprovedDb's `workflow_sha`, `operation_id`, `request_id`, `artifact_id`, `artifact_digest`, `manifest_sha256`, `image_digest` or `refresh_rating_ranks` inputs. The workflow resolves those itself.
-- [ ] P7.3 `cd-localcluster.yml` job settings: `timeout-minutes: 60`, `concurrency: group: cd-localcluster, cancel-in-progress: false` (do not add `queue: max`; released actionlint rejects it), `run-name: "CD LocalCluster @ ${{ inputs.target_sha || github.sha }}"`.
-- [ ] P7.4 Steps, in order:
+- [x] P7.1 Port release helpers (3.5): `Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py` (ImprovedDb version with `--expected-run-id/--expected-run-attempt/--json`; keep `find-successful-ci-run.sh` as the wrapper and make it print the run id as before), `Deployment/Common/Scripts/validate_release_manifest.py`, `Deployment/Common/Scripts/Component/lib/release_artifact.py` (replace the `improveddb-migration-staging-` prefix check with one derived from the configured bundle name) and `Deployment/LocalCluster/Scripts/validate-ci-release-artifact.py`. Port their tests (`test_ci_provenance.py`, `test_release_artifact.py`, `test_ci_release_artifact.py`) and run them in CI `validate`.
+- [x] P7.2 `cd-localcluster.yml` inputs: keep `run_migrations` (choice, default `"true"`; template users deploy schema changes more often than they care about 30 s of downtime) and add optional `target_sha` (string, default empty = `GITHUB_SHA`). Do not add ImprovedDb's `workflow_sha`, `operation_id`, `request_id`, `artifact_id`, `artifact_digest`, `manifest_sha256`, `image_digest` or `refresh_rating_ranks` inputs. The workflow resolves those itself.
+- [x] P7.3 `cd-localcluster.yml` job settings: `timeout-minutes: 60`, `concurrency: group: cd-localcluster, cancel-in-progress: false` (do not add `queue: max`; released actionlint rejects it), `run-name: "CD LocalCluster @ ${{ inputs.target_sha || github.sha }}"`.
+- [x] P7.4 Steps, in order:
   1. Require main (existing).
   2. Resolve and validate the target: `TARGET_SHA="${INPUT_TARGET_SHA:-$GITHUB_SHA}"`, regex `^[0-9a-f]{40}$`, export via `GITHUB_ENV`.
   3. DOCKER_CONFIG isolation (copy).
@@ -679,22 +679,22 @@ Goal: deploy exactly what CI built and verified, with no PAT and less downtime. 
   15. Deploy (existing two steps for with/without migrations, wrapped in `with-deploy-lock.sh`). Add `-e "release_image_digest=${RELEASE_IMAGE_DIGEST}"` and `-e @"$GHCR_EXTRA_VARS_FILE"`.
   16. Acceptance check; optionally `verify-release-identity.sh` (P7.8); observability doctor (existing).
   17. Cleanup of temporary files (existing, extended).
-- [ ] P7.5 Ansible changes (`site.yml`, roles):
+- [x] P7.5 Ansible changes (`site.yml`, roles):
   - Add the play "Stage the exact app image before any app interruption" (copy from ImprovedDb) before "Stop app containers before migration". It pulls `app_image@release_image_digest` (fallback `:app_version` when the digest is empty, for manual deploys) with a temporary `DOCKER_CONFIG`, retries 5 × 15 s, and asserts RepoDigests contains the digest.
   - `roles/app/tasks/main.yml`: replace "Log in to GHCR" + "Pull and start app container" with ImprovedDb's single task "Pull application image with command-owned registry credentials" (temporary `DOCKER_CONFIG`, `docker login`, `docker compose up -d --pull always --remove-orphans`, `no_log: true`).
   - `app.env.j2` + `compose/app-server/docker-compose.yml`: add `APP_IMAGE_REF` = `app_image@release_image_digest` when set, else `app_image:app_version`. The compose `image:` becomes `${APP_IMAGE_REF:?APP_IMAGE_REF is required}`. Keep `APP_VERSION` for telemetry. Update `validate-rendered-templates.sh` and the audit for the new variable.
   - "Deploy app servers": add `serial: 1` and `any_errors_fatal: true`. The role already waits for `/health` before moving on, so one node keeps serving during no-migration deploys.
   - Move the "Deploy Caddy and Cloudflare Tunnel" play after "Deploy app servers", as ImprovedDb did ("after app readiness"). Keep a Caddy/cloudflared play before migrations **only** if a fresh cluster needs Caddy before the app exists; otherwise one play after the apps is enough. Test with `--syntax-check` and the render validation.
   - Do not port coordinator, data-runner, rank-refresh, people-image or statistics plays.
-- [ ] P7.6 Remove the PAT requirement:
+- [x] P7.6 Remove the PAT requirement:
   - `vault.example.yml`: delete `vault_ghcr_username`/`vault_ghcr_token` lines, or mark them optional for manual deploys only (manual `deploy.sh` runs need some registry credential; recommend `gh auth token`-derived values passed with `-e`).
   - `validate-vault.py`/`check-vault.sh`: make these keys optional.
   - `cd-cloud.yml`: replace `CLOUD_GHCR_USERNAME`/`CLOUD_GHCR_TOKEN` secrets with `github.actor`/`secrets.GITHUB_TOKEN` (ImprovedDb hunk). Keep every other template Cloud change.
   - `Deployment/Cloud/Scripts/configure-github-environment.sh`: remove the interactive GHCR secret prompts (ImprovedDb hunk).
   - The workflow needs `permissions: packages: read`; it already has it.
-- [ ] P7.7 Manual `deploy.sh`: keep it (the template supports manual deploys from a control machine). Make it pass `-e release_image_digest=` when the operator supplies `--digest sha256:...` (optional flag), and print a warning that manual deploys skip CI provenance checks. Do not disable it as ImprovedDb did.
-- [ ] P7.8 Optional, recommended: port `verify-release-identity.sh` so acceptance checks that every app node runs the expected image digest (`docker inspect` of the running `web` container). Strip ImprovedDb names; port its test.
-- [ ] P7.9 Gate (render validation with and without `release_image_digest`, `ansible-playbook --syntax-check`, audit), PR, merge. A live deploy is **not** part of P7 (decision Q1, section 10).
+- [x] P7.7 Manual `deploy.sh`: keep it (the template supports manual deploys from a control machine). Make it pass `-e release_image_digest=` when the operator supplies `--digest sha256:...` (optional flag), and print a warning that manual deploys skip CI provenance checks. Do not disable it as ImprovedDb did.
+- [x] P7.8 Optional, recommended: port `verify-release-identity.sh` so acceptance checks that every app node runs the expected image digest (`docker inspect` of the running `web` container). Strip ImprovedDb names; port its test.
+- [x] P7.9 Gate (render validation with and without `release_image_digest`, `ansible-playbook --syntax-check`, audit), PR, merge. A live deploy is **not** part of P7 (decision Q1, section 10).
 
 ### P8. Runner and cluster maintenance
 
@@ -1241,8 +1241,8 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 | P8a | #103 | `c683e789af52af3a466bff85aadc0ad5b7419b69` | PR CI green (`552a61a`, run 37771861192). Its `main` run 37773351490 was cancelled (see 11.7). | Merged |
 | P5 | #106 | `3c13fef3f26c80b782be5d4f56a69c1c7a86efe2` | PR CI green (`0d750a9`, run 37776653144). `main` run 37778029231: `validate` success; publish job `build-test-push` (job 113324747811) success 13:15–13:18 UTC (smoke, push, manifest, upload); artifact `books-migrate-linux-x64` (id 11552703711) present. | Merged, verified |
 | P6 | #108 | `4f476922362af635565859d54f000704a849d2d6` | PR CI green (`b18a154`, run 37778084296). `main` run 37782129527 success. First real Dependabot PR not yet observed (P6.4). | Merged |
-| P7 | branch `upgrade/p07-cd` | - | Full local gate: 163 passed, 11 opt-in skipped; build 0 warnings/errors. 24 provenance/manifest tests, identity fixtures, Ansible syntax check, render validation and live exact-attempt publishing verification passed. No live deploy. | Local gate passed; PR/main CI pending |
-| P8 | branch `upgrade/p08-maintenance` at `9cdcac9` (includes P7) | - | Fixture tests pass: maintenance, low-disk prune, runner residue, CI residue sweeper, artifact retention, lock. | Implemented, not merged |
+| P7 | [#110](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/110) | `0e9257717434d0457eb74a84c19c82b2d7e9b921` | Local gate: 163 passed, 11 opt-in skipped; 24 release tests, identity fixtures and syntax/render checks passed. Exact-head PR CI [37945842490](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37945842490) and main CI [37947192982](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37947192982) succeeded, including publishing. | Merged, verified |
+| P8 | branch `upgrade/p08-maintenance` | - | Full local gate: 163 passed, 11 opt-in skipped; build 0 warnings/errors. Six shell fixture suites and 51 Python tests passed. Maintenance remains manual; no live dispatch. | Local gate passed; PR/main CI pending |
 | P9 | #107 | `37565a7a5cb3cd432b0295792b5f87f1381ed1f9` | PR CI green (`2f4afe3`, run 37776821466). `main` run 37780109019 success. | Merged |
 | P10 | branch `upgrade/p10-agent-rules` at `313e5ee` | - | 32/32 architecture tests pass (before the final rebase). | Implemented, not merged |
 | P11 | branch `upgrade/p11-docs` at `ac45b73` | - | Link check on 14 changed Markdown files, audit, `git diff --check`. | Implemented, not merged |
@@ -1354,6 +1354,8 @@ Resolved since the first handoff:
 
 ### 11.7 Corrections to earlier statements
 
+- 2026-10-09 P8 review: observability now reads the shared disk thresholds; CI network deletion requires both ownership provenance and an app-specific network name; runner reuse rejects missing repository identity. Offline fixtures and the audit enforce these changes. The P8 rebase onto verified P7 main was clean. No maintenance was dispatched.
+- 2026-10-09 Dependabot cleanup: #45, #61, #68, #75, #76, #87, #94, #96, #97, #98 and #99 were rechecked against main `0e925771` and closed with replacement-version comments. Their branches were retained.
 - 2026-10-09 P7 helper adaptation: the template downloads the named release artifact from the verified CI run with actions/download-artifact@v8, then validates repository, SHA, run, attempt, registry digest and bundle checksum with `validate_release_manifest.py`. It retains its P5 migration staging validator. The reference ZIP extraction helpers (`release_artifact.py`, `validate-ci-release-artifact.py` and their two test modules) consume coordinator-frozen artifact IDs/digests and are not copied as unused code. These rows are handled by the template release validators and tests; P12 records the mapping in the triage inventory.
 - 2026-10-09 execution: P12 closeout does not mark the full plan complete before P13. The next Dependabot PR is observational (11.2 item 3) and does not block P13; the goal completion definition requires items 0, 1, 2, 4 and 5. P13 starts after P12 closeout and green main CI.
 - 2026-10-09 P7 review: the existing branch selected a successful overall CI run but did not explicitly require the publish-main job. The helper now verifies the successful `build-test-push` publishing job on the selected main push, exact run attempt and SHA, then rechecks run identity to reject a rerun race. Main workflow_dispatch runs are excluded as required by P7.4.7. The deployment audit and fixtures enforce this contract.

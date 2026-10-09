@@ -24,7 +24,7 @@ SPEC.loader.exec_module(module)
 
 class CleanupTests(unittest.TestCase):
     def setUp(self):
-        self.cleaner = module.Cleaner(True, 25)
+        self.cleaner = module.Cleaner(True, 25, "sample")
         self.created = self.cleaner.now - timedelta(days=3)
         self.item = {
             "Id": "a" * 64,
@@ -199,6 +199,7 @@ class CleanupTests(unittest.TestCase):
                 for key, value in self.item.items()
                 if key in ("Id", "Created", "Labels")
             },
+            Name="sample-ci-123-1",
             Containers={},
             Driver="bridge",
             Scope="local",
@@ -212,6 +213,20 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual([], self.mutations())
         self.cleaner.consider("network", item)
         self.assertEqual([("docker", "network", "rm", item["Id"])], self.mutations())
+
+    def test_network_name_must_belong_to_the_configured_app(self):
+        for name in ("", "production", "other-ci-123-1", "sample-ci-", "sample-ci-Invalid"):
+            with self.subTest(name=name):
+                self.cleaner.consider("network", dict(self.network(), Name=name))
+        item = self.network()
+        del item["Name"]
+        self.cleaner.consider("network", item)
+        self.assertEqual([], self.mutations())
+
+    def test_invalid_app_name_is_rejected(self):
+        for name in ("", "Sample", "sample/other", "sample.*"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                module.Cleaner(True, 25, name)
 
     def test_volumes_are_never_disposable(self):
         volume = {"Name": "sample-ci-123-1-test", "Labels": self.item["Labels"]}

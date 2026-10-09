@@ -15,6 +15,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -72,7 +73,10 @@ def timestamp(value: str) -> datetime:
 
 
 class Cleaner:
-    def __init__(self, apply: bool, limit: int):
+    def __init__(self, apply: bool, limit: int, app_name: str):
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", app_name):
+            raise ValueError("app_name must be a lowercase slug")
+        self.network_pattern = re.compile(rf"{re.escape(app_name)}-ci-[a-z0-9][a-z0-9_.-]*")
         self.apply = apply
         self.limit = limit
         self.deadline = time.monotonic() + 300
@@ -108,6 +112,7 @@ class Cleaner:
                 "Privileged": ".HostConfig.Privileged",
             },
             "network": {
+                "Name": ".Name",
                 "Id": ".Id",
                 "Created": ".Created",
                 "Labels": ".Labels",
@@ -206,7 +211,8 @@ class Cleaner:
             )
         if kind == "network":
             return (
-                not item["Containers"]
+                self.network_pattern.fullmatch(str(item.get("Name", ""))) is not None
+                and not item["Containers"]
                 and item["Driver"] == "bridge"
                 and item["Scope"] == "local"
             )
@@ -283,7 +289,12 @@ def main() -> int:
         if socket.gethostname() != "node-main":
             parser.error("apply is restricted to node-main")
         require_lock()
-    cleaner = Cleaner(args.apply, args.limit)
+    settings_reader = Path(__file__).resolve().parent / "Component/lib/read-deploy-setting.py"
+    app_name = subprocess.run(
+        [sys.executable, str(settings_reader), "app_name"],
+        text=True, capture_output=True, check=True, timeout=30,
+    ).stdout.strip()
+    cleaner = Cleaner(args.apply, args.limit, app_name)
     try:
         cleaner.execute()
     finally:

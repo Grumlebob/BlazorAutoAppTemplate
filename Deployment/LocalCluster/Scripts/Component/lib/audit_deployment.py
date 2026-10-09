@@ -864,6 +864,7 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
+    ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
     ("global-json-file: global.json", "SDK pinned by global.json"),
@@ -958,6 +959,10 @@ for path in (
     text = read(path)
     if "docker volume prune" in text or "system prune" in text or "volume rm" in text:
         fail(f"{path}: maintenance must never prune Docker volumes or the whole system")
+ci_residue = read("Deployment/LocalCluster/Scripts/prune-ci-residue.py")
+for needle in ('"Name": ".Name"', "self.network_pattern.fullmatch", "read-deploy-setting.py"):
+    if needle not in ci_residue:
+        fail("Deployment/LocalCluster/Scripts/prune-ci-residue.py: bind network deletion to the configured app name")
 if ".home" in read("Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh"):
     fail("Deployment/LocalCluster/Scripts/prune-cluster-docker-residue.sh: do not hard-code a DNS suffix")
 if "TESTCONTAINERS_RYUK_DISABLED" in ci:
