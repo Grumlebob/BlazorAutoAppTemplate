@@ -9,6 +9,9 @@ using BlazorAutoApp.Core.Features.Books.UseCases.GetBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Test.TestSupport.Integration;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Internal;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Features.Books.Caching;
@@ -111,31 +114,42 @@ public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnviro
     [Fact]
     public async Task MissedPubSubMessage_IsBoundedByLocalCacheExpiration()
     {
+        var clock = new ControlledMemoryClock();
         var (nodeA, nodeB) = await StartNodesAsync(
             nodeBInvalidationEnabled: false,
             localListTtlSeconds: 1,
-            localItemTtlSeconds: 1);
+            localItemTtlSeconds: 1,
+            configureNodeBServices: services =>
+                services.Configure<MemoryCacheOptions>(options => options.Clock = clock));
 
         var emptyList = await GetBooksAsync(nodeB);
         Assert.Empty(emptyList.Books);
+
+        // The first load starts asynchronous tag reads. A second read awaits any
+        // pending tags before Node A writes their invalidation timestamps.
+        var warmedList = await GetBooksAsync(nodeB);
+        Assert.Empty(warmedList.Books);
 
         var created = await CreateBookAsync(nodeA, "Fallback");
 
         var staleList = await GetBooksAsync(nodeB);
         Assert.Empty(staleList.Books);
 
-        await Eventually.EventuallyAsync(async () =>
-        {
-            var list = await GetBooksAsync(nodeB);
-            Assert.Single(list.Books);
-            Assert.Equal(created.Id, list.Books[0].Id);
-        }, timeout: TimeSpan.FromSeconds(8), pollInterval: TimeSpan.FromMilliseconds(200));
+        clock.Advance(TimeSpan.FromMilliseconds(999));
+        var stillStaleList = await GetBooksAsync(nodeB);
+        Assert.Empty(stillStaleList.Books);
+
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        var refreshedList = await GetBooksAsync(nodeB);
+        Assert.Single(refreshedList.Books);
+        Assert.Equal(created.Id, refreshedList.Books[0].Id);
     }
 
     private async Task<(HttpClient NodeA, HttpClient NodeB)> StartNodesAsync(
         bool nodeBInvalidationEnabled = true,
         int localListTtlSeconds = 60,
-        int localItemTtlSeconds = 60)
+        int localItemTtlSeconds = 60,
+        Action<IServiceCollection>? configureNodeBServices = null)
     {
         var suffix = Guid.NewGuid().ToString("N");
         var nodeA = environment.CreateFactory(
@@ -151,13 +165,23 @@ public sealed class BooksCrossNodeCacheInvalidationTests(SharedIntegrationEnviro
             runMigrations: false,
             cacheInvalidationEnabled: nodeBInvalidationEnabled,
             localListTtlSeconds: localListTtlSeconds,
-            localItemTtlSeconds: localItemTtlSeconds);
+            localItemTtlSeconds: localItemTtlSeconds,
+            configureTestServices: configureNodeBServices);
         _factories.Add(nodeB);
         await nodeB.InitializeAsync();
 
         await nodeA.ResetDatabaseAsync();
         var userName = $"node-user-{suffix}@example.test";
         return (nodeA.CreateAuthenticatedClient(userName), nodeB.CreateAuthenticatedClient(userName));
+    }
+
+    // MemoryCache in .NET 10 uses ISystemClock; HybridCache's TimeProvider
+    // alone does not control L1 expiration. Keep this clock local to Node B.
+    private sealed class ControlledMemoryClock : ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UtcNow;
+
+        public void Advance(TimeSpan amount) => UtcNow += amount;
     }
 
     private static async Task<CreateBookResponse> CreateBookAsync(HttpClient client, string title)
