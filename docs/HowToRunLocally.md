@@ -155,16 +155,13 @@ Open:
 
 Docker publishes app, PostgreSQL, Redis, Redis Insight, and optional observability ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
 
-Local login seeds:
+Local User login seed:
 
-- Email: `admin@admin.com`
-- Password: `Admin123`
-- Role: `Admin`
 - Email: `user@user.com`
 - Password: `User123`
 - Role: `User`
 
-These accounts are created after EF migrations run in `Development`, and in the local Docker stack because root `docker-compose.yml` explicitly sets `LocalAccounts__Enabled: "true"`. Deployment compose files set it to `false`. On startup, a deployment locks any published demo account that still uses its default password and invalidates its existing sessions. Accounts with changed passwords are preserved. The seed writes the local password hashes directly so these short local-only passwords work without weakening the normal Identity password rules for registration and password reset flows.
+The User account is created after EF migrations run in `Development`, and in the local Docker stack because root `docker-compose.yml` explicitly sets `LocalAccounts__Enabled: "true"`. Startup does not create an Admin account. The `Admin` role remains available, but an Admin account must be provisioned through an operator-controlled process outside the startup seeder. Deployment compose files set local seeding to `false`. Startup locks a legacy account that still uses a published default password and invalidates its existing sessions; accounts with changed passwords are preserved. The local User seed writes its password hash directly so this local-only password works without weakening normal Identity password rules for registration and password reset flows.
 
 If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `docker compose up -d --build`. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
 

@@ -465,16 +465,6 @@ public abstract class BlazorE2ETestBase : PageTest
         return email;
     }
 
-    protected async Task LoginAsLocalAdminAsync()
-    {
-        await GoToAsync("/Account/Login");
-        await Page.Locator("#Input\\.Email").FillAsync(E2ELocalAdminCredentials.Email);
-        await Page.Locator("#Input\\.Password").FillAsync(E2ELocalAdminCredentials.Password);
-        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Log in", Exact = true }).ClickAsync();
-        await Expect(Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = E2ELocalAdminCredentials.Email }))
-            .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
-    }
-
     private async Task TryStopTracingAfterFailureAsync(string tracePath)
     {
         try
