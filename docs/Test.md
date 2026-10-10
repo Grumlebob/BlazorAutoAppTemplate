@@ -47,7 +47,7 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
 
 When a change touches `BlazorAutoApp.Client/Styles` or Razor markup classes, also run `cd BlazorAutoApp.Client && npm ci && npm run css:build` and commit `BlazorAutoApp/wwwroot/tailwind.css` if it changed.
 
-When a change touches deployment scripts, also run the script tests under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/` and `Scripts/CI/tests/`. The CI `validate` job lists them.
+When a change touches deployment scripts, also run the script tests under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/`, `Deployment/LocalSingleNode/Scripts/Tests/` and `Scripts/CI/tests/`. The CI `validate` job lists them.
 
 ## Cross-Node Cache Invalidation Tests
 
@@ -250,6 +250,7 @@ For every pull request, and before every `main` publish, CI runs `Deployment/Loc
 - `/health/ready`,
 - the server-rendered home page,
 - that anonymous `/api/books` returns 401 without a redirect,
+- shared HTTP acceptance (`Scripts/Test-DeployedSite.ps1`): registration, fresh-session login, account access, rejected published admin credentials and finally-account deletion,
 - the browser smoke tests `RenderModeE2ETests` and `PreHydrationControlsE2ETests`.
 
 To run it locally against an image you built:
@@ -308,15 +309,24 @@ $env:E2E_VIEWPORT_HEIGHT='844'
 
 ## Deployment Checks
 
-Run these before changing LocalCluster deployment files:
+Run these before changing any deployment target. The audit/render entry points cover LocalCluster, Common and LocalSingleNode:
 
 ```powershell
 bash Deployment/LocalCluster/Scripts/audit-deployment.sh
 bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
-python -m yamllint .github Deployment/LocalCluster
+python -m yamllint .github Deployment
 docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
-docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
+docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
 ```
+
+For LocalSingleNode changes, also run both playbook syntax checks and the offline public-CLI fixtures:
+
+```bash
+bash Deployment/LocalSingleNode/Scripts/validate-playbooks.sh
+python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -p 'test_*.py'
+```
+
+These use fake facts/stubbed commands. Do not bootstrap Windows/WSL or a controller as a deployment node. Live HTTP acceptance is a separate authorized check after node setup; see the [single-node guide](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md#deployment-and-live-acceptance-sequence).
 
 ## Troubleshooting
 

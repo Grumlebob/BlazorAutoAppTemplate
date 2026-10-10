@@ -1,6 +1,6 @@
 # How To Fork This Repo
 
-Use this guide when you fork the template and want the fork deployed quickly without rebuilding the whole LocalCluster. It focuses on the common case: a new fork running on the same four prepared LocalCluster nodes:
+Use this guide for fork identity and deployment target selection. The numbered LocalCluster steps then cover a new fork on the same four prepared nodes:
 
 ```text
 node-main
@@ -25,6 +25,32 @@ If a terminal starts from the wrong folder, run this first:
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 ```
+
+## Choose deployment targets
+
+Start with the [deployment chooser](../Deployment/README.md). Set the GitHub repository variable for the targets you intend to operate:
+
+```bash
+gh variable set DEPLOY_TARGETS --body localsinglenode
+# A deliberate multi-target example:
+gh variable set DEPLOY_TARGETS --body localcluster,localsinglenode
+```
+
+| Path | Follow |
+| --- | --- |
+| One native PC | Shared identity steps 1 and 3–6 below, then the [single-node guide](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md) and its [AgentSetup.md](../Deployment/LocalSingleNode/AgentSetup.md); skip LocalCluster topology/SSH steps 2 and 7–8 |
+| Prepared four-PC LocalCluster | The numbered steps below |
+| Cloud | Shared fork identity and the [Cloud guide](../Deployment/Cloud/HowToDeployCloud.md) |
+
+Keep all target folders. CI still validates them and uses audit/render/smoke entry points under LocalCluster. A disabled target's machine inventory, provisioning, secrets and runtime topology can be ignored. Common release settings are required for every target.
+
+For LocalSingleNode, edit `Deployment/LocalSingleNode/inventory/group_vars/all.yml`: app slug, runtime/backup roots, unique app/database/Redis/LAN HTTP ports and a private Docker subnet that does not overlap the LAN or another app. Keep `observability_enabled: false`. Keep the internal `app_name` consistent in LocalCluster `all.yml` too because common CI still reads that file for its app identity, even in a single-node-only fork. Cloud identity is customized through its guide when enabled. Never put a real node address in tracked settings; facts are detected on the native node.
+
+`Deployment/Common/release.yml` must use your lowercase GHCR owner and image name. Make customization through a branch and PR: local gate first, `build-test-push` on the exact PR head, then merge and require green main validation/publishing. No deployment occurs on merge alone.
+
+If the fork has no registered CI runner, the local setup state machine defers fork edits and CI until the operator's single `--ci-runner` bootstrap command registers one. It sets `CI_RUNNER_LABEL=ci-<app_name>` and `CI_RUNNER_HOST=<node>`; the install user receives root-equivalent Docker group access for local gates and needs a fresh group session. Install other local gate tools in the user's environment as needed. Resume the customization PR once capacity exists; do not call deferred checks complete or substitute a dispatched CI run for main-push provenance. A missing initial main-push CI run is reported as a prerequisite.
+
+The template repository already has CI capacity and keeps it on its existing runner; its single-node demo runner handles CD only. `LOCALSINGLENODE_HOST` has no fallback and must match the native hostname. Status sets it and the app-specific CD label after bootstrap.
 
 ## 1. Choose The Fork Identity
 
@@ -113,7 +139,7 @@ App__Url=https://localhost:7186
 }
 ```
 
-`App:Name` is used for Data Protection isolation, cache-invalidation channel naming, and authenticator-app issuer names. In deployed LocalCluster app containers it is set from `app_name`, so the least surprising choice is `APP_IDENTITY_NAME=APP_SLUG`. Choose it deliberately and avoid changing it repeatedly after users exist.
+`App:Name` is used for Data Protection isolation, cache-invalidation channel naming, and authenticator-app issuer names. In deployed app containers it is set from `app_name`, so the least surprising choice is `APP_IDENTITY_NAME=APP_SLUG`. Choose it deliberately and avoid changing it repeatedly after users exist.
 
 Local development uses `.env`, which is ignored by git. After changing `.env.example`, create or update your local `.env` when you want to run locally:
 
@@ -290,7 +316,7 @@ cat "$host_key_candidate" >> ~/.ssh/known_hosts
 rm -f "$host_key_candidate"
 ```
 
-## 9. Commit And Push The Fork Settings
+## 9. Review And Merge The Fork Settings
 
 [CurrentPC]
 
@@ -307,7 +333,7 @@ git config user.name "Your Name"
 git config user.email "your-email@example.com"
 ```
 
-Run the fast local checks:
+Run the complete [local gate](Test.md#local-gate), including Docker-backed tests, before pushing. These setting checks supplement that gate:
 
 ```bash
 bash ./Deployment/Common/Scripts/validate-common-release.sh
@@ -316,17 +342,21 @@ bash ./Deployment/LocalCluster/Scripts/summary.sh
 git diff --check
 ```
 
-Commit and push:
+Commit explicit paths on your customization branch and push that branch:
 
 ```bash
+git switch -c fork/customize-template
 git status --short
 git add README.md docs/HowToRunLocally.md .env.example
 git add BlazorAutoApp/appsettings.json BlazorAutoApp/appsettings.Docker.json
 git add Deployment/Common/release.yml Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml
 # Add any feature, test, simulator, dashboard, or extra docs files you intentionally changed.
 git commit -m "Customize template fork identity"
-git push
+git push --set-upstream origin fork/customize-template
+gh pr create --base main --head fork/customize-template
 ```
+
+Merge only after `build-test-push` succeeds on that exact head. Require successful main validation and publishing before deployment; record the squash commit and CI run. If your single-node changes also edit its settings, stage that explicit path too.
 
 Do not commit:
 

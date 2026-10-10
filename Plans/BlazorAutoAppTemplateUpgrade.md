@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: executing (2026-10-09). D15 and P1–P12 are merged. P13a shared building blocks are merged and main validation/publishing are green at `b12dcd5502bce4340d21dad3a2a546a2c4ac4e8b`. P12 triage and fresh-fork closeout passed; all fourteen original/P12 upgrade branches were deleted after recording their full heads. P13b target selection is in progress. LocalSingleNode deployment and node-demo live acceptance remain pending. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: executing (2026-10-10). D15 and P1–P12 are merged. P13a–P13c are merged with successful exact-head PR CI and main validation/publishing. P13c merge is `f32a8bde2d0c69c2926dec4984d11b39aeddeb9f`. P13d documentation and fresh-fork rehearsal are complete locally; its verified merge/main checkpoint is maintained in the phase PR description. Node-demo live acceptance remains pending; the operator will update its existing clone and start its local agent after the repository handoff. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
 
 Execution context updated 2026-10-09: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator confirms node-demo is installed and the repository is cloned; no further node setup has been done. Authentication, bootstrap, runner readiness and site availability remain pending. The phase records below remain the 2026-10-08 handoff except for the explicit preflight updates in 11.6.
 Prepared: 2026-10-08.
@@ -914,7 +914,7 @@ Deployment/
   5. Add a guardrail test, `DeploymentWorkflows_RequireEnabledTarget`, to `AgentGuardrailTests.cs`: every `.github/workflows/cd-*.yml` and `*-maintenance.yml` contains `Require this deployment target to be enabled` and `vars.DEPLOY_TARGETS`. Add the matching audit rule.
   6. Gate, PR, merge. Then check that `gh variable list --repo Grumlebob/BlazorAutoAppTemplate` shows both variables.
 
-- [ ] P13.4 **PR P13c, part 1: settings and machine facts.**
+- [x] P13.4 **PR P13c, part 1: settings and machine facts.**
   - `Deployment/LocalSingleNode/machine.example.yml` documents the detected facts (S14). An operator copies it to `machine.yml` only to override detection, for example on a PC with two network cards. Bootstrap prefers `machine.yml` over detection when it exists:
     ```yaml
     # Optional. Bootstrap detects these values; copy to Deployment/LocalSingleNode/machine.yml only to override them.
@@ -940,7 +940,7 @@ Deployment/
   - `.gitignore`: add `Deployment/LocalSingleNode/machine.yml`.
   - Port-collision check: `Scripts/check-port-collisions.sh` (single-node version) fails when `app_port`, `postgres_port`, `redis_port`, `lan_http_port` or `docker_subnet` is already used by another app's `/opt/*/docker-compose.yml` or `/etc/caddy/sites/*.caddy`, or by a listening socket (`ss -ltn`) that is not this app's own.
 
-- [ ] P13.5 **PR P13c, part 2: Compose file (S5).** `Deployment/LocalSingleNode/compose/docker-compose.yml`:
+- [x] P13.5 **PR P13c, part 2: Compose file (S5).** `Deployment/LocalSingleNode/compose/docker-compose.yml`:
   - `name: ${APP_NAME}`. A `default` network with `ipam.config: [{subnet: ${DOCKER_SUBNET}}]`.
   - `postgres`: the same image tag as LocalCluster `node-db` compose and `TestContainerImages.cs`; `ports: ["127.0.0.1:${POSTGRES_PORT}:5432"]`; volume `postgres_data:/var/lib/postgresql`; the same health check.
   - `redis`: the same image and command as LocalCluster (`--requirepass`, `--appendonly yes`); `ports: ["127.0.0.1:${REDIS_PORT}:6379"]`; volume `redis_data:/data`; health check.
@@ -950,7 +950,7 @@ Deployment/
   - `.env` keys (rendered by Ansible, mode 0600): `APP_NAME APP_IMAGE_REF APP_VERSION APP_PORT POSTGRES_PORT REDIS_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD REDIS_PASSWORD DOCKER_SUBNET`.
   - Validate with `docker compose --env-file <fake.env> -f ... config -q` in a script test.
 
-- [ ] P13.6 **PR P13c, part 3: agent-driven node setup (S19–S21).** The operator clones the repository on the new PC, runs `gh auth login`, starts a coding agent and says something like "I just cloned this, set it up, you are node-demo". The agent must finish the setup and stop only for things a person must do. Build it as a state machine with one root command.
+- [x] P13.6 **PR P13c, part 3: agent-driven node setup (S19–S21).** The operator clones the repository on the new PC, runs `gh auth login`, starts a coding agent and says something like "I just cloned this, set it up, you are node-demo". The agent must finish the setup and stop only for things a person must do. Build it as a state machine with one root command.
   - **`Scripts/setup-status.sh --node <name> [--json]`** (no sudo, read-only, safe to run any time). It evaluates these checks in order and reports the **first** that is not done. With `--json` it prints one object: `{"step": "<id>", "actor": "agent" | "human" | "none", "summary": "...", "command": "...", "human_message": "...", "done": ["<id>", ...]}`. Exit codes: 0 when everything is done, 10 when the next action is the agent's, 20 when it is the human's, 1 when the check itself failed.
 
     | Step id | Done when | If not done: actor and action |
@@ -992,7 +992,7 @@ Deployment/
   - `install-github-runner.sh` (single node, local, no SSH): downloads the same pinned runner version as the LocalCluster script into `/home/deploy/actions-runner-<app_name>`, configures `--unattended --name <node>-<app_name> --labels <labels> --work _work`, and runs `./svc.sh install deploy && ./svc.sh start`. If the directory already holds a runner for another repository, or its `.runner` cannot be read, it stops; it never deletes (P8.12 rule). An existing runner for the same repository is kept, and its labels are checked.
   - `doctor.sh [--json]`: checks the runner service is active, `deploy` is in `docker`, UFW is active, Caddy is active, `/etc/<app_name>/secrets.yml` is mode 0600, at least 20 GiB is free on `/opt`, and that `getent hosts <node>.local` resolves. Exit 0 when all pass, else 1, with one line (or one JSON entry) per check.
 
-- [ ] P13.7 **PR P13c, part 4: deploy playbook `site.yml` (run by CD as `deploy`).** Inputs (extra vars): `app_version` (target SHA), `release_image_digest`, `run_migrations`, `migration_bundle_local_path`, the GHCR extra-vars file (copy LocalCluster's temporary-`DOCKER_CONFIG` pattern) and `-e @/etc/<app_name>/secrets.yml`. Plays, in order:
+- [x] P13.7 **PR P13c, part 4: deploy playbook `site.yml` (run by CD as `deploy`).** Inputs (extra vars): `app_version` (target SHA), `release_image_digest`, `run_migrations`, `migration_bundle_local_path`, the GHCR extra-vars file (copy LocalCluster's temporary-`DOCKER_CONFIG` pattern) and `-e @/etc/<app_name>/secrets.yml`. Plays, in order:
   1. Assert the inputs, and that `inventory_hostname` equals `ansible_hostname`.
   2. Run `check-port-collisions.sh`.
   3. Render `{{ deploy_root }}/.env` (0600) and copy `docker-compose.yml`.
@@ -1013,7 +1013,7 @@ Deployment/
   }
   ```
 
-- [ ] P13.8 **PR P13c, part 5: CD workflow `cd-localsinglenode.yml`.** Copy `cd-localcluster.yml` and change these things:
+- [x] P13.8 **PR P13c, part 5: CD workflow `cd-localsinglenode.yml`.** Copy `cd-localcluster.yml` and change these things:
   - `name: CD - Deploy LocalSingleNode`, `run-name: "CD LocalSingleNode @ ${{ inputs.target_sha || github.sha }}"`, `concurrency: {group: cd-localsinglenode, cancel-in-progress: false}`, `timeout-minutes: 45`, `workflow_dispatch` only, with inputs `run_migrations` (default `"true"`) and `target_sha`.
   - `runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]`.
   - Step 1 is the target gate with `TARGET: localsinglenode`. Step 2 checks the host: `test -n "$LOCALSINGLENODE_HOST" && test "$(hostname)" = "$LOCALSINGLENODE_HOST"` (from `vars.LOCALSINGLENODE_HOST`; no default).
@@ -1024,7 +1024,7 @@ Deployment/
   - Detect the address again (S14) before generating the inventory.
   - After deploying, run `pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -BaseUrl http://<node_ip>:<lan_http_port>` (S16), and an identity check: the running `web` container's image digest equals `RELEASE_IMAGE_DIGEST`.
 
-- [ ] P13.9 **PR P13c, part 6: maintenance, audit and tests.**
+- [x] P13.9 **PR P13c, part 6: maintenance, audit and tests.**
   1. `localsinglenode-maintenance.yml`: `workflow_dispatch` only, same runner label, target gate first, with inputs `backup_now` (boolean, default `true`), `reboot_check` (boolean, default `false`, S18) and `acceptance_only` (boolean, default `false`). `acceptance_only` runs only `Test-DeployedSite.ps1` and prints `uptime -s`. It runs `Scripts/run-maintenance.sh [--backup-now]`. With `--backup-now`, start and wait for the lock-taking backup service **before** acquiring the maintenance lock; verify the dump and perform cleanup under that lock. This prevents a nested-lock deadlock. Stages: remove this app's images (`--filter reference=<app_image>`) that no container uses and that are older than 168 h, keeping the image of the running `web`; delete only old images with this repository’s source label and image references, preserving every container image and the released digest; report unowned dangling images without deletion; run `prune-actions-runner-residue.sh` for this node's runner root; report dangling volumes (report only); report disk and inodes for `/opt`; fail if `{{ backup_root }}/last-success` is older than 36 h. Exit codes `0/1/2/75` as in P8.
   2. Audit rules (`audit_deployment.py`, new section `localsinglenode`):
      - The compose file has no `ports:` entry without a `127.0.0.1:` prefix.
@@ -1053,7 +1053,7 @@ Deployment/
   5. CI `validate`: add `Deployment/LocalSingleNode` to shellcheck and yamllint, add `ansible-playbook --syntax-check` for both single-node playbooks (temporary inventory with one local host), and render the Caddy, `.env` and compose templates in `validate-rendered-templates.sh` with fake values.
   6. Gate, PR, merge.
 
-- [ ] P13.10 **PR P13d: docs.**
+- [x] P13.10 **PR P13d: docs.**
   - `Deployment/README.md` (new) has the chooser table:
 
     | Target | Machines | Needs | Downtime per deploy | Backups | Pick it when |
@@ -1063,22 +1063,22 @@ Deployment/
     | `cloud` | Hetzner | cloud account and cost | per guide | per guide | public production |
 
     It also explains `DEPLOY_TARGETS`, and says which folders an unused target can ignore (S4).
-  - `Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md`: the exact P13.12 sequence, with "operator" and "agent" columns. It covers recovery (re-run bootstrap; restore with `verify-backup.sh --restore-into <app_name>` after confirmation), backups and copying them off the machine, the `docker` group and sudo statement (S7), and removing the app (stop the stack; data volumes stay until the operator runs `docker volume rm` by hand).
+  - `Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md`: the exact P13.12 sequence, with "operator" and "agent" columns. It covers recovery (re-run bootstrap; restore into a new replacement database with `verify-backup.sh --restore-into <db>_restore_<suffix> --confirm-restore <app_name>`; never overwrite the live database), backups and copying them off the machine, the `docker` group and sudo statement (S7), and removing the app (stop the stack; data volumes stay until the operator runs `docker volume rm` by hand).
   - `docs/HowToForkThisRepo.md`: a new step, "Choose deployment targets", that sets `DEPLOY_TARGETS` and links the chooser. `README.md`: link `Deployment/README.md`. `AGENTS.md` (template): the shared-host rule also covers single nodes; never pass `--volumes` to compose down on a node.
   - Run the link check from P11.10.
 
-- [ ] P13.11 **Fresh-fork rehearsal for single node (no deploy).** In a temporary clone, with fake values (`node-rehearsal`, IP `192.0.2.10`, CIDR `192.0.2.0/24`): run `validate-machine.sh --not-on-node`, `generate-inventory.sh`, render validation, `docker compose config -q`, `ansible-playbook --syntax-check` on both playbooks, and the audit. Everything must pass, or fail with a clear message. Do not push the clone.
+- [x] P13.11 **Fresh-fork rehearsal for single node (no deploy).** In a temporary clone, with fake values (`node-rehearsal`, IP `192.0.2.10`, CIDR `192.0.2.0/24`): run `validate-machine.sh --not-on-node`, `generate-inventory.sh`, render validation, `docker compose config -q`, `ansible-playbook --syntax-check` on both playbooks, and the audit. Everything must pass, or fail with a clear message. Do not push the clone.
 
 - [ ] P13.12 **Live test on node-demo (`192.168.0.212`, fixed DHCP lease).** Q4 authorises deploys to node-demo only; this never touches LocalCluster nodes. P13.D steps 1–3 belong to the operator and a local agent on node-demo. The main-PC agent does the remaining checks, including independent LAN acceptance. Record each result in 11.1.
 
   | # | Who | Action | Pass condition |
   | --- | --- | --- | --- |
   | 1 | Operator | P13.D step 1: confirm Mint is installed; install only if needed | Mint desktop is up on the separate node-demo PC |
-  | 2 | Operator, and an agent on node-demo | P13.D steps 2–3: clone, authenticate, "set it up, you are node-demo"; compare detected address with `192.168.0.212`; run the one sudo command the local agent prints | The local agent reaches `step: done` and prints the URL, initial CD run URL, deployed SHA and digest. This exercises S19–S21 exactly as a real fork would. Record the agent's transcript summary in 11.1 |
+  | 2 | Operator, and an agent on node-demo | P13.D steps 2–3: update the existing clone, authenticate when prompted, follow AgentSetup.md as node-demo; compare detected address with `192.168.0.212`; run the one sudo command the local agent prints | The local agent reaches `step: done` and prints the URL, initial CD run URL, deployed SHA and digest. This exercises S19–S21 exactly as a real fork would. Record the agent's transcript summary in 11.1 |
   | 3 | Main-PC agent | Confirm what the local agent did: check the runner via `gh api repos/Grumlebob/BlazorAutoAppTemplate/actions/runners` (online, name `node-demo-books`, label `localsinglenode-books`). Inspect the initial CD run and manifest. If that run already deployed the intended SHA with migrations, use its evidence; dispatch `gh workflow run cd-localsinglenode.yml --repo Grumlebob/BlazorAutoAppTemplate --ref main -f target_sha=<verified-main-sha> -f run_migrations=true` only if the required deployment has not occurred. Record the run ID before watching; never re-dispatch because a watcher stopped | Run succeeds on node-demo; `Test-DeployedSite.ps1` passes on the node; the running digest equals the manifest |
   | 4 | Main-PC agent | P13.D step 4: run the checkout's `Scripts/Test-DeployedSite.ps1 -Address 192.168.0.212` from Windows on the main PC after syncing to the verified merged commit. Check `node-demo.local` separately if it resolves | Required IP check prints `RESULT: PASS`. Record mDNS success or its unavailable status separately; mDNS is not a prerequisite for reaching the fixed IP |
   | 5 | Main-PC agent | Dispatch the same SHA again with `run_migrations=false` | Succeeds; `Test-DeployedSite.ps1` passes again |
-  | 6 | Main-PC agent | Reboot check: `gh workflow run localsinglenode-maintenance.yml --repo Grumlebob/BlazorAutoAppTemplate -f reboot_check=true`. The job schedules a reboot 30 s after it finishes. Poll the runners API every 60 s, for up to 15 min, until the runner is online again. Then dispatch `-f acceptance_only=true` | The second run passes, and it reports an uptime under 30 min (proof of the reboot) |
+  | 6 | Main-PC agent | Reboot check: `gh workflow run localsinglenode-maintenance.yml --repo Grumlebob/BlazorAutoAppTemplate -f reboot_check=true`. The root-owned helper waits for whole-run success, then waits 30 s before rebooting; failed/cancelled runs never reboot. Poll the runners API every 60 s, for up to 15 min, until the runner is online again. Then dispatch `-f acceptance_only=true` | The second run passes, and it reports an uptime under 30 min (proof of the reboot) |
   | 7 | Main-PC agent | Rollback: dispatch CD with `target_sha` = an older `main` SHA that has successful CI and the same migrations, then dispatch the newest again | Both succeed |
   | 8 | Main-PC agent | `gh workflow run localsinglenode-maintenance.yml --repo Grumlebob/BlazorAutoAppTemplate -f backup_now=true` | Exit 0; the log shows a new dump and a restore with more than 0 tables |
 
@@ -1094,17 +1094,13 @@ Start after the agent's message "node-demo: ready for you", which comes when P13
 
 **Step 1: installation is done for this live test.** The operator confirmed on 2026-10-09 that node-demo is installed and the repository is cloned. Keep that installation; check the Mint version during setup instead of reinstalling. For a future fresh machine that still needs installation (about 20 minutes), write Linux Mint 22.x Cinnamon to a USB stick (Rufus or balenaEtcher), boot the intended deployment PC from it, and choose "Erase disk and install Linux Mint" (everything on that PC is erased). Use a DNS-label computer name and a standard unprivileged Linux username; the local agent renames the intended node to the name you give it.
 
-**Step 2: use the existing clone, authenticate, and ask the agent (5 minutes).** On node-demo, enter the repository folder already cloned and run `gh auth status`. If authentication is missing, run `gh auth login` as shown below. Do not clone over the existing directory. The complete commands below are for a fresh machine; skip installation and clone commands already completed:
-```bash
-sudo apt-get update && sudo apt-get install -y git gh
-gh auth login          # GitHub.com > HTTPS > Yes > Login with a web browser; use the account that owns the repository
-git clone https://github.com/Grumlebob/BlazorAutoAppTemplate.git ~/BlazorAutoAppTemplate && cd ~/BlazorAutoAppTemplate
-```
-Start your coding agent in that folder (Claude Code or Codex, installed as usual) and say:
+**Step 2: update the existing clone, then start its local agent.** The operator updates node-demo's existing repository to the verified `origin/main`, preserving any local changes. Do not clone over it or reset it. No other manual preparation is required before starting the agent in that folder. Give it this prompt:
 
-> I just cloned this on the deployment PC. Set it up. You are node-demo. Its fixed DHCP lease is 192.168.0.212. Detect and confirm the address before setup.
+> You are running on node-demo, the native Linux deployment PC at 192.168.0.212. Follow Deployment/LocalSingleNode/AgentSetup.md and complete LocalSingleNode setup. Confirm the detected address before changes. Complete agent steps; ask me only for GitHub authentication or the printed sudo command. Deploy LocalSingleNode only. Report the site URL, CD run URL, deployed SHA and image digest.
 
-**Step 3: run the one command the agent gives you (about 15 minutes, mostly waiting).** The agent checks everything it can by itself. It then stops once and shows a single line starting with `sudo bash ...`. Paste it into a terminal, type your password, wait for `FINISHED`, and tell the agent "done". The agent then finishes on its own: it registers settings, waits for the runner, deploys and checks the site. It ends with the site URL. If it stops again, it shows exactly what to do, in one short message.
+The state machine installs the checksum-verified user-local GitHub CLI if missing, then requests browser authentication when needed. Authenticate with repository-admin access; never give the agent a password or token.
+
+**Step 3: run the one command the agent gives you (about 15 minutes, mostly waiting).** The agent checks everything it can by itself. It then stops once and shows a single line starting with `sudo bash ...`. Paste it into a terminal, type your password, wait for all numbered steps to pass and the command to exit successfully, and tell the agent "done". The agent then finishes on its own: it registers settings, waits for the runner, deploys and checks the site. It ends with the site URL. If it stops again, it shows exactly what to do, in one short message.
 
 **Step 4 (main-PC agent, about 1 minute): verify access across the LAN.** After P13 scripts are merged, run from the template checkout on the Windows main PC:
 ```powershell
@@ -1250,12 +1246,13 @@ Historical phase records were verified on 2026-10-08, about 13:10 UTC. D15 and t
 | P12 | [#114](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/114) | `f4a9aba85e1016fc55c52dc333cd182c56dc4ca1` | Local gate: 169 passed, 11 opt-in skipped; seven shell suites and 68 Python tests passed. Exact-head PR CI [37972029836](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37972029836) and main CI [37972952941](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37972952941) succeeded, including publishing. Final merged fresh-fork rehearsal passed. Original merged branches deleted. P12.4 skipped (Q1). | Merged, verified |
 | P13a | [#116](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/116) | `b12dcd5502bce4340d21dad3a2a546a2c4ac4e8b` | Integrated local gate: 173 passed, 11 opt-in skipped; eight shell suites and 68 Python tests passed; ten lock-handshake stress rounds passed. Original runner fixture failure, integrated cache-test race and CI lock-fixture startup race were fixed; failure logs remain retained. All three normalized task/order diffs empty; cluster marker render unchanged; syntax/render/link checks passed. Exact-head PR CI [37980438650](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37980438650) and main CI [37981571872](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37981571872) succeeded, including publishing. | Merged, verified |
 | P13b | [#117](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/117) | `1ea1cd34346f71a554cadc5e0978b983f9ce05f1` | Local gate: 174 passed, 11 opt-in skipped; eight shell suites and 81 Python tests passed. Exact-head PR CI [37983621675](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37983621675) and main CI [37985192155](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/37985192155) succeeded, including publishing. Both authorized variables read back after merge. | Merged, verified |
-| P13c | branch `upgrade/p13c-local-single-node` | - | Final local gate: 175 passed, 11 opt-in skips; 15 shell suites and 126 Python tests; real Docker HTTP and two browser smoke tests passed. No node bootstrap or live dispatch. | Local gate passed; PR/main CI pending |
-| P13 | - | - | P13a and P13b merged; P13c in progress. Node-demo live rows remain pending (Q4). | Executing |
+| P13c | [#120](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/120) | `f32a8bde2d0c69c2926dec4984d11b39aeddeb9f` | Final local gate: 175 passed, 11 opt-in skips; 15 shell suites and 126 Python tests. Real Docker HTTP and two browser tests passed; actual Windows PowerShell 5.1 and PowerShell 7 acceptance passed. Exact-head PR CI [38007969313](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38007969313) and main CI [38008528973](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38008528973) succeeded, including publishing. No node bootstrap or live dispatch. | Merged, verified |
+| P13d | branch `upgrade/p13d-single-node-docs` | - | Target chooser, fork/setup/operations guides and controller handoff. Fresh-fork rehearsal, Markdown links and full local gate passed; exact-head PR/main merge checkpoint is recorded in the phase PR description. | Publication checkpoint in phase PR |
+| P13 | - | - | P13a–P13c merged; P13d documentation in progress. Node-demo live rows remain pending (Q4). | Executing |
 
 ### 11.2 Open items, in order
 
-Current checkpoint (2026-10-09): items 0, 1, 2 and 4 are complete. P12 main validation/publishing and final fresh-fork rehearsal passed. P13a and P13b are merged and verified; P13c is in progress (item 5). Item 3 remains observational and does not block P13.
+Current checkpoint (2026-10-09): items 0, 1, 2 and 4 are complete. P12 main validation/publishing and final fresh-fork rehearsal passed. P13a–P13c are merged and verified; P13d is in progress (item 5). Item 3 remains observational and does not block P13.
 
 Rechecked 2026-10-08, after 13:40 UTC. Template `main` is at `7136072` (Dependabot #100, lighthouse 13.5.0, merged), and every `main` CI run since P3 is green.
 
@@ -1487,3 +1484,9 @@ P13c interruption review: GitHub automatically cancelled superseded PR run 38004
 P13c native-hostname review: detection previously rejected an existing mixed-case hostname before the approved root command could rename it. Machine validation, setup CLI and bootstrap now share a bounded ASCII hostname-label validator that preserves case and allows a digit at the start, while rejecting non-string values, underscores, leading/trailing hyphens and labels longer than 63 characters. A public CLI fixture proves an existing Operator-Laptop reaches the one root command with the actual name displayed and the requested node-rehearsal argument. `upgrade-p13c-local-single-node-gate-20261009T235006Z.log` repeated the full 175-test/11-skip gate after the final edits; `upgrade-p13c-local-single-node-fixtures-20261009T235006Z.log` passed 15 shell suites and 124 unique Python tests (43 single-node). `p13c-extra-20261009T235006Z.log` repeated both syntax checks, links and control-character scanning. Preceding head 17eac56b6f69139aabebaa7b4e6977f53273be79 passed PR CI 38005610883, including the new always-run cleanup; it is superseded for merge by the hostname fix. Its byte-identical acceptance script also passed actual Windows PowerShell 5.1, PowerShell 7 and both browser tests in `p13c-real-windows-ps51-20261009T234221Z.log`. No controller/node bootstrap or live dispatch occurred.
 
 P13c final native setup checks: machine facts and inventory quote dynamic strings so scalar-like hostnames remain strings. Root bootstrap restarts Avahi after the approved hostname change; normal CD does not change host services. Setup status displays the actual address/validation failure before offering any root command. Offline regression fixtures cover these cases. `upgrade-p13c-local-single-node-gate-20261010T001028Z.log` passed the complete gate (175 tests passed, 11 skipped); `upgrade-p13c-local-single-node-fixtures-20261010T001028Z.log` passed 15 shell suites and 126 unique Python tests (45 single-node). `p13c-extra-20261010T001028Z.log` passed both syntax checks, Markdown links and control-character scanning. The HTTP acceptance script remains byte-identical to the real PowerShell 5.1/7 and browser proof at head 17eac56. No node bootstrap or live deployment was performed.
+
+### 11.14 P13d documentation checkpoint
+
+P13c is merged as `f32a8bde2d0c69c2926dec4984d11b39aeddeb9f` from exact head `1b64256c65c6c80138483942d28ddd465c4acab2`; PR CI 38007969313 and main CI 38008528973 passed. The merge checkpoint is also recorded in PR #120. P13d starts only after that validation/publishing succeeds. The operator will update the existing node-demo clone themselves; the remaining handoff is the canonical local-agent prompt above. P13.12 live rows and P13.13 closeout remain incomplete until native setup and controller acceptance run.
+
+P13d publication checks: `p13d-fresh-fork-20261010T003021Z.log` passed a new temporary clone with fake node/address/user and a customized app, ports, subnet, roots and shared release image. It validated detected-fact shape, quoted inventory, environment/Compose/Caddy rendering, loopback-only ports, exact image digest, both playbook syntax checks, the audit and ignored machine facts. No bootstrap, deployment, SSH or remote push occurred in the rehearsal. `upgrade-p13d-single-node-docs-gate-20261010T003021Z.log` passed the complete local gate (175 passed, 11 opt-in skipped; zero build warnings/errors); `upgrade-p13d-single-node-docs-fixtures-20261010T003021Z.log` passed all 15 shell suites and 126 unique Python tests. All seven changed Markdown documents passed the local link checker. P13.10/P13.11 implementation is complete; the phase is only fully verified after exact-head PR CI, merge and successful main validation/publishing, recorded in the phase PR. P13.12/P13.13 remain pending native operator setup and live evidence.
