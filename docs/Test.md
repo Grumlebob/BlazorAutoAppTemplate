@@ -31,6 +31,7 @@ Run this before every push. Each command must pass; CI runs the same checks. If 
 ```bash
 git diff --check
 dotnet restore BlazorAutoApp.sln
+python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
 dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
 dotnet build BlazorAutoApp.sln --configuration Release --no-restore
 dotnet test BlazorAutoApp.sln --configuration Release --no-build          # needs Docker

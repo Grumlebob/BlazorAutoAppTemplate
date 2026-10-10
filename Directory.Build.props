@@ -1,5 +1,9 @@
 <Project>
   <PropertyGroup>
+    <FrontendProfileFromEnvironment>$([System.Environment]::GetEnvironmentVariable('FrontendProfile'))</FrontendProfileFromEnvironment>
+    <FrontendProfileFromEnvironment Condition="'$(FrontendProfileFromEnvironment)' == ''">$([System.Environment]::GetEnvironmentVariable('FRONTENDPROFILE'))</FrontendProfileFromEnvironment>
+    <FrontendProfileFromEnvironment Condition="'$(FrontendProfileFromEnvironment)' == ''">$([System.Environment]::GetEnvironmentVariable('frontendprofile'))</FrontendProfileFromEnvironment>
+    <FrontendProfile Condition="'$(FrontendProfile)' == '' and Exists('$(MSBuildThisFileDirectory)frontend-profile.txt')">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)frontend-profile.txt').Trim())</FrontendProfile>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
