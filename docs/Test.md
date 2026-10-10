@@ -24,6 +24,17 @@ dotnet test .\BlazorAutoApp.sln --no-build
 
 Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
+## Frontend Profile Hosting
+
+The React host build excludes the Blazor client project, WebAssembly server package, Google handler and Razor component inputs. Its hosting tests exercise the physical static root, GET/HEAD navigation, reserved routes, missing assets, non-HTML/unsafe requests and traversal attempts. Run them with the React profile after building that profile:
+
+```powershell
+dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=React
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter FullyQualifiedName~ReactFrontendHostingTests
+```
+
+For a publish switch check, publish both profiles sequentially to one disposable output directory. The host clears only that output's `wwwroot` before each publish and refuses to use the source `wwwroot` as the output. After the React publish, verify it has `wwwroot/index.html` and no `_framework`, `_content`, `BlazorAutoApp.Client.dll` or `.wasm` files. After switching back to Blazor, verify its framework assets return and the React `index.html` is gone. Do not use `--no-build` across a profile switch.
+
 ## Local Gate
 
 Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.

@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend; P1.3 through P7 add the static bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation; later packets add the built React bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
 
 ## Selecting a profile
 
@@ -21,7 +21,7 @@ validation_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --ove
 docker build --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
 ```
 
-CI resolves the tracked file once and passes the validated output to MSBuild and Docker. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services; its static assets and SPA routes arrive in P1.3.
+CI resolves the tracked file once and passes the validated output to MSBuild and Docker. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services or compile Blazor components. P1.3 serves a selected physical web root and routes only safe HTML navigation to its shell; the production React bundle arrives in a later packet.
 
 A downstream React product selects `React` in its own tracked `frontend-profile.txt` after the React composition packets are merged. The upstream template and existing Blazor demo remain on Blazor Auto.
 
@@ -35,13 +35,15 @@ React v1 has no login, logout, registration, account settings, private bookcase,
 
 Reserve `/Account`, `/account`, `/api/auth` and provider callback paths case-insensitively. These inactive routes return real `404` responses. Never route API, health, missing assets or unknown reserved paths to the SPA shell.
 
+In React production, the selected static root is the host's published `wwwroot`. Development defaults to `BlazorAutoApp/Frontend/React/wwwroot`; `Frontend:React:StaticRoot` may point to another repository-contained generated directory. Static files use ordinary ASP.NET Core static-file middleware. The navigation fallback serves `index.html` only for GET or HEAD requests that accept `text/html`; missing assets, API/health/account/provider/framework paths, non-HTML requests and unsafe methods remain `404`. HEAD returns shell headers without a body. Each frontend publish clears only the destination `wwwroot` before copying that profile's files, preventing a profile switch from retaining the other frontend's assets; publishing directly over the source `wwwroot` is rejected.
+
 ## Current repository entry points
 
 Recheck this inventory when a packet changes one of these boundaries.
 
 | Concern | Current entry points | Profile work |
 | --- | --- | --- |
-| Host composition | `BlazorAutoApp/Program.cs`; `BlazorAutoApp/BlazorAutoApp.csproj` | Startup currently registers Razor Auto, Blazor client state, Identity UI, seeds, APIs and health together. Select one frontend composition while keeping common backend services shared. The Blazor client reference and WebAssembly server package are unconditional today. |
+| Host composition | `BlazorAutoApp/Program.cs`; `BlazorAutoApp/BlazorAutoApp.csproj`; `BlazorAutoApp/Frontend` | `Program` calls the selected composition while common backend services remain shared. The Blazor client reference, WebAssembly server package, Google handler, Razor inputs and account UI compile only for `BlazorAuto`. React uses an HTTP-principal accessor and an isolated physical static root. |
 | Client routes and state | `BlazorAutoApp.Client/Routes.razor`; `BlazorAutoApp.Client/Features/Books`; `BlazorAutoApp/Components` | Keep existing Blazor routes and authenticated state. Add React modules under `BlazorAutoApp.React`; do not copy the Blazor web root into that profile. |
 | Public and private APIs | `BlazorAutoApp/Features/Books/Endpoints/AuthorBooksEndpoints.cs`; `BooksEndpoints.cs`; `BlazorAutoApp/Features/Books/DependencyInjection.cs` | Reuse public author-book reads. Keep owned-book routes authenticated. Move Blazor-only UI state registration out of common backend composition. |
 | Identity boundary | `BlazorAutoApp/Features/Login/Account/LoginFeatureExtensions.cs`; `CurrentUserAccessor.cs`; `IdentityComponentsEndpointRouteBuilderExtensions.cs` | Keep shared Identity cookies and protected API authorization. Register Blazor authentication state, external Google handler and account endpoints only in Blazor composition. React resolves user identity only from the authenticated HTTP principal and maps no account routes. |
@@ -58,7 +60,7 @@ The current main release manifest has no frontend identity. Until P7 is merged, 
 
 The tracked profile file is the only persisted selection. A single resolver validates it and passes the same value to MSBuild, Docker, CI, release metadata and acceptance. The template default is exactly `BlazorAuto`; React downstream configuration is exactly `React`.
 
-React uses same-origin relative API paths. The HTTPS Vite development server proxies `/api` to the C# host. Production publishes the selected React Router `build/client` output beneath the ASP.NET host's web root. The host serves ordinary static files and maps only valid frontend navigation to the shell. Missing assets and backend routes remain real errors.
+React uses same-origin relative API paths. The HTTPS Vite development server proxies `/api` to the C# host. Production publishes the selected React Router `build/client` output beneath the ASP.NET host's web root. The host serves ordinary static files from the selected physical root and maps only safe HTML navigation to the shell. Missing assets and backend routes remain real errors. P1.3 also keeps profile inputs isolated at the host project level and clears the publish destination web root before copying the selected profile, so sequential publishes to one output directory cannot leave stale frontend assets.
 
 Use ASP.NET Core OpenAPI 3.1 as the server contract. Generate `api/openapi.json` and TypeScript declarations with pinned `openapi-typescript`; call the API through one typed `openapi-fetch` client and feature adapters. Generation is opt-in, isolated from ordinary builds and startup, and must work with DB, Redis, mail, OAuth and deployment secrets unavailable. Commit generated outputs with endpoint changes. Do not hand-edit them, duplicate wire DTOs or introduce a second client generator.
 
