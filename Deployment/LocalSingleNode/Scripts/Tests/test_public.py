@@ -3,6 +3,7 @@ import base64
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -65,7 +66,88 @@ class PublicTests(unittest.TestCase):
         self.assertIn("LoadCredential=tunnel-token:", text)
         self.assertIn("--token-file %d/tunnel-token", text)
         self.assertNotIn("--token ", text)
-        self.assertIn("{{ deploy_root }}/cloudflared/", text)
+        self.assertIn("/usr/local/libexec/cloudflared-{{ app_name }}/{{ public_cloudflared_version }}/cloudflared", text)
+        self.assertNotIn("{{ deploy_root }}", text)
+        tasks = (ROOT / "Deployment/LocalSingleNode/ansible/roles/single_node_public/tasks/main.yml").read_text()
+        self.assertIn('path: "/usr/local/libexec/cloudflared-{{ app_name }}"', tasks)
+        self.assertIn('mode: "0755"', tasks)
+        self.assertIn("--property=ActiveState,SubState,ExecMainStatus", tasks)
+        self.assertIn("retries: 12", tasks)
+        self.assertIn("delay: 5", tasks)
+        self.assertIn("'ActiveState=active'", tasks)
+        self.assertIn("'SubState=running'", tasks)
+        self.assertIn("'ExecMainStatus=0'", tasks)
+
+    def test_unowned_executable_path_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exec_base = root / "usr/local/libexec"
+            foreign_path = exec_base / "cloudflared-books" / "2026.10.0"
+            foreign_path.mkdir(parents=True)
+            with patch.object(public_collisions, "ETC", root / "etc"), \
+                 patch.object(public_collisions, "PUBLIC_EXEC_BASE", exec_base), \
+                 patch.object(public_collisions, "settings", return_value={"app_name": "books"}), \
+                 patch.object(public_collisions, "command", return_value=""):
+                with self.assertRaisesRegex(ValueError, "exists without verified ownership"):
+                    public_collisions.check(
+                        "https://example.test/repo", "demo.example.com", TUNNEL, 8085, "2026.10.0"
+                    )
+
+    def test_shared_executable_parent_must_be_traversable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exec_base = root / "usr/local/libexec"
+            exec_base.mkdir(parents=True)
+            exec_base.chmod(0o750)
+            with patch.object(public_collisions, "ETC", root / "etc"), \
+                 patch.object(public_collisions, "PUBLIC_EXEC_BASE", exec_base), \
+                 patch.object(public_collisions, "settings", return_value={"app_name": "books"}), \
+                 patch.object(public_collisions, "command", return_value=""):
+                with self.assertRaisesRegex(ValueError, "parent is not traversable"):
+                    public_collisions.check(
+                        "https://example.test/repo", "demo.example.com", TUNNEL, 8085, "2026.10.0"
+                    )
+
+    def test_unrecorded_executable_version_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            etc = root / "etc"
+            exec_base = root / "usr/local/libexec"
+            (exec_base / "cloudflared-books" / "2026.10.0").mkdir(parents=True)
+            state_dir = etc / "books"
+            state_dir.mkdir(parents=True)
+            (state_dir / "public.json").write_text(json.dumps({
+                "source_repo_url": "https://example.test/repo", "hostname": "demo.example.com",
+                "tunnel_id": TUNNEL, "origin_port": 8085,
+            }))
+            with patch.object(public_collisions, "ETC", etc), \
+                 patch.object(public_collisions, "PUBLIC_EXEC_BASE", exec_base), \
+                 patch.object(public_collisions, "settings", return_value={"app_name": "books"}), \
+                 patch.object(public_collisions, "command", return_value=""):
+                with self.assertRaisesRegex(ValueError, "exists without verified ownership"):
+                    public_collisions.check(
+                        "https://example.test/repo", "demo.example.com", TUNNEL, 8085, "2026.10.0"
+                    )
+
+    def test_owned_executable_path_can_be_reused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            etc = root / "etc"
+            exec_base = root / "usr/local/libexec"
+            owned_path = exec_base / "cloudflared-books" / "2026.10.0"
+            owned_path.mkdir(parents=True)
+            source = "https://example.test/repo"
+            state_dir = etc / "books"
+            state_dir.mkdir(parents=True)
+            (state_dir / "public.json").write_text(json.dumps({
+                "source_repo_url": source, "hostname": "demo.example.com", "tunnel_id": TUNNEL,
+                "origin_port": 8085, "cloudflared_version": "2026.10.0",
+            }))
+            with patch.object(public_collisions, "ETC", etc), \
+                 patch.object(public_collisions, "PUBLIC_EXEC_BASE", exec_base), \
+                 patch.object(public_collisions, "settings", return_value={"app_name": "books"}), \
+                 patch.object(public_collisions, "command", return_value=""):
+                public_collisions.check(source, "demo.example.com", TUNNEL, 8085, "2026.10.0")
 
     def test_public_and_lan_acceptance_each_run_once(self):
         lane = (LIB.parent / "acceptance-check.sh").read_text()

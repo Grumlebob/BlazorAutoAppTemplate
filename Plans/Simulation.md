@@ -466,7 +466,7 @@ Rules:
 Default base URL:
 
 ```text
-https://books.jacobgrum.com
+https://books.example.com
 ```
 
 Purpose:
@@ -486,7 +486,7 @@ Rules:
 Default base URL:
 
 ```text
-https://bookscloud.jacobgrum.com
+https://bookscloud.example.com
 ```
 
 Purpose:

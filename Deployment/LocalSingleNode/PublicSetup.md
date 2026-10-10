@@ -45,7 +45,7 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
 
    This verifies ownership state, tunnel-token identity and the repository's native host. It refuses different existing public variables. It encrypts `LOCALSINGLENODE_PUBLIC_TUNNEL_TOKEN` through `gh secret set` using standard input and sets `LOCALSINGLENODE_PUBLIC_HOSTNAME`, `LOCALSINGLENODE_PUBLIC_TUNNEL_ID` and `LOCALSINGLENODE_PUBLIC_ORIGIN_PORT`. Tokens are not command arguments.
 5. Dispatch **CD - Deploy LocalSingleNode** from verified main through the normal release provenance gate. Record the returned run ID before watching. Never redispatch because a watcher stops. LocalCluster and Cloud deployment are unnecessary.
-6. CD installs the checksum-pinned binary below the app's deploy root and enables `cloudflared-<app_name>.service`. It uses systemd credentials and a protected root-owned token file. Only `<app_name>-public.caddy` is added to shared Caddy, bound to the configured loopback port. HTTPS and Cloudflare client IP forwarding apply only there. The existing LAN listener remains unchanged.
+6. CD installs the checksum-pinned binary in `/usr/local/libexec/cloudflared-<app_name>/<version>/`, with traversable root-owned parent directories, then enables `cloudflared-<app_name>.service`. A bounded systemd check requires the service to be active and running before public acceptance. It uses systemd credentials and a protected root-owned token file. Only `<app_name>-public.caddy` is added to shared Caddy, bound to the configured loopback port. HTTPS and Cloudflare client IP forwarding apply only there. The existing LAN listener remains unchanged.
 7. Require LAN and public acceptance. From the independent controller:
 
    ```powershell

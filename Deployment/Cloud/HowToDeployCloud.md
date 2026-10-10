@@ -5,12 +5,12 @@ This is the only cloud deployment plan and runbook. Follow it from top to bottom
 The target site is:
 
 ```text
-https://bookscloud.jacobgrum.com
+https://bookscloud.example.com
 ```
 
 ## Current Status
 
-The Cloud deployment has been brought live at `https://bookscloud.jacobgrum.com`.
+The Cloud deployment has been brought live at `https://bookscloud.example.com`.
 
 This guide remains the source of truth for rebuilding, repairing, or repeating the Cloud deployment. Follow it from top to bottom for a fresh deployment; for an existing deployment, run the doctor script first and continue from the first `ACTION` or `BLOCKER`.
 
@@ -27,8 +27,8 @@ No `[ControlPC]` action is needed for Cloud deployment.
 - Runtime/deploy: Ansible manages OS configuration, services, Docker Compose, migrations, backups, and checks.
 - App build: existing shared CI builds the app image and migration bundle.
 - Cloud CD: separate `CD - Cloud` workflow, not a duplicate CI.
-- Cloud site: `bookscloud.jacobgrum.com`.
-- LocalCluster site remains: `books.jacobgrum.com`.
+- Cloud site: `bookscloud.example.com`.
+- LocalCluster site remains: `books.example.com`.
 - App image remains shared: `ghcr.io/grumlebob/books`.
 - Migration bundle remains shared: `books-migrate-linux-x64`.
 - Cloud server OS: Ubuntu 24.04 LTS for v1.
@@ -325,7 +325,7 @@ Expected Cloud deployment identity:
 
 ```yaml
 app_name: bookscloud
-public_hostname: bookscloud.jacobgrum.com
+public_hostname: bookscloud.example.com
 deploy_root: /opt/bookscloud
 cloudflare_tunnel_name: bookscloud-prod
 ```
@@ -358,7 +358,7 @@ Expected output values:
 
 ```text
 bookscloud
-bookscloud.jacobgrum.com
+bookscloud.example.com
 /opt/bookscloud
 bookscloud-prod
 ```
@@ -699,7 +699,7 @@ Add the public hostname:
 
 ```text
 Subdomain: bookscloud
-Domain: jacobgrum.com
+Domain: example.com
 Path: leave empty
 Type: HTTP
 URL: 127.0.0.1:80
@@ -708,7 +708,7 @@ URL: 127.0.0.1:80
 The resulting public hostname should be:
 
 ```text
-bookscloud.jacobgrum.com
+bookscloud.example.com
 ```
 
 Save the public hostname.
@@ -719,7 +719,7 @@ Verify public health from your current machine:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-curl -fsS https://bookscloud.jacobgrum.com/health/ready
+curl -fsS https://bookscloud.example.com/health/ready
 bash ./Deployment/Cloud/Scripts/doctor.sh
 ```
 
@@ -893,7 +893,7 @@ Acceptance must verify:
 - Caddy can route locally on `cloud-main`.
 - both app nodes pass direct private-network readiness checks, and Caddy routes through the app pool.
 - cloudflared service is active on `cloud-main`.
-- public `https://bookscloud.jacobgrum.com/health/ready` works, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
+- public `https://bookscloud.example.com/health/ready` works, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
 - app home page returns success, or Cloudflare explicitly returns a managed challenge to the GitHub runner after origin checks have already passed.
 - public PostgreSQL and Redis are not reachable.
 - public app port `8080` is not reachable on app nodes.

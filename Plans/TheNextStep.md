@@ -15,8 +15,8 @@ real evidence across all three environments:
 
 ```text
 local               https://localhost:7186
-localcluster-public https://books.jacobgrum.com
-cloud-public        https://bookscloud.jacobgrum.com
+localcluster-public https://books.example.com
+cloud-public        https://bookscloud.example.com
 ```
 
 The first expansion should be slow and evidence-driven:
@@ -157,8 +157,8 @@ Invoke-WebRequest -Uri "https://localhost:7186/health/ready" -SkipCertificateChe
 - [x] Confirm public deployed health endpoints:
 
 ```powershell
-Invoke-WebRequest -Uri "https://books.jacobgrum.com/health/ready" -TimeoutSec 20
-Invoke-WebRequest -Uri "https://bookscloud.jacobgrum.com/health/ready" -TimeoutSec 20
+Invoke-WebRequest -Uri "https://books.example.com/health/ready" -TimeoutSec 20
+Invoke-WebRequest -Uri "https://bookscloud.example.com/health/ready" -TimeoutSec 20
 ```
 
 - [x] Confirm Playwright browser is installed:
@@ -181,8 +181,8 @@ Done notes:
 - Latest CI for `fde1733b9abe024e32dc59a7092cc095e6a63854` was `in_progress` when the evidence pass started: run `26695648541`.
 - Latest observed LocalCluster and Cloud CD runs were successful but for older deployed SHAs, so any public environment comparison must treat deployed-version alignment as a separate check.
 - `https://localhost:7186/health/ready` returned `200 Healthy`.
-- `https://books.jacobgrum.com/health/ready` returned `200 Healthy`.
-- `https://bookscloud.jacobgrum.com/health/ready` returned `200 Healthy`.
+- `https://books.example.com/health/ready` returned `200 Healthy`.
+- `https://bookscloud.example.com/health/ready` returned `200 Healthy`.
 - `.\RunSimulation.ps1 -InstallBrowsers` passed.
 
 ## Phase 1 - Run A Comparable Three-Environment Matrix

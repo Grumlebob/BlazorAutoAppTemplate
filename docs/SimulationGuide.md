@@ -48,8 +48,8 @@ Use the last 15 minutes as the time range.
 
 ```text
 local               https://localhost:7186
-localcluster-public https://books.jacobgrum.com
-cloud-public        https://bookscloud.jacobgrum.com
+localcluster-public https://books.example.com
+cloud-public        https://bookscloud.example.com
 origin-via-tunnel   requires -BaseUrl
 ```
 

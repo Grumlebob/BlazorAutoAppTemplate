@@ -11,8 +11,8 @@ three targets:
 
 ```text
 local Docker
-LocalCluster at books.jacobgrum.com
-Cloud at bookscloud.jacobgrum.com
+LocalCluster at books.example.com
+Cloud at bookscloud.example.com
 ```
 
 It answers:

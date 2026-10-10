@@ -1,6 +1,6 @@
 # Deployment Cloud
 
-Cloud deployment files for `bookscloud.jacobgrum.com` live here.
+Cloud deployment files for `bookscloud.example.com` live here.
 
 `HowToDeployCloud.md` is the only cloud deployment plan and runbook.
 

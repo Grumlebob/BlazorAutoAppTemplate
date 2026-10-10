@@ -1728,10 +1728,11 @@ for workflow in workflow_paths:
                     fail(f"{workflow}: every CI job must use the neutral CI label and preserve its fallbacks")
                 profile = re.search(r"(?ms)^      - name: Verify CI runner\n.*?(?=^      - name: |\Z)", job)
                 if profile is None or any(needle not in profile.group(0) for needle in (
-                    "CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}",
+                    "CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}",
+                    "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable",
                     'test "$(hostname)" = "$CI_RUNNER_HOST"',
                 )):
-                    fail(f"{workflow}: every CI job must verify the configured CI host with node-main fallback")
+                    fail(f"{workflow}: every CI job must verify the configured CI host")
         elif single_node_workflow:
             require_contains(workflow, "Verify the intended native node", "explicit native deployment host verification")
             require_contains(workflow, 'test "$(hostname)" = "$LOCALSINGLENODE_HOST"', "mandatory configured single-node host")
@@ -1845,7 +1846,14 @@ require_contains(single + "/ansible/roles/single_node_public/templates/app.caddy
 require_contains(single + "/ansible/roles/single_node_public/templates/app.caddy.j2", 'header_up X-Forwarded-Proto https', "public HTTPS scheme")
 require_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", '--token-file %d/tunnel-token', "file-based connector credential")
 require_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", 'LoadCredential=tunnel-token:', "systemd protected credential")
+require_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", '/usr/local/libexec/cloudflared-{{ app_name }}/{{ public_cloudflared_version }}/cloudflared', "traversable app-specific connector executable")
+require_not_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", '{{ deploy_root }}/cloudflared/', "connector executable outside private deploy root")
 require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", 'checksum: "{{ public_cloudflared_checksum }}"', "checksum-pinned connector")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "public_exec_base.stat.mode[-1] in ['1', '3', '5', '7']", "shared executable parent must permit dynamic-user traversal")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", '--property=ActiveState,SubState,ExecMainStatus', "bounded connector startup health check")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "'ActiveState=active'", "connector must reach active systemd state")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "'SubState=running'", "connector must be running before public acceptance")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "'ExecMainStatus=0'", "connector process must have a successful exit status")
 require_contains("Scripts/Test-DeployedSite.ps1", "@('http', 'https')", "HTTP and HTTPS acceptance")
 require_contains("Scripts/Test-DeployedSite.ps1", "'HTTPS-cookie'", "public authentication cookie security")
 require_contains(".github/workflows/cd-localsinglenode.yml", '-e @"$PUBLIC_EXTRA_VARS_FILE"', "validated public inputs deployed")

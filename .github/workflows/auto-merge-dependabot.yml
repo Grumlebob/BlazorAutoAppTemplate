@@ -62,8 +62,10 @@ jobs:
     steps:
       - name: Verify CI runner
         env:
-          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
+          set -euo pipefail
+          : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected runner hostname}"
           echo "Runner name: ${RUNNER_NAME:-unknown}"
           echo "Host: $(hostname)"
           test "$(hostname)" = "$CI_RUNNER_HOST"
