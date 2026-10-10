@@ -1,0 +1,10 @@
+---
+# Official GitHub release packages include the caddy user and systemd services.
+# Update the version and both SHA-256 values together when upgrading Caddy.
+caddy_package_version: "2.11.7"
+caddy_package_architectures:
+  x86_64: amd64
+  aarch64: arm64
+caddy_package_sha256:
+  amd64: a22b914ffd1958da42bc7ab13b7b62c6100634e0798ab594891d2d61d53ba749
+  arm64: ca8ae5a50439642d7672344b4ec64e47cbddf81beb5da302420a78522eb5a47e

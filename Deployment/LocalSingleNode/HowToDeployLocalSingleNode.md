@@ -22,6 +22,8 @@ If you have a reserved address or intended node name, add them to the prompt. Th
 
 Bootstrap installs packages, approved hostname, machine facts, Ansible, Docker/Caddy/UFW, protected secrets/backups and an app-specific Actions service. It imports the operator's public GitHub SSH keys before hardening SSH; no imported keys means password SSH stays enabled. It preserves existing matching registrations, secrets and data volumes. Each numbered failure prints the same operator command to rerun.
 
+Caddy uses the official GitHub release Debian package, with its version and architecture-specific SHA-256 checksums pinned in `Deployment/Common/ansible/roles/caddy_install/defaults/main.yml`. Update the version and checksums together through a PR to upgrade it through provisioning. Bootstrap and shared provisioning retire only the exact legacy Cloudsmith source created by this repository, preserving it as `caddy-stable.list.disabled` before apt updates. Foreign source contents or conflicting backups stop setup for operator inspection.
+
 The runner's `deploy` account has Docker group access and passwordless sudo. Both confer root-equivalent power. The install user gets no sudoers change. A fresh one-PC fork can explicitly enable `--ci-runner`, which also grants the install user Docker group access for its local gates; use a fresh group session afterwards. The template's existing CI capacity stays on its current runner.
 
 ## Portable settings

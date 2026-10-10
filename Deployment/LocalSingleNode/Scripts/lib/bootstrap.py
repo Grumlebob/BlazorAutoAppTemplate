@@ -78,11 +78,13 @@ def main():
         print(f"Step {number}/8: {name}", flush=True)
     try:
         begin(1, "OS packages and approved node name")
+        # A failed bootstrap may have left Cloudsmith blocking all apt updates.
+        run("python3", str(ROOT / "Deployment/Common/Scripts/retire-caddy-cloudsmith-source.py"))
         packages = ["git", "gh", "curl", "openssh-server", "avahi-daemon", "libnss-mdns", "python3-venv", "python3-pip", "sshpass", "iproute2", "ca-certificates"]
         for action in (["update"], ["install", "-y", "--no-install-recommends", *packages]):
             for attempt in range(3):
                 try:
-                    run("timeout", "600", "apt-get", *action, env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
+                    run("timeout", "--foreground", "600", "apt-get", *action, stdin=subprocess.DEVNULL, env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
                     break
                 except subprocess.SubprocessError:
                     if attempt == 2:

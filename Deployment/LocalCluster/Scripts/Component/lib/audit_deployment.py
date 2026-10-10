@@ -801,14 +801,26 @@ require_contains(
 )
 require_contains(
     "Deployment/Common/ansible/roles/caddy_install/tasks/main.yml",
-    "creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
-    "idempotent Caddy key installation",
+    "https://github.com/caddyserver/caddy/releases/download/v{{ caddy_package_version }}",
+    "pinned official Caddy release package",
 )
 require_contains(
     "Deployment/Common/ansible/roles/caddy_install/tasks/main.yml",
-    "set -euo pipefail",
-    "strict Caddy key installation shell",
+    "checksum: \"sha256:{{ caddy_package_sha256[caddy_package_architectures[ansible_facts['architecture']]] }}\"",
+    "verified Caddy package download",
 )
+for role in ("caddy_install", "mint_base", "docker"):
+    require_contains(
+        f"Deployment/Common/ansible/roles/{role}/tasks/main.yml",
+        "../../../Scripts/retire-caddy-cloudsmith-source.py",
+        "retire only the known legacy Caddy source before apt",
+    )
+bootstrap_source = read("Deployment/LocalSingleNode/Scripts/lib/bootstrap.py")
+retirement_position = bootstrap_source.find("retire-caddy-cloudsmith-source.py")
+if retirement_position < 0 or retirement_position > bootstrap_source.find('for action in (["update"]'):
+    fail("LocalSingleNode bootstrap must retire the legacy Caddy source before apt")
+require_contains("Deployment/LocalSingleNode/Scripts/lib/bootstrap.py", '"timeout", "--foreground", "600", "apt-get"', "foreground apt timeout without terminal job-control stops")
+require_contains("Deployment/LocalSingleNode/Scripts/lib/bootstrap.py", "stdin=subprocess.DEVNULL", "noninteractive bootstrap apt input")
 require_contains(
     "Deployment/LocalCluster/ansible/roles/caddy/tasks/main.yml",
     "Reload Caddy with validated configuration",
