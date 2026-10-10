@@ -1,5 +1,4 @@
 using BlazorAutoApp.Core.Features.Books.Contracts;
-using BlazorAutoApp.Client.Features.Books.AuthorBookcase;
 using BlazorAutoApp.Features.Books.Caching;
 using BlazorAutoApp.Features.Books.Endpoints;
 using BlazorAutoApp.Features.Books.AuthorBookcase.Seed;
@@ -14,7 +13,6 @@ public static class DependencyInjection
         services.AddScoped<IBooksApi, BooksServerService>();
         services.AddScoped<IAuthorBooksApi, AuthorBooksServerService>();
         services.AddScoped<IAuthorBookSeeder, AuthorBookSeeder>();
-        services.AddScoped<AuthorBookcaseState>();
         services.Configure<BooksCacheOptions>(config.GetSection("Cache:Books"));
         return services;
     }

@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. The current application still builds the Blazor composition. P1.1 adds fail-closed profile selection; P1.2 through P7 add React composition, the static bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend; P1.3 through P7 add the static bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
 
 ## Selecting a profile
 
@@ -21,7 +21,7 @@ validation_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --ove
 docker build --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
 ```
 
-CI resolves the tracked file once and passes the validated output to MSBuild and Docker. The application remains Blazor-composed until P1.2/P1.3; the React override currently proves selection and validation only.
+CI resolves the tracked file once and passes the validated output to MSBuild and Docker. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services; its static assets and SPA routes arrive in P1.3.
 
 A downstream React product selects `React` in its own tracked `frontend-profile.txt` after the React composition packets are merged. The upstream template and existing Blazor demo remain on Blazor Auto.
 
@@ -31,7 +31,7 @@ React is a public catalog and reference feature served from the existing ASP.NET
 
 The delivered routes are `/`, `/books` and `/books/author/<seed-key>`. Public book reads use the existing `/api/author-books` endpoints and seeded sample data. Resolve an author `seed-key` from the public list, then call the numeric item endpoint. Keep query bounds, rate limits and public cache behavior.
 
-React v1 has no login, logout, registration, account settings, private bookcase, session provider or account API. It adds no SMTP/MailKit, recovery, Google, passkeys, export, deletion or reauthentication support. Public API requests omit credentials. Existing Blazor Identity, cookies, account pages and protected `/api/books` behavior remain in place. Anonymous protected API requests must return JSON `401`, not private data, login HTML, an SPA page or a successful write.
+React v1 has no login, logout, registration, account settings, private bookcase, session provider or account API. It adds no SMTP/MailKit, recovery, external Google handler, passkeys, export, deletion or reauthentication support. Shared Identity cookies and authorization remain for protected backend APIs; public API requests omit credentials. Existing Blazor account pages and protected `/api/books` behavior remain in place. Anonymous protected API requests must return JSON `401`, not private data, login HTML, an SPA page or a successful write.
 
 Reserve `/Account`, `/account`, `/api/auth` and provider callback paths case-insensitively. These inactive routes return real `404` responses. Never route API, health, missing assets or unknown reserved paths to the SPA shell.
 
@@ -44,7 +44,7 @@ Recheck this inventory when a packet changes one of these boundaries.
 | Host composition | `BlazorAutoApp/Program.cs`; `BlazorAutoApp/BlazorAutoApp.csproj` | Startup currently registers Razor Auto, Blazor client state, Identity UI, seeds, APIs and health together. Select one frontend composition while keeping common backend services shared. The Blazor client reference and WebAssembly server package are unconditional today. |
 | Client routes and state | `BlazorAutoApp.Client/Routes.razor`; `BlazorAutoApp.Client/Features/Books`; `BlazorAutoApp/Components` | Keep existing Blazor routes and authenticated state. Add React modules under `BlazorAutoApp.React`; do not copy the Blazor web root into that profile. |
 | Public and private APIs | `BlazorAutoApp/Features/Books/Endpoints/AuthorBooksEndpoints.cs`; `BooksEndpoints.cs`; `BlazorAutoApp/Features/Books/DependencyInjection.cs` | Reuse public author-book reads. Keep owned-book routes authenticated. Move Blazor-only UI state registration out of common backend composition. |
-| Identity boundary | `BlazorAutoApp/Features/Login/Account/LoginFeatureExtensions.cs`; `CurrentUserAccessor.cs`; `IdentityComponentsEndpointRouteBuilderExtensions.cs` | Keep Blazor authentication behavior. Compile and map account UI only in Blazor composition. React gets no account routes or authentication handler. |
+| Identity boundary | `BlazorAutoApp/Features/Login/Account/LoginFeatureExtensions.cs`; `CurrentUserAccessor.cs`; `IdentityComponentsEndpointRouteBuilderExtensions.cs` | Keep shared Identity cookies and protected API authorization. Register Blazor authentication state, external Google handler and account endpoints only in Blazor composition. React resolves user identity only from the authenticated HTTP principal and maps no account routes. |
 | API/build inputs | `Directory.Build.props`; `Directory.Packages.props`; `global.json`; `BlazorAutoApp/Dockerfile`; `BlazorAutoApp.Client/package.json` and lockfile | Current Docker build copies both server and Blazor client projects. Existing client npm tooling builds Blazor CSS and Lighthouse assets. Add a separate React package and build stage; keep ordinary Blazor builds independent of React npm. |
 | Local orchestration | `docker-compose.yml`; `Scripts/RunLocal.ps1`; `Scripts/RunLighthouse.ps1` | Add explicit profile-aware local commands and an HTTPS Vite proxy to C#. Do not infer profile from a hostname or installed output. |
 | CI and image release | `.github/workflows/ci.yml` | CI currently installs the Blazor client package, rebuilds committed Tailwind CSS, builds and smokes a Docker image on PRs, then publishes the main image and migration manifest. Validate both clean profiles on PRs; publish only the repository's selected profile from main. |

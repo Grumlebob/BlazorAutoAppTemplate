@@ -35,6 +35,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="Frontend/FrontendComposition.BlazorAuto.cs" Condition="'$(FrontendProfile)' != 'BlazorAuto'" />
+    <Compile Remove="Frontend/FrontendComposition.React.cs" Condition="'$(FrontendProfile)' != 'React'" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Enrichers.Environment" />
