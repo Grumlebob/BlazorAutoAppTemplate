@@ -1,0 +1,13 @@
+<Project>
+  <Target Name="ValidateFrontendProfile" BeforeTargets="Restore;PrepareForBuild;Build;Publish;Pack;VSTest">
+    <Error
+      Condition="'$(FrontendProfileFromEnvironment)' != ''"
+      Text="The FrontendProfile environment variable is not supported. Use frontend-profile.txt or an explicit -p:FrontendProfile validation override." />
+    <Error
+      Condition="'$(FrontendProfile)' == ''"
+      Text="The frontend profile is missing or empty. Set the root frontend-profile.txt to exactly BlazorAuto or React." />
+    <Error
+      Condition="'$(FrontendProfile)' != '' and $([System.String]::CompareOrdinal('$(FrontendProfile)', 'BlazorAuto')) != 0 and $([System.String]::CompareOrdinal('$(FrontendProfile)', 'React')) != 0"
+      Text="Invalid frontend profile. Expected exactly BlazorAuto or React." />
+  </Target>
+</Project>

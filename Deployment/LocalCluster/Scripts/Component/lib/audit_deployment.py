@@ -882,6 +882,12 @@ for needle, why in [
     ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh", "Docker smoke resource lifecycle test"),
+    ("python3 -m unittest Scripts/CI/tests/test_frontend_profile.py", "frontend profile resolver and MSBuild validation tests"),
+    ("python3 Scripts/Frontend/resolve_frontend_profile.py", "single validated frontend profile resolver"),
+    ("frontend_profile: ${{ steps.frontend_profile.outputs.profile }}", "validated profile passed from CI validation to release"),
+    ("-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}", "resolved frontend profile passed to MSBuild"),
+    ('--build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}"', "resolved frontend profile passed to Docker builds"),
+    ("needs.validate.outputs.frontend_profile", "main release uses the validated profile"),
     ("python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py", "migration staging provenance tests"),
     ("Deployment/Common/Scripts/Tests/test_release_contract.py", "release manifest contract tests"),
     ("Deployment/Common/Scripts/Tests/test_ci_provenance.py", "CI provenance selection tests"),
@@ -902,6 +908,16 @@ for needle, why in [
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+
+dockerfile = read("BlazorAutoApp/Dockerfile")
+for needle, why in [
+    ("COPY Directory.Build.targets ./", "Docker profile validation target copied before restore"),
+    ("COPY frontend-profile.txt ./", "tracked frontend profile copied before restore"),
+    ("ARG FRONTEND_PROFILE_OVERRIDE", "temporary Docker profile validation override"),
+    ("-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE", "same profile passed to Docker restore/build/publish"),
+]:
+    if needle not in dockerfile:
+        fail(f"BlazorAutoApp/Dockerfile: missing {why}")
 
 for path, checks in {
     ".yamllint.yml": [

@@ -1,7 +1,7 @@
 # Independent React Frontend for the ASP.NET Core Template
 
-Status: authorized delivery; P0.1 complete, P0.2 in progress.
-Last reviewed: 2026-10-10.
+Status: authorized delivery; P0.1 and P0.2 complete, P1.1 in progress.
+Last reviewed: 2026-10-11.
 Completion requires implementation PRs merged to `main`, green main CI, recorded merge commits, and a verified public React deployment on the operator's existing native demo node. A build, container smoke test, or successful homepage response alone is not completion.
 
 ## How to use this plan
@@ -687,14 +687,14 @@ Reverify repository ownership/name, native hostname/capacity, free app resources
 
 ## 14. Evidence and completion
 
-P0.1 is complete. The clean task worktree is based on verified origin/main at 1bd71f73b151e68f1ab40720840704fba9261afa. Main CI run 38066456492 passed for that exact commit. No application implementation/tests, repository creation, live node/DNS/provider changes or deployment have been performed. P0.2 is in progress. The owner clarified that the first products do not need accounts; this supersedes earlier full account-parity scope.
+P0.1 and P0.2 are complete. P0.1 used verified origin/main at 1bd71f73b151e68f1ab40720840704fba9261afa; main CI run 38066456492 passed. P0.2 merged through PR #132 as e2bdd54e911c2e67de3082a705172221decdadc5; main CI run 38090907816 passed on that exact commit. P1.1 profile selection and resolver work is in progress from that verified main. No React UI or account implementation, downstream repository, live node/DNS/provider changes or deployment have been performed. The owner clarified that the first products do not need accounts; this supersedes earlier full account-parity scope.
 
 ### Phase ledger
 
 | Phase | Status | PR / merge commit | Evidence / next action |
 | --- | --- | --- | --- |
-| P0 | In progress | - | P0.1 complete on verified main 1bd71f7 (main CI 38066456492 green); P0.2 inventory/toolchain documentation in progress. No unrelated dirty work imported. |
-| P1 | Pending | - | Independent profile proof |
+| P0 | Complete | PR #132; e2bdd54e911c2e67de3082a705172221decdadc5 | P0.1 verified main 1bd71f7 (CI 38066456492); P0.2 PR head eebf657d07219bbe4368d5ab654812e6eb77e234 passed build-test-push; main CI 38090907816 is green on merge commit e2bdd54e. |
+| P1 | In progress | - | P1.1 profile selection, resolver and fail-closed validation in progress. |
 | P2 | Pending | - | Public/private backend boundary |
 | P3 | Pending | - | Account-free profile/security contract |
 | P4 | Pending | - | Reproducible schema/types |

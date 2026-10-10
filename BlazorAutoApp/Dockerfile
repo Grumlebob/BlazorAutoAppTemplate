@@ -12,23 +12,40 @@ WORKDIR /src
 # Copy project files first for better layer caching
 COPY global.json ./
 COPY Directory.Build.props ./
+COPY Directory.Build.targets ./
 COPY Directory.Packages.props ./
+COPY frontend-profile.txt ./
 COPY BlazorAutoApp/BlazorAutoApp.csproj BlazorAutoApp/
 COPY BlazorAutoApp.Client/BlazorAutoApp.Client.csproj BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/BlazorAutoApp.Core.csproj BlazorAutoApp.Core/
 
+ARG FRONTEND_PROFILE_OVERRIDE
+
 # Restore only the web app graph to avoid pulling test projects
-RUN dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj
+RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
+      dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
+    else \
+      dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj; \
+    fi
 
 # Copy the full sources
 COPY BlazorAutoApp/ BlazorAutoApp/
 COPY BlazorAutoApp.Client/ BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/ BlazorAutoApp.Core/
 
-RUN dotnet build ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/build --no-restore
+RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
+      dotnet build ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/build --no-restore "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
+    else \
+      dotnet build ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/build --no-restore; \
+    fi
 
 FROM build AS publish
-RUN dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore
+ARG FRONTEND_PROFILE_OVERRIDE
+RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
+      dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
+    else \
+      dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore; \
+    fi
 
 FROM base AS final
 WORKDIR /app

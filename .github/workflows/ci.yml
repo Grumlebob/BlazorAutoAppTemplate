@@ -25,6 +25,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     timeout-minutes: 75
+    outputs:
+      frontend_profile: ${{ steps.frontend_profile.outputs.profile }}
     permissions:
       contents: read
 
@@ -124,8 +126,20 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Resolve frontend profile
+        id: frontend_profile
+        run: |
+          set -euo pipefail
+          profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          echo "profile=${profile}" >> "$GITHUB_OUTPUT"
+
+      - name: Test frontend profile selection
+        run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
+
       - name: Restore
-        run: dotnet restore
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
+        run: dotnet restore "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
 
       - name: Verify .NET formatting
         run: dotnet format --verify-no-changes --verbosity minimal --no-restore
@@ -232,8 +246,10 @@ jobs:
         run: dotnet list BlazorAutoApp.sln package --deprecated
 
       - name: Build
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
         run: |
-          dotnet build --configuration Release --no-restore
+          dotnet build --configuration Release --no-restore "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
           test -s BlazorAutoApp.Test/bin/Release/net10.0/BlazorAutoApp.Test.dll
           test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
 
@@ -249,12 +265,15 @@ jobs:
       # Ryuk stays enabled as the backstop; the fixtures also dispose their
       # containers explicitly and label them with localcluster.ci.* labels.
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=ci.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/suite"
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
+        run: dotnet test --configuration Release --no-build "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}" --logger "trx;LogFileName=ci.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/suite"
 
       - name: Prove Testcontainers lifecycle cleanup
         env:
           RUN_TESTCONTAINER_LIFECYCLE: "1"
-        run: dotnet test --configuration Release --no-build --filter "FullyQualifiedName~TestContainerLifecycleTests" --logger "trx;LogFileName=lifecycle.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/lifecycle"
+          RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
+        run: dotnet test --configuration Release --no-build "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}" --filter "FullyQualifiedName~TestContainerLifecycleTests" --logger "trx;LogFileName=lifecycle.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/lifecycle"
 
       - name: Upload .NET test results
         if: ${{ !cancelled() }}
@@ -302,9 +321,12 @@ jobs:
       # never push. Main builds and publishes in publish-main instead.
       - name: Build Docker image
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
         run: |
           docker build \
             --pull \
+            --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label localcluster.ci.owner=ci-build \
@@ -487,14 +509,19 @@ jobs:
             --runtime "${MIGRATION_RUNTIME}"
 
       - name: Build browser smoke test binaries
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
-          dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release
+          dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
           test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
 
       - name: Build Docker image
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
           docker build \
             --pull \
+            --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label localcluster.ci.owner=ci-build \

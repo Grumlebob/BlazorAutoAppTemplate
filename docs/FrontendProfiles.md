@@ -2,9 +2,28 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. The current main release is still Blazor Auto only. P1 through P7 add profile selection, React composition, the static bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those features already exist.
+This guide defines the approved public React v1 profile and its build contract. The current application still builds the Blazor composition. P1.1 adds fail-closed profile selection; P1.2 through P7 add React composition, the static bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
 
-The template default remains `BlazorAuto`. A downstream product selects `React` in its own tracked `frontend-profile.txt`; the upstream template and existing Blazor demo remain on Blazor Auto.
+## Selecting a profile
+
+The only persisted selection is the tracked root `frontend-profile.txt`; the template value is exactly `BlazorAuto`. `Directory.Build.props` reads that file when no explicit MSBuild property is supplied. Builds reject missing, empty or unsupported values. A non-empty `FrontendProfile` environment variable is rejected so the build cannot silently select a profile from machine state.
+
+The shared orchestration resolver trims and validates the file, then prints one canonical value:
+
+```bash
+python3 Scripts/Frontend/resolve_frontend_profile.py
+```
+
+Use `python3 Scripts/Frontend/resolve_frontend_profile.py --override React` only for temporary validation. It does not change the tracked file. Pass its canonical output to Docker as `FRONTEND_PROFILE_OVERRIDE`; the Dockerfile applies that same value to restore, build and publish. Without an override, Docker reads the copied tracked file.
+
+```bash
+validation_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --override React)"
+docker build --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
+```
+
+CI resolves the tracked file once and passes the validated output to MSBuild and Docker. The application remains Blazor-composed until P1.2/P1.3; the React override currently proves selection and validation only.
+
+A downstream React product selects `React` in its own tracked `frontend-profile.txt` after the React composition packets are merged. The upstream template and existing Blazor demo remain on Blazor Auto.
 
 ## Public React v1
 
