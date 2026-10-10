@@ -1,0 +1,233 @@
+name: CD - Deploy LocalSingleNode
+run-name: "CD LocalSingleNode @ ${{ inputs.target_sha || github.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: Run the EF migration bundle before starting app servers
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      target_sha:
+        description: Commit on main to deploy (full SHA). Empty deploys the dispatched main commit.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: cd-localsinglenode
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 45
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localsinglenode
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Require main branch
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "LocalSingleNode CD must be dispatched from main, got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
+      - name: Resolve target commit
+        env:
+          INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          TARGET_SHA="${INPUT_TARGET_SHA:-$GITHUB_SHA}"
+          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "target_sha must be a full lowercase 40-character commit SHA, got '${TARGET_SHA}'." >&2
+            exit 1
+          fi
+          echo "TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
+
+      - name: Isolate registry credentials for this job
+        run: |
+          docker_config="$(mktemp -d "${RUNNER_TEMP}/cd-docker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"
+          chmod 0700 "$docker_config"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Only commits already on main can deploy; the workflow code itself always
+      # comes from the dispatched main commit.
+      - name: Verify target is on main
+        run: |
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$GITHUB_SHA" || {
+            echo "target_sha ${TARGET_SHA} is not an ancestor of main ${GITHUB_SHA}." >&2
+            exit 1
+          }
+
+      - name: Common release settings validation
+        run: bash Deployment/Common/Scripts/validate-common-release.sh
+
+      - name: Load deployment settings
+        run: |
+          APP_NAME="$(bash Deployment/LocalSingleNode/Scripts/read-setting.sh app_name)"
+          APP_IMAGE="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
+          MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          {
+            echo "APP_NAME=$APP_NAME"
+            echo "APP_IMAGE=$APP_IMAGE"
+            echo "MIGRATION_BUNDLE_NAME=$MIGRATION_BUNDLE_NAME"
+            echo "MIGRATION_ARTIFACT_NAME=$MIGRATION_ARTIFACT_NAME"
+            echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            echo "APP_VERSION=$TARGET_SHA"
+          } >> "$GITHUB_ENV"
+
+      - name: Require successful CI for this commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
+            echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
+            exit 1
+          }
+          CI_RUN_ID="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["id"])' "$ci_result")"
+          CI_RUN_ATTEMPT="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["run_attempt"])' "$ci_result")"
+          {
+            echo "CI_RUN_ID=${CI_RUN_ID}"
+            echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
+          } >> "$GITHUB_ENV"
+          echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+
+      # The release artifact holds the migration bundle and the release manifest.
+      # It is needed for every deploy, with or without migrations.
+      - name: Download release artifact from CI
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
+          path: artifacts/migrations
+          run-id: ${{ env.CI_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4.5.2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture registry release descriptor
+        run: |
+          docker pull --quiet "${APP_IMAGE}:${TARGET_SHA}"
+          docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
+            --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-registry-repodigests.json"
+          echo "REGISTRY_MANIFEST_PATH=${RUNNER_TEMP}/release-registry-repodigests.json" >> "$GITHUB_ENV"
+
+      - name: Validate release manifest
+        run: |
+          set -euo pipefail
+          test -f artifacts/migrations/release-manifest.json
+          RELEASE_IMAGE_DIGEST="$(python3 Deployment/Common/Scripts/validate_release_manifest.py \
+            --manifest artifacts/migrations/release-manifest.json \
+            --registry-json "$REGISTRY_MANIFEST_PATH" \
+            --bundle-dir artifacts/migrations \
+            --expected-repository "$SOURCE_REPO_URL" \
+            --expected-sha "$TARGET_SHA" \
+            --expected-ci-run-id "$CI_RUN_ID" \
+            --expected-ci-run-attempt "$CI_RUN_ATTEMPT" \
+            --expected-image "$APP_IMAGE" \
+            --expected-bundle-name "$MIGRATION_BUNDLE_NAME")"
+          echo "RELEASE_IMAGE_DIGEST=${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_ENV"
+          chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+          echo "Release manifest verified: ${APP_IMAGE}:${TARGET_SHA} ${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+
+      # Check only: CI/CD jobs never run apt. Provision on the control machine with
+      # Deployment/LocalCluster/Scripts/install-ansible.sh --provision.
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/Common/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-playbook"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+
+      - name: Write GHCR deploy credentials
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          umask 077
+          GHCR_EXTRA_VARS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}_ghcr_deploy_vars.XXXXXX")"
+          echo "GHCR_EXTRA_VARS_FILE=${GHCR_EXTRA_VARS_FILE}" >> "$GITHUB_ENV"
+          export GHCR_EXTRA_VARS_FILE
+          python3 - <<'PY'
+          import json
+          import os
+
+          values = {
+              "vault_ghcr_username": os.environ["GHCR_USERNAME"],
+              "vault_ghcr_token": os.environ["GHCR_TOKEN"],
+          }
+          with open(os.environ["GHCR_EXTRA_VARS_FILE"], "w", encoding="utf-8") as output:
+              json.dump(values, output, sort_keys=True)
+              output.write("\n")
+          PY
+
+      - name: Refresh machine facts and generate local inventory
+        run: |
+          bash Deployment/LocalSingleNode/Scripts/detect-machine.sh --previous /etc/localsinglenode/machine.yml --output "$RUNNER_TEMP/machine.yml"
+          bash Deployment/LocalSingleNode/Scripts/generate-inventory.sh --machine "$RUNNER_TEMP/machine.yml" --output "$RUNNER_TEMP/hosts.yml"
+
+      - name: Deploy the verified release under the shared lock
+        working-directory: Deployment/LocalSingleNode/ansible
+        env:
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+        run: |
+          bash ../../Common/Scripts/with-deploy-lock.sh             ansible-playbook -i "$RUNNER_TEMP/hosts.yml" playbooks/site.yml             -e @"/etc/$APP_NAME/secrets.yml"             -e @"$GHCR_EXTRA_VARS_FILE"             -e "app_version=$TARGET_SHA"             -e "release_image_digest=$RELEASE_IMAGE_DIGEST"             -e "source_repo_url=$SOURCE_REPO_URL"             -e "run_migrations=$RUN_MIGRATIONS"             -e "machine_local_path=$RUNNER_TEMP/machine.yml"             -e "migration_bundle_local_path=$GITHUB_WORKSPACE/artifacts/migrations/$MIGRATION_BUNDLE_NAME"
+
+      - name: Run HTTP acceptance
+        run: bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
+
+      - name: Verify running release identity
+        run: bash Deployment/LocalSingleNode/Scripts/verify-release-identity.sh "$APP_IMAGE" "$RELEASE_IMAGE_DIGEST"
+
+      - name: Remove temporary credential files
+        if: always()
+        run: |
+          if [ -n "${GHCR_EXTRA_VARS_FILE:-}" ]; then
+            rm -f "${GHCR_EXTRA_VARS_FILE}"
+          fi
+          if [ -n "${DOCKER_CONFIG:-}" ] && [ -d "${DOCKER_CONFIG}" ]; then
+            rm -rf "${DOCKER_CONFIG}"
+          fi
+          rm -f -- "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml"

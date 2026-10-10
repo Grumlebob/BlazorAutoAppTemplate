@@ -1,0 +1,78 @@
+name: LocalSingleNode maintenance
+run-name: "LocalSingleNode maintenance @ ${{ github.sha }}"
+on:
+  workflow_dispatch:
+    inputs:
+      backup_now:
+        description: Create and verify a protected backup
+        type: boolean
+        default: true
+      reboot_check:
+        description: Reboot 30 seconds after the entire successful run finishes
+        type: boolean
+        default: false
+      acceptance_only:
+        description: Run only HTTP acceptance and report uptime
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: localsinglenode-maintenance
+  cancel-in-progress: false
+jobs:
+  maintenance:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 30
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localsinglenode
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Require main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Protected backup and scoped maintenance
+        if: inputs.acceptance_only != true
+        env:
+          BACKUP_NOW: ${{ inputs.backup_now }}
+        run: |
+          args=()
+          if [[ "$BACKUP_NOW" == true ]]; then args+=(--backup-now); fi
+          bash Deployment/LocalSingleNode/Scripts/run-maintenance.sh "${args[@]}"
+      - name: Run HTTP acceptance and report uptime
+        run: |
+          bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
+          uptime -s
+          awk '{printf "Uptime seconds: %.0f\n", $1}' /proc/uptime
+      - name: Schedule completion-aware reboot check
+        if: inputs.reboot_check == true && inputs.acceptance_only != true
+        env:
+          EXPECTED_NODE: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          INSTALL_USER="$(python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'Deployment/LocalSingleNode/Scripts/lib')
+          from ls_settings import read_yaml, ETC
+          print(read_yaml(ETC / 'localsinglenode/machine.yml', node=True)['install_user'])
+          PY
+          )"
+          sudo -n systemd-run --unit="localsinglenode-reboot-$GITHUB_RUN_ID"             --on-active=5s /usr/local/lib/localsinglenode/wait-for-successful-run-reboot.sh             "$INSTALL_USER" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$EXPECTED_NODE"

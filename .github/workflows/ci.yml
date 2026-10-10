@@ -96,6 +96,12 @@ jobs:
               --syntax-check \
               "$syntax_root/Deployment/LocalCluster/ansible/playbooks/site.yml"
 
+      - name: Validate LocalSingleNode playbook syntax
+        run: bash Deployment/LocalSingleNode/Scripts/validate-playbooks.sh
+
+      - name: Test native single-node setup and maintenance fixtures
+        run: python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v
+
       # Report only. node-main's Docker daemon is shared with other apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
@@ -120,7 +126,7 @@ jobs:
       - name: Deployment shell lint
         run: |
           {
-            find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
+            find Deployment/LocalSingleNode/Scripts Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh' -print0
             find Deployment/Cloud/Scripts -type f -name '*.sh' -print0
             find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
             find Scripts/CI -type f -name '*.sh' -print0
@@ -128,6 +134,9 @@ jobs:
 
       - name: Test LocalCluster deployment lock
         run: bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh
+
+      - name: Test Ansible user-only provisioning
+        run: bash Deployment/Common/Scripts/Tests/test-install-ansible-user-only.sh
 
       - name: Test Ansible check-only setup
         run: bash Deployment/LocalCluster/Scripts/Tests/test-install-ansible-check.sh
@@ -290,6 +299,7 @@ jobs:
           docker build \
             --pull \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
@@ -298,10 +308,15 @@ jobs:
             .
 
       - name: Docker smoke and browser smoke
+        id: ci_smoke
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         env:
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+      - name: Remove this run's smoke resources after interruption
+        if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
       # Owned cleanup only: remove the exact image tag this job built. Unscoped
       # prunes are not allowed here because node-main's Docker daemon is shared.
@@ -473,6 +488,7 @@ jobs:
           docker build \
             --pull \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
@@ -481,9 +497,14 @@ jobs:
             .
 
       - name: Docker smoke and browser smoke
+        id: ci_smoke
         env:
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+
+      - name: Remove this run's smoke resources after interruption
+        if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
+        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
 
       - name: Login to GHCR
         uses: docker/login-action@v4.5.2

@@ -1,0 +1,12 @@
+---
+app_name: books
+app_port: 8080
+postgres_port: 5432
+redis_port: 6379
+deploy_root: /opt/books
+docker_subnet: 172.30.10.0/24
+lan_http_port: 80
+lan_hostnames: []
+backup_root: /opt/books-backups
+backup_keep_days: 7
+observability_enabled: false

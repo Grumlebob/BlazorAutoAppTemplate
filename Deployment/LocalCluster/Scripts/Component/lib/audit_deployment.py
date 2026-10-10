@@ -832,7 +832,7 @@ for needle, why in [
     ("Verify CI runner", "explicit CI runner verification"),
     ("Ensure self-hosted runner prerequisites", "node-main prerequisite bootstrap step"),
     ("RUNNER_TEMP", "temporary self-hosted runner tool install directories"),
-    ("find Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
+    ("find Deployment/LocalSingleNode/Scripts Deployment/LocalCluster/Scripts Deployment/Common/Scripts -type f -name '*.sh'", "LocalCluster and Common shell lint roots"),
     ("find Deployment/Cloud/Scripts -type f -name '*.sh'", "Cloud shell lint root"),
     ("bash Deployment/Common/Scripts/validate-common-release.sh", "common release validation step"),
     ("bash Deployment/Cloud/Scripts/validate-cloud-settings.sh", "Cloud settings validation step"),
@@ -863,6 +863,8 @@ for needle, why in [
     ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
     ("retention-days: 7", "short migration artifact retention"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
+    ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
+    ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
     ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact-tag CI image removal"),
     ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
     ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
@@ -911,6 +913,12 @@ for path, checks in {
 for forbidden in ("prune-docker-residue.sh --force", "docker system prune", "docker container prune", "docker builder prune", "docker network prune", "docker volume prune"):
     if forbidden in ci:
         fail(f".github/workflows/ci.yml: CI must not run host-wide Docker cleanup: {forbidden}")
+if ci.count("run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only") != 2:
+    fail(".github/workflows/ci.yml: both smoke jobs must recover their own interrupted resources")
+if ci.index("ci-docker-smoke.sh --cleanup-only") > ci.index("name: Remove this run's local Docker image"):
+    fail(".github/workflows/ci.yml: owned smoke resources must be removed before their exact image tag")
+for needle in ("Cleanup-only requires the exact GitHub repository, run ID and attempt.", "expected_identity", "Owned smoke container remains", "Owned smoke network remains"):
+    require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", needle, "exact-run interrupted cleanup and residue verification")
 prune_script = read("Deployment/LocalCluster/Scripts/prune-docker-residue.sh")
 for needle, why in [
     ("--include-unlabelled-host-residue", "explicit opt-in for host-wide prunes"),
@@ -1612,7 +1620,8 @@ runner_setup = read("Deployment/LocalCluster/Scripts/install-github-runner.sh")
 for needle, why in [
     ("actions/runners/registration-token", "runner registration token automation"),
     ("RUNNER_CONFIGURED", "remote runner reuse check before token creation"),
-    ("gh release view --repo actions/runner", "runner release lookup"),
+    ("read-tool-version.py", "shared reviewed runner version and checksum"),
+    ("sha256sum --check --status", "published archive checksum verification"),
     ("actions-runner-linux-x64", "x64 runner package"),
     ("this deployment supports only x86_64/amd64 node-main machines", "x64 runner guard"),
     ("RUNNER_TOKEN_Q", "runner token kept out of ssh command arguments"),
@@ -1693,7 +1702,9 @@ for workflow in workflow_paths:
             if hosted_runner in stripped:
                 fail(f"{workflow}:{line_number}: contains forbidden GitHub-hosted runner label: {stripped}")
     if has_runs_on:
-        require_contains(workflow, "localcluster-books", "app-specific self-hosted runner fallback")
+        single_node_workflow = "localsinglenode" in Path(workflow).name
+        fallback = "localsinglenode-books" if single_node_workflow else "localcluster-books"
+        require_contains(workflow, fallback, "app-specific self-hosted runner fallback")
         if workflow in (".github/workflows/ci.yml", ".github/workflows/auto-merge-dependabot.yml"):
             require_contains(workflow, "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'", "neutral CI label with existing fallback")
             jobs = re.split(r"(?m)^  [a-zA-Z0-9_-]+:\n", read(workflow).split("jobs:\n", 1)[1])[1:]
@@ -1709,6 +1720,9 @@ for workflow in workflow_paths:
                     'test "$(hostname)" = "$CI_RUNNER_HOST"',
                 )):
                     fail(f"{workflow}: every CI job must verify the configured CI host with node-main fallback")
+        elif single_node_workflow:
+            require_contains(workflow, "Verify the intended native node", "explicit native deployment host verification")
+            require_contains(workflow, 'test "$(hostname)" = "$LOCALSINGLENODE_HOST"', "mandatory configured single-node host")
         else:
             require_contains(workflow, "Verify node-main runner", "explicit node-main runner verification")
     if Path(workflow).name.startswith("cd-") or Path(workflow).name.endswith("-maintenance.yml"):
@@ -1767,6 +1781,38 @@ elif (
     or "actions/checkout" in callback_job
 ):
     fail(".github/workflows/ci.yml: Dependabot callback must stay branch-gated, checkout-free and actions:write-only")
+
+
+# LocalSingleNode: a peer target with strict provenance and loopback-only services.
+single = "Deployment/LocalSingleNode"
+for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
+    require_file(single + "/" + path)
+single_compose = read(single + "/compose/docker-compose.yml")
+for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_compose):
+    if not binding.startswith("127.0.0.1:"):
+        fail("localsinglenode: published ports must bind loopback")
+if single_compose.count('"127.0.0.1:') != 3:
+    fail("localsinglenode: all three service publications must bind loopback")
+require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled: "false"', "deployment account seeding disabled")
+for needle in ("find-successful-ci-run.py --target-sha", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "--expected-ci-run-attempt", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode"):
+    require_contains(".github/workflows/cd-localsinglenode.yml", needle, "strict single-node release contract")
+for path in (".github/workflows/cd-localsinglenode.yml", ".github/workflows/localsinglenode-maintenance.yml"):
+    workflow = read(path)
+    if "vars.LOCALSINGLENODE_HOST" not in workflow or "test -n" not in workflow or "'localsinglenode-books'" not in workflow:
+        fail("localsinglenode: workflow needs explicit host and app runner label")
+for path in (ROOT / single).rglob("*"):
+    if not path.is_file() or "__pycache__" in path.parts:
+        continue
+    content = path.read_text(encoding="utf-8-sig")
+    if re.search(r"docker\s+(?:volume|system)\s+prune", content):
+        fail("localsinglenode: volume/system prune is forbidden")
+    for address in re.findall(r"(?<![0-9.])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9.])", content):
+        if address != "127.0.0.1" and not address.startswith(("172.30.", "192.0.2.")):
+            fail(f"localsinglenode: unsupported tracked IPv4 literal {address} in {path.relative_to(ROOT)}")
+require_contains(".gitignore", "Deployment/LocalSingleNode/machine.yml", "ignored detected node facts")
+require_contains("Deployment/Common/Scripts/install-ansible.sh", "USER_ONLY", "unprivileged install-user provisioning")
+require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "HTTP form acceptance in CI")
+require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
 
 
 if failures:

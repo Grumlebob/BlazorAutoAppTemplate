@@ -6,6 +6,14 @@
 # removes only resources whose labels match this repository and run. Nothing
 # here prunes, and PostgreSQL/Redis use tmpfs, so no Docker volume is created.
 set -euo pipefail
+CLEANUP_ONLY=false
+if [[ $# -gt 0 ]]; then
+  [[ $# == 1 && "$1" == --cleanup-only ]] || { echo 'Usage: ci-docker-smoke.sh [--cleanup-only]' >&2; exit 2; }
+  CLEANUP_ONLY=true
+  [[ -n "${GITHUB_REPOSITORY:-}" && "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] || {
+    echo 'Cleanup-only requires the exact GitHub repository, run ID and attempt.' >&2; exit 2;
+  }
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -P "$SCRIPT_DIR/../../.." && pwd)"
@@ -61,8 +69,13 @@ cleanup() {
     owned_container "$container" && docker rm -f "$container" >/dev/null 2>&1 || true
   done
   owned_network "$network" && docker network rm "$network" >/dev/null 2>&1 || true
+  for container in "$web" "$postgres" "$redis"; do
+    if owned_container "$container"; then echo "Owned smoke container remains: $container" >&2; status=1; fi
+  done
+  if owned_network "$network"; then echo "Owned smoke network remains: $network" >&2; status=1; fi
   exit "$status"
 }
+if [[ "$CLEANUP_ONLY" == true ]]; then cleanup; fi
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -97,12 +110,14 @@ docker network create "${owned_label_args[@]}" "$network"
 # Loopback-only random host port: the browser tests clean up the users they
 # register directly in this disposable database.
 docker run -d --name "$postgres" --network "$network" "${owned_label_args[@]}" \
+  --network-alias ci-postgres \
   -p 127.0.0.1::5432 \
   --tmpfs /var/lib/postgresql:rw,size=1073741824 \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=app \
   "$POSTGRES_IMAGE"
 docker run -d --name "$redis" --network "$network" "${owned_label_args[@]}" \
+  --network-alias ci-redis \
   --tmpfs /data:rw,size=67108864 "$REDIS_IMAGE" \
   redis-server --save "" --appendonly no
 
@@ -116,8 +131,8 @@ docker run -d --name "$web" --network "$network" "${owned_label_args[@]}" \
   -e ASPNETCORE_ENVIRONMENT=Docker \
   -e ASPNETCORE_HTTP_PORTS=8080 \
   -e "APP_VERSION=${APP_VERSION}" \
-  -e "ConnectionStrings__DefaultConnection=Host=${postgres};Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
-  -e "Redis__Configuration=${redis}:6379,abortConnect=false" \
+  -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  -e "Redis__Configuration=ci-redis:6379,abortConnect=false" \
   -e Redis__AllowMissing=false \
   -e Database__RunMigrationsAtStartup=true \
   -e RateLimiting__Global__PermitLimit=10000 \
@@ -156,6 +171,7 @@ if grep -qi '^location:' <<< "$api_headers"; then
   echo "anonymous /api/books redirected instead of returning 401" >&2
   exit 1
 fi
+pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -BaseUrl "$base_url"
 echo "HTTP smoke passed"
 
 postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"

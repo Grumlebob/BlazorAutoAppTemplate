@@ -4,21 +4,23 @@ set -euo pipefail
 # Routine jobs use --check. Provisioning is explicit (the no-argument form is
 # retained for existing control-machine and Cloud setup callers).
 MODE="provision"
-case "${1:-}" in
-  "") ;;
-  --check) MODE="check" ;;
-  --provision) MODE="provision" ;;
-  -h|--help)
-    cat <<'USAGE'
-Usage: install-ansible.sh [--check|--provision]
-
---check      validate the pinned Ansible generation without apt, sudo, or mutation
---provision  install missing OS prerequisites and publish a validated generation
-USAGE
-    exit 0
-    ;;
-  *) echo "Unknown option: $1 (use --check or --provision)." >&2; exit 2 ;;
-esac
+USER_ONLY=false
+for option in "$@"; do
+  case "$option" in
+    --check) MODE="check" ;;
+    --provision) MODE="provision" ;;
+    --user-only) USER_ONLY=true ;;
+    -h|--help)
+      echo 'Usage: install-ansible.sh [--check|--provision] [--user-only]'
+      echo '--user-only requires installed prerequisites; no sudo, apt or global links.'
+      exit 0
+      ;;
+    *) echo "Unknown option: $option" >&2; exit 2 ;;
+  esac
+done
+[[ "$USER_ONLY" != true || "$MODE" == provision ]] || {
+  echo '--user-only requires provisioning mode.' >&2; exit 2;
+}
 
 fail() { echo "Ansible setup failed: $*" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || fail "python3 is missing"
@@ -91,9 +93,11 @@ if [[ "$MODE" == "check" ]]; then
   exit 0
 fi
 
-command -v apt-get >/dev/null 2>&1 || fail "this installer expects apt-get"
-command -v sudo >/dev/null 2>&1 || fail "sudo is required for provisioning"
-sudo -n true >/dev/null 2>&1 || fail "passwordless sudo is required for provisioning"
+if [[ "$USER_ONLY" != true ]]; then
+  command -v apt-get >/dev/null 2>&1 || fail "this installer expects apt-get"
+  command -v sudo >/dev/null 2>&1 || fail "sudo is required for provisioning"
+  sudo -n true >/dev/null 2>&1 || fail "passwordless sudo is required for provisioning"
+fi
 mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
 
 LOCK_FILE="$INSTALL_ROOT/.install.lock"
@@ -107,6 +111,7 @@ command -v sshpass >/dev/null 2>&1 || need_packages+=(sshpass)
 python3 -m venv --help >/dev/null 2>&1 || need_packages+=(python3-venv)
 python3 -m pip --version >/dev/null 2>&1 || need_packages+=(python3-pip)
 if ((${#need_packages[@]} > 0)); then
+  [[ "$USER_ONLY" != true ]] || fail "--user-only requires preinstalled prerequisites: ${need_packages[*]}"
   mapfile -t need_packages < <(printf '%s\n' "${need_packages[@]}" | awk '!seen[$0]++')
   apt_timeout="${ANSIBLE_APT_TIMEOUT_SECONDS:-300}"
   apt_run() {
@@ -171,7 +176,9 @@ ln -s "$generation" "$pointer_tmp"
 mv -Tf "$pointer_tmp" "$CURRENT_LINK"
 for exe in ansible ansible-config ansible-galaxy ansible-inventory ansible-playbook ansible-vault; do
   ln -sfn "$generation/bin/$exe" "$BIN_DIR/$exe"
-  sudo ln -sfn "$generation/bin/$exe" "/usr/local/bin/$exe"
+  if [[ "$USER_ONLY" != true ]]; then
+    sudo ln -sfn "$generation/bin/$exe" "/usr/local/bin/$exe"
+  fi
 done
 "$generation/bin/ansible-playbook" --version
 printf 'ansible-core %s provisioned at %s\n' "$VERSION" "$generation"

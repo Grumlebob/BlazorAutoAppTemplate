@@ -83,3 +83,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 agent.md
+
+# Detected or overridden native single-node facts
+Deployment/LocalSingleNode/machine.yml

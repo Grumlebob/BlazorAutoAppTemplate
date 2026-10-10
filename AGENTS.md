@@ -37,3 +37,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 
 - LocalCluster nodes can host several apps. Host-level services (Docker, Caddy, cloudflared, the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
 - Never hard-code a cluster value (node IPs, DNS suffix, domain, ports). Forks read them from their own `machines.yml`, inventory and settings.
+
+## Setting up this machine as a deployment node
+
+Only an explicit request to set up the current PC as a node triggers [LocalSingleNode AgentSetup](Deployment/LocalSingleNode/AgentSetup.md). A main-PC session discussing another node does not trigger setup. Reject Windows/WSL node bootstrap. The local agent follows that single runbook; the operator authenticates and runs its one sudo command.

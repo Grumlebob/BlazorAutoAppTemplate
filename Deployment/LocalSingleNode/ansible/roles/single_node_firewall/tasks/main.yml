@@ -1,0 +1,17 @@
+---
+- name: Set default incoming firewall policy
+  ansible.builtin.command: ufw default deny incoming
+  changed_when: false
+- name: Set default outgoing firewall policy
+  ansible.builtin.command: ufw default allow outgoing
+  changed_when: false
+- name: Permit LAN SSH and HTTP
+  ansible.builtin.command: "ufw allow from {{ lan_cidr }} to any port {{ item }} proto tcp"
+  loop: [22, "{{ lan_http_port }}"]
+  changed_when: false
+- name: Permit LAN mDNS
+  ansible.builtin.command: "ufw allow from {{ lan_cidr }} to any port 5353 proto udp"
+  changed_when: false
+- name: Enable firewall
+  ansible.builtin.command: ufw --force enable
+  changed_when: false

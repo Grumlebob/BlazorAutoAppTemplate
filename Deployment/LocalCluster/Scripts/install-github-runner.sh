@@ -61,6 +61,7 @@ esac
 RUNNER_CONFIGURED="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" "[[ -f '$RUNNER_DIR/.runner' ]] && echo yes || echo no")"
 RUNNER_TOKEN=""
 RUNNER_DOWNLOAD_URL=""
+RUNNER_SHA256=""
 if [[ "$RUNNER_CONFIGURED" == "yes" ]]; then
   RUNNER_STATE="$(ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" "RUNNER_DIR='$RUNNER_DIR' EXPECTED_REPO_URL='$REPO_URL' EXPECTED_RUNNER_NAME='$RUNNER_NAME' python3 - <<'PY'
 from __future__ import annotations
@@ -110,8 +111,9 @@ fi
 
 if [[ "$RUNNER_CONFIGURED" != "yes" ]]; then
   RUNNER_TOKEN="$(gh api -X POST "repos/$REPO_NAME/actions/runners/registration-token" --jq .token)"
-  RUNNER_TAG="$(gh release view --repo actions/runner --json tagName --jq .tagName)"
-  RUNNER_VERSION="${RUNNER_TAG#v}"
+  RUNNER_VERSION="$(python3 "$REPO_ROOT/Deployment/Common/Scripts/read-tool-version.py" runner version)"
+  RUNNER_SHA256="$(python3 "$REPO_ROOT/Deployment/Common/Scripts/read-tool-version.py" runner sha256)"
+  RUNNER_TAG="v${RUNNER_VERSION}"
   RUNNER_DOWNLOAD_URL="https://github.com/actions/runner/releases/download/${RUNNER_TAG}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
 fi
 
@@ -119,13 +121,14 @@ REPO_URL_Q="$(printf '%q' "$REPO_URL")"
 RUNNER_DIR_Q="$(printf '%q' "$RUNNER_DIR")"
 RUNNER_NAME_Q="$(printf '%q' "$RUNNER_NAME")"
 RUNNER_LABELS_Q="$(printf '%q' "$RUNNER_LABELS")"
+RUNNER_SHA256_Q="$(printf '%q' "$RUNNER_SHA256")"
 RUNNER_DOWNLOAD_URL_Q="$(printf '%q' "$RUNNER_DOWNLOAD_URL")"
 RUNNER_TOKEN_Q="$(printf '%q' "$RUNNER_TOKEN")"
 RUNNER_CONFIGURED_Q="$(printf '%q' "$RUNNER_CONFIGURED")"
 
 # shellcheck disable=SC2087
 ssh -i "$SSH_KEY" "deploy@$NODE_MAIN_IP" \
-  "REPO_URL=$REPO_URL_Q RUNNER_DIR=$RUNNER_DIR_Q RUNNER_NAME=$RUNNER_NAME_Q RUNNER_LABELS=$RUNNER_LABELS_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
+  "REPO_URL=$REPO_URL_Q RUNNER_DIR=$RUNNER_DIR_Q RUNNER_NAME=$RUNNER_NAME_Q RUNNER_LABELS=$RUNNER_LABELS_Q RUNNER_DOWNLOAD_URL=$RUNNER_DOWNLOAD_URL_Q RUNNER_SHA256=$RUNNER_SHA256_Q RUNNER_CONFIGURED=$RUNNER_CONFIGURED_Q bash -s" <<REMOTE
 set -euo pipefail
 RUNNER_TOKEN=$RUNNER_TOKEN_Q
 
@@ -165,6 +168,7 @@ else
     exit 1
   }
   curl -fsSL -o actions-runner-linux.tar.gz "$RUNNER_DOWNLOAD_URL"
+  printf '%s  actions-runner-linux.tar.gz\n' "$RUNNER_SHA256" | sha256sum --check --status
   tar xzf actions-runner-linux.tar.gz
   rm -f actions-runner-linux.tar.gz
   ./config.sh \

@@ -1,0 +1,82 @@
+name: ${APP_NAME}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18.4-alpine3.23
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      localsinglenode.app: ${APP_NAME}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:8.8.0-alpine3.23
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      localsinglenode.app: ${APP_NAME}
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  web:
+    image: ${APP_IMAGE_REF:?APP_IMAGE_REF is required}
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      localsinglenode.app: ${APP_NAME}
+    ports:
+      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_HTTP_PORTS: ${APP_PORT}
+      APP_VERSION: ${APP_VERSION}
+      App__Name: ${APP_NAME}
+      LocalAccounts__Enabled: "false"
+      Database__RunMigrationsAtStartup: "false"
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Redis__Configuration: redis:6379,password=${REDIS_PASSWORD},abortConnect=false
+      ForwardedHeaders__KnownNetworks__0: ${DOCKER_SUBNET}
+      Observability__OpenTelemetry__Enabled: "false"
+      Observability__OpenTelemetry__DeploymentTarget: localsinglenode
+    volumes:
+      - app_storage:/app/Storage
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_storage:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET}

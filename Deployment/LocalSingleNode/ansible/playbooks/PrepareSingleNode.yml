@@ -1,0 +1,84 @@
+---
+- name: Prepare the explicitly selected native deployment node
+  hosts: all
+  become: true
+  vars_files:
+    - ../../inventory/group_vars/all.yml
+    - ../../../Common/release.yml
+  vars:
+    mint_base_install_deploy_key: false
+    mint_base_reboot_after_upgrade: false
+  pre_tasks:
+    - name: Require this machine's native identity
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == ansible_hostname
+          - "'microsoft' not in ansible_kernel | lower"
+          - source_repo_url is match('^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
+          - install_user not in ['root', 'deploy']
+    - name: Inspect shared host resources before mutation
+      ansible.builtin.command:
+        argv:
+          - bash
+          - "{{ playbook_dir }}/../../Scripts/check-port-collisions.sh"
+          - --source-repo-url
+          - "{{ source_repo_url }}"
+          - --bootstrap
+      changed_when: false
+    - name: Create single-node ownership directory
+      ansible.builtin.file:
+        path: /etc/localsinglenode/apps
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+    - name: Record the approved app roots before provisioning
+      ansible.builtin.copy:
+        content: "{{ {'source_repo_url': source_repo_url, 'deploy_root': deploy_root, 'backup_root': backup_root} | to_nice_json }}"
+        dest: "/etc/localsinglenode/apps/{{ app_name }}.json"
+        owner: root
+        group: root
+        mode: "0644"
+  roles:
+    - mint_base
+    - docker
+    - single_node_firewall
+    - caddy_install
+  tasks:
+    - name: Enable native name resolution
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        enabled: true
+        state: restarted
+    - name: Enable Caddy
+      ansible.builtin.systemd:
+        name: caddy
+        enabled: true
+        state: started
+    - name: Ensure protected runtime secret directory
+      ansible.builtin.file:
+        path: "/etc/{{ app_name }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0711"
+    - name: Generate secrets only for a new app
+      ansible.builtin.copy:
+        dest: "/etc/{{ app_name }}/secrets.yml"
+        content: |
+          vault_postgres_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
+          vault_redis_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
+        force: false
+        owner: deploy
+        group: deploy
+        mode: "0600"
+      no_log: true
+    - name: Preserve runtime secret permissions on reuse
+      ansible.builtin.file:
+        path: "/etc/{{ app_name }}/secrets.yml"
+        owner: deploy
+        group: deploy
+        mode: "0600"
+    - name: Install protected nightly backups and recovery helpers
+      ansible.builtin.include_role:
+        name: single_node_backup
