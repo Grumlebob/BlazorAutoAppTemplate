@@ -78,6 +78,17 @@ def backup(value):
     print(f"Backup complete: {destination.name}")
 
 
+def report_fresh(value, since):
+    started = datetime.fromisoformat(since.replace('Z', '+00:00'))
+    completed = datetime.fromisoformat((Path(value["backup_root"]) / "last-success").read_text().strip())
+    if started.tzinfo is None or completed.tzinfo is None:
+        raise ValueError("Backup freshness timestamps must include a timezone")
+    if completed < started or completed > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise ValueError("Requested backup did not publish a fresh valid success marker")
+    dump = latest(value)
+    print(f"Fresh protected backup: {dump.name} ({dump.stat().st_size} bytes); completed {completed.isoformat()}")
+
+
 def verify(value, dump):
     dump = dump.resolve(strict=True)
     folder = Path(value["backup_root"]).resolve(strict=True)
@@ -132,9 +143,12 @@ def main():
     parser.add_argument("--file", type=Path)
     parser.add_argument("--restore-into")
     parser.add_argument("--confirm-restore")
+    parser.add_argument("--report-fresh-since")
     args = parser.parse_args()
     value = config(args.config)
-    if args.restore_into:
+    if args.report_fresh_since:
+        report_fresh(value, args.report_fresh_since)
+    elif args.restore_into:
         restore_replacement(value, args.file or latest(value), args.restore_into, args.confirm_restore)
     elif args.verify:
         verify(value, args.file or latest(value))

@@ -1831,6 +1831,11 @@ require_contains(single + "/Scripts/lib/doctor.py", 'data[4] == machine["ip"]', 
 require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,User,WorkingDirectory"', "read-only runner service inspection without deploy home access")
 require_contains(single + "/Scripts/lib/collisions.py", 'recorded_source.casefold() == source.casefold()', "case-insensitive GitHub repository ownership with exact app roots")
 require_contains(single + "/Scripts/lib/collisions.py", '(network.get("IPAM") or {}).get("Config") or []', "nullable built-in Docker network IPAM while checking foreign subnets")
+require_contains(single + "/Scripts/acceptance-check.sh", 'lib/readiness.py', "bounded LAN warmup before the unchanged full acceptance check")
+require_contains(single + "/Scripts/lib/readiness.py", 'timeout=180', "180-second LAN readiness deadline")
+require_contains(single + "/Scripts/run-maintenance.sh", '--report-fresh-since "$requested"', "requested backups prove fresh completion before maintenance")
+require_contains(single + "/Scripts/lib/backup.py", 'completed < started', "requested backups cannot reuse stale completion markers")
+require_contains(single + "/Scripts/lib/backup.py", 'Fresh protected backup:', "explicit fresh dump evidence without secret contents")
 
 
 if failures:
