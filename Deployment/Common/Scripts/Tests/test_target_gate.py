@@ -83,7 +83,8 @@ class CiRunnerProfileTests(unittest.TestCase):
             for match in re.finditer(r"(?ms)^      - name: Verify CI runner\n.*?(?=^      - name: |\Z)", text):
                 count += 1
                 body = match.group(0)
-                self.assertIn("CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST || 'node-main' }}", body)
+                self.assertIn("CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}", body)
+                self.assertIn('${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable', body)
                 self.assertIn('test "$(hostname)" = "$CI_RUNNER_HOST"', body)
                 script = body.split("        run: |\n", 1)[1]
                 yield name, "\n".join(line[10:] for line in script.splitlines() if line.startswith("          "))
@@ -106,17 +107,17 @@ class CiRunnerProfileTests(unittest.TestCase):
                                             capture_output=True, text=True, check=False)
                     self.assertEqual(result.returncode == 0, succeeds, result.stdout + result.stderr)
 
-    def test_template_host(self):
-        self.check_host("node-main", "node-main", True)
+    def test_configured_host(self):
+        self.check_host("runner-a", "runner-a", True)
 
     def test_fork_host(self):
-        self.check_host("node-rehearsal", "node-rehearsal", True)
+        self.check_host("runner-b", "runner-b", True)
 
     def test_wrong_host(self):
-        self.check_host("node-rehearsal", "node-main", False)
+        self.check_host("runner-b", "runner-a", False)
 
     def test_empty_host(self):
-        self.check_host("", "node-rehearsal", False)
+        self.check_host("", "runner-b", False)
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ Pick these values before editing files. Write them down once and use them consis
 | `APP_PORT` | `8081` | Host port on app nodes. Use `8080` only when no other app uses it. |
 | `POSTGRES_PORT` | `5433` | Host port on `node-db`. Use `5432` only when no other app uses it. |
 | `REDIS_PORT` | `6380` | Host port on `node-db`. Use `6379` only when no other app uses it. |
-| `CLOUDFLARE_TUNNEL_NAME` | `books-prod` | Reuse the existing tunnel name when sharing the current `cloudflared` service on `node-main`. |
+| `CLOUDFLARE_TUNNEL_NAME` | `my-app-prod` | Use a tunnel name configured for your account when sharing the current `cloudflared` service. |
 | `RUNNER_LABEL` | `localcluster-recipes` | Derived from `APP_SLUG` unless overridden in `all.yml`. |
 | `GITHUB_ENVIRONMENT` | `localcluster-recipes` | Optional but recommended for a side-by-side fork. |
 | `INVENTORY_DNS_SUFFIX` | empty, or `lan` | Optional `inventory_dns_suffix` in `all.yml`. When set, preflight checks that `<node>.<suffix>` resolves to each inventory IP. Leave it empty if your network has no local DNS names. |
@@ -475,7 +475,7 @@ vault_cloudflare_tunnel_token: <existing shared tunnel token>
 
 No GitHub token is stored in the vault. CD lets the nodes pull the image with the workflow's own `GITHUB_TOKEN`. Manual deploys with `deploy.sh` take registry credentials from `GHCR_USERNAME`/`GHCR_TOKEN` or an authenticated `gh` CLI; add the optional `vault_ghcr_username` and `vault_ghcr_token` keys only if neither is available and the image is private.
 
-For a side-by-side fork, use a new PostgreSQL database name, database password, and Redis password. Reusing the same Cloudflare tunnel token is normal when the fork shares the existing `cloudflared` service.
+For a side-by-side fork, use a new PostgreSQL database name, database password, and Redis password. Reuse the Cloudflare tunnel token only when the fork intentionally shares the existing `cloudflared` service and tunnel.
 
 After setup-secrets.sh succeeds, commit the encrypted vault so CD can read it:
 

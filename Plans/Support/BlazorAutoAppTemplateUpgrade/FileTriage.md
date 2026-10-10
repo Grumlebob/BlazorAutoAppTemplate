@@ -385,4 +385,4 @@ The non-exception rows were handled as follows:
 | `Deployment/LocalCluster/Scripts/validate-ci-release-artifact.py` | Substitute manifest validation plus the P5 staging validator as above; these checks are called by CI/CD and have fixtures. |
 | `docs/Architecture.md` | Optional separate document omitted. README layout, Requirements.md, feature guide and executable architecture tests cover the template structure without duplicate guidance. |
 
-P12.4 live LocalCluster deployment remains skipped under Q1. This inventory closeout does not complete the goal: all four P13 PRs, node-demo live acceptance and P13.13 evidence are still required.
+P12.4 live LocalCluster deployment remains skipped under Q1. This inventory closeout does not complete the goal: all four P13 PRs, localsinglenode-host live acceptance and P13.13 evidence are still required.

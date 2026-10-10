@@ -26,6 +26,8 @@
       - "{{ public_tunnel_id }}"
       - --port
       - "{{ public_origin_port | string }}"
+      - --cloudflared-version
+      - "{{ public_cloudflared_version }}"
   changed_when: false
 - name: Inspect existing connector token
   ansible.builtin.slurp:
@@ -39,9 +41,42 @@
       - previous_public_token.content is not defined or (previous_public_token.content | b64decode | trim) == vault_public_tunnel_token
     fail_msg: "Connector token differs. Use the documented explicit rotation procedure."
   no_log: true
-- name: Create the app-owned pinned connector directory
+- name: Record public resources owned by this app before rendering
+  ansible.builtin.copy:
+    dest: "/etc/{{ app_name }}/public.json"
+    content: "{{ {'hostname': public_hostname, 'tunnel_id': public_tunnel_id, 'origin_port': public_origin_port | int, 'cloudflared_version': public_cloudflared_version, 'source_repo_url': source_repo_url} | to_nice_json }}"
+    owner: root
+    group: root
+    mode: "0644"
+- name: Inspect the shared executable parent before using it
+  ansible.builtin.stat:
+    path: /usr/local/libexec
+    follow: false
+  register: public_exec_base
+- name: Require a real, traversable shared executable parent
+  ansible.builtin.assert:
+    that:
+      - not public_exec_base.stat.exists or (public_exec_base.stat.isdir and not public_exec_base.stat.islnk)
+      - not public_exec_base.stat.exists or public_exec_base.stat.mode[-1] in ['1', '3', '5', '7']
+    fail_msg: "The shared /usr/local/libexec directory must be a real directory with world traversal enabled."
+- name: Create the shared executable parent only when absent
   ansible.builtin.file:
-    path: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}"
+    path: /usr/local/libexec
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not public_exec_base.stat.exists
+- name: Create the app-owned executable directory
+  ansible.builtin.file:
+    path: "/usr/local/libexec/cloudflared-{{ app_name }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Create the pinned connector version directory
+  ansible.builtin.file:
+    path: "/usr/local/libexec/cloudflared-{{ app_name }}/{{ public_cloudflared_version }}"
     state: directory
     owner: root
     group: root
@@ -49,7 +84,7 @@
 - name: Download and verify the isolated connector binary
   ansible.builtin.get_url:
     url: "https://github.com/cloudflare/cloudflared/releases/download/{{ public_cloudflared_version }}/cloudflared-linux-amd64"
-    dest: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}/cloudflared"
+    dest: "/usr/local/libexec/cloudflared-{{ app_name }}/{{ public_cloudflared_version }}/cloudflared"
     checksum: "{{ public_cloudflared_checksum }}"
     owner: root
     group: root
@@ -60,7 +95,7 @@
   delay: 10
   until: public_binary is succeeded
 - name: Verify the isolated connector version
-  ansible.builtin.command: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}/cloudflared --version"
+  ansible.builtin.command: "/usr/local/libexec/cloudflared-{{ app_name }}/{{ public_cloudflared_version }}/cloudflared --version"
   register: public_version
   changed_when: false
   failed_when: public_cloudflared_version not in public_version.stdout
@@ -73,13 +108,6 @@
     mode: "0600"
   register: public_token
   no_log: true
-- name: Record public resources owned by this app before rendering
-  ansible.builtin.copy:
-    dest: "/etc/{{ app_name }}/public.json"
-    content: "{{ {'hostname': public_hostname, 'tunnel_id': public_tunnel_id, 'origin_port': public_origin_port | int, 'source_repo_url': source_repo_url} | to_nice_json }}"
-    owner: root
-    group: root
-    mode: "0644"
 - name: Remember the prior public Caddy site
   ansible.builtin.slurp:
     src: "/etc/caddy/sites/{{ app_name }}-public.caddy"
@@ -141,3 +169,20 @@
     enabled: true
     daemon_reload: true
     state: "{{ 'restarted' if public_service.changed or public_binary.changed or public_token.changed else 'started' }}"
+- name: Wait for the dedicated public connector to become active
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - show
+      - --no-pager
+      - --property=ActiveState,SubState,ExecMainStatus
+      - "cloudflared-{{ app_name }}.service"
+  register: public_service_health
+  changed_when: false
+  retries: 12
+  delay: 5
+  until:
+    - public_service_health.rc == 0
+    - "'ActiveState=active' in public_service_health.stdout_lines"
+    - "'SubState=running' in public_service_health.stdout_lines"
+    - "'ExecMainStatus=0' in public_service_health.stdout_lines"

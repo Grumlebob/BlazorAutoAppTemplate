@@ -7,10 +7,10 @@ Completely fix `Grumlebob/BlazorAutoAppTemplate` so it stops using avoidable Git
 The project lives here:
 
 ```text
-C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp
+%USERPROFILE%\Documents\Programming\Csharp\BlazorAutoApp
 ```
 
-This plan intentionally uses `C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb` as the reference implementation because ImprovedDb was cloned from this project and later hardened for:
+This plan intentionally uses `%USERPROFILE%\Documents\Programming\Csharp\ImprovedDb` as the reference implementation because ImprovedDb was cloned from this project and later hardened for:
 
 - `node-main` self-hosted CI/CD.
 - short migration artifact retention.
@@ -24,7 +24,7 @@ This plan intentionally uses `C:\Users\jgrum\Documents\Programming\Csharp\Improv
 
 Local repo:
 
-- Local clone: `C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp`.
+- Local clone: `%USERPROFILE%\Documents\Programming\Csharp\BlazorAutoApp`.
 - Remote: `origin https://github.com/Grumlebob/BlazorAutoAppTemplate.git`.
 - Fast-forwarded to `origin/main` during planning.
 - Current `origin/main`: `ec489759ea5eaa4a469a35ccecd068e04d12e2ab`.
@@ -153,13 +153,13 @@ Do not blindly copy references to `ImprovedDb`, `improveddb`, `localcluster-impr
 - [ ] Run the local repo agent requirement:
 
 ```powershell
-& 'C:\Users\jgrum\Documents\Programming\Stikky\turn-off.ps1'
+& '%USERPROFILE%\Documents\Programming\Stikky\turn-off.ps1'
 ```
 
 - [ ] Confirm the worktree is clean and current:
 
 ```powershell
-cd C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp
+cd %USERPROFILE%\Documents\Programming\Csharp\BlazorAutoApp
 git status --short --branch
 git fetch origin
 git pull --ff-only origin main
@@ -420,7 +420,7 @@ Add either the ImprovedDb `prune-docker-residue.sh` script or a smaller safe equ
 Preferred: copy and adapt ImprovedDb's:
 
 ```text
-C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\prune-docker-residue.sh
+%USERPROFILE%\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\prune-docker-residue.sh
 ```
 
 Then add:
@@ -490,19 +490,19 @@ Copy from ImprovedDb:
 
 ```powershell
 Copy-Item `
-  C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\ensure-actions-runner-prereqs.sh `
+  %USERPROFILE%\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\ensure-actions-runner-prereqs.sh `
   Deployment\LocalCluster\Scripts\ensure-actions-runner-prereqs.sh
 
 Copy-Item `
-  C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb\Deployment\Common\Scripts\prune-actions-artifacts.sh `
+  %USERPROFILE%\Documents\Programming\Csharp\ImprovedDb\Deployment\Common\Scripts\prune-actions-artifacts.sh `
   Deployment\Common\Scripts\prune-actions-artifacts.sh
 
 Copy-Item `
-  C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb\Deployment\Common\Scripts\Component\lib\prune-actions-artifacts.py `
+  %USERPROFILE%\Documents\Programming\Csharp\ImprovedDb\Deployment\Common\Scripts\Component\lib\prune-actions-artifacts.py `
   Deployment\Common\Scripts\Component\lib\prune-actions-artifacts.py
 
 Copy-Item `
-  C:\Users\jgrum\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\prune-docker-residue.sh `
+  %USERPROFILE%\Documents\Programming\Csharp\ImprovedDb\Deployment\LocalCluster\Scripts\prune-docker-residue.sh `
   Deployment\LocalCluster\Scripts\prune-docker-residue.sh
 ```
 
@@ -661,7 +661,7 @@ Suggested one-line `agent.md` addition:
 
 ## Phase 9 - Local Validation
 
-Run from `C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp`.
+Run from `%USERPROFILE%\Documents\Programming\Csharp\BlazorAutoApp`.
 
 ```powershell
 bash -n Deployment/LocalCluster/Scripts/ensure-actions-runner-prereqs.sh
@@ -974,7 +974,7 @@ or run the firewall clear script from a trusted machine with the Cloud env avail
 - [ ] LocalCluster CD passes on `node-main-books`.
 - [ ] Cloud CD is either passed on `node-main-books` or explicitly recorded as not run because live Cloud deployment was intentionally skipped.
 - [ ] Final visible Actions artifact/cache storage for this repo is below `500 MB`.
-- [ ] `C:\Users\jgrum\Documents\Programming\Stikky\turn-on.ps1` is run before final response in Codex turns.
+- [ ] `%USERPROFILE%\Documents\Programming\Stikky\turn-on.ps1` is run before final response in Codex turns.
 
 ## Execution Status
 

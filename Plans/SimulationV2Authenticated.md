@@ -187,8 +187,8 @@ The four current targets stay the source of truth:
 
 ```text
 local               https://localhost:7186
-localcluster-edge   https://books.jacobgrum.com
-cloud-edge          https://bookscloud.jacobgrum.com
+localcluster-edge   https://books.example.com
+cloud-edge          https://bookscloud.example.com
 origin-via-tunnel   requires --base-url
 ```
 

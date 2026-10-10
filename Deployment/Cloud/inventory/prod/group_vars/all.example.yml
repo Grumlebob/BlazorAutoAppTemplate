@@ -2,7 +2,7 @@ app_name: bookscloud
 app_port: 8080
 postgres_port: 5432
 redis_port: 6379
-public_hostname: bookscloud.jacobgrum.com
+public_hostname: bookscloud.example.com
 deploy_root: /opt/bookscloud
 cloudflare_tunnel_name: bookscloud-prod
 cloudflared_version: 2026.5.2
