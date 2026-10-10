@@ -11,6 +11,7 @@ LIB = Path(__file__).resolve().parents[1] / "lib"
 ROOT = LIB.parents[3]
 sys.path.insert(0, str(LIB))
 import public_config
+import readiness
 import public_collisions
 from ls_settings import settings
 
@@ -19,6 +20,13 @@ TOKEN = base64.b64encode(json.dumps({"a": "a" * 32, "t": TUNNEL, "s": "fixture-s
 
 
 class PublicTests(unittest.TestCase):
+    def test_readiness_identifies_probe_to_cloudflare(self):
+        request = readiness.build_request("https://demo.example.com/health/ready")
+        self.assertEqual(
+            "BlazorAutoApp-Deployment-Readiness/1.0",
+            request.get_header("User-agent"),
+        )
+
     def test_lan_only_defaults_stay_disabled(self):
         self.assertEqual({"public_enabled": False}, public_config.validate("", "", 8085, "", settings()))
 
