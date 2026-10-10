@@ -15,6 +15,10 @@ on:
         description: Run only HTTP acceptance and report uptime
         type: boolean
         default: false
+      restart_connector:
+        description: Restart this app's public connector and verify recovery; requires acceptance_only=true
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: read
@@ -48,6 +52,15 @@ jobs:
 
       - name: Require main branch
         run: test "$GITHUB_REF" = refs/heads/main
+      - name: Validate connector restart selection
+        env:
+          ACCEPTANCE_ONLY: ${{ inputs.acceptance_only }}
+          RESTART_CONNECTOR: ${{ inputs.restart_connector }}
+        run: |
+          if [[ "$RESTART_CONNECTOR" == true && "$ACCEPTANCE_ONLY" != true ]]; then
+            echo "Connector restart checks require acceptance_only=true so backups and maintenance are skipped." >&2
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v7
       - name: Protected backup and scoped maintenance
@@ -58,6 +71,9 @@ jobs:
           args=()
           if [[ "$BACKUP_NOW" == true ]]; then args+=(--backup-now); fi
           bash Deployment/LocalSingleNode/Scripts/run-maintenance.sh "${args[@]}"
+      - name: Prove public connector restart recovery
+        if: inputs.restart_connector == true
+        run: bash Deployment/LocalSingleNode/Scripts/restart-public-connector-check.sh
       - name: Run HTTP acceptance and report uptime
         run: |
           bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh

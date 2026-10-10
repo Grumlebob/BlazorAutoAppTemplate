@@ -82,6 +82,8 @@ gh run watch <run-id> --interval 60 --exit-status
 gh workflow run localsinglenode-maintenance.yml --ref main -f reboot_check=true
 # Record/watch the maintenance ID. Reboot waits for whole-run success, then 30 seconds.
 gh workflow run localsinglenode-maintenance.yml --ref main -f acceptance_only=true
+# Restart only this app's public connector, then verify LAN and public acceptance:
+gh workflow run localsinglenode-maintenance.yml --ref main -f acceptance_only=true -f restart_connector=true
 gh workflow run localsinglenode-maintenance.yml --ref main -f backup_now=true
 ```
 

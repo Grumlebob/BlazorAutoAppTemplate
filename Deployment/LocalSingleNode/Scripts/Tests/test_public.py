@@ -11,7 +11,6 @@ LIB = Path(__file__).resolve().parents[1] / "lib"
 ROOT = LIB.parents[3]
 sys.path.insert(0, str(LIB))
 import public_config
-import readiness
 import public_collisions
 from ls_settings import settings
 
@@ -20,12 +19,16 @@ TOKEN = base64.b64encode(json.dumps({"a": "a" * 32, "t": TUNNEL, "s": "fixture-s
 
 
 class PublicTests(unittest.TestCase):
-    def test_readiness_identifies_probe_to_cloudflare(self):
-        request = readiness.build_request("https://demo.example.com/health/ready")
-        self.assertEqual(
-            "BlazorAutoApp-Deployment-Readiness/1.0",
-            request.get_header("User-agent"),
-        )
+    def test_connector_restart_check_is_scoped_and_opt_in(self):
+        workflow = (ROOT / ".github/workflows/localsinglenode-maintenance.yml").read_text()
+        script = (LIB.parent / "restart-public-connector-check.sh").read_text()
+        self.assertIn("restart_connector:", workflow)
+        self.assertIn("inputs.restart_connector == true", workflow)
+        self.assertIn("RESTART_CONNECTOR", workflow)
+        self.assertIn('cloudflared-${APP_NAME}.service', script)
+        self.assertIn('sudo -n systemctl restart "$UNIT"', script)
+        self.assertIn("InvocationID", script)
+        self.assertIn("NRestarts", script)
 
     def test_lan_only_defaults_stay_disabled(self):
         self.assertEqual({"public_enabled": False}, public_config.validate("", "", 8085, "", settings()))

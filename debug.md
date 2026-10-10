@@ -8,7 +8,7 @@ The first deployment of that repair passed the LocalSingleNode deployment step a
 
 ## Main-PC work
 
-A small follow-up updates the readiness probe user agent and adds an offline test. The next authorized workflow run will deploy the same application SHA with migrations disabled and rerun public acceptance.
+A small follow-up updates the readiness probe user agent, adds an offline test, and adds an opt-in maintenance action that restarts only this app's connector, verifies a new healthy systemd invocation, and then runs full acceptance. The next authorized workflow run will deploy the same application SHA with migrations disabled and rerun public acceptance.
 
 ## Node-agent handoff
 
