@@ -1830,6 +1830,7 @@ require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu",
 require_contains(single + "/Scripts/lib/doctor.py", 'data[4] == machine["ip"]', "mDNS check requires the exact deployment IPv4")
 require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,User,WorkingDirectory"', "read-only runner service inspection without deploy home access")
 require_contains(single + "/Scripts/lib/collisions.py", 'recorded_source.casefold() == source.casefold()', "case-insensitive GitHub repository ownership with exact app roots")
+require_contains(single + "/Scripts/lib/collisions.py", '(network.get("IPAM") or {}).get("Config") or []', "nullable built-in Docker network IPAM while checking foreign subnets")
 
 
 if failures:

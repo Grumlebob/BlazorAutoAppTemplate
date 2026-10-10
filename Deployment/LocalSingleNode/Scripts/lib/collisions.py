@@ -91,9 +91,9 @@ def check(source, bootstrap=False):
         network_ids = command("docker", "network", "ls", "-q").splitlines()
         networks = json.loads(command("docker", "network", "inspect", *network_ids)) if network_ids else []
         for network in networks:
-            if owned and network.get("Labels", {}).get("com.docker.compose.project") == app:
+            if owned and (network.get("Labels") or {}).get("com.docker.compose.project") == app:
                 continue
-            for value in network.get("IPAM", {}).get("Config", []):
+            for value in (network.get("IPAM") or {}).get("Config") or []:
                 if value.get("Subnet") and ':' not in value["Subnet"] and subnet.overlaps(ipaddress.ip_network(value["Subnet"])):
                     raise ValueError("Docker subnet overlaps a foreign runtime network")
     listeners = command("ss", "-ltnp")
