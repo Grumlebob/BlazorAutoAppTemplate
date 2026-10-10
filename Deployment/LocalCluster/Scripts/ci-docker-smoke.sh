@@ -58,7 +58,7 @@ owned_network() {
 }
 
 cleanup() {
-  local status=$?
+  local status="$1"
   trap - EXIT INT TERM
   if [[ "$status" -ne 0 ]]; then
     owned_container "$web" && docker logs --tail 200 --since 10m "$web" || true
@@ -75,8 +75,8 @@ cleanup() {
   if owned_network "$network"; then echo "Owned smoke network remains: $network" >&2; status=1; fi
   exit "$status"
 }
-if [[ "$CLEANUP_ONLY" == true ]]; then cleanup; fi
-trap cleanup EXIT
+if [[ "$CLEANUP_ONLY" == true ]]; then cleanup 0; fi
+trap 'cleanup "$?"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
