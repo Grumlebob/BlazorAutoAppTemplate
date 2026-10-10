@@ -57,7 +57,7 @@ def detect(previous=None):
 
 
 def yaml(values):
-    return "node:\n" + "".join(f"  {key}: {value}\n" for key, value in values.items())
+    return "node:\n" + "".join(f"  {key}: {json.dumps(str(value))}\n" for key, value in values.items())
 
 
 def main():
@@ -82,10 +82,10 @@ def main():
         group = command("id", "-gn", values["install_user"])
         if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", group):
             raise ValueError("invalid install user group")
-        text = "all:\n  hosts:\n    " + values["name"] + ":\n      ansible_connection: local\n      ansible_python_interpreter: /usr/bin/python3\n"
+        text = "all:\n  hosts:\n    " + json.dumps(values["name"]) + ":\n      ansible_connection: local\n      ansible_python_interpreter: /usr/bin/python3\n"
         for key in ("ip", "lan_cidr", "install_user"):
-            text += f"      {'node_ip' if key == 'ip' else key}: {values[key]}\n"
-        text += f"      install_group: {group}\n"
+            text += f"      {'node_ip' if key == 'ip' else key}: {json.dumps(str(values[key]))}\n"
+        text += f"      install_group: {json.dumps(group)}\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text, encoding="utf-8")

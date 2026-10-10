@@ -36,6 +36,14 @@ class MachineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'hostname'):
                 machine.validate({**FACTS, 'name': name}, False)
 
+    def test_fact_writer_preserves_scalar_like_names(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'machine.yml'
+            for name in ('false', 'true', '7', 'Operator-Laptop'):
+                facts = {**FACTS, 'name': name}
+                source.write_text(machine.yaml(facts))
+                self.assertEqual(facts, read_yaml(source, node=True))
+
     def test_reject_bad_facts(self):
         for key, value in (("name", "REPLACE_WITH_NAME"), ("ip", "bad"), ("ip", "127.0.0.1"), ("ip", str(ipaddress.IPv4Address(0))), ("ip", "192.0.2.0"), ("ip", "192.0.2.255"), ("install_user", "root"), ("install_user", "deploy")):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
@@ -76,7 +84,7 @@ class MachineTests(unittest.TestCase):
             source.write_text(machine.yaml(FACTS))
             with patch.object(machine, "command", side_effect=lambda *args: "node-rehearsal" if args == ("hostname",) else "operator"), patch.object(sys, "argv", ["machine.py", "inventory", "--machine", str(source), "--output", str(result)]):
                 machine.main()
-            self.assertEqual("all:\n  hosts:\n    node-rehearsal:\n      ansible_connection: local\n      ansible_python_interpreter: /usr/bin/python3\n      node_ip: 192.0.2.10\n      lan_cidr: 192.0.2.0/24\n      install_user: operator\n      install_group: operator\n", result.read_text())
+            self.assertEqual('all:\n  hosts:\n    "node-rehearsal":\n      ansible_connection: local\n      ansible_python_interpreter: /usr/bin/python3\n      node_ip: "192.0.2.10"\n      lan_cidr: "192.0.2.0/24"\n      install_user: "operator"\n      install_group: "operator"\n', result.read_text())
 
 
 class SetupTests(unittest.TestCase):
@@ -93,6 +101,12 @@ class SetupTests(unittest.TestCase):
             self.assertEqual((name, actor, 20 if actor == "human" else 10), (result["step"], result["actor"], code))
             if name == "platform":
                 self.assertNotIn("bootstrap", result["command"])
+            if name == "machine":
+                checks["machine_error"] = "Detected address differs from the operator-provided target; stop before bootstrap"
+                result, code = setup_status.choose(checks, "node-rehearsal", "books", FACTS, "fixture-owner/fixture-repo", False)
+                self.assertEqual(20, code)
+                self.assertEqual(checks["machine_error"], result["human_message"])
+                self.assertEqual("", result["command"])
 
     def test_done(self):
         value, code = setup_status.choose(self.checks(), "node-rehearsal", "books", FACTS, "fixture-owner/fixture-repo", False)
@@ -256,6 +270,12 @@ class RunnerRecoveryTests(unittest.TestCase):
 
 
 class MaintenanceTests(unittest.TestCase):
+    def test_bootstrap_refreshes_mdns_for_the_approved_hostname(self):
+        text = (TARGET / 'ansible/playbooks/PrepareSingleNode.yml').read_text()
+        task = text.split('- name: Enable native name resolution', 1)[1].split('- name: Enable Caddy', 1)[0]
+        self.assertIn('name: avahi-daemon', task)
+        self.assertIn('state: restarted', task)
+
     def test_http_acceptance_avoids_readonly_home_assignment(self):
         import re
         text = (ROOT / 'Scripts/Test-DeployedSite.ps1').read_text()

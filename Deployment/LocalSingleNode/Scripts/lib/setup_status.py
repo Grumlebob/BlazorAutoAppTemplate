@@ -62,7 +62,7 @@ def choose(checks, node, app, facts, repo, ci_runner):
             action = shlex.join([gh_binary(), "auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web"])
             message = "Authenticate using an account with admin permission on this repository. Never send a password or token to the agent."
         elif step == "machine":
-            actor, action, message = "human", "", "Connect this PC to the LAN and inspect its IPv4 default route."
+            actor, action, message = "human", "", checks.get("machine_error") or "Connect this PC to the LAN and inspect its IPv4 default route."
         elif step == "root":
             actor = "human"
             action = shlex.join(["sudo", "bash", str(TARGET / "Scripts/bootstrap-node.sh"), "--node", node, "--user", facts["install_user"], "--github-login", checks["login"], "--expected-address", facts["ip"], "--yes"] + (["--ci-runner"] if ci_runner else []))

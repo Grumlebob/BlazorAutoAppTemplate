@@ -49,7 +49,7 @@
       ansible.builtin.systemd:
         name: avahi-daemon
         enabled: true
-        state: started
+        state: restarted
     - name: Enable Caddy
       ansible.builtin.systemd:
         name: caddy
