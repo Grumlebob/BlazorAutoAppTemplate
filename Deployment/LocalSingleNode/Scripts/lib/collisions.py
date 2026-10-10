@@ -35,7 +35,8 @@ def check(source, bootstrap=False):
     owned = False
     if marker.exists():
         identity = json.loads(marker.read_text())
-        owned = identity.get("source_repo_url") == source and identity.get("deploy_root") == config["deploy_root"] and identity.get("backup_root") == config["backup_root"]
+        recorded_source = identity.get("source_repo_url")
+        owned = isinstance(recorded_source, str) and recorded_source.casefold() == source.casefold() and identity.get("deploy_root") == config["deploy_root"] and identity.get("backup_root") == config["backup_root"]
         if not owned:
             raise ValueError("Single-node app marker belongs to a different repository or root")
     for directory in (deploy, backup):

@@ -1829,6 +1829,7 @@ require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address"
 require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu", str(index), "0", name, "0", "0"', "mDNS check resolves the deployment name on its LAN interface")
 require_contains(single + "/Scripts/lib/doctor.py", 'data[4] == machine["ip"]', "mDNS check requires the exact deployment IPv4")
 require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,User,WorkingDirectory"', "read-only runner service inspection without deploy home access")
+require_contains(single + "/Scripts/lib/collisions.py", 'recorded_source.casefold() == source.casefold()', "case-insensitive GitHub repository ownership with exact app roots")
 
 
 if failures:

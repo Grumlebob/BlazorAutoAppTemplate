@@ -232,6 +232,19 @@ class CollisionTests(unittest.TestCase):
                 return ''
             self.check(folder, script)
 
+    def test_repository_case_matches_but_foreign_identity_and_roots_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            marker = folder / 'etc/localsinglenode/apps/books.json'
+            marker.parent.mkdir(parents=True)
+            identity = dict(source_repo_url='https://github.com/Fixture-Owner/Fixture-Repo', deploy_root='/opt/books', backup_root='/opt/books-backups')
+            marker.write_text(json.dumps(identity))
+            self.check(folder, lambda *args: '')
+            for key, value in (('source_repo_url', 'https://github.com/Other-Owner/Fixture-Repo'), ('source_repo_url', None), ('deploy_root', '/opt/other'), ('backup_root', '/opt/other-backups')):
+                marker.write_text(json.dumps({**identity, key: value}))
+                with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, 'different repository or root'):
+                    self.check(folder, lambda *args: '')
+
 
 class RunnerRecoveryTests(unittest.TestCase):
     def recovery(self, directory, active=False):
