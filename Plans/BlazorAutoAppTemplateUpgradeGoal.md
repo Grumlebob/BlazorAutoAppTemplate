@@ -1,6 +1,6 @@
 # Goal prompt: BlazorAutoAppTemplate upgrade and LocalSingleNode
 
-Completed 2026-10-10. All required repository phases and P13.12 rows 1–8 passed; evidence is in plan 11.16 and the verified closeout PR. The original execution prompt below is retained as history. Node-demo setup is complete; no new operator setup is needed. LocalCluster/Cloud live deployment remains unauthorized.
+P1–P13 completed 2026-10-10. All P13.12 LAN rows passed; evidence is in plan 11.16 and the closeout PR. The operator subsequently authorized [LocalSingleNodePublicDeployment.md](LocalSingleNodePublicDeployment.md): reusable agent-owned DNS/tunnel setup and public HTTPS verification. That extension is in progress. The original prompt below is history and does not exclude the newly requested scope. LocalCluster/Cloud live deployment remains unauthorized.
 
 The historical block below ran [BlazorAutoAppTemplateUpgrade.md](BlazorAutoAppTemplateUpgrade.md) to completion and authorized everything the plan specifies:
 

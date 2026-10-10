@@ -105,6 +105,9 @@ jobs:
       - name: Test Caddy repository migration safeguards
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_caddy_install.py -v
 
+      - name: Test public tunnel ownership and credential safeguards
+        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py -v
+
       # Report only. node-main's Docker daemon is shared with other apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk

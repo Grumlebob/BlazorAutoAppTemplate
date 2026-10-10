@@ -1,0 +1,7 @@
+{
+  "account_id": "00000000000000000000000000000000",
+  "zone_name": "example.com",
+  "tunnel_name": "example-demo",
+  "public_hostname": "demo.example.com",
+  "origin_port": 8085
+}

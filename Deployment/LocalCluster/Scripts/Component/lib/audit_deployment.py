@@ -1836,6 +1836,22 @@ require_contains(single + "/Scripts/lib/readiness.py", 'timeout=180', "180-secon
 require_contains(single + "/Scripts/run-maintenance.sh", '--report-fresh-since "$requested"', "requested backups prove fresh completion before maintenance")
 require_contains(single + "/Scripts/lib/backup.py", 'completed < started', "requested backups cannot reuse stale completion markers")
 require_contains(single + "/Scripts/lib/backup.py", 'Fresh protected backup:', "explicit fresh dump evidence without secret contents")
+require_contains(single + "/Scripts/acceptance-check.sh", 'public-acceptance-check.sh', "public acceptance after LAN acceptance")
+require_contains(single + "/Scripts/lib/readiness.py", 'response.read(64).strip() == b"Healthy"', "readiness rejects empty HTTP 200")
+require_contains(single + "/Scripts/public-acceptance-check.sh", '-BaseUrl "$PUBLIC_URL"', "configured public HTTPS acceptance")
+require_contains(single + "/Scripts/lib/public_config.py", 'os.O_EXCL | os.O_NOFOLLOW', "protected public secret output")
+require_contains(single + "/Scripts/lib/public_config.py", 'claims.get("t") != tunnel_id', "matching connector credential identity")
+require_contains(single + "/ansible/roles/single_node_public/templates/app.caddy.j2", 'bind 127.0.0.1', "loopback public ingress")
+require_contains(single + "/ansible/roles/single_node_public/templates/app.caddy.j2", 'header_up X-Forwarded-Proto https', "public HTTPS scheme")
+require_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", '--token-file %d/tunnel-token', "file-based connector credential")
+require_contains(single + "/ansible/roles/single_node_public/templates/cloudflared.service.j2", 'LoadCredential=tunnel-token:', "systemd protected credential")
+require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", 'checksum: "{{ public_cloudflared_checksum }}"', "checksum-pinned connector")
+require_contains("Scripts/Test-DeployedSite.ps1", "@('http', 'https')", "HTTP and HTTPS acceptance")
+require_contains("Scripts/Test-DeployedSite.ps1", "'HTTPS-cookie'", "public authentication cookie security")
+require_contains(".github/workflows/cd-localsinglenode.yml", '-e @"$PUBLIC_EXTRA_VARS_FILE"', "validated public inputs deployed")
+require_contains(".github/workflows/cd-localsinglenode.yml", 'rm -f -- "$PUBLIC_EXTRA_VARS_FILE"', "temporary connector credential cleanup")
+require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'Tunnel name exists without recorded ownership', "foreign tunnel refusal")
+require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'replacement is refused', "foreign DNS refusal")
 
 
 if failures:

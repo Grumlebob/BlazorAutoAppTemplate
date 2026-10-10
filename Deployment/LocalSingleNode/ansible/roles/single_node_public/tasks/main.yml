@@ -1,0 +1,143 @@
+---
+- name: Require validated public inputs
+  ansible.builtin.assert:
+    that:
+      - public_enabled | bool
+      - public_hostname is match('^[a-z0-9][a-z0-9.-]+[a-z0-9]$')
+      - public_tunnel_id is match('^[0-9a-f-]{36}$')
+      - public_origin_port | int >= 1024
+      - public_origin_port | int <= 65535
+      - public_origin_port | int not in [app_port | int, postgres_port | int, redis_port | int, lan_http_port | int]
+      - ansible_facts["architecture"] in ["x86_64", "amd64"]
+      - public_cloudflared_version is match('^[0-9]{4}\.[0-9]+\.[0-9]+$')
+      - public_cloudflared_checksum is match('^sha256:[0-9a-f]{64}$')
+      - vault_public_tunnel_token | length > 32
+  no_log: true
+- name: Inspect public connector ownership before mutation
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ playbook_dir }}/../../Scripts/lib/public_collisions.py"
+      - --source-repo-url
+      - "{{ source_repo_url }}"
+      - --hostname
+      - "{{ public_hostname }}"
+      - --tunnel-id
+      - "{{ public_tunnel_id }}"
+      - --port
+      - "{{ public_origin_port | string }}"
+  changed_when: false
+- name: Inspect existing connector token
+  ansible.builtin.slurp:
+    src: "/etc/{{ app_name }}/cloudflare-token"
+  register: previous_public_token
+  failed_when: false
+  no_log: true
+- name: Refuse unrequested connector credential replacement
+  ansible.builtin.assert:
+    that:
+      - previous_public_token.content is not defined or (previous_public_token.content | b64decode | trim) == vault_public_tunnel_token
+    fail_msg: "Connector token differs. Use the documented explicit rotation procedure."
+  no_log: true
+- name: Create the app-owned pinned connector directory
+  ansible.builtin.file:
+    path: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Download and verify the isolated connector binary
+  ansible.builtin.get_url:
+    url: "https://github.com/cloudflare/cloudflared/releases/download/{{ public_cloudflared_version }}/cloudflared-linux-amd64"
+    dest: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}/cloudflared"
+    checksum: "{{ public_cloudflared_checksum }}"
+    owner: root
+    group: root
+    mode: "0755"
+    timeout: 60
+  register: public_binary
+  retries: 5
+  delay: 10
+  until: public_binary is succeeded
+- name: Verify the isolated connector version
+  ansible.builtin.command: "{{ deploy_root }}/cloudflared/{{ public_cloudflared_version }}/cloudflared --version"
+  register: public_version
+  changed_when: false
+  failed_when: public_cloudflared_version not in public_version.stdout
+- name: Store the connector token without command-line credentials
+  ansible.builtin.copy:
+    dest: "/etc/{{ app_name }}/cloudflare-token"
+    content: "{{ vault_public_tunnel_token }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  register: public_token
+  no_log: true
+- name: Record public resources owned by this app before rendering
+  ansible.builtin.copy:
+    dest: "/etc/{{ app_name }}/public.json"
+    content: "{{ {'hostname': public_hostname, 'tunnel_id': public_tunnel_id, 'origin_port': public_origin_port | int, 'source_repo_url': source_repo_url} | to_nice_json }}"
+    owner: root
+    group: root
+    mode: "0644"
+- name: Remember the prior public Caddy site
+  ansible.builtin.slurp:
+    src: "/etc/caddy/sites/{{ app_name }}-public.caddy"
+  register: previous_public_site
+  failed_when: false
+- name: Apply and validate the loopback public site
+  block:
+    - name: Render public Caddy ingress
+      ansible.builtin.template:
+        src: app.caddy.j2
+        dest: "/etc/caddy/sites/{{ app_name }}-public.caddy"
+        owner: root
+        group: caddy
+        mode: "0644"
+    - name: Validate all sites before public reload
+      ansible.builtin.command: caddy validate --config /etc/caddy/Caddyfile
+      changed_when: false
+    - name: Reload the validated public ingress
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded
+  rescue:
+    - name: Restore only this app's previous public site
+      ansible.builtin.copy:
+        content: "{{ previous_public_site.content | b64decode }}"
+        dest: "/etc/caddy/sites/{{ app_name }}-public.caddy"
+        owner: root
+        group: caddy
+        mode: "0644"
+      when: previous_public_site.content is defined
+    - name: Remove only the failed new public site
+      ansible.builtin.file:
+        path: "/etc/caddy/sites/{{ app_name }}-public.caddy"
+        state: absent
+      when: previous_public_site.content is not defined
+    - name: Stop the failed public deployment
+      ansible.builtin.fail:
+        msg: "Public Caddy validation failed; the prior site was restored."
+- name: Require exact origin readiness before starting the connector
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ public_origin_port }}/health/ready"
+    headers:
+      Host: "{{ public_hostname }}"
+    return_content: true
+    status_code: 200
+  register: public_origin
+  failed_when: public_origin.content | trim != "Healthy"
+- name: Install this app's dedicated connector service
+  ansible.builtin.template:
+    src: cloudflared.service.j2
+    dest: "/etc/systemd/system/cloudflared-{{ app_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: public_service
+- name: Enable the dedicated public connector
+  ansible.builtin.systemd:
+    name: "cloudflared-{{ app_name }}"
+    enabled: true
+    daemon_reload: true
+    state: "{{ 'restarted' if public_service.changed or public_binary.changed or public_token.changed else 'started' }}"

@@ -8,6 +8,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import uuid
 
 from bootstrap import VERSION
 from ls_settings import ETC, ROOT, TARGET, command, read_yaml, settings
@@ -73,8 +74,8 @@ def choose(checks, node, app, facts, repo, ci_runner):
             actor, action, message = "human", "", "A deployment dispatch was recorded but its run ID is unresolved. Inspect Actions; do not dispatch again."
         return {"step": step, "actor": actor, "summary": summary, "command": action, "human_message": message, "done": done, "ci_runner": ci_runner, "repo": repo, "facts": facts}, 20 if actor == "human" else 10
     port = settings()["lan_http_port"]
-    url = f"http://{facts['ip']}:{port}/"
-    return {"step": "done", "actor": "none", "summary": "Setup complete: " + url, "command": "", "human_message": "Run the independent LAN acceptance check from the main PC. Keep a fixed DHCP reservation.", "done": done, "repo": repo, "facts": facts}, 0
+    url = checks.get("public_url") or f"http://{facts['ip']}:{port}/"
+    return {"step": "done", "actor": "none", "summary": "Setup complete: " + url, "command": "", "human_message": "Run independent acceptance from the main PC; public setup also requires real browser verification. Keep a fixed DHCP reservation.", "done": done, "repo": repo, "facts": facts}, 0
 
 
 def status(node, expected_address=None):
@@ -146,10 +147,30 @@ def status(node, expected_address=None):
                 break
     deploy_runs = json.loads(gh("run", "list", "--repo", repo, "--workflow", "cd-localsinglenode.yml", "--event", "workflow_dispatch", "--json", "databaseId,status,conclusion,displayTitle", "--limit", "100"))
     checks["deploy"] = any(run["status"] == "completed" and run["conclusion"] == "success" and run["displayTitle"] == "CD LocalSingleNode @ " + main for run in deploy_runs)
+    public_host = variables.get("LOCALSINGLENODE_PUBLIC_HOSTNAME", "")
+    public_state = ETC / app / "public.json"
+    if public_host:
+        public_port = int(variables.get("LOCALSINGLENODE_PUBLIC_ORIGIN_PORT") or "8085")
+        public_id = variables.get("LOCALSINGLENODE_PUBLIC_TUNNEL_ID", "")
+        labels = public_host.split(".")
+        valid_host = len(public_host) <= 253 and public_host == public_host.lower() and len(labels) >= 2 and all(
+            re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels
+        )
+        try:
+            valid_tunnel_id = str(uuid.UUID(public_id)) == public_id
+        except (ValueError, TypeError, AttributeError):
+            valid_tunnel_id = False
+        if not valid_host or not valid_tunnel_id:
+            raise ValueError("Invalid public deployment repository variables")
+        checks["public_url"] = "https://" + public_host + "/"
+        public = json.loads(public_state.read_text()) if public_state.exists() else {}
+        checks["deploy"] = checks["deploy"] and public.get("hostname") == public_host and public.get("tunnel_id") == public_id and public.get("origin_port") == public_port
+    elif public_state.exists():
+        raise ValueError("Published node has missing public repository variables; restore them or follow explicit removal")
     record_path = state_path(node)
     record = json.loads(record_path.read_text()) if record_path.exists() else {}
     checks["deploy_ambiguous"] = record.get("sha") == main and bool(record.get("dispatch_pending")) and not record.get("run_id")
-    checks["verify"] = record.get("verified_sha") == main and record.get("verified_address") == facts["ip"] and record.get("verified_port") == config["lan_http_port"]
+    checks["verify"] = record.get("verified_sha") == main and record.get("verified_address") == facts["ip"] and record.get("verified_port") == config["lan_http_port"] and record.get("verified_public", "") == checks.get("public_url", "")
     return choose(checks, node, app, facts, repo, ci_runner)
 
 

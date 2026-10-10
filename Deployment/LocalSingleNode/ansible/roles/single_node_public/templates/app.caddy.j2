@@ -1,0 +1,9 @@
+http://:{{ public_origin_port }} {
+    bind 127.0.0.1
+    reverse_proxy 127.0.0.1:{{ app_port }} {
+        health_uri /health/ready
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {{ public_hostname }}
+        header_up X-Forwarded-For {http.request.header.Cf-Connecting-Ip}
+    }
+}

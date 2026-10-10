@@ -73,6 +73,13 @@ def check(source, bootstrap=False):
     for path in (ETC / "caddy/sites").glob("*.caddy"):
         if path.name == f"{app}.caddy" and owned:
             continue
+        if path.name == f"{app}-public.caddy" and owned:
+            public_state = ETC / app / "public.json"
+            if public_state.exists() and not public_state.is_symlink():
+                public_source = json.loads(public_state.read_text()).get("source_repo_url", "")
+                if public_source.casefold() == source.casefold():
+                    continue
+            raise ValueError("Public Caddy site has no matching repository ownership")
         text = path.read_text()
         for port in requested:
             if re.search(rf":{port}(?![0-9])", text) or (port == 80 and re.search(r"http://[^,\s:{]+(?:[,\s{]|$)", text)):

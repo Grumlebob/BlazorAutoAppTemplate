@@ -23,6 +23,7 @@ class ReadinessTests(unittest.TestCase):
         clock, sleep = self.clock()
         response = MagicMock()
         response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = b"Healthy"
         attempts = [urllib.error.HTTPError('http://192.0.2.10/health/ready', 503, 'starting', {}, None), urllib.error.URLError('connection refused'), response]
         with patch.object(readiness.time, 'monotonic', side_effect=lambda: clock.value), patch.object(readiness.time, 'sleep', side_effect=sleep), patch.object(readiness.urllib.request, 'urlopen', side_effect=attempts) as request, patch('sys.stdout', new_callable=io.StringIO) as output:
             readiness.wait('http://192.0.2.10/health/ready')
@@ -40,9 +41,17 @@ class ReadinessTests(unittest.TestCase):
 
     def test_full_acceptance_runs_once_after_successful_warmup(self):
         text = (LIB.parent / 'acceptance-check.sh').read_text()
-        self.assertLess(text.index('lib/readiness.py'), text.index('exec pwsh'))
+        self.assertLess(text.index('lib/readiness.py'), text.index('pwsh'))
         self.assertEqual(1, text.count('Scripts/Test-DeployedSite.ps1'))
         self.assertIn('set -euo pipefail', text)
+
+    def test_empty_200_does_not_prove_readiness(self):
+        clock, sleep = self.clock()
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = b""
+        with patch.object(readiness.time, 'monotonic', side_effect=lambda: clock.value), patch.object(readiness.time, 'sleep', side_effect=sleep), patch.object(readiness.urllib.request, 'urlopen', return_value=response), patch('sys.stdout', new_callable=io.StringIO), self.assertRaisesRegex(ValueError, 'deadline exceeded'):
+            readiness.wait('https://demo.example.com/health/ready', timeout=4)
 
 
 if __name__ == '__main__':

@@ -9,3 +9,7 @@
 7. When status reports `none`, report the site URL, initial CD run URL/SHA/digest and `pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -Address <detected IPv4> -Port <HTTP port>` for the main-PC agent. The main PC runs this check independently. Recommend a DHCP reservation when one does not exist.
 
 The root command rejects unsupported platforms, missing root/SUDO_USER, identity mismatches and fixture paths before mutation. Re-run the same command after a numbered failure; it preserves existing secrets, registrations and volumes. Repository-owned shared Caddy configuration is reused; foreign configuration requires inspection.
+
+## Optional public setup
+
+When the operator requests a public site, complete LAN setup first, then follow [PublicSetup.md](PublicSetup.md) from the controller. The agent creates and checks Cloudflare DNS and the tunnel; the operator handles authentication and required confirmation. Public setup is incomplete until HTTPS acceptance and browser interaction pass. Do not report LAN setup as public deployment completion.
