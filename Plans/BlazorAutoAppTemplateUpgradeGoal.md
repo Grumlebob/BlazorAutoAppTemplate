@@ -1,6 +1,8 @@
 # Goal prompt: BlazorAutoAppTemplate upgrade and LocalSingleNode
 
-Paste the block below as a new goal. It runs [BlazorAutoAppTemplateUpgrade.md](BlazorAutoAppTemplateUpgrade.md) to the end and authorises everything the plan specifies:
+Completed 2026-10-10. All required repository phases and P13.12 rows 1–8 passed; evidence is in plan 11.16 and the verified closeout PR. The original execution prompt below is retained as history. Node-demo setup is complete; no new operator setup is needed. LocalCluster/Cloud live deployment remains unauthorized.
+
+The historical block below ran [BlazorAutoAppTemplateUpgrade.md](BlazorAutoAppTemplateUpgrade.md) to completion and authorized everything the plan specifies:
 
 - the D15 security fix (seeded demo accounts disabled in deployments);
 - merging the P7, P8, P10 and P11 stack;
