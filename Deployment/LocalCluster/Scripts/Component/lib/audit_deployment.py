@@ -1825,6 +1825,10 @@ require_contains(".gitignore", "Deployment/LocalSingleNode/machine.yml", "ignore
 require_contains("Deployment/Common/Scripts/install-ansible.sh", "USER_ONLY", "unprivileged install-user provisioning")
 require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "HTTP form acceptance in CI")
 require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
+require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address", "show"', "mDNS check discovers the interface owning the deployment IPv4")
+require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu", str(index), "0", name, "0", "0"', "mDNS check resolves the deployment name on its LAN interface")
+require_contains(single + "/Scripts/lib/doctor.py", 'data[4] == machine["ip"]', "mDNS check requires the exact deployment IPv4")
+require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,User,WorkingDirectory"', "read-only runner service inspection without deploy home access")
 
 
 if failures:

@@ -113,24 +113,69 @@ class DoctorTests(unittest.TestCase):
             secret = etc / 'books/secrets.yml'
             secret.write_text('fixture')
             secret.chmod(0o600)
-            original = Path.read_text
-            def read(path, *args, **kwargs):
-                if path.name == '.service':
-                    return 'fixture-runner.service'
-                return original(path, *args, **kwargs)
             def command(*args):
+                if args[:2] == ('systemctl', 'show'):
+                    return 'Id=actions.runner.fixture.service\nActiveState=active\nUser=deploy\nWorkingDirectory=/home/deploy/actions-runner-books'
                 if args[0] == 'id':
                     return 'deploy docker'
-                if args[0] == 'getent':
-                    return '192.0.2.10 STREAM node-rehearsal.local'
+                if args[0] == 'ip':
+                    return json.dumps([dict(ifindex=3, addr_info=[dict(local='192.0.2.10')])])
+                if args[0] == 'busctl':
+                    return json.dumps(dict(type='iisisu', data=[3, 0, 'node-rehearsal.local', 0, '192.0.2.10', 13]))
                 return 'active'
-            with patch.object(doctor, 'ETC', etc), patch.object(doctor, 'native', return_value=True), patch.object(Path, 'read_text', read), patch.object(doctor, 'command', side_effect=command), patch.object(doctor.shutil, 'disk_usage', return_value=SimpleNamespace(free=21 * 1024 ** 3)):
+            with patch.object(doctor, 'ETC', etc), patch.object(doctor, 'native', return_value=True), patch.object(doctor, 'command', side_effect=command), patch.object(doctor.shutil, 'disk_usage', return_value=SimpleNamespace(free=21 * 1024 ** 3)):
                 checks = doctor.check()
                 self.assertEqual(['native-linux', 'runner', 'docker-group', 'firewall', 'caddy', 'secret-mode', 'disk-20GiB', 'mdns'], [item['name'] for item in checks])
                 self.assertTrue(all(item['pass'] for item in checks))
                 secret.chmod(0o644)
                 checks = doctor.check()
                 self.assertFalse(next(item for item in checks if item['name'] == 'secret-mode')['pass'])
+
+    def test_mdns_uses_the_lan_interface_when_docker_is_listed_first(self):
+        machine = dict(name='Node-Rehearsal', ip='192.0.2.10')
+        interfaces = [
+            dict(ifindex=4, addr_info=[dict(local='172.30.10.1')]),
+            dict(ifindex=7, addr_info=[dict(local=machine['ip'])]),
+        ]
+        result = dict(type='iisisu', data=[7, 0, 'node-rehearsal.local', 0, machine['ip'], 13])
+        with patch.object(doctor, 'command', side_effect=[json.dumps(interfaces), json.dumps(result)]) as command:
+            self.assertTrue(doctor.mdns_resolves_lan(machine))
+        self.assertEqual(('ResolveHostName', 'iisiu', '7', '0', 'Node-Rehearsal.local', '0', '0'), command.call_args.args[-7:])
+        self.assertIn('--timeout=10s', command.call_args.args)
+
+    def test_mdns_rejects_wrong_address_interface_name_and_protocol(self):
+        machine = dict(name='node-rehearsal', ip='192.0.2.10')
+        interfaces = [dict(ifindex=3, addr_info=[dict(local=machine['ip'])])]
+        for position, value in ((0, 4), (1, 1), (2, 'other.local'), (3, 1), (4, '172.30.10.1'), (4, '192.0.2.100')):
+            data = [3, 0, 'node-rehearsal.local', 0, machine['ip'], 13]
+            data[position] = value
+            with self.subTest(position=position, value=value), patch.object(doctor, 'command', side_effect=[json.dumps(interfaces), json.dumps(dict(type='iisisu', data=data))]):
+                self.assertFalse(doctor.mdns_resolves_lan(machine))
+
+    def test_mdns_rejects_missing_lan_interface_and_malformed_response(self):
+        machine = dict(name='node-rehearsal', ip='192.0.2.10')
+        with patch.object(doctor, 'command', return_value='[]') as command:
+            self.assertFalse(doctor.mdns_resolves_lan(machine))
+            self.assertEqual(1, command.call_count)
+        interfaces = [dict(ifindex=3, addr_info=[dict(local=machine['ip'])])]
+        for response in ([], {}, dict(type='s', data=['192.0.2.10']), dict(type='iisisu', data=[]), dict(type='iisisu', data=None), dict(type='iisisu', data=[3, 0, None, 0, machine['ip'], 13])):
+            with self.subTest(response=response), patch.object(doctor, 'command', side_effect=[json.dumps(interfaces), json.dumps(response)]):
+                self.assertFalse(doctor.mdns_resolves_lan(machine))
+
+    def test_mdns_lookup_failure_is_not_accepted(self):
+        interfaces = [dict(ifindex=3, addr_info=[dict(local='192.0.2.10')])]
+        with patch.object(doctor, 'command', side_effect=[json.dumps(interfaces), ValueError('busctl failed')]):
+            with self.assertRaises(ValueError):
+                doctor.mdns_resolves_lan(dict(name='node-rehearsal', ip='192.0.2.10'))
+
+    def test_runner_check_does_not_read_deploy_home(self):
+        service = 'Id=actions.runner.fixture.service\nActiveState=active\nUser=deploy\nWorkingDirectory=/home/deploy/actions-runner-books'
+        foreign = service.replace('runner-books', 'runner-other').replace('fixture.service', 'other.service')
+        with patch.object(Path, 'read_text', side_effect=PermissionError('private home')), patch.object(doctor, 'command', return_value=foreign + '\n\n' + service):
+            self.assertTrue(doctor.runner_active('books'))
+        for output in ('', foreign, service.replace('active', 'inactive'), service.replace('User=deploy', 'User=root'), service + '\n\n' + service):
+            with self.subTest(output=output), patch.object(doctor, 'command', return_value=output):
+                self.assertFalse(doctor.runner_active('books'))
 
     def test_operator_address_mismatch_precedes_mutation(self):
         args = SimpleNamespace(user='operator', node='node-rehearsal', github_login='fixture', yes=True, expected_address='192.0.2.11')
