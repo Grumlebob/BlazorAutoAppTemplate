@@ -1,4 +1,11 @@
 ---
+- name: Retire the legacy Caddy source before Docker apt updates
+  ansible.builtin.script:
+    cmd: "{{ role_path }}/../../../Scripts/retire-caddy-cloudsmith-source.py"
+    executable: /usr/bin/python3
+  register: docker_caddy_source_retirement
+  changed_when: "'Retired legacy Caddy source' in docker_caddy_source_retirement.stdout"
+
 - name: Ensure Docker keyring directory exists
   ansible.builtin.file:
     path: /etc/apt/keyrings

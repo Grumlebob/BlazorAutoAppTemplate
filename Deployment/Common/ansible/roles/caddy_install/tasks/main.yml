@@ -1,39 +1,35 @@
 ---
-- name: Install Caddy repository prerequisites
-  ansible.builtin.apt:
-    name:
-      - apt-transport-https
-      - curl
-      - debian-archive-keyring
-      - debian-keyring
-      - gnupg
-    state: present
-    update_cache: true
+- name: Retire the legacy Caddy Cloudsmith source
+  ansible.builtin.script:
+    cmd: "{{ role_path }}/../../../Scripts/retire-caddy-cloudsmith-source.py"
+    executable: /usr/bin/python3
+  register: caddy_source_retirement
+  changed_when: "'Retired legacy Caddy source' in caddy_source_retirement.stdout"
 
-- name: Add Caddy apt key
-  ansible.builtin.shell: |
-    set -euo pipefail
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  args:
-    executable: /bin/bash
-    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+- name: Require a supported Caddy package architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] in caddy_package_architectures
+    fail_msg: "No pinned official Caddy package for {{ ansible_facts['architecture'] }}"
 
-- name: Add Caddy apt repository
+- name: Download the pinned official Caddy Debian package
   ansible.builtin.get_url:
-    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
-    dest: /etc/apt/sources.list.d/caddy-stable.list
+    url: "https://github.com/caddyserver/caddy/releases/download/v{{ caddy_package_version }}/caddy_{{ caddy_package_version }}_linux_{{ caddy_package_architectures[ansible_facts['architecture']] }}.deb"
+    dest: "/var/cache/apt/archives/caddy_{{ caddy_package_version }}_linux_{{ caddy_package_architectures[ansible_facts['architecture']] }}.deb"
+    checksum: "sha256:{{ caddy_package_sha256[caddy_package_architectures[ansible_facts['architecture']]] }}"
+    owner: root
+    group: root
     mode: "0644"
     timeout: 60
-  register: caddy_repository_download
+  register: caddy_package_download
   retries: 5
   delay: 10
-  until: caddy_repository_download is succeeded
+  until: caddy_package_download is succeeded
 
-- name: Install Caddy
+- name: Install the verified Caddy package and its systemd service
   ansible.builtin.apt:
-    name: caddy
+    deb: "{{ caddy_package_download.dest }}"
     state: present
-    update_cache: true
 
 - name: Ensure Caddy sites directory exists
   ansible.builtin.file:

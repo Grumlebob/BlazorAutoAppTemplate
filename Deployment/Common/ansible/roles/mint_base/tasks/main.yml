@@ -1,4 +1,11 @@
 ---
+- name: Retire the legacy Caddy source before baseline apt updates
+  ansible.builtin.script:
+    cmd: "{{ role_path }}/../../../Scripts/retire-caddy-cloudsmith-source.py"
+    executable: /usr/bin/python3
+  register: mint_base_caddy_source_retirement
+  changed_when: "'Retired legacy Caddy source' in mint_base_caddy_source_retirement.stdout"
+
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
