@@ -26,19 +26,70 @@ function Get-ResponseUri($Response) {
 }
 
 function Request([string]$Path, $Session, [hashtable]$Body) {
-    $arguments = @{
-        Uri = $script:site + $Path
-        WebSession = $Session
-        UseBasicParsing = $true
-        TimeoutSec = 30
-        MaximumRedirection = 10
-    }
+    $currentUri = [Uri]($script:site + $Path)
+    $method = 'GET'
+    $formBody = $null
     if ($Body) {
-        $arguments.Method = 'POST'
-        $arguments.Body = $Body
-        $arguments.ContentType = 'application/x-www-form-urlencoded'
+        $method = 'POST'
+        $pairs = @()
+        foreach ($key in $Body.Keys) {
+            $pairs += [System.Net.WebUtility]::UrlEncode([string]$key) + '=' + [System.Net.WebUtility]::UrlEncode([string]$Body[$key])
+        }
+        $formBody = [string]::Join('&', $pairs)
     }
-    return Invoke-WebRequest @arguments
+
+    for ($redirect = 0; $redirect -le 10; $redirect++) {
+        $request = [System.Net.HttpWebRequest]::Create($currentUri)
+        $request.AllowAutoRedirect = $false
+        $request.CookieContainer = $Session.Cookies
+        $request.Method = $method
+        $request.Timeout = 30000
+        $request.ReadWriteTimeout = 30000
+        if ($method -eq 'POST') {
+            $request.ContentType = 'application/x-www-form-urlencoded'
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($formBody)
+            $request.ContentLength = $bytes.Length
+            $stream = $request.GetRequestStream()
+            try { $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+        }
+
+        $response = $null
+        try {
+            try { $response = $request.GetResponse() }
+            catch [System.Net.WebException] {
+                if ($_.Exception.Response) { $response = $_.Exception.Response } else { throw }
+            }
+            $status = [int]$response.StatusCode
+            $location = $response.Headers['Location']
+            if ($status -in @(301, 302, 303, 307, 308) -and $location) {
+                if ($redirect -eq 10) { throw 'Same-origin redirect limit exceeded' }
+                $target = [Uri]::new($currentUri, $location)
+                if ($target.GetLeftPart([System.UriPartial]::Authority) -ne $script:site) {
+                    throw 'Response redirected outside the requested origin'
+                }
+                if ($status -in @(301, 302, 303) -and $method -eq 'POST') {
+                    $method = 'GET'
+                    $formBody = $null
+                }
+                $currentUri = $target
+                continue
+            }
+
+            $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+            try { $content = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $headers = @{}
+            foreach ($name in $response.Headers.AllKeys) { $headers[$name] = $response.Headers[$name] }
+            return [pscustomobject]@{
+                StatusCode = $status
+                Content = $content
+                Headers = $headers
+                BaseResponse = [pscustomobject]@{ ResponseUri = $response.ResponseUri }
+            }
+        } finally {
+            if ($response) { $response.Dispose() }
+        }
+    }
+    throw 'Same-origin redirect limit exceeded'
 }
 
 function Form([string]$Path, [string]$Handler, $Session, [hashtable]$Fields) {
@@ -77,8 +128,8 @@ try {
         $BaseUrl = 'http://' + $hostName + ':' + $Port
     }
     $uri = [Uri]$BaseUrl
-    if ($uri.Scheme -ne 'http' -or $uri.UserInfo -or $uri.AbsolutePath -ne '/') {
-        throw 'BaseUrl must be a plain HTTP origin without credentials or a path'
+    if ($uri.Scheme -notin @('http', 'https') -or $uri.UserInfo -or $uri.AbsolutePath -ne '/' -or $uri.Query -or $uri.Fragment) {
+        throw 'BaseUrl must be an HTTP or HTTPS origin without credentials, a path, query or fragment'
     }
     $script:site = $uri.GetLeftPart([System.UriPartial]::Authority)
     try {
@@ -102,7 +153,7 @@ try {
     $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $checkName = 'health'
     $health = Request '/health/ready' $anonymous
-    Write-Check 'health' ([int]$health.StatusCode -eq 200) 'Readiness returns 200'
+    Write-Check 'health' ([int]$health.StatusCode -eq 200 -and $health.Content.Trim() -eq 'Healthy') 'Application readiness returns Healthy'
     $checkName = 'Blazor'
     $homeResponse = Request '/' $anonymous
     Write-Check 'Blazor' ([int]$homeResponse.StatusCode -eq 200 -and $homeResponse.Content.Contains('_framework/blazor.web')) 'Home contains Blazor script'
@@ -134,6 +185,11 @@ try {
     $null = Login $loginSession $email $password
     Write-Check 'login' (Is-Authenticated $loginSession) 'Fresh session signs in'
     Write-Check 'account-manage' (Is-Authenticated $loginSession) 'Authenticated account page returns 200'
+    if ($uri.Scheme -eq 'https') {
+        $authCookies = @($loginSession.Cookies.GetCookies($uri) | Where-Object { $_.HttpOnly -and $_.Name -notmatch 'Antiforgery' })
+        Write-Check 'HTTPS-cookie' ($authCookies.Count -gt 0 -and @($authCookies | Where-Object { -not $_.Secure }).Count -eq 0) 'Authentication cookies are Secure and HttpOnly'
+        Write-Check 'HTTPS-origin' ((Get-ResponseUri (Request '/Account/Manage' $loginSession)).GetLeftPart([System.UriPartial]::Authority) -eq $script:site) 'Authenticated navigation stays on the requested HTTPS origin'
+    }
     $checkName = 'default-admin-disabled'
     $negative = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $denied = Login $negative 'admin@admin.com' 'Admin123'

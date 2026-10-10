@@ -1,6 +1,6 @@
 # BlazorAutoAppTemplate Upgrade: Backport ImprovedDb Lessons
 
-Status: complete (2026-10-10). D15 and P1–P13 are merged and verified. All eight P13.12 live rows passed on node-demo, including independent Windows LAN acceptance, reboot recovery, rollback/restoration and a fresh protected backup restored into 12 tables. The documentation closeout merge and green-main checkpoint are recorded in its PR description. LocalCluster and Cloud live deployment remain skipped under Q1. The execution goal is [BlazorAutoAppTemplateUpgradeGoal.md](BlazorAutoAppTemplateUpgradeGoal.md).
+Status: P1–P13 complete; public extension in progress (2026-10-10). Original LAN verification remains recorded below. The operator requested agent-created public DNS/tunnel, public end-to-end acceptance and reusable setup for cloned sites. Execute [LocalSingleNodePublicDeployment.md](LocalSingleNodePublicDeployment.md) for P14. Public deployment is not complete yet. LocalCluster/Cloud live deployment remains skipped under Q1.
 
 Execution context updated 2026-10-10: the current computer is the operator's Windows **main PC**, observed hostname `DESKTOP-FDU51L5`. The deployment target is a separate PC, **node-demo**, at **`192.168.0.212`**, with a fixed DHCP lease. The main-PC agent owns repository work, GitHub operations and the LAN acceptance check. Node bootstrap, runner installation and local Ansible deployment run on node-demo only. Naming node-demo in this plan does not authorise treating the current PC or a WSL distribution as node-demo. The operator completed native node setup with its local agent, including fixes #122–#124; the runner and site are available. Earlier pending-setup statements below are historical handoff records, superseded by 11.15 and the completed live evidence in 11.16.
 Prepared: 2026-10-08.
@@ -1180,7 +1180,7 @@ For an operator without a checkout, the same script can be run in Windows PowerS
 | Application quality manifest/guard | ImprovedDb process. | `BlazorAutoApp.Test/TestSupport/Quality/**` |
 | Generic "app secrets from GitHub secrets" pass-through in CD | New design, not a port; forks needing API keys can follow ImprovedDb's extra-vars pattern. | `cd-localcluster.yml` "Write GHCR deploy credentials" step |
 | Removable target folders (`select-deployment-targets.sh`) | CI, the audit and the smoke live under `Deployment/LocalCluster/`; making every target deletable needs those moved first (S4). | - |
-| Cloudflare tunnel and observability for LocalSingleNode | node-demo is LAN-only (Q6); observability adds a second stack (S13). | LocalCluster `cloudflared` and observability roles |
+| Observability for LocalSingleNode | Observability adds a second stack (S13). Public tunnel setup is now included in [P14](LocalSingleNodePublicDeployment.md). | Common observability building blocks |
 | Ubuntu + dotnet-install Dockerfile | Needed by ImprovedDb for Python/Skia. Template keeps MCR images so Dependabot can track them. | `BlazorAutoApp/Dockerfile` |
 
 ---
@@ -1194,7 +1194,7 @@ Resolved or not needed (rechecked 2026-10-08):
 - **MB3 Branch protection:** corrected on 2026-10-09. GitHub reports `main` as unprotected, the classic protection endpoint returns 404, and the effective branch-rules endpoint returns `[]`. Earlier green PR checks did not prove protection existed. This does not prevent execution: the agent must enforce the exact-head `build-test-push` and green-main gates before every merge. Q5 forbids changing protection; owner-enforced protection is a separate decision, not permission for the agent to bypass CI.
 - **MB4 LocalCluster facts:** not needed (Q1).
 - **Repository variables and Dependabot clean-up:** done by the agent (Q5).
-- **Cloudflare:** not needed (Q6).
+- **Cloudflare:** P14 requires operator authentication and any browser-policy confirmation. The agent creates DNS and the tunnel; the operator does not construct those resources manually.
 
 MB5–MB7 are complete (operator confirmation and native workflow evidence, 2026-10-10). The following setup actions are retained as the historical operator handoff; no further operator setup remains. The controller completed P13.12 rows 3–8, recorded in 11.16:
 
@@ -1216,7 +1216,7 @@ Nothing else is needed: no PAT, no GitHub secrets, no Cloudflare account and no 
 | Q3 | Run the maintenance workflow on a schedule for the template? | **Ship it manual-only.** Keep the `schedule:` block commented out with a note telling forks to enable it; keep `workflow_dispatch`. |
 | Q4 | Add a LocalSingleNode target and test it on node-demo? | **Yes** (operator request, 2026-10-08). Separate `Deployment/LocalSingleNode/` folder; forks choose targets with `DEPLOY_TARGETS`. Design decisions S1–S21 are in P13.A. Live CD to node-demo is authorised for P13.12; this does not change Q1 for LocalCluster. |
 | Q5 | May the agent change repository settings and close PRs? | **Yes, within limits** (operator delegated routine decisions on 2026-10-08: "take intelligent recommendations"). The agent may set the repository variables `DEPLOY_TARGETS`, `LOCALSINGLENODE_HOST`, `LOCALSINGLENODE_RUNNER_LABEL` and `CI_RUNNER_LABEL`, and close superseded Dependabot PRs with a comment naming the replacing commit. It may not change branch protection or secrets, or manually alter existing runner registrations. P13.6's operator-run bootstrap on node-demo may register that node's runner, as required by Q4; it must preserve existing runners and keep template CI on node-main. |
-| Q6 | Expose node-demo publicly? | **No.** LAN-only over HTTP through Caddy (S6). A tunnel is deferred (section 8). |
+| Q6 | Expose node-demo publicly? | Originally **No** for P13. Superseded by the operator on 2026-10-10: **Yes**, with agent-created Cloudflare DNS/tunnel and public end-to-end acceptance. Execute [P14](LocalSingleNodePublicDeployment.md). Preserve the original LAN evidence. |
 | Q7 | Dependabot #45 (checkout v7) and #87 (login-action 4.5.2) still touch `cd-cloud.yml`, which keeps `@v6`/`@v4` after P7. | Add both bumps to the P7 PR, then close #45 and #87 as superseded. |
 | Q8 | A helper that deletes unused target folders? | **Deferred** (S4, section 8). |
 | Q9 | Which machine runs this agent, and what is node-demo's address? | **Main PC is the controller** (operator clarification, 2026-10-09); observed Windows hostname `DESKTOP-FDU51L5`. **node-demo is a separate target at `192.168.0.212`, with a fixed DHCP lease.** The controller runs repository work, GitHub operations and P13.12 row 4. Native node setup runs only on node-demo; never bootstrap Windows or WSL as that node. Record the real address only in this execution plan/goal, not reusable deployment configuration. |

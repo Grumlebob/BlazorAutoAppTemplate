@@ -111,8 +111,10 @@ def main():
         print(f"CD run recorded before watching: https://github.com/{repo}/actions/runs/{run_id}", flush=True)
         run(gh_binary(), "run", "watch", run_id, "--repo", repo, "--interval", "60", "--exit-status")
     elif args.action == "verify":
-        run("pwsh", "-NoProfile", "-File", str(ROOT / "Scripts/Test-DeployedSite.ps1"), "-Address", state["facts"]["ip"], "-Port", str(config["lan_http_port"]))
-        record.update(verified_sha=sha, verified_address=state["facts"]["ip"], verified_port=config["lan_http_port"])
+        run("bash", str(TARGET / "Scripts/acceptance-check.sh"))
+        public_state = Path("/etc") / config["app_name"] / "public.json"
+        public_url = "https://" + json.loads(public_state.read_text())["hostname"] + "/" if public_state.exists() else ""
+        record.update(verified_sha=sha, verified_address=state["facts"]["ip"], verified_port=config["lan_http_port"], verified_public=public_url)
         save(record_path, record)
         print("Node acceptance passed. Main PC must run its own independent LAN check.")
 

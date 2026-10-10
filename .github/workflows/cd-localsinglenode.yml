@@ -208,12 +208,30 @@ jobs:
           bash Deployment/LocalSingleNode/Scripts/detect-machine.sh --previous /etc/localsinglenode/machine.yml --output "$RUNNER_TEMP/machine.yml"
           bash Deployment/LocalSingleNode/Scripts/generate-inventory.sh --machine "$RUNNER_TEMP/machine.yml" --output "$RUNNER_TEMP/hosts.yml"
 
+      - name: Validate optional public deployment configuration
+        env:
+          PUBLIC_HOSTNAME: ${{ vars.LOCALSINGLENODE_PUBLIC_HOSTNAME }}
+          PUBLIC_TUNNEL_ID: ${{ vars.LOCALSINGLENODE_PUBLIC_TUNNEL_ID }}
+          PUBLIC_ORIGIN_PORT: ${{ vars.LOCALSINGLENODE_PUBLIC_ORIGIN_PORT }}
+          PUBLIC_TUNNEL_TOKEN: ${{ secrets.LOCALSINGLENODE_PUBLIC_TUNNEL_TOKEN }}
+        run: |
+          public_vars="$RUNNER_TEMP/public-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          echo "PUBLIC_EXTRA_VARS_FILE=$public_vars" >> "$GITHUB_ENV"
+          python3 Deployment/LocalSingleNode/Scripts/lib/public_config.py --output "$public_vars"
+
       - name: Deploy the verified release under the shared lock
         working-directory: Deployment/LocalSingleNode/ansible
         env:
           RUN_MIGRATIONS: ${{ inputs.run_migrations }}
         run: |
-          bash ../../Common/Scripts/with-deploy-lock.sh             ansible-playbook -i "$RUNNER_TEMP/hosts.yml" playbooks/site.yml             -e @"/etc/$APP_NAME/secrets.yml"             -e @"$GHCR_EXTRA_VARS_FILE"             -e "app_version=$TARGET_SHA"             -e "release_image_digest=$RELEASE_IMAGE_DIGEST"             -e "source_repo_url=$SOURCE_REPO_URL"             -e "run_migrations=$RUN_MIGRATIONS"             -e "machine_local_path=$RUNNER_TEMP/machine.yml"             -e "migration_bundle_local_path=$GITHUB_WORKSPACE/artifacts/migrations/$MIGRATION_BUNDLE_NAME"
+          bash ../../Common/Scripts/with-deploy-lock.sh \
+            ansible-playbook -i "$RUNNER_TEMP/hosts.yml" playbooks/site.yml \
+            -e @"/etc/$APP_NAME/secrets.yml" -e @"$GHCR_EXTRA_VARS_FILE" \
+            -e @"$PUBLIC_EXTRA_VARS_FILE" \
+            -e "app_version=$TARGET_SHA" -e "release_image_digest=$RELEASE_IMAGE_DIGEST" \
+            -e "source_repo_url=$SOURCE_REPO_URL" -e "run_migrations=$RUN_MIGRATIONS" \
+            -e "machine_local_path=$RUNNER_TEMP/machine.yml" \
+            -e "migration_bundle_local_path=$GITHUB_WORKSPACE/artifacts/migrations/$MIGRATION_BUNDLE_NAME"
 
       - name: Run HTTP acceptance
         run: bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
@@ -226,6 +244,9 @@ jobs:
         run: |
           if [ -n "${GHCR_EXTRA_VARS_FILE:-}" ]; then
             rm -f "${GHCR_EXTRA_VARS_FILE}"
+          fi
+          if [ -n "${PUBLIC_EXTRA_VARS_FILE:-}" ]; then
+            rm -f -- "$PUBLIC_EXTRA_VARS_FILE"
           fi
           if [ -n "${DOCKER_CONFIG:-}" ] && [ -d "${DOCKER_CONFIG}" ]; then
             rm -rf "${DOCKER_CONFIG}"

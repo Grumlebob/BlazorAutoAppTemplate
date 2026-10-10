@@ -1,5 +1,7 @@
 # Deployment Common
 
+The reusable [public tunnel script](Scripts/setup-public-tunnel.sh) provisions or checks one owned Cloudflare tunnel and proxied DNS record. It uses private JSON configuration, ownership state and protected credentials. [LocalSingleNode public setup](../LocalSingleNode/PublicSetup.md) integrates it into agent setup and deployment for cloned sites.
+
 Shared deployment files live here only when they are independent of a specific target.
 
 Current shared ownership:

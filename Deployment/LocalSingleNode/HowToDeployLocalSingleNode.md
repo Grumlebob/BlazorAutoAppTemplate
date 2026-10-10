@@ -1,6 +1,6 @@
 # Deploy LocalSingleNode
 
-Deploy web, PostgreSQL and Redis to one native Linux Mint PC. Host Caddy exposes plain HTTP on the LAN; database, Redis and web ports bind only to loopback. There is a short interruption when the web container stops for migrations or starts a new release. Observability and internet tunnels are outside this target's setup.
+Deploy web, PostgreSQL and Redis to one native Linux Mint PC. Host Caddy exposes plain HTTP on the LAN; database, Redis and web ports bind only to loopback. There is a short interruption when the web container stops for migrations or starts a new release. Optional agent-driven public HTTPS, including DNS and tunnel creation for cloned sites, is documented in [PublicSetup.md](PublicSetup.md). Observability remains outside this target's setup.
 
 ## Start with the local agent
 

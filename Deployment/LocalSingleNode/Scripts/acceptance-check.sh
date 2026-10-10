@@ -12,4 +12,5 @@ PY
 )"
 HTTP_PORT="$(bash "$SCRIPT_DIR/read-setting.sh" lan_http_port)"
 python3 "$SCRIPT_DIR/lib/readiness.py" "http://$NODE_IP:$HTTP_PORT/health/ready"
-exec pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -Address "$NODE_IP" -Port "$HTTP_PORT"
+pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -Address "$NODE_IP" -Port "$HTTP_PORT"
+bash "$SCRIPT_DIR/public-acceptance-check.sh"

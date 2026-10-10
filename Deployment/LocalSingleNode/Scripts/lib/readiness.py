@@ -1,4 +1,4 @@
-"""Wait only for LAN readiness; run the full acceptance check once afterwards."""
+"""Wait for exact application readiness; run full acceptance once afterwards."""
 import sys
 import time
 import urllib.error
@@ -18,7 +18,7 @@ def wait(url, timeout=180):
         try:
             with urllib.request.urlopen(url, timeout=min(5, remaining)) as response:
                 last = f"HTTP {response.status}"
-                if response.status == 200:
+                if response.status == 200 and response.read(64).strip() == b"Healthy":
                     print(f"LAN readiness returned 200 after {attempts} probes", flush=True)
                     return
         except urllib.error.HTTPError as error:
@@ -31,7 +31,7 @@ def wait(url, timeout=180):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: readiness.py <LAN-health-ready-URL>")
+        raise SystemExit("Usage: readiness.py <health-ready-URL>")
     try:
         wait(sys.argv[1])
     except ValueError as error:

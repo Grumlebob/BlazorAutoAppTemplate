@@ -10,5 +10,20 @@
     runner_name: "{{ inventory_hostname }}-{{ app_name }}"
     runner_label: "localsinglenode-{{ app_name }}"
     public_hostname: "{{ inventory_hostname }}.local"
+  pre_tasks:
+    - name: Inspect previously published configuration
+      ansible.builtin.stat:
+        path: "/etc/{{ app_name }}/public.json"
+      register: existing_public
+    - name: Refuse silently disabling a published deployment
+      ansible.builtin.assert:
+        that:
+          - public_enabled | default(false) | bool or not existing_public.stat.exists
+        fail_msg: "Public configuration is missing for an already-published app. Restore its variables and secret or follow the explicit removal procedure."
   roles:
     - single_node_stack
+  tasks:
+    - name: Deploy the optional public connector
+      ansible.builtin.include_role:
+        name: single_node_public
+      when: public_enabled | default(false) | bool
