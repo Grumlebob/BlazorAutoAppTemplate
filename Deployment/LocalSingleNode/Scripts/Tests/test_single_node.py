@@ -245,6 +245,29 @@ class CollisionTests(unittest.TestCase):
                 with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, 'different repository or root'):
                     self.check(folder, lambda *args: '')
 
+    def test_builtin_docker_networks_have_no_subnets_and_foreign_overlap_still_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            marker = folder / 'etc/localsinglenode/apps/books.json'
+            marker.parent.mkdir(parents=True)
+            marker.write_text(json.dumps(dict(source_repo_url='https://github.com/fixture-owner/fixture-repo', deploy_root='/opt/books', backup_root='/opt/books-backups')))
+            networks = [
+                dict(Name='host', Labels=None, IPAM=dict(Driver='default', Config=None)),
+                dict(Name='none', IPAM=None),
+                dict(Name='bridge', Labels={}, IPAM=dict(Config=[dict(Subnet='172.30.20.0/24')])),
+                dict(Name='books_default', Labels={'com.docker.compose.project': 'books'}, IPAM=dict(Config=[dict(Subnet='172.30.10.0/24')])),
+            ]
+            def script(*args):
+                if args[:3] == ('docker', 'network', 'ls'):
+                    return 'host-id\nnone-id\nbridge-id'
+                if args[:3] == ('docker', 'network', 'inspect'):
+                    return json.dumps(networks)
+                return ''
+            self.check(folder, script)
+            networks.append(dict(Name='foreign', IPAM=dict(Config=[dict(Subnet='172.30.10.0/24')])))
+            with self.assertRaisesRegex(ValueError, 'foreign runtime network'):
+                self.check(folder, script)
+
 
 class RunnerRecoveryTests(unittest.TestCase):
     def recovery(self, directory, active=False):
