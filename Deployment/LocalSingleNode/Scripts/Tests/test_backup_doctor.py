@@ -1,5 +1,7 @@
 """Exercise backup permissions, isolated restore cleanup and read-only doctor with offline stubs."""
 import grp
+from datetime import datetime, timedelta, timezone
+import io
 import json
 import os
 from pathlib import Path
@@ -46,6 +48,61 @@ class BackupTests(unittest.TestCase):
             with patch.object(backup.subprocess, 'run', return_value=SimpleNamespace(returncode=1)), self.assertRaisesRegex(ValueError, 'pg_dump failed'):
                 backup.backup(value)
             self.assertEqual([], list(Path(value['backup_root']).iterdir()))
+
+    def test_requested_backup_reports_the_completed_dump_without_commands(self):
+        with tempfile.TemporaryDirectory() as temp:
+            value = self.fixture(Path(temp))
+            folder = Path(value['backup_root'])
+            dump = folder / 'books-fixture.dump'
+            dump.write_bytes(b'PGDMP-fixture')
+            now = datetime.now(timezone.utc)
+            (folder / 'last-success').write_text(now.isoformat())
+            with patch.object(backup, 'run') as command, patch('sys.stdout', new_callable=io.StringIO) as output:
+                backup.report_fresh(value, (now - timedelta(seconds=1)).isoformat())
+                command.assert_not_called()
+                self.assertIn('Fresh protected backup: books-fixture.dump (13 bytes)', output.getvalue())
+                self.assertNotIn('fixture-secret-only', output.getvalue())
+
+    def test_requested_backup_rejects_stale_future_and_naive_markers(self):
+        with tempfile.TemporaryDirectory() as temp:
+            value = self.fixture(Path(temp))
+            folder = Path(value['backup_root'])
+            (folder / 'books-fixture.dump').write_bytes(b'PGDMP-fixture')
+            now = datetime.now(timezone.utc)
+            for completed in (now - timedelta(seconds=1), now + timedelta(minutes=6), now.replace(tzinfo=None)):
+                (folder / 'last-success').write_text(completed.isoformat())
+                with self.subTest(completed=completed), self.assertRaises(ValueError):
+                    backup.report_fresh(value, now.isoformat())
+
+    def test_requested_backup_rejects_missing_empty_and_symlink_dumps(self):
+        with tempfile.TemporaryDirectory() as temp:
+            value = self.fixture(Path(temp))
+            folder = Path(value['backup_root'])
+            now = datetime.now(timezone.utc)
+            (folder / 'last-success').write_text(now.isoformat())
+            with self.assertRaisesRegex(ValueError, 'no app backup'):
+                backup.report_fresh(value, now.isoformat())
+            dump = folder / 'books-fixture.dump'
+            dump.touch()
+            with self.assertRaisesRegex(ValueError, 'empty or a symlink'):
+                backup.report_fresh(value, now.isoformat())
+            dump.unlink()
+            dump.symlink_to(Path(value['secrets_file']))
+            with self.assertRaisesRegex(ValueError, 'empty or a symlink'):
+                backup.report_fresh(value, now.isoformat())
+
+    def test_public_freshness_report_does_not_start_backup_or_restore(self):
+        with tempfile.TemporaryDirectory() as temp:
+            value = self.fixture(Path(temp))
+            now = datetime.now(timezone.utc)
+            (Path(value['backup_root']) / 'last-success').write_text(now.isoformat())
+            (Path(value['backup_root']) / 'books-fixture.dump').write_bytes(b'PGDMP-fixture')
+            arguments = ['backup.py', '--config', '/opt/books/maintenance/settings.json', '--report-fresh-since', now.isoformat()]
+            with patch.object(sys, 'argv', arguments), patch.object(backup, 'config', return_value=value), patch.object(backup, 'backup') as create, patch.object(backup, 'verify') as restore, patch('sys.stdout', new_callable=io.StringIO) as output:
+                backup.main()
+                create.assert_not_called()
+                restore.assert_not_called()
+                self.assertIn('Fresh protected backup:', output.getvalue())
 
     def test_isolated_restore_and_foreign_cleanup_guard(self):
         for foreign in (False, True):

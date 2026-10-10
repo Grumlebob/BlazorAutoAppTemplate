@@ -340,6 +340,8 @@ class MaintenanceTests(unittest.TestCase):
     def test_backup_lock_order(self):
         text = (TARGET / "Scripts/run-maintenance.sh").read_text()
         self.assertLess(text.index("systemctl start --wait"), text.index("with-deploy-lock.sh"))
+        self.assertLess(text.index("systemctl start --wait"), text.index("--report-fresh-since"))
+        self.assertLess(text.index("--report-fresh-since"), text.index("with-deploy-lock.sh"))
         self.assertNotIn("systemctl start", (TARGET / "Scripts/maintenance-under-lock.sh").read_text())
 
     def test_root_owned_completion_reboot(self):

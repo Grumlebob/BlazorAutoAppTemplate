@@ -68,6 +68,8 @@ The main-PC check needs PowerShell 5.1 or 7, with no .NET SDK or browser:
 
 It checks DNS/TCP, readiness, HTML/Blazor, anonymous API 401, registration, password login in a fresh session, the authenticated account page and rejected published admin credentials. A `finally` block deletes its test account and verifies the credentials no longer work.
 
+Node acceptance first waits up to 180 seconds for LAN `/health/ready` to return 200. A runner can return before Docker services are ready after a reboot. Only that read-only readiness probe is retried; the full HTTP acceptance check runs once and any failure still fails the workflow.
+
 From an authenticated controller in this repository:
 
 ```bash
@@ -96,6 +98,8 @@ Do not assume an arbitrary application rollback reverses database schema changes
 `<app_name>-backup.timer` runs nightly around 03:00 with jitter. Its service takes the shared deployment lock, writes a custom-format PostgreSQL dump, copies runtime secrets, keeps this app's dumps for `backup_keep_days`, and writes `last-success`. Backup files are mode 0640; the directory is 0750, owned by deploy and the install user's group. Runtime secrets remain 0600. Maintenance fails if the last successful backup is more than 36 hours old.
 
 Manual maintenance waits for its backup service before taking the maintenance lock, avoiding a nested lock. It verifies the newest dump in a uniquely labeled, network-isolated tmpfs PostgreSQL container, then removes only that container. It preserves volumes and every image referenced by a container or the active release. Foreign/dangling resources are reported; only proven old app images and eligible runner residue can be removed.
+
+When `backup_now=true`, maintenance requires a successful backup completion timestamp at or after the request, refuses stale/future or timezone-free markers, and prints the fresh nonempty dump's name, size and completion time. A previous backup within the normal 36-hour maintenance window cannot substitute for a newly requested backup. No dump or secret contents are printed.
 
 **One disk is not a backup.** Copy the entire backup directory to another machine or encrypted storage. It includes database data and a secrets copy; protect the destination. For example, from the other machine after verifying the node's SSH host key:
 
