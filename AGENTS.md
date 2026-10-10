@@ -25,17 +25,17 @@ Portable rules for people and coding agents working in this repository. Machine-
 
 ## Hard stops
 
-- Never run `docker volume prune`, `docker system prune`, or any unscoped prune on shared LocalCluster hosts. Use the repository's scoped cleanup scripts.
+- Never run `docker volume prune`, `docker system prune`, or any unscoped prune on deployment hosts; never pass `--volumes` to Compose down on a node. Use the repository's scoped cleanup scripts.
 - Never delete or reclaim a deployment lock automatically. Use `Deployment/Common/Scripts/release-deploy-lock.sh` after verifying the owner is gone.
 - Never commit secrets, tokens, passwords, private keys, vault contents or real `.env` files.
 - Never force-push `main` or rewrite history others have pulled.
-- Never dispatch a deployment (`CD - Deploy LocalCluster`, `CD - Cloud`) without the operator's authorisation.
+- Never dispatch a deployment (`CD - Deploy LocalCluster`, `CD - Deploy LocalSingleNode`, `CD - Cloud`) without the operator's authorisation.
 - Stage explicit paths. Do not use `git add -A` or `git add .` for integration commits.
 - Do not stash, reset or overwrite someone else's uncommitted work.
 
-## Shared cluster
+## Shared deployment hosts
 
-- LocalCluster nodes can host several apps. Host-level services (Docker, Caddy, cloudflared, the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
+- LocalCluster and LocalSingleNode hosts can run several apps. Host-level services (Docker, Caddy, cloudflared, the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
 - Never hard-code a cluster value (node IPs, DNS suffix, domain, ports). Forks read them from their own `machines.yml`, inventory and settings.
 
 ## Setting up this machine as a deployment node

@@ -7,11 +7,13 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `AGENTS.md` has the working rules for people and coding agents (checks, hard stops on the shared cluster).
 - `docs/Requirements.md` lists the product rules every feature must meet.
 - `docs/HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
+- [Choose a deployment target](Deployment/README.md): one native PC, the existing LocalCluster, or Cloud.
+- [LocalSingleNode setup](Deployment/LocalSingleNode/AgentSetup.md) is the local-agent entry point for the explicitly selected native PC.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
 - `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing.
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
-- `docs/HowToForkThisRepo.md` explains how to customize a fork and deploy it quickly on the existing LocalCluster.
+- `docs/HowToForkThisRepo.md` explains fork identity, target selection and the prepared LocalCluster path; its single-node path links the native agent setup.
 - `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.
 - `Plans/` holds tracked plans for multi-step changes; see `Plans/README.md`.
 
@@ -24,7 +26,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - Built-in ASP.NET Core rate limiting for API and account endpoints.
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - Serilog console logging with OpenTelemetry trace/span correlation.
-- GitHub Actions CI on the app's `node-main` self-hosted runner: a `validate` job (deployment audit, script tests, build, tests, Docker and browser smoke for pull requests) and a `main`-only `publish-main` job that pushes the image to GHCR and publishes the migration bundle with a release manifest.
+- GitHub Actions CI on the selected self-hosted runner (`CI_RUNNER_LABEL`/`CI_RUNNER_HOST`; the template retains its existing runner): a `validate` job (deployment audit, script tests, build, tests, Docker and browser smoke for pull requests) and a `main`-only `publish-main` job that pushes the image to GHCR and publishes the migration bundle with a release manifest.
 - Centralized NuGet package versions in `Directory.Packages.props`.
 
 ## Observability
@@ -65,13 +67,18 @@ Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evid
 - `BlazorAutoApp/Features/Login/Account` contains Identity account components and account endpoint helpers.
 - `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
 - `BlazorAutoApp.Simulation` contains the synthetic traffic simulator.
+- `Deployment/LocalSingleNode` contains native one-PC agent setup, local Ansible, Compose, LAN Caddy and protected nightly backups.
 - `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
-- `Deployment/Common` contains release settings and helpers shared by LocalCluster and Cloud (CI provenance, release manifest validation, artifact retention).
+- `Deployment/Common` contains release settings, host roles and helpers shared by all three deployment targets (CI provenance, release manifest validation, artifact retention).
 - `Scripts/CI` contains CI helpers (runner capacity check, migration staging provenance).
 - `docker-compose.yml` runs the local app stack.
 - `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.
 
-## LocalCluster Deployment
+## Deployment targets
+
+Use [the target chooser](Deployment/README.md) before provisioning or dispatching. `DEPLOY_TARGETS` enables each selected target; CI builds the shared digest-pinned release. Single-node setup runs only on the explicitly selected native Linux PC and stops for authentication and one operator sudo command.
+
+### LocalCluster deployment
 
 The LocalCluster deployment flow is intentionally kept in this repository. It uses:
 
