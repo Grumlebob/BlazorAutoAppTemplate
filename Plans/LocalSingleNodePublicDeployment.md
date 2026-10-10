@@ -1,6 +1,6 @@
 # LocalSingleNode public deployment
 
-Status: in progress (2026-10-10). The operator requested agent-owned public DNS and tunnel setup, public end-to-end verification, and reusable scripts for cloned sites. This extends the completed LAN upgrade; it supersedes its Q6 exclusion for this work only. LocalCluster and Cloud live deployment remain unauthorized.
+Status: complete (2026-10-10). The operator requested agent-owned public DNS and tunnel setup, public end-to-end verification, and reusable scripts for cloned sites. This extends the completed LAN upgrade; it supersedes its Q6 exclusion for this work only. LocalCluster and Cloud live deployment remain unauthorized.
 
 ## Outcome
 
@@ -18,13 +18,13 @@ A fork can opt into public HTTPS with a configurable hostname and a dedicated re
 
 ## Execution
 
-- [ ] P14.1 Update the upgrade plan and historical goal to identify this extension, preserving P1–P13 evidence.
-- [ ] P14.2 Implement reusable Cloudflare creation/check scripts, private configuration example, ownership/conflict checks and offline fixtures.
-- [ ] P14.3 Implement the isolated connector, loopback ingress, validated workflow configuration, HTTPS acceptance and deployment audit rules.
-- [ ] P14.4 Document agent setup, cloned-site usage, credential handling, interruption recovery and explicit removal. Run the full local gate and script fixtures before pushing. Merge only on exact-head green `build-test-push`, then wait for green main validation and publication.
-- [ ] P14.5 Inspect the authenticated account and zone, provision the dedicated tunnel and proxied DNS through the reusable script when protected API credentials are available, or through the authenticated dashboard for browser-based setup. Configure protected deployment inputs and deploy only to the authorized LocalSingleNode target. Keep resource IDs private and record each workflow ID before watching.
-- [ ] P14.6 Verify DNS, valid public TLS, exact readiness, independent controller form acceptance, cookies/redirects and real browser interaction. Prove repeatability and public recovery after connector restart and an authorized native reboot. Preserve LAN acceptance and existing account routes.
-- [ ] P14.7 Record merge/main CI, resource IDs, image digest, deployment and maintenance workflow URLs, public acceptance and browser evidence. Mark complete only when all required evidence passes.
+- [x] P14.1 Update the upgrade plan and historical goal to identify this extension, preserving P1–P13 evidence.
+- [x] P14.2 Implement reusable Cloudflare creation/check scripts, private configuration example, ownership/conflict checks and offline fixtures.
+- [x] P14.3 Implement the isolated connector, loopback ingress, validated workflow configuration, HTTPS acceptance and deployment audit rules.
+- [x] P14.4 Document agent setup, cloned-site usage, credential handling, interruption recovery and explicit removal. Run the full local gate and script fixtures before pushing. Merge only on exact-head green `build-test-push`, then wait for green main validation and publication.
+- [x] P14.5 Inspect the authenticated account and zone, provision the dedicated tunnel and proxied DNS through the reusable script when protected API credentials are available, or through the authenticated dashboard for browser-based setup. Configure protected deployment inputs and deploy only to the authorized LocalSingleNode target. Keep resource IDs private and record each workflow ID before watching.
+- [x] P14.6 Verify DNS, valid public TLS, exact readiness, independent controller form acceptance, cookies/redirects and real browser interaction. Prove repeatability and public recovery after connector restart and an authorized native reboot. Preserve LAN acceptance and existing account routes.
+- [x] P14.7 Record merge/main CI, resource IDs, image digest, deployment and maintenance workflow URLs, public acceptance and browser evidence. Mark complete only when all required evidence passes.
 
 ## Current execution context
 
@@ -36,22 +36,13 @@ Initial account inspection found that no existing DNS route or tunnel matched th
 
 The reusable implementation is merged in PR #127 at `e9058539d9f16b0c7f2af210eff59dba57e99218`. PR CI `38056678309` and main CI `38057209236` passed. The first public deployment, `38057854524`, deployed that SHA and passed LAN acceptance, but public acceptance failed with HTTP 403 after its 180-second deadline. Release identity verification was skipped. Do not treat that run as successful or dispatch the same failing SHA again.
 
-The latest main commit is `c84bf2177c4f4f33e932904d929506de4fd3ed42`. Its CI run `38059446086` completed successfully. WSL and Docker preflight also passed (`docker info` reported `linux`). The controller's public readiness probe returned HTTP 530 with successful TLS verification. Node-side diagnostics found the connector in `activating/auto-restart`, with systemd result `203/EXEC`; its journal reports an executable permission failure. The unit uses `DynamicUser`, while the connector binary sits below the private app deploy root, which the dynamic account cannot traverse. Cloudflare reported zero connector replicas. This explains why the tunnel is down. It does not establish the source of the deployment's earlier HTTP 403; investigate that separately after the connector is healthy.
+The latest main commit is `c84bf2177c4f4f33e932904d929506de4fd3ed42`. Its CI run `38059446086` completed successfully. WSL and Docker preflight also passed (`docker info` reported `linux`). The controller's public readiness probe returned HTTP 530 with successful TLS verification. Node-side diagnostics found the connector in `activating/auto-restart`, with systemd result `203/EXEC`; its journal reports an executable permission failure. The unit uses `DynamicUser`, while the connector binary sits below the private app deploy root, which the dynamic account cannot traverse. Cloudflare reported zero connector replicas. This explained why the tunnel was down at that point; the later connector repair restored it. It did not establish the source of the deployment's earlier HTTP 403, which was diagnosed below.
 
-The repository has two online repository-level self-hosted runners: one idle runner for LocalSingleNode deployment and one busy runner for CI/LocalCluster work. Current jobs are pinned by labels and hostname checks. Do not add laptops under either existing label: they could take jobs that require a specific host and then fail, or expose persistent runner state to more machines.
+At the time of the initial diagnosis, the repository had two online repository-level self-hosted runners: one idle runner for LocalSingleNode deployment and one busy runner for CI/LocalCluster work. Current jobs are pinned by labels and hostname checks. Do not add laptops under either existing label: they could take jobs that require a specific host and then fail, or expose persistent runner state to more machines.
 
-Complete the remaining work in this order:
+## Recovery sequence completed (2026-10-10)
 
-1. Record the successful main CI run `38059446086` against `c84bf2177c4f4f33e932904d929506de4fd3ed42`. This and the earlier failed deployment evidence are now recorded above.
-2. Move exact node diagnostics to ignored `Plans.local/` notes and sanitize tracked `debug.md`, the upgrade goal/plan history, old runner plan, deployment docs and simulation guides. These edits are prepared in the current change; do not rewrite published history.
-3. Remove the CI workflow's tracked machine-host fallback. Set the required `CI_RUNNER_HOST` repository variable from the verified runner host, then update workflow fixtures and the deployment audit. The variable is now configured; the workflow change is prepared in this branch. Keep the LocalSingleNode deployment runner on its deployment node.
-4. Move the connector to `/usr/local/libexec/cloudflared-<app_name>/<version>/`, keeping the private app deploy root, `DynamicUser`, protected token file and checksum pinning. The service template, Ansible tasks, ownership collision checks, offline fixtures, deployment audit and `PublicSetup.md` now contain this fix.
-5. Add a bounded systemd check after starting the unit. Require `ActiveState=active`, `SubState=running` and `ExecMainStatus=0` before public acceptance. This check and offline fixtures are prepared in this branch.
-6. Run the required local gate sequentially from the verified WSL/Linux environment. Push the PR, require green `build-test-push` on its exact head, merge it, and wait for green main validation and publication. Do not weaken any audit rule or skip a check.
-7. Deploy only the verified merged SHA to the authorized LocalSingleNode target. Verify the connector stays active, its restart count stays stable, and Cloudflare shows a connected replica before public acceptance.
-8. Re-run public readiness and the full independent HTTPS acceptance. If HTTP 403 remains after the tunnel connects, capture the response headers, body classification, and Cloudflare request ID. Compare edge behavior with the local Caddy origin, then inspect Access, cache, and security policies without changing them until the source is identified.
-9. Confirm valid public TLS, exact `Healthy` readiness, redirects, secure cookies, form acceptance, and interactive Blazor behavior from the main PC. Then prove a same-SHA deployment with migrations disabled, connector restart recovery, and public recovery after the authorized native reboot. Preserve LAN acceptance and all unrelated Cloudflare routes.
-10. Record PR and merge SHAs, CI and CD run URLs, running image digest, connector recovery evidence, public acceptance, and browser evidence. Keep account IDs, tunnel IDs, tokens, node addresses, and hostnames in private configuration or ignored `Plans.local/` notes. Mark P14 complete only when every public and recovery check passes.
+The recovery steps were completed in order: historical and runner configuration were sanitized; the connector executable path and bounded systemd health gate were repaired; the probe's Cloudflare-blocked default user agent was identified and fixed; the same application SHA was redeployed with migrations disabled; connector restart and guarded native reboot recovery both passed. No Cloudflare security policy or unrelated tunnel route was changed. See the final evidence below.
 
 ## Runner capacity decision
 
@@ -65,12 +56,34 @@ For eight independent site clones, one dedicated deployment runner per site host
 
 The current change moves exact node diagnostics to ignored `Plans.local/` notes and replaces live machine identities, addresses, controller paths and external domains in tracked history and setup docs with generic examples. `debug.md` remains a sanitized handoff for the node agent. Published history is unchanged. A separate inventory/configuration follow-up is still needed: the existing Cloud/LocalCluster production inventories and simulation target profile contain live public hostnames in tracked runtime files. Move those values to validated repository/private settings without dispatching either deployment; that change is outside this LocalSingleNode repair.
 
-## Follow-up diagnosis (2026-10-10)
+## Follow-up diagnosis and resolution (2026-10-10)
 
-The merged connector repair was deployed to the LocalSingleNode target in workflow `38063118011` with migrations disabled. The Ansible deployment step passed; LAN readiness and the complete LAN account acceptance passed. Public readiness from the node runner then received Cloudflare HTTP 403 error 1010 because Python `urllib` sent its default `Python-urllib` user agent. Reproducing that request from the controller produced the same Cloudflare response. The same request with the explicit `BlazorAutoApp-Deployment-Readiness/1.0` user agent returned `200 Healthy`; public PowerShell acceptance from the controller passed DNS, HTTPS, readiness, Blazor script, anonymous API, registration, login, secure cookies, and temporary-account cleanup. Browser observation also reached Blazor Server interactive mode. This identifies a deployment-probe false positive rather than an application or tunnel outage. No Cloudflare security policy change is needed.
+The merged connector repair was deployed in workflow `38063118011` with migrations disabled. The Ansible deployment step and complete LAN acceptance passed. Public readiness then received Cloudflare HTTP 403 error 1010 because Python `urllib` sent its default `Python-urllib` user agent. Reproducing that request from the controller returned the same response; the explicit `BlazorAutoApp-Deployment-Readiness/1.0` user agent returned `200 Healthy`. Public PowerShell acceptance from the controller passed DNS, TLS, readiness, Blazor script, anonymous API, registration, login, secure cookies, same-origin navigation, and temporary-account cleanup. The issue was the probe's user-agent signature, not an app or tunnel outage. Cloudflare documents error 1010 as a browser-signature block ([Cloudflare error 1010](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/)). No Cloudflare policy change was needed.
 
-A follow-up change now gives readiness probes this explicit identifier, covers the request with an offline test, and adds an opt-in maintenance action that restarts only this app's connector and verifies a new healthy systemd invocation. After it merges, rerun the same application SHA with migrations disabled. Then verify connector stability, repeat deployment, connector restart recovery, and public recovery after the planned native reboot before marking P14 complete.
+PR #129 added the explicit probe identity, its offline test, and an opt-in app-scoped connector restart check. After merge, the same app SHA was redeployed with migrations disabled. The connector restart check proved a new active systemd invocation and stable restart count; a protected backup, maintenance validation, and guarded native reboot then completed. Post-reboot public and LAN acceptance passed.
 
-## Evidence
+## Final evidence (2026-10-10)
 
-Implementation and live evidence will be recorded here or in the verified phase PR description. No public completion is claimed yet.
+### Repository and CI
+
+- [PR #127](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/127) merged the reusable public tunnel setup at `e9058539d9f16b0c7f2af210eff59dba57e99218`.
+- [PR #128](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/128) merged the connector executable-path and systemd startup repair at `e3270d0b5f29dd5263d0cfe2f0dcf05c1dac5ea7`.
+- [PR #129](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/129) merged the readiness user-agent fix and connector restart check at `52ad9aefdaf47c3e51fbcc8bcc5e1000542fb2c3`.
+- PR #129 exact-head `build-test-push` [run 38064118538](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38064118538) and main CI [run 38064629554](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38064629554) passed.
+- The local gate passed: format verification; Release build with zero warnings/errors; .NET tests (175 passed, 11 opt-in skipped); 72 LocalSingleNode Python fixtures; deployment audit; ShellCheck; and actionlint.
+
+### Deployment and public acceptance
+
+- [Successful LocalSingleNode deployment run 38065310862](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065310862) used app SHA `e3270d0b5f29dd5263d0cfe2f0dcf05c1dac5ea7` with migrations disabled. LAN and public HTTP acceptance passed, and the running release identity matched digest `sha256:dd67fa2c034d545574268a27451baca657abbaff2b01f03e9efcf6e9202db7c3`. The required CI artifact came from run `38062355358`.
+- Independent controller checks resolved DNS, verified TLS, received exact `Healthy` readiness, and observed HTTP 301 redirect to HTTPS followed by HTTP 200. The Cloudflare edge response included `via: 1.1 Caddy`.
+- Full public acceptance passed registration, login, authenticated account access, secure/HttpOnly cookies, same-origin navigation, disabled default credentials, and cleanup of each temporary test account.
+- The public browser reported configured `Interactive Auto`, assigned/current `WebAssembly`, and `Interactive: yes` after reboot.
+
+### Connector and reboot recovery
+
+- [Connector restart run 38065406977](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065406977) passed: systemd returned `active/running` with exit status 0, a new invocation, and `NRestarts=0` stable through the check. LAN and public acceptance passed afterward.
+- [Guarded reboot run 38065492542](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065492542) verified a fresh protected backup and a 12-table isolated restore before scheduling reboot.
+- [Post-reboot acceptance run 38065679204](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065679204) passed LAN and public acceptance with uptime `84` seconds. The node-demo runner returned online, and the public HTTPS readiness endpoint returned `200 Healthy` with TLS verification successful.
+- The dedicated LocalSingleNode runner is `node-demo-books` with its own `localsinglenode-books` label. The separate CI/LocalCluster runner is `node-main-books`; the two roles remain isolated.
+
+No manual node-side action remains. Account IDs, tunnel IDs, tokens, node addresses and real hostnames remain in private configuration or ignored `Plans.local/` notes. The separate tracked Cloud/LocalCluster inventory-hostname cleanup remains outside this LocalSingleNode plan; neither deployment target was dispatched.
