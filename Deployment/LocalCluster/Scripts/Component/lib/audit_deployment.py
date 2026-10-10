@@ -1798,7 +1798,7 @@ elif (
 
 # LocalSingleNode: a peer target with strict provenance and loopback-only services.
 single = "Deployment/LocalSingleNode"
-for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
+for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
     require_file(single + "/" + path)
 single_compose = read(single + "/compose/docker-compose.yml")
 for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_compose):
@@ -1835,6 +1835,12 @@ require_contains(single + "/Scripts/lib/collisions.py", '(network.get("IPAM") or
 require_contains(single + "/Scripts/acceptance-check.sh", 'lib/readiness.py', "bounded LAN warmup before the unchanged full acceptance check")
 require_contains(single + "/Scripts/lib/readiness.py", 'timeout=180', "180-second LAN readiness deadline")
 require_contains(single + "/Scripts/run-maintenance.sh", '--report-fresh-since "$requested"', "requested backups prove fresh completion before maintenance")
+require_contains(".github/workflows/localsinglenode-maintenance.yml", "restart_connector:", "opt-in connector restart recovery")
+require_contains(".github/workflows/localsinglenode-maintenance.yml", "inputs.restart_connector == true", "connector restart requires explicit opt-in")
+require_contains(".github/workflows/localsinglenode-maintenance.yml", "RESTART_CONNECTOR", "connector restart is validated against acceptance-only mode")
+require_contains(".github/workflows/localsinglenode-maintenance.yml", "Scripts/restart-public-connector-check.sh", "connector restart invokes the scoped recovery check")
+require_contains(single + "/Scripts/restart-public-connector-check.sh", 'sudo -n systemctl restart "$UNIT"', "connector restart is non-interactive and scoped to the app unit")
+require_contains(single + "/Scripts/restart-public-connector-check.sh", "InvocationID", "connector recovery proves a new systemd invocation")
 require_contains(single + "/Scripts/lib/backup.py", 'completed < started', "requested backups cannot reuse stale completion markers")
 require_contains(single + "/Scripts/lib/backup.py", 'Fresh protected backup:', "explicit fresh dump evidence without secret contents")
 require_contains(single + "/Scripts/acceptance-check.sh", 'public-acceptance-check.sh', "public acceptance after LAN acceptance")

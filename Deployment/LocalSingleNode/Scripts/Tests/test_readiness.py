@@ -28,7 +28,10 @@ class ReadinessTests(unittest.TestCase):
         with patch.object(readiness.time, 'monotonic', side_effect=lambda: clock.value), patch.object(readiness.time, 'sleep', side_effect=sleep), patch.object(readiness.urllib.request, 'urlopen', side_effect=attempts) as request, patch('sys.stdout', new_callable=io.StringIO) as output:
             readiness.wait('http://192.0.2.10/health/ready')
             self.assertEqual(3, request.call_count)
-            self.assertTrue(all(call.args == ('http://192.0.2.10/health/ready',) and call.kwargs['timeout'] == 5 for call in request.call_args_list))
+            for call in request.call_args_list:
+                self.assertEqual('http://192.0.2.10/health/ready', call.args[0].full_url)
+                self.assertEqual(readiness.READINESS_USER_AGENT, call.args[0].get_header('User-agent'))
+                self.assertEqual(5, call.kwargs['timeout'])
             self.assertEqual(4, clock.value)
             self.assertIn('returned 200 after 3 probes', output.getvalue())
 

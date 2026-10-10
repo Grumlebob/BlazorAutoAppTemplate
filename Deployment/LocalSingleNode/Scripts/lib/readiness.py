@@ -5,6 +5,13 @@ import urllib.error
 import urllib.request
 
 
+READINESS_USER_AGENT = "BlazorAutoApp-Deployment-Readiness/1.0"
+
+
+def build_request(url):
+    return urllib.request.Request(url, headers={"User-Agent": READINESS_USER_AGENT})
+
+
 def wait(url, timeout=180):
     deadline = time.monotonic() + timeout
     last = "no response"
@@ -16,7 +23,7 @@ def wait(url, timeout=180):
             raise ValueError(f"LAN readiness deadline exceeded after {timeout} seconds ({last})")
         attempts += 1
         try:
-            with urllib.request.urlopen(url, timeout=min(5, remaining)) as response:
+            with urllib.request.urlopen(build_request(url), timeout=min(5, remaining)) as response:
                 last = f"HTTP {response.status}"
                 if response.status == 200 and response.read(64).strip() == b"Healthy":
                     print(f"LAN readiness returned 200 after {attempts} probes", flush=True)

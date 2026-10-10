@@ -65,6 +65,12 @@ For eight independent site clones, one dedicated deployment runner per site host
 
 The current change moves exact node diagnostics to ignored `Plans.local/` notes and replaces live machine identities, addresses, controller paths and external domains in tracked history and setup docs with generic examples. `debug.md` remains a sanitized handoff for the node agent. Published history is unchanged. A separate inventory/configuration follow-up is still needed: the existing Cloud/LocalCluster production inventories and simulation target profile contain live public hostnames in tracked runtime files. Move those values to validated repository/private settings without dispatching either deployment; that change is outside this LocalSingleNode repair.
 
+## Follow-up diagnosis (2026-10-10)
+
+The merged connector repair was deployed to the LocalSingleNode target in workflow `38063118011` with migrations disabled. The Ansible deployment step passed; LAN readiness and the complete LAN account acceptance passed. Public readiness from the node runner then received Cloudflare HTTP 403 error 1010 because Python `urllib` sent its default `Python-urllib` user agent. Reproducing that request from the controller produced the same Cloudflare response. The same request with the explicit `BlazorAutoApp-Deployment-Readiness/1.0` user agent returned `200 Healthy`; public PowerShell acceptance from the controller passed DNS, HTTPS, readiness, Blazor script, anonymous API, registration, login, secure cookies, and temporary-account cleanup. Browser observation also reached Blazor Server interactive mode. This identifies a deployment-probe false positive rather than an application or tunnel outage. No Cloudflare security policy change is needed.
+
+A follow-up change now gives readiness probes this explicit identifier, covers the request with an offline test, and adds an opt-in maintenance action that restarts only this app's connector and verifies a new healthy systemd invocation. After it merges, rerun the same application SHA with migrations disabled. Then verify connector stability, repeat deployment, connector restart recovery, and public recovery after the planned native reboot before marking P14 complete.
+
 ## Evidence
 
 Implementation and live evidence will be recorded here or in the verified phase PR description. No public completion is claimed yet.
