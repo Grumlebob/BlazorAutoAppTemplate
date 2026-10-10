@@ -6,7 +6,7 @@ using BlazorAutoApp.Core.Features.Books.UseCases.GetBook;
 using BlazorAutoApp.Core.Features.Books.UseCases.GetBooks;
 using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Features.Books.Caching;
-using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Features.Login;
 using BlazorAutoApp.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;

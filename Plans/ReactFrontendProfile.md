@@ -1,6 +1,6 @@
 # Independent React Frontend for the ASP.NET Core Template
 
-Status: authorized delivery; P0.1 and P0.2 complete, P1.1 in progress.
+Status: authorized delivery; P0, P1.1 complete, P1.2 in progress.
 Last reviewed: 2026-10-11.
 Completion requires implementation PRs merged to `main`, green main CI, recorded merge commits, and a verified public React deployment on the operator's existing native demo node. A build, container smoke test, or successful homepage response alone is not completion.
 
@@ -687,14 +687,14 @@ Reverify repository ownership/name, native hostname/capacity, free app resources
 
 ## 14. Evidence and completion
 
-P0.1 and P0.2 are complete. P0.1 used verified origin/main at 1bd71f73b151e68f1ab40720840704fba9261afa; main CI run 38066456492 passed. P0.2 merged through PR #132 as e2bdd54e911c2e67de3082a705172221decdadc5; main CI run 38090907816 passed on that exact commit. P1.1 profile selection and resolver work is in progress from that verified main. No React UI or account implementation, downstream repository, live node/DNS/provider changes or deployment have been performed. The owner clarified that the first products do not need accounts; this supersedes earlier full account-parity scope.
+P0.1 and P0.2 are complete. P0.1 used verified origin/main at 1bd71f73b151e68f1ab40720840704fba9261afa; main CI run 38066456492 passed. P0.2 merged through PR #132 as e2bdd54e911c2e67de3082a705172221decdadc5; main CI run 38090907816 passed on that exact commit. P1.1 profile selection and resolver work merged through PR #133 as e964c4195b0368919b15884b1b61eb585075c9b8; main CI run 38093686407 passed on that exact commit. P1.2 is in progress from verified main on branch `feat/react-p1-backend-composition`: compile-selected compositions, common Identity backend registration, Blazor-only UI/account services and HTTP-principal-only React user resolution are implemented locally. Both profile builds and focused profile tests pass; the default full suite passed 181 tests with 11 deliberately skipped E2E/lifecycle tests, and the deployment audit passed. Commit `afd10864d521543dc6c21f43f5699c382b544b2e` contains the implementation; PR #134 was opened from plan-ledger commit `cef485e3f3a201d0692d8f0f0c87b43f6ba52267`. Initial `build-test-push` run 38095061257 is pending on that head; verify the check on the final PR head before merging. No React UI or account implementation, downstream repository, live node/DNS/provider changes or deployment have been performed. The owner clarified that the first products do not need accounts; this supersedes earlier full account-parity scope.
 
 ### Phase ledger
 
 | Phase | Status | PR / merge commit | Evidence / next action |
 | --- | --- | --- | --- |
 | P0 | Complete | PR #132; e2bdd54e911c2e67de3082a705172221decdadc5 | P0.1 verified main 1bd71f7 (CI 38066456492); P0.2 PR head eebf657d07219bbe4368d5ab654812e6eb77e234 passed build-test-push; main CI 38090907816 is green on merge commit e2bdd54e. |
-| P1 | In progress | - | P1.1 profile selection, resolver and fail-closed validation in progress. |
+| P1 | In progress | P1.1 PR #133; e964c4195b0368919b15884b1b61eb585075c9b8; P1.2 PR #134 open | P1.1 head 7b4474a0dc77a27844773eba4ba278894bdfe5fa passed `build-test-push`; main CI 38093686407 passed. P1.2 initial PR head cef485e3f3a201d0692d8f0f0c87b43f6ba52267 has pending run 38095061257; this ledger update changes the head, so verify the latest exact-head run. Local checks: BlazorAuto and React Release builds passed; focused composition/accessor tests 6/6 under both profiles; default suite 181 passed, 11 skipped; deployment audit passed. |
 | P2 | Pending | - | Public/private backend boundary |
 | P3 | Pending | - | Account-free profile/security contract |
 | P4 | Pending | - | Reproducible schema/types |

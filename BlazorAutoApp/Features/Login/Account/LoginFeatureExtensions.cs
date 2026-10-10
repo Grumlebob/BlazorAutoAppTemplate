@@ -1,20 +1,15 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using BlazorAutoApp.Features.Login;
 
 namespace BlazorAutoApp.Features.Login.Account;
 
 internal static class LoginFeatureExtensions
 {
-    public static IServiceCollection AddLoginFeature(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AddIdentityBackend(this IServiceCollection services)
     {
-        services.AddCascadingAuthenticationState();
         services.AddHttpContextAccessor();
-        services.AddScoped<IdentityRedirectManager>();
-        services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
-        services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
         services.AddAuthorization();
 
         var authenticationBuilder = services.AddAuthentication(options =>
@@ -40,11 +35,23 @@ internal static class LoginFeatureExtensions
 
         services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddBlazorIdentityUi(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddCascadingAuthenticationState();
+        services.AddScoped<IdentityRedirectManager>();
+        services.AddScoped<ICurrentUserAccessor, BlazorCurrentUserAccessor>();
+        services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
         var googleClientId = configuration["Authentication:Google:ClientId"];
         var googleClientSecret = configuration["Authentication:Google:ClientSecret"];
         if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
         {
-            authenticationBuilder.AddGoogle(options =>
+            services.AddAuthentication().AddGoogle(options =>
             {
                 options.ClientId = googleClientId;
                 options.ClientSecret = googleClientSecret;

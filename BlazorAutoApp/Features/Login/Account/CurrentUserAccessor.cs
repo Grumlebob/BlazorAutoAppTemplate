@@ -1,17 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using BlazorAutoApp.Features.Login;
 
 namespace BlazorAutoApp.Features.Login.Account;
 
-internal interface ICurrentUserAccessor
-{
-    ValueTask<string?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default);
-
-    ValueTask<string> GetRequiredUserIdAsync(CancellationToken cancellationToken = default);
-}
-
-internal sealed class CurrentUserAccessor(
+internal sealed class BlazorCurrentUserAccessor(
     IHttpContextAccessor httpContextAccessor,
     IEnumerable<AuthenticationStateProvider> authenticationStateProviders,
     UserManager<ApplicationUser> userManager) : ICurrentUserAccessor
