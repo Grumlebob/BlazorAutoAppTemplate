@@ -105,6 +105,8 @@ scp -r <install-user>@<node-ip>:/opt/<app_name>-backups <protected-destination>
 
 For a bootstrap failure, record the numbered step and rerun the same operator command. For deployment failure, record the CD run and named failing check; do not overwrite secrets, re-register the runner, reclaim the lock or delete volumes. `bash Deployment/LocalSingleNode/Scripts/doctor.sh --json` is read-only.
 
+The doctor's mDNS check asks Avahi to resolve the node name on the interface owning the recorded LAN IPv4. An unrestricted lookup on the node can return a Docker bridge address first even while LAN mDNS works. Controller-side name resolution is checked independently; use the recorded IPv4 if the controller cannot resolve `.local`. The runner check reads service state, user and working directory through systemd so the install user does not need access to deploy's private home.
+
 Manual restore is an operator action. It creates a **new replacement database**, never overwriting the live database. For app `recipes`, the database prefix is `recipes_restore_`; hyphens in an app slug become underscores. The operator runs:
 
 ```bash
