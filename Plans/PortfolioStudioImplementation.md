@@ -1,9 +1,20 @@
-# Studio portfolio implementation
+# Portfolio Studio delivery master plan
 
-Status: proposed implementation plan; Studio design approved; implementation not started.
+Status: planning prepared; Studio design approved; Portfolio implementation not started.
 Last reviewed: 2026-10-11.
 
-Detailed project briefs and the source register live in [ProjectInventory.md](Support/PortfolioStudio/ProjectInventory.md). That companion document is part of this plan's handover and covers the Books catalog comparison, owner-supplied sources and project-specific publication gaps.
+This is a multi-day delivery plan for an independent **Portfolio** product. Different agents should complete small, recorded packets without reconstructing earlier decisions. The destination is [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio), seeded from [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). The intended public product URL is **https://portfolio.jacobgrum.com/**, delivered through **LocalSingleNode and its Cloudflare Tunnel extension**. Configure this URL through product/deployment settings; do not embed it in components or scripts.
+
+| Read this document | Purpose |
+| --- | --- |
+| This master plan | Product scope, approved Studio design, content/API architecture and final acceptance |
+| [DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) | Ordered phases, small executable packets, dependency gates, checks and removal inventories |
+| [Progress.md](Support/PortfolioStudio/Progress.md) | Current task, packet ledger, blockers, decision records and resume prompt |
+| [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, eleven project story treatments, illustration briefs and publication checklist |
+| [ProjectInventory.md](Support/PortfolioStudio/ProjectInventory.md) | Existing source evidence, detailed section IDs, provenance and factual limitations |
+| [NodeHandoff.md](Support/PortfolioStudio/NodeHandoff.md) | Controller/node responsibilities, first bootstrap, SSH pairing, public launch and simple operator handoffs |
+
+Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.md`. It records the supplied local checkout locations, fresh Linux Mint node, reserved address and node-name clarification. Copy it privately to the future Portfolio checkout. Tracked plans remain portable. The main PC is a development/controller machine; it must never be bootstrapped as the deployment node.
 
 ## 1. Purpose and relationship to the React delivery
 
@@ -11,7 +22,9 @@ Build Jacob Grum's public portfolio from the approved Studio mockup. Home presen
 
 This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md) and [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) deliver the reusable public React foundation and its reference deployment. Another agent owns that delivery. Do not add portfolio requirements to its current packets, modify its worktrees, or treat its public demo as the portfolio deployment.
 
-This document records the approved visual direction and recommended technical decisions. It does not start an autonomous goal or authorize a deployment. During plan integration on 2026-10-11, the upstream React implementation and P7a handoff were present on `main` at `4d046dfd06ad67971fce9dc30229b55784e4519d`, with successful [main CI run 38137054716](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38137054716). The separate React demo's node-specific setup/public acceptance remains unfinished in its delivery plan. Portfolio implementation must recheck actual merged dependencies and current CI rather than using an older local plan copy as delivery evidence.
+The present request expands the plan; it does not execute the product migration, bootstrap a node or dispatch a deployment. A future instruction to execute this plan authorizes its ordinary repository work. Before live bootstrap or deployment, record the operator's applicable instruction and the exact target/release in the progress ledger. Do not borrow the other React agent's deployment authorization.
+
+Planning checkpoint: upstream `main` was `99c319fc38b3b443cd7115093a5c614c1f9de7e3`, with successful [main CI run 38146167014](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38146167014). The Portfolio repository existed with no default branch/content, and the requested local Portfolio checkout did not exist. These facts were inspected on 2026-10-11; recheck them at execution. The React goal still records unfinished node/public acceptance. Expect it to finish soon, but never treat that expectation as evidence. Planning, source briefs and private operator preparation can proceed immediately; select the actual baseline through P0.
 
 ### Recommended decisions
 
@@ -26,6 +39,10 @@ This document records the approved visual direction and recommended technical de
 | Contracts | ASP.NET OpenAPI + openapi-typescript + openapi-fetch | Reuse generated types and transport rather than maintaining duplicate DTOs |
 | Content authoring | Markdown prose, typed JSON metadata and local media in Git | Simple reviewable project stories; no admin interface needed initially |
 | Publishing | One validated content bundle, built and released with the app | API responses and prerendered pages describe the same release |
+| Product identity | `Portfolio`, `Portfolio.sln`, `Portfolio.React`, `Portfolio.Core`, `Portfolio.Test`; lowercase deployment slug `portfolio` | Remove operational reliance on the template name |
+| Deployment | LocalSingleNode only, with retained `Deployment/Common` support | One native Linux node and app-owned Cloudflare publication |
+| Sample removal | Replace Books and remove Blazor UI/profile support, accounts and unused sample-domain code | Deliver a public portfolio with one frontend and one product domain |
+| Backing services | Retain inherited PostgreSQL/Redis initially; decide removal through an explicit later packet | Avoid coupling frontend removal to a speculative operations rewrite |
 
 Use the template's existing Router/Vite integration; do not create a second Vite application alongside it. Tailwind's official [Vite integration](https://tailwindcss.com/docs/installation/using-vite) fits this setup. Inherit compatible versions from the delivered lockfile and review upgrades separately.
 
@@ -35,15 +52,16 @@ ASP.NET Core remains the runtime authority. Git is the authoring source for edit
 
 Before implementation:
 
-1. Read the applicable repository rules and the delivered frontend, testing, fork and hosting guides. Inspect Git status, existing task ownership, worktrees, PRs and delivery evidence.
-2. Select an upstream commit containing the merged React foundation, generated contract workflow, development path, production hosting and required checks. Record its SHA and green main CI run. Do not copy unmerged work from another agent's checkout.
-3. Establish an independent portfolio repository with its own app/image/release identity. Follow the template's documented bootstrap, including disabling Actions during seed setup where required. Repository creation and deployment identity need owner-provided values when execution begins.
-4. Select `React` through the delivered `frontend-profile.txt` contract. Confirm a clean baseline build and local public flow before replacing the sample UI.
-5. Record the upstream baseline and update policy in the portfolio repository. Reuse shared infrastructure; keep portfolio routes, content and presentation downstream.
+1. Read the master plan, companions, applicable repository rules, `docs/Test.md`, `docs/FrontendProfiles.md`, fork guide and LocalSingleNode runbooks. Inspect Git status, task ownership, worktrees and live PR/check evidence.
+2. Recheck the other agent's React delivery. Select a merged commit with green main CI containing the required React foundation, typed contracts, development commands, C# production hosting and reusable deployment tooling. Record what remains unfinished. Missing required infrastructure blocks seeding; unrelated demo acceptance may be waived only by recording why Portfolio does not depend on it. Do not copy unmerged work or alter the other agent's plan/worktrees.
+3. Reinspect the supplied Portfolio repository before seeding. If it is still empty, disable inherited Actions during initial import and use a plain clone/import of the verified template commit with retained history. Apply the small Portfolio app/image/React seed configuration and inherited local gate described in P0.2 before the initial push or native bootstrap. Preserve pristine upstream provenance separately; point `origin` at Portfolio and `upstream` at the template. If it now contains work, preserve it and reconcile through a branch/PR. Never force-push or replace it.
+4. Create the sibling Portfolio checkout from the private intent note. Record independent app/image/release identity and `React` selection. Use the inherited bootstrap path for runner capacity if no runner can execute PR checks; do not get stuck waiting for CI on an unbootstrapped fresh node.
+5. Rename projects and namespaces deliberately, remove Blazor and unused targets through separate verified packets, then replace the Books domain. All product changes occur in Portfolio. Keep the template multi-profile/multi-target and its existing demo untouched.
+6. Make the Portfolio copy of this plan and its progress ledger authoritative after import. Link the template planning record to the downstream execution record once the first downstream PR is merged. Consume future upstream fixes selectively through review; do not blindly merge template changes over Portfolio removals.
 
 Planning and content preparation can proceed before the upstream gate. Product implementation begins once its dependencies are merged. Upstream fixes discovered later belong in separate template PRs and must be consumed through a verified merge.
 
-Keep inherited database/Redis and deployment requirements until a separately scoped change removes them. File-authored portfolio content does not itself justify rewriting template infrastructure. Removing unused Blazor projects, sample endpoints or deployment targets is also separate work with corresponding CI/audit/documentation changes.
+Blazor, Books, Cloud and LocalCluster removal are required phases of this plan. Keep PostgreSQL/Redis and their backup/doctor requirements until P7 explicitly retains or removes each service. Retain `Deployment/Common`, Cloudflare support, release provenance, locks, Caddy and LocalSingleNode acceptance. Some currently shared CI/audit/smoke helpers live under LocalCluster; move and retarget them before deleting that folder. Removing a target is complete only when runtime, CI, tests, scripts, runbooks and `AGENTS.md` agree.
 
 ## 3. Approved Studio design contract
 
@@ -247,7 +265,7 @@ The catalog response stays lightweight: cover metadata, title, summary, sparse t
 
 Suggested read endpoints are `GET /api/portfolio/site`, `GET /api/portfolio/projects`, and `GET /api/portfolio/projects/{slug}`. Final endpoint/module names should follow the delivered template conventions. Return summaries from the collection endpoint, not every full story. Missing/unpublished projects return 404 Problem Details; no HTML fallback on API paths. No anonymous content-writing endpoint is required.
 
-Define DTOs and validation in C#, expose accurate OpenAPI metadata, and use the inherited schema/type generation and drift checks. [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) supplies the typed transport. Preserve existing private endpoint authorization and public/private cache separation.
+Define DTOs and validation in C#, expose accurate OpenAPI metadata, and use the inherited schema/type generation and drift checks. [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) supplies the typed transport. During migration, preserve authorization and private cache rules for any endpoints still present. Final Portfolio removes account/bookcase APIs; former private routes must return 404 without an HTML fallback or leaked data.
 
 ### One release, one content revision
 
@@ -262,7 +280,7 @@ Hash the compiled content into a revision and include it in the public manifest.
 
 ## 6. Frontend responsibilities and interactions
 
-Use the delivered `BlazorAutoApp.React` structure, adapting names to the downstream repository. Keep route modules small; separate the portfolio feature, reusable visual components, generated API code and content renderers. Suggested components are `SiteHeader`, `ThemeToggle`, `ProjectGrid`, `ProjectCard`, `ProjectStory`, `SectionNavigation`, `ContentRenderer` and `ProjectImage`.
+Use the delivered React structure, renamed to `Portfolio.React`. Keep route modules small; separate the portfolio feature, reusable visual components, generated API code and content renderers. Suggested components are `SiteHeader`, `ThemeToggle`, `ProjectGrid`, `ProjectCard`, `ProjectStory`, `SectionNavigation`, `ContentRenderer` and `ProjectImage`.
 
 React Router owns URL matching, document metadata, route errors, route focus and navigation/scroll restoration. TanStack Query owns runtime API reads. React state owns the theme preference, expanded mobile menu and image dialog. Do not introduce Redux or put scroll position in Query.
 
@@ -334,90 +352,50 @@ Each public page needs a unique title/description, configured canonical URL, soc
 
 JavaScript-disabled direct responses should contain the project title, prose, section links and images. Interactive enhancements such as active-section tracking, theme controls and image dialogs can hydrate afterward. Navigation data, HTML and APIs must remain compatible across a deployment; follow the inherited cache/asset retention policy and rehearse a page left open across an update.
 
-## 8. Delivery packets and review points
+## 8. Phases, progress and agent handoffs
 
-Use small PRs in the independent portfolio repository. Record actual branch/head, checks, merge SHA and main CI evidence after each packet. Do not import unrelated source-checkout changes.
+[DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) replaces the former S0–S6 packet list. Its P0–P10 phases explicitly include downstream import, full Portfolio naming, React-only cleanup, LocalSingleNode-only cleanup, product content, public rendering, operations and release acceptance. No previous S packet was implemented; do not interpret the new IDs as completed work.
 
-| Packet | Prerequisites | Deliverable | Exit evidence |
-| --- | --- | --- | --- |
-| S0 | Planning | Verify upstream delivery; bootstrap downstream; preserve portable Studio references; inventory content gaps | Recorded upstream SHA/CI, clean baseline, independent identity, reference screenshots and source inventory |
-| S1 | S0 | Content model, validator/export, ImprovedDb source/media, public read contract and generated client | Deterministic public bundle; drafts excluded; schema checks; useful sourced story; clear missing-project response |
-| S2 | S1 | Studio home and ImprovedDb continuous page in SPA mode; theme; desktop/mobile section navigation | Local visual review in both themes; all six sections readable; real API data; functional keyboard, fragment and return navigation |
-| S3 | S2 | Reusable rich blocks/media, reviewed project set and responsive polish | Different stories render without project-specific layout forks; genuine versus illustrative media identified; no invented details |
-| S4 | S3 | Public prerendering, metadata, exact route/asset/data hosting and HTTP caching | Useful HTML without JS; valid direct links; correct navigation-data responses; real 404s; matching content revision; no Node runtime |
-| S5 | S4 | Required implementation checks, accessibility/performance review, content-authoring and operations guides | Full applicable local gate, browser evidence, exact-head required CI, merged changes and green main CI |
-| S6 | S5 + explicit portfolio deployment authorization | Deploy one verified immutable portfolio release and perform public acceptance | Normal HTTPS, correct app/image/content revision, deep links/themes/mobile, sibling health and documented rollback |
+Use [Progress.md](Support/PortfolioStudio/Progress.md) as the single execution ledger. Every packet records its owner/session, branch, exact PR head, local checks, PR, merge SHA, green main CI, changed files, blockers and exact next action. Complete means merged with green main, not merely written or tested locally. Mark verified work complete; keep unverified claims and unavailable checks explicit.
 
-Review the actual Studio home and ImprovedDb page after S2, before completing the remaining project content. Correct layout drift against the approved reference. This is a visual checkpoint, not a new search for competing designs. Separate the implementation-complete state at S5 from the publicly launched state at S6.
+Start with one eligible packet per session. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient.
 
-### Detailed work breakdown
-
-The rows below are resumable tasks within the larger packets, not a requirement for one PR per row. Keep behavior, contracts, tests/audits and documentation for a task together when implementation is authorized.
-
-| Task | Work | Completion evidence |
-| --- | --- | --- |
-| S0.1 | Inspect delivered upstream, ownership and required guides; record baseline and dependency versions | Verified merge SHA, main CI and reusable frontend paths |
-| S0.2 | Preserve Studio reference views; reconcile both Books catalogs and the owner's additional projects with this inventory; record remaining owner inputs | Portable references, eleven-project backlog, explicit demo-title classification |
-| S0.3 | Bootstrap independent downstream identity and React selection through the existing fork workflow | Clean configured baseline; own app/image/release identity |
-| S1.1 | Define authoring/public models and starter-project instructions; prepare metadata for all eleven candidates | Draft/published separation, explicit sections and typed supported blocks |
-| S1.2 | Implement deterministic C# validation/export and public read endpoints; generate contracts | No live-service dependency for export, correct statuses and contract drift checks |
-| S1.3 | Prepare ImprovedDb prose, cover and supporting figures using its source register | Complete factual six-section bundle and media provenance |
-| S2.1 | Build header, home grid, theme tokens and first-paint theme handling | Approved light/dark Studio home at mobile/desktop; theme persistence |
-| S2.2 | Build cover/introduction and reusable continuous story renderers | All six ImprovedDb sections rendered in one document |
-| S2.3 | Implement desktop/mobile section navigation, fragment focus and route scroll restoration | Section links, passive highlight, final-section handling and Back/Forward evidence |
-| S3.1 | Prepare KinoJoin and TraceBack stories with actual/synthetic-data screenshots | Different section structures supported by the same components |
-| S3.2 | Prepare Ship Inspections and Unlost from the confirmed sources and artifact lists | Accurate upload/map explanations; genuine media; documented limitations |
-| S3.3 | Prepare GeckoBot and Grumlebob when source and workflow details arrive; use synthetic billing examples | Source-backed content; unknown items remain explicit drafts |
-| S3.4 | Prepare MiniTwit and BestBets with selected operational/design figures | Accurate historical DevOps account; architecture targets separated from measured results |
-| S3.5 | Prepare Geospatial research with selected maps/plots and dataset/method notes | Readable attributed figures, reviewed findings and explicit limitations |
-| S3.6 | Prepare JobHunt's eight-step personal/administrative workflow figure and story, reconcile actual drafting behavior and create fictional media | All steps visible; responsive responsibility timeline with text labels and accessible details; accurate copy; no private application data or inaccessible source action |
-| S3.7 | Review all eleven candidates, related links, roles/context and publication readiness | Per-project task matrix updated; every public card has a complete destination |
-| S4.1 | Add route-list generation and prerender snapshot adapters | Home and all published projects have useful generated HTML and matching revision |
-| S4.2 | Implement exact document/data serving, route validation, reserved-path protection and 404 output | Direct requests, HEAD and navigation-data behavior verified in final publish |
-| S4.3 | Generate metadata, canonical URLs, social images and sitemap; finalize cache policy | Correct per-project metadata; drafts absent; measured asset budgets |
-| S5.1 | Complete required automated implementation checks and full local gate | Commands/results recorded; no skipped required check counted as success |
-| S5.2 | Complete browser, visual, keyboard/screen-reader and performance reviews | Reference comparisons and browser/version/viewport evidence |
-| S5.3 | Finish authoring/update/recovery docs, merge reviewed changes and verify main | Recorded merge SHA and green main CI; reproducible fresh-checkout workflow |
-| S6.1 | Confirm portfolio target and explicit deployment authorization | Independent target/private configuration; approved immutable release |
-| S6.2 | Dispatch through the supported runbook and perform public acceptance | Actual HTTPS/browser/HTTP results, matching image/profile/content revision |
-| S6.3 | Rehearse scoped update/rollback and finish handover | Restoration evidence and clear previous-release/asset-retention procedure |
-
-Planning preparation completed on 2026-10-11: both Books catalogs were compared; KinoJoin, TraceBack and Ship Inspections source/docs were read; Unlost's owner-confirmed report and representative images were inspected. The owner's additional MiniTwit, Architecture and ExamGDS repository links were reviewed, alongside local MiniTwit report/docs, selected BestBets report passages, and Geospatial research notebook structure/report text. Grumlebob's owner-supplied scope was added with source details pending. JobHunt's private visibility and general workflow/document/employer procedures were reviewed; the owner's stricter manual-writing direction is recorded as an alignment task. No private applicant documents, records or credentials were read for its story. The application template was removed from the portfolio catalog. No source application, notebook, benchmark or application flow was executed. No S0 bootstrap, product implementation, test gate, PR merge or deployment is implied by that preparation.
+Review the real Studio home and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
 
 ### Planned verification during implementation
 
-The current task creates this plan only; it does not run application tests. When implementation is authorized, follow the downstream `docs/Test.md` local gate before pushing, keep `dotnet build` and `dotnet test` sequential, and require `build-test-push` on each PR's exact head before merging. Update affected deployment audits in the same change.
+The current task changes Markdown plans only. Review Markdown and run `git diff --check`; do not run application builds or tests for this planning change.
 
-Required evidence should cover:
+During implementation, use the actual downstream local gate from `docs/Test.md`, updating it in each removal/rename packet. Keep format, Release build, Release tests, deployment audit/render/script checks and applicable React checks. Before LocalCluster deletion, move its reusable gate entry points and replace obsolete rules with Portfolio rules. After rename, commands must use `Portfolio.sln`. Require `build-test-push` green on every PR's exact final head and successful main CI on its merge.
 
-- C# content validation, DTO/status contracts, published/draft separation and private API protection.
-- Generated-contract drift, strict TypeScript/lint, renderer/query behavior and deterministic export.
-- Browser flows for home, every published project, direct fragment visits, sidebar tracking, mobile menu, theme persistence, image enlargement, keyboard navigation and Back/Forward.
-- SPA loading/error/retry cases and prerender hydration without duplicate reads or missing initial content.
-- Anonymous HTTP requests, HEAD behavior, canonical redirects, unknown slugs, absent assets/navigation data and reserved paths.
-- Accessibility targeting WCAG 2.2 AA: contrast, semantic headings, skip link, focus, reflow, reduced motion, meaningful alt text and manual screen-reader spot checks, alongside automated checks.
-- Desktop/mobile light/dark screenshots compared with the approved references. Use Chromium broadly and Firefox/WebKit for representative smoke coverage through the inherited harness.
-- A measured production first-load baseline. Initial targets: LCP at most 2.5 s and CLS at most 0.1 under documented mobile conditions; review transferred JS/image sizes and avoid loading every story's assets on home. Lab results are not a claim of real-user performance.
-- Production publish/image inspection, no Node runtime, release/content revision consistency and update/rollback behavior.
+Required implementation evidence covers:
 
-## 9. Content editing and handover
+- Deterministic C# content validation/export; DTO/status contracts; drafts excluded from API, media, prerender and sitemap.
+- Generated-contract drift; strict TypeScript/lint; content renderer and query behavior; no Books/account dependency in the final contract.
+- Home, every published story, direct fragment links, desktop section tracking, mobile menu, theme persistence, accessible enlargement and Back/Forward.
+- SPA failure/retry states; prerendered initial content; hydration without duplicate reads.
+- GET/HEAD, exact documents/navigation data, canonical paths, real 404s, former sample/account routes and reserved-path protection.
+- WCAG 2.2 AA review: contrast, semantic headings, skip link, focus, reflow, reduced motion, alt text and manual screen-reader spot checks.
+- Both themes at 320, 390, 768, 1024 and 1440 CSS pixels and 200% text zoom. Use Chromium broadly and representative Firefox/WebKit smoke coverage.
+- Measured production loading under documented mobile conditions. Initial targets are LCP at most 2.5 s and CLS at most 0.1; record actual JS/image transfers. Lab measurements do not establish real-user performance.
+- Production image inspection: C# runtime, no Node/Blazor runtime payload, Portfolio image identity, matching content/release revision and scoped update/rollback.
+- LocalSingleNode audit, native identity, runner capacity, LAN/public acceptance, connector health, backup/doctor and independent controller checks.
 
-Document how to add a project without changing layouts: create metadata and Markdown sections, add reviewed media, validate, preview both themes/sizes, and release through the normal PR workflow. Include a small starter project and explain slug/section-ID stability, draft handling, image sizing, provenance and supported blocks.
+The final acceptance profile must be Portfolio-specific. The inherited `ReactPublicV1` profile checks sample Books data and is useful only before product replacement. Update the profile resolver, image labels, manifest, CI smoke, node setup and `Scripts/Test-DeployedSite.ps1` together. Do not leave production acceptance asking for Books or silently weaken it to an HTTP 200 check.
 
-Provide the delivered local development/build commands by reference, plus the portfolio content-export/prerender commands once they exist. Do not invent commands now. Keep installation settings, credentials and node-specific evidence in private records.
+## 9. Content editing and final completion
 
-Remaining inputs for execution are the portfolio repository/app identity, target/domain and deployment authorization, final home/project copy, individual contributions/context, publishable media, substantive GeckoBot details and Grumlebob's sources/workflows. Repository URLs are supplied for KinoJoin, Ship Inspections, MiniTwit, BestBets, Geospatial research and private JobHunt; TraceBack has documented source concepts; Unlost uses the confirmed Project map artifacts without requiring Java-source recovery. JobHunt needs writing-boundary alignment and reviewed fictional examples before publication. Review source revisions, figure provenance and research/design claims before publication. These inputs block only dependent setup, publication or deployment tasks. Follow the companion readiness matrix rather than treating every project as equally complete.
+Document how to add a project without editing the layout: create metadata/Markdown, add licensed reviewed media, validate, preview, publish through a PR and rebuild the immutable release. Include a small draft starter and instructions for stable IDs, safe blocks, dimensions, provenance, related links and public/draft separation. Once implemented, record real export/build/preview commands; do not invent executable commands in advance.
 
-### Completion ledger
+Known decisions are Portfolio identity, destination repository, React/C# architecture, LocalSingleNode target and intended public URL. Remaining input concerns actual node identity/privileged bootstrap, protected Cloudflare authentication, verified project contributions/media and the factual gaps in the inventory. Ask for each only when its dependent packet needs it. Use the node handoff's one-action format whenever the controller cannot proceed.
 
-| Packet | Status | PR / merge SHA / main CI | Evidence or next action |
-| --- | --- | --- | --- |
-| S0 | Pending | — | Verify delivered upstream and preserve portable approved references |
-| S1 | Pending | — | Establish the canonical public content slice |
-| S2 | Pending | — | Implement and review Studio home/ImprovedDb |
-| S3 | Pending | — | Complete reusable content and reviewed launch projects |
-| S4 | Pending | — | Prove prerendering, metadata and production hosting |
-| S5 | Pending | — | Complete implementation checks and handover |
-| S6 | Pending authorization | — | Confirm independent portfolio target before dispatch |
+Release milestones:
 
-The implementation is complete only when its required changes are merged and main CI is green, with merge commits recorded. Public delivery is complete only after the separately authorized portfolio deployment and real public acceptance. Do not mark either state complete based on mockups, a local build or this planning document.
+1. **Repository foundation ready:** P0–P3 merged and green; Portfolio identity, React-only frontend and LocalSingleNode-only deployment are proven.
+2. **Product ready:** P4–P7 merged and green; reviewed Studio pages, public HTML, final acceptance profile and documented operations work locally.
+3. **Public launch:** P8–P9 pass on the intended native node with valid HTTPS, verified release/content identity and a recorded launch set.
+4. **Full handover:** P10 records update/recovery evidence, complete authoring/runbooks and disposition of all eleven stories.
+
+Recommend an initial launch of ImprovedDb, KinoJoin, TraceBack and Unlost, subject to their publication checklist. Expand to all eleven without filler cards. An initial four-story launch is a milestone, not completion of the eleven-story backlog. Mark the entire plan complete only when all required packets are merged and green, public acceptance passes, and each intended story is published or explicitly deferred by the owner with a reason. Do not count an agent's unilateral draft decision as owner-approved scope reduction.
+
+Historical preparation on 2026-10-11 compared both sample Books catalogs, reviewed the source/report artifacts recorded in the inventory, and prepared the JobHunt workflow preview. It ran no source apps, notebooks or benchmarks and completed no Portfolio implementation, node setup or deployment. Keep that evidence separate from later runtime and publication results.
