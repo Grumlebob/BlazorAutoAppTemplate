@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.IO.Compression;
 using System.Text;
 using BlazorAutoApp.Features.Login;
 using BlazorAutoApp.Frontend;
@@ -33,13 +34,13 @@ public sealed class ReactFrontendHostingTests
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         Assert.Equal("text/html", getResponse.Content.Headers.ContentType?.MediaType);
-        Assert.Equal(ReactTestHost.Shell, await getResponse.Content.ReadAsStringAsync());
+        Assert.Equal(ReactTestHost.SpaFallback, await getResponse.Content.ReadAsStringAsync());
 
         using var head = CreateHtmlRequest(HttpMethod.Head, "/books");
         using var headResponse = await host.Client.SendAsync(head);
 
         Assert.Equal(HttpStatusCode.OK, headResponse.StatusCode);
-        Assert.Equal((long)ReactTestHost.Shell.Length, headResponse.Content.Headers.ContentLength);
+        Assert.Equal((long)ReactTestHost.SpaFallback.Length, headResponse.Content.Headers.ContentLength);
         Assert.Empty(await headResponse.Content.ReadAsByteArrayAsync());
     }
 
@@ -69,6 +70,26 @@ public sealed class ReactFrontendHostingTests
     }
 
     [Fact]
+    public async Task StaticAssets_AreGzipCompressedWhenRequested()
+    {
+        await using var host = await ReactTestHost.CreateAsync(forceHttps: true);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/assets/app.css");
+        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+        using var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("gzip", response.Content.Headers.ContentEncoding);
+        var compressed = await response.Content.ReadAsByteArrayAsync();
+        Assert.True(compressed.Length < Encoding.UTF8.GetByteCount(ReactTestHost.Stylesheet));
+
+        await using var source = new MemoryStream(compressed);
+        await using var gzip = new GZipStream(source, CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip, Encoding.UTF8);
+        Assert.Equal(ReactTestHost.Stylesheet, await reader.ReadToEndAsync());
+    }
+
+    [Fact]
     public async Task ReactResponses_UseRestrictiveSecurityHeaders()
     {
         await using var host = await ReactTestHost.CreateAsync();
@@ -95,15 +116,18 @@ public sealed class ReactFrontendHostingTests
     public async Task InlineNavigationScripts_AreAllowedByExactHashes()
     {
         const string shell = "<!doctype html><script>window.reactBooted = true;</script>";
-        await using var host = await ReactTestHost.CreateAsync(shell: shell);
+        const string spaFallback = "<!doctype html><script>window.reactFallback = true;</script>";
+        await using var host = await ReactTestHost.CreateAsync(shell: shell, spaFallback: spaFallback);
         using var request = CreateHtmlRequest(HttpMethod.Get, "/books");
 
         using var response = await host.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
-        var scriptHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("window.reactBooted = true;")));
-        Assert.Contains($"script-src 'self' 'sha256-{scriptHash}'", policy, StringComparison.Ordinal);
+        var shellHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("window.reactBooted = true;")));
+        var fallbackHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("window.reactFallback = true;")));
+        Assert.Contains($"'sha256-{shellHash}'", policy, StringComparison.Ordinal);
+        Assert.Contains($"'sha256-{fallbackHash}'", policy, StringComparison.Ordinal);
         Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("unsafe-eval", policy, StringComparison.OrdinalIgnoreCase);
     }
@@ -243,7 +267,10 @@ public sealed class ReactFrontendHostingTests
     private sealed class ReactTestHost : IAsyncDisposable
     {
         public const string Shell = "<!doctype html><title>React test shell</title>";
+        public const string SpaFallback = "<!doctype html><title>React SPA fallback</title>";
         public const string Secret = "outside-root-secret";
+        public static readonly string Stylesheet = string.Concat(
+            Enumerable.Repeat(".catalog-card { color: #123456; background: white; }\n", 128));
 
         private readonly string _rootPath;
         private readonly string _outsideSecretPath;
@@ -266,14 +293,17 @@ public sealed class ReactFrontendHostingTests
             string environmentName = "Development",
             bool useSelectedFrontendMiddleware = false,
             bool forceHttps = false,
-            string? shell = null)
+            string? shell = null,
+            string? spaFallback = null)
         {
             var rootPath = Directory.CreateTempSubdirectory("react-static-root-").FullName;
             var assetPath = Path.Combine(rootPath, "assets");
             Directory.CreateDirectory(assetPath);
             await File.WriteAllTextAsync(Path.Combine(rootPath, "index.html"), shell ?? Shell);
+            await File.WriteAllTextAsync(Path.Combine(rootPath, "__spa-fallback.html"), spaFallback ?? SpaFallback);
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app.js"), "export {};");
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app-a1b2c3d4.js"), "export {}; ");
+            await File.WriteAllTextAsync(Path.Combine(assetPath, "app.css"), Stylesheet);
 
             var outsideSecretPath = Path.Combine(Path.GetDirectoryName(rootPath)!, $"{Path.GetFileName(rootPath)}-secret.txt");
             await File.WriteAllTextAsync(outsideSecretPath, Secret);
@@ -283,6 +313,7 @@ public sealed class ReactFrontendHostingTests
                 EnvironmentName = environmentName
             });
             builder.Services.AddProblemDetails();
+            ReactFrontendHosting.AddResponseCompression(builder.Services);
             builder.WebHost.UseTestServer();
             var app = builder.Build();
             var fileProvider = new PhysicalFileProvider(rootPath);

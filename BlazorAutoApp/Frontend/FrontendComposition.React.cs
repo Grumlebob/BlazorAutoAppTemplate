@@ -6,6 +6,7 @@ internal static class FrontendComposition
 {
     public static void AddFrontendServices(IServiceCollection services, IConfiguration configuration)
     {
+        ReactFrontendHosting.AddResponseCompression(services);
         services.AddScoped<ICurrentUserAccessor, HttpPrincipalCurrentUserAccessor>();
         services.AddSingleton<ReactFrontendStaticRoot>();
     }
