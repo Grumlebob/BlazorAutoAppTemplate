@@ -46,6 +46,19 @@
   vars:
     staged_app_image_ref: "{{ app_image ~ '@' ~ release_image_digest if release_image_digest | default('') | length > 0 else app_image ~ ':' ~ app_version }}"
   tasks:
+    - name: Require supported frontend and release metadata before staging
+      ansible.builtin.assert:
+        that:
+          - app_version is match('^[0-9a-f]{40}$')
+          - release_source_sha == app_version
+          - release_manifest_schema_version | string in ['1', '2']
+          - release_frontend_profile in ['BlazorAuto', 'React']
+          - (release_frontend_profile == 'BlazorAuto' and release_acceptance_profile == 'BlazorAutoV1') or (release_frontend_profile == 'React' and release_acceptance_profile == 'ReactPublicV1')
+          - (release_manifest_schema_version | string != '1') or (release_frontend_profile == 'BlazorAuto' and release_acceptance_profile == 'BlazorAutoV1')
+          - source_repo_url is match('^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
+          - release_ci_run_id is not defined or release_ci_run_id | string is match('^[0-9]+$')
+          - release_ci_run_attempt is not defined or release_ci_run_attempt | string is match('^[1-9][0-9]*$')
+          - (release_manifest_schema_version | string != '1') or (release_ci_run_id is defined and release_ci_run_attempt is defined)
     - name: Pull exact app image before app stop
       ansible.builtin.shell: |
         set -eu
@@ -78,6 +91,30 @@
           - (release_image_digest | default('') | length == 0)
             or (release_image_digest in ((staged_app_image_inspect.stdout | from_json)[0].RepoDigests | default([]) | join(' ')))
         fail_msg: "The staged app image does not expose the expected registry digest."
+    - name: Record the staged image's baked labels
+      ansible.builtin.set_fact:
+        staged_app_image_labels: "{{ (staged_app_image_inspect.stdout | from_json)[0].Config.Labels | default({}) }}"
+      changed_when: false
+    - name: Require staged release identity before app interruption or migration
+      ansible.builtin.assert:
+        that:
+          - staged_app_image_labels.get('org.opencontainers.image.source') == source_repo_url
+          - staged_app_image_labels.get('localcluster.ci.repository') == (source_repo_url | regex_replace('^https://github.com/', ''))
+          - release_ci_run_id is not defined or staged_app_image_labels.get('localcluster.ci.run_id') == (release_ci_run_id | string)
+          - release_ci_run_attempt is not defined or staged_app_image_labels.get('localcluster.ci.run_attempt') == (release_ci_run_attempt | string)
+          - >-
+            (release_manifest_schema_version | string == '1'
+            and release_frontend_profile == 'BlazorAuto'
+            and release_acceptance_profile == 'BlazorAutoV1'
+            and staged_app_image_labels.get('org.opencontainers.image.revision', release_source_sha) == release_source_sha
+            and staged_app_image_labels.get('com.blazorautoapp.frontend-profile', 'BlazorAuto') == 'BlazorAuto'
+            and staged_app_image_labels.get('com.blazorautoapp.acceptance-profile', 'BlazorAutoV1') == 'BlazorAutoV1')
+            or
+            (release_manifest_schema_version | string == '2'
+            and staged_app_image_labels.get('org.opencontainers.image.revision') == release_source_sha
+            and staged_app_image_labels.get('com.blazorautoapp.frontend-profile') == release_frontend_profile
+            and staged_app_image_labels.get('com.blazorautoapp.acceptance-profile') == release_acceptance_profile)
+        fail_msg: "The staged image identity does not match the source SHA and frontend/acceptance contract."
 
 - name: Stop app containers before migration
   hosts: app_servers

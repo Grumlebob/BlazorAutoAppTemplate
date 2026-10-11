@@ -49,12 +49,16 @@ RUN set -eu; \
     dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false "-p:FrontendProfile=$profile"
 
 FROM base AS final-blazor
+LABEL com.blazorautoapp.frontend-profile="BlazorAuto" \
+      com.blazorautoapp.acceptance-profile="BlazorAutoV1"
 WORKDIR /app
 COPY --from=publish-blazor --chown=app:app /app/publish .
 USER app
 ENTRYPOINT ["dotnet", "BlazorAutoApp.dll"]
 
 FROM base AS final-react
+LABEL com.blazorautoapp.frontend-profile="React" \
+      com.blazorautoapp.acceptance-profile="ReactPublicV1"
 WORKDIR /app
 COPY --from=publish-react --chown=app:app /app/publish .
 USER app

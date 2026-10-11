@@ -66,7 +66,7 @@ Top-level `*.sh` files are the commands used by the deployment guide and workflo
 
 `prune-cluster-docker-residue.sh` copies `prune-docker-residue.sh` to the app and database nodes and runs the same scoped cleanup there. It requires every node's SSH host key to be in `known_hosts` already.
 
-`verify-release-identity.sh <app-image> <sha256-digest>` checks that the web container on every app node runs the released image digest. CD runs it after the acceptance check.
+`verify-release-identity.sh <app-image> <sha256-digest> <frontend-profile> <acceptance-profile> <source-sha> <manifest-schema> <ci-run-id> <ci-run-attempt> <source-repo-url>` checks that each running web container has the verified digest and matching baked source/profile labels. Schema-v1 legacy releases must be BlazorAuto/BlazorAutoV1. CD runs this after acceptance.
 
 `Tests/` holds fixture tests for these scripts (deploy lock, Ansible check-only setup, Docker smoke lifecycle, release identity, maintenance, Docker and runner cleanup, CI residue); CI runs all of them.
 

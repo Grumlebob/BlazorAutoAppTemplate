@@ -25,6 +25,16 @@ case "$FRONTEND_PROFILE" in
   BlazorAuto|React) ;;
   *) echo "Unsupported frontend profile: $FRONTEND_PROFILE" >&2; exit 2 ;;
 esac
+expected_acceptance_profile="$(python3 "$REPO_ROOT/Scripts/Frontend/resolve_frontend_profile.py" --override "$FRONTEND_PROFILE" --acceptance-profile)"
+FRONTEND_ACCEPTANCE_PROFILE="${FRONTEND_ACCEPTANCE_PROFILE:-$expected_acceptance_profile}"
+[[ "$FRONTEND_ACCEPTANCE_PROFILE" == "$expected_acceptance_profile" ]] || {
+  echo "Acceptance profile does not match the selected frontend profile" >&2
+  exit 2
+}
+if [[ -n "${GITHUB_SHA:-}" && ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "GITHUB_SHA must be a full lowercase commit SHA" >&2
+  exit 2
+fi
 APP_NAME="${APP_NAME:-$(bash "$SCRIPT_DIR/read-deploy-setting.sh" app_name)}"
 [[ "$APP_NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "app_name must be a lowercase slug: $APP_NAME" >&2; exit 1; }
 
@@ -81,6 +91,25 @@ cleanup() {
   exit "$status"
 }
 if [[ "$CLEANUP_ONLY" == true ]]; then cleanup 0; fi
+image_labels="$(docker image inspect "$IMAGE_REF" --format '{{json .Config.Labels}}')"
+python3 - "$FRONTEND_PROFILE" "$FRONTEND_ACCEPTANCE_PROFILE" "${GITHUB_SHA:-}" "$image_labels" <<'PY'
+import json
+import sys
+
+frontend_profile, acceptance_profile, source_sha, labels_json = sys.argv[1:]
+labels = json.loads(labels_json)
+if not isinstance(labels, dict):
+    raise SystemExit("final image labels are missing")
+expected = {
+    "com.blazorautoapp.frontend-profile": frontend_profile,
+    "com.blazorautoapp.acceptance-profile": acceptance_profile,
+}
+if source_sha:
+    expected["org.opencontainers.image.revision"] = source_sha
+for key, value in expected.items():
+    if labels.get(key) != value:
+        raise SystemExit(f"final image label {key!r} does not match the selected release")
+PY
 trap 'cleanup "$?"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM

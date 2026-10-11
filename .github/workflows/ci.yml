@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 75
     outputs:
       frontend_profile: ${{ steps.frontend_profile.outputs.profile }}
+      acceptance_profile: ${{ steps.frontend_profile.outputs.acceptance_profile }}
     permissions:
       contents: read
 
@@ -131,7 +132,9 @@ jobs:
         run: |
           set -euo pipefail
           profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --override "$profile" --acceptance-profile)"
           echo "profile=${profile}" >> "$GITHUB_OUTPUT"
+          echo "acceptance_profile=${acceptance_profile}" >> "$GITHUB_OUTPUT"
 
       - name: Test frontend profile selection
         run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
@@ -176,6 +179,9 @@ jobs:
 
       - name: Test release identity verification
         run: bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh
+
+      - name: Test LocalSingleNode release identity verification
+        run: bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh
 
       - name: Test maintenance and cleanup safeguards
         run: |
@@ -338,6 +344,7 @@ jobs:
             --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
@@ -350,6 +357,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         env:
           FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ steps.frontend_profile.outputs.acceptance_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 
@@ -540,6 +548,7 @@ jobs:
             --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
@@ -551,6 +560,7 @@ jobs:
         id: ci_smoke
         env:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 
@@ -572,11 +582,16 @@ jobs:
         run: docker push "${APP_IMAGE}:${GITHUB_SHA}"
 
       - name: Resolve pushed image digest and write release manifest
+        env:
+          FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
         run: |
           set -euo pipefail
           docker image inspect "${APP_IMAGE}:${GITHUB_SHA}" \
             --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-image-repodigests.json"
-          python3 - "${RUNNER_TEMP}/release-image-repodigests.json" <<'PY'
+          docker image inspect "${APP_IMAGE}:${GITHUB_SHA}" \
+            --format '{{json .Config.Labels}}' > "${RUNNER_TEMP}/release-image-labels.json"
+          python3 - "${RUNNER_TEMP}/release-image-repodigests.json" "${RUNNER_TEMP}/release-image-labels.json" <<'PY'
           import hashlib
           import json
           import os
@@ -585,9 +600,13 @@ jobs:
           import sys
 
           inspect_path = pathlib.Path(sys.argv[1])
+          labels_path = pathlib.Path(sys.argv[2])
           payload = json.loads(inspect_path.read_text(encoding="utf-8"))
+          labels = json.loads(labels_path.read_text(encoding="utf-8"))
           if not isinstance(payload, list):
               raise SystemExit("docker image inspect did not return RepoDigests")
+          if not isinstance(labels, dict):
+              raise SystemExit("docker image inspect did not return image labels")
           image_prefix = f"{os.environ['APP_IMAGE']}@"
           matches = [
               value.split("@", 1)[1]
@@ -600,6 +619,19 @@ jobs:
           if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
               raise SystemExit("docker image inspect did not return a registry digest")
 
+          expected_labels = {
+              "org.opencontainers.image.source": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
+              "org.opencontainers.image.revision": os.environ["GITHUB_SHA"],
+              "com.blazorautoapp.frontend-profile": os.environ["FRONTEND_PROFILE"],
+              "com.blazorautoapp.acceptance-profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"],
+              "localcluster.ci.repository": os.environ["GITHUB_REPOSITORY"],
+              "localcluster.ci.run_id": os.environ["GITHUB_RUN_ID"],
+              "localcluster.ci.run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+          }
+          for key, expected in expected_labels.items():
+              if labels.get(key) != expected:
+                  raise SystemExit(f"pushed image label {key!r} does not match release metadata")
+
           staging_path = pathlib.Path("artifacts/migrations/migration-provenance.json")
           bundle_path = pathlib.Path("artifacts/migrations") / os.environ["MIGRATION_BUNDLE_NAME"]
           staging = json.loads(staging_path.read_text(encoding="utf-8"))
@@ -608,9 +640,11 @@ jobs:
           if not bundle_bytes or bundle_sha256 != staging["bundle_sha256"]:
               raise SystemExit("verified migration bundle changed before manifest creation")
           manifest = {
-              "schema_version": 1,
+              "schema_version": 2,
               "repository": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
               "commit_sha": os.environ["GITHUB_SHA"],
+              "frontend_profile": os.environ["FRONTEND_PROFILE"],
+              "acceptance_profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"],
               "ci_run_id": int(os.environ["GITHUB_RUN_ID"]),
               "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
               "image_ref": f"{os.environ['APP_IMAGE']}:{os.environ['GITHUB_SHA']}",

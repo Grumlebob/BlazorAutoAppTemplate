@@ -92,6 +92,24 @@ jobs:
             exit 1
           }
 
+      - name: Resolve target frontend and acceptance profiles
+        run: |
+          set -euo pipefail
+          target_profile_file="${RUNNER_TEMP}/frontend-profile-${TARGET_SHA}.txt"
+          if git cat-file -e "${TARGET_SHA}:frontend-profile.txt" 2>/dev/null; then
+            git show "${TARGET_SHA}:frontend-profile.txt" > "$target_profile_file"
+            profile_file_present=true
+          else
+            profile_file_present=false
+          fi
+          frontend_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --profile-file "$target_profile_file" --legacy-blazor-default)"
+          acceptance_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --profile-file "$target_profile_file" --acceptance-profile --legacy-blazor-default)"
+          {
+            echo "FRONTEND_PROFILE=${frontend_profile}"
+            echo "ACCEPTANCE_PROFILE=${acceptance_profile}"
+            echo "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}"
+          } >> "$GITHUB_ENV"
+
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
 
@@ -163,12 +181,20 @@ jobs:
           docker pull --quiet "${APP_IMAGE}:${TARGET_SHA}"
           docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
             --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-registry-repodigests.json"
+          docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
+            --format '{{json .Config.Labels}}' > "${RUNNER_TEMP}/release-image-labels.json"
           echo "REGISTRY_MANIFEST_PATH=${RUNNER_TEMP}/release-registry-repodigests.json" >> "$GITHUB_ENV"
+          echo "IMAGE_LABELS_PATH=${RUNNER_TEMP}/release-image-labels.json" >> "$GITHUB_ENV"
 
       - name: Validate release manifest
         run: |
           set -euo pipefail
           test -f artifacts/migrations/release-manifest.json
+          RELEASE_MANIFEST_SCHEMA_VERSION="$(python3 -c 'import json; print(json.load(open("artifacts/migrations/release-manifest.json", encoding="utf-8"))["schema_version"])')"
+          if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]; then
+            echo "Schema-v2 releases require frontend-profile.txt in the selected source commit." >&2
+            exit 1
+          fi
           RELEASE_IMAGE_DIGEST="$(python3 Deployment/Common/Scripts/validate_release_manifest.py \
             --manifest artifacts/migrations/release-manifest.json \
             --registry-json "$REGISTRY_MANIFEST_PATH" \
@@ -178,10 +204,17 @@ jobs:
             --expected-ci-run-id "$CI_RUN_ID" \
             --expected-ci-run-attempt "$CI_RUN_ATTEMPT" \
             --expected-image "$APP_IMAGE" \
-            --expected-bundle-name "$MIGRATION_BUNDLE_NAME")"
+            --expected-bundle-name "$MIGRATION_BUNDLE_NAME" \
+            --expected-frontend-profile "$FRONTEND_PROFILE" \
+            --expected-acceptance-profile "$ACCEPTANCE_PROFILE" \
+            --image-labels-json "$IMAGE_LABELS_PATH")"
           echo "RELEASE_IMAGE_DIGEST=${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_ENV"
+          echo "RELEASE_MANIFEST_SCHEMA_VERSION=${RELEASE_MANIFEST_SCHEMA_VERSION}" >> "$GITHUB_ENV"
           chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
-          echo "Release manifest verified: ${APP_IMAGE}:${TARGET_SHA} ${RELEASE_IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release manifest verified: ${APP_IMAGE}:${TARGET_SHA} ${RELEASE_IMAGE_DIGEST} ${FRONTEND_PROFILE}/${ACCEPTANCE_PROFILE}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 1 ]]; then
+            echo "Legacy release manifest v1 is explicitly treated as BlazorAuto/BlazorAutoV1." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Check only: CI/CD jobs never run apt. Provision on the control machine with
       # Deployment/LocalCluster/Scripts/install-ansible.sh --provision.
@@ -239,6 +272,12 @@ jobs:
             -e @"${GHCR_EXTRA_VARS_FILE}" \
             -e "app_version=${APP_VERSION}" \
             -e "release_image_digest=${RELEASE_IMAGE_DIGEST}" \
+            -e "release_frontend_profile=${FRONTEND_PROFILE}" \
+            -e "release_acceptance_profile=${ACCEPTANCE_PROFILE}" \
+            -e "release_manifest_schema_version=${RELEASE_MANIFEST_SCHEMA_VERSION}" \
+            -e "release_source_sha=${TARGET_SHA}" \
+            -e "release_ci_run_id=${CI_RUN_ID}" \
+            -e "release_ci_run_attempt=${CI_RUN_ATTEMPT}" \
             -e "source_repo_url=${SOURCE_REPO_URL}" \
             -e run_migrations=true \
             -e "migration_bundle_local_path=${{ github.workspace }}/artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
@@ -253,13 +292,19 @@ jobs:
             -e @"${GHCR_EXTRA_VARS_FILE}" \
             -e "app_version=${APP_VERSION}" \
             -e "release_image_digest=${RELEASE_IMAGE_DIGEST}" \
+            -e "release_frontend_profile=${FRONTEND_PROFILE}" \
+            -e "release_acceptance_profile=${ACCEPTANCE_PROFILE}" \
+            -e "release_manifest_schema_version=${RELEASE_MANIFEST_SCHEMA_VERSION}" \
+            -e "release_source_sha=${TARGET_SHA}" \
+            -e "release_ci_run_id=${CI_RUN_ID}" \
+            -e "release_ci_run_attempt=${CI_RUN_ATTEMPT}" \
             -e "source_repo_url=${SOURCE_REPO_URL}"
 
       - name: Run acceptance check
         run: bash Deployment/LocalCluster/Scripts/acceptance-check.sh
 
       - name: Verify running release identity
-        run: bash Deployment/LocalCluster/Scripts/verify-release-identity.sh "${APP_IMAGE}" "${RELEASE_IMAGE_DIGEST}"
+        run: bash Deployment/LocalCluster/Scripts/verify-release-identity.sh "${APP_IMAGE}" "${RELEASE_IMAGE_DIGEST}" "${FRONTEND_PROFILE}" "${ACCEPTANCE_PROFILE}" "${TARGET_SHA}" "${RELEASE_MANIFEST_SCHEMA_VERSION}" "${CI_RUN_ID}" "${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"
 
       - name: Run observability doctor
         run: |

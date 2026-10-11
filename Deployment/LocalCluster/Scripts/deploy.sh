@@ -28,7 +28,22 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 APP_VERSION="$1"
 shift
 
+[[ "$APP_VERSION" =~ ^[0-9a-f]{40}$ ]] || {
+  echo "git-sha-image-tag must be a full lowercase 40-character commit SHA" >&2
+  exit 1
+}
+git -C "$REPO_ROOT" cat-file -e "${APP_VERSION}^{commit}"
+TARGET_PROFILE_CONTENT="$(git -C "$REPO_ROOT" show "${APP_VERSION}:frontend-profile.txt")"
+FRONTEND_PROFILE="$(python3 "$REPO_ROOT/Scripts/Frontend/resolve_frontend_profile.py" --override "$TARGET_PROFILE_CONTENT")"
+ACCEPTANCE_PROFILE="$(python3 "$REPO_ROOT/Scripts/Frontend/resolve_frontend_profile.py" --override "$FRONTEND_PROFILE" --acceptance-profile)"
+
 EXTRA_ARGS=(-e "app_version=$APP_VERSION")
+EXTRA_ARGS+=(
+  -e "release_source_sha=$APP_VERSION"
+  -e "release_frontend_profile=$FRONTEND_PROFILE"
+  -e "release_acceptance_profile=$ACCEPTANCE_PROFILE"
+  -e "release_manifest_schema_version=2"
+)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,8 +74,28 @@ done
 
 echo "WARN  manual deploy: CI success and release-manifest checks are skipped. Prefer the CD workflow." >&2
 
-SOURCE_REPO_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url || true)"
-[[ -n "$SOURCE_REPO_URL" ]] || SOURCE_REPO_URL="unknown"
+SOURCE_REPO_REMOTE="$(git -C "$REPO_ROOT" config --get remote.origin.url || true)"
+SOURCE_REPO_URL="$(python3 - "$SOURCE_REPO_REMOTE" <<'PY'
+import re
+import sys
+
+remote = sys.argv[1].strip()
+if remote.startswith("https://github.com/"):
+    slug = remote.removeprefix("https://github.com/")
+elif remote.startswith("git@github.com:"):
+    slug = remote.removeprefix("git@github.com:")
+elif remote.startswith("ssh://git@github.com/"):
+    slug = remote.removeprefix("ssh://git@github.com/")
+else:
+    slug = ""
+if slug.endswith(".git"):
+    slug = slug[:-4]
+if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", slug):
+    print("https://github.com/" + slug)
+else:
+    print("unknown")
+PY
+)"
 
 EXTRA_ARGS+=(-e "source_repo_url=$SOURCE_REPO_URL")
 

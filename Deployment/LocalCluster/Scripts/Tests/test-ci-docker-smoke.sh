@@ -11,7 +11,7 @@ mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/state"
 export SMOKE_STATE="$TMP_ROOT/state"
 export SMOKE_CALLS="$TMP_ROOT/calls.jsonl"
 export PATH="$TMP_ROOT/bin:$PATH"
-export APP_IMAGE=example/app APP_VERSION=test APP_NAME=sample GITHUB_REPOSITORY=example/repo
+export APP_IMAGE=example/app APP_VERSION=test APP_NAME=sample GITHUB_REPOSITORY=example/repo GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 cat > "$TMP_ROOT/bin/docker" <<'PY'
 #!/usr/bin/env python3
 import json
@@ -26,7 +26,19 @@ def state(name):
     return root / name
 def labels():
     return dict(args[i + 1].split("=", 1) for i, value in enumerate(args) if value == "--label")
-if args[:2] == ["network", "create"] or args[0] == "run":
+if args[:2] == ["image", "inspect"]:
+    profile = os.environ.get("FRONTEND_PROFILE", "BlazorAuto")
+    acceptance = os.environ.get("FRONTEND_ACCEPTANCE_PROFILE", "BlazorAutoV1" if profile == "BlazorAuto" else "ReactPublicV1")
+    if os.environ.get("FAIL_IMAGE_LABEL") == "1":
+        profile = "React" if profile == "BlazorAuto" else "BlazorAuto"
+    if os.environ.get("FAIL_ACCEPTANCE_LABEL") == "1":
+        acceptance = "ReactPublicV1" if acceptance == "BlazorAutoV1" else "BlazorAutoV1"
+    print(json.dumps({
+        "com.blazorautoapp.frontend-profile": profile,
+        "com.blazorautoapp.acceptance-profile": acceptance,
+        "org.opencontainers.image.revision": os.environ["GITHUB_SHA"],
+    }))
+elif args[:2] == ["network", "create"] or args[0] == "run":
     name = args[-1] if args[0] == "network" else args[args.index("--name") + 1]
     if state(name).exists():
         raise SystemExit(125)
@@ -119,6 +131,9 @@ run_case() {
 }
 run_case 0
 FRONTEND_PROFILE=React run_case 0
+FRONTEND_PROFILE=React FRONTEND_ACCEPTANCE_PROFILE=BlazorAutoV1 run_case 2
+FAIL_IMAGE_LABEL=1 run_case 1
+FAIL_ACCEPTANCE_LABEL=1 run_case 1
 FAIL_REDIS=1 run_case 17
 FAIL_API=1 run_case 1
 FAIL_BROWSER=19 run_case 19
