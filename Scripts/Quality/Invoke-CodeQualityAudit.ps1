@@ -50,7 +50,8 @@ $failureMessages = [Collections.Generic.List[string]]::new()
 
 function Invoke-AuditGit {
     param([Parameter(Mandatory)][string[]]$Arguments, [string]$WorkingDirectory = $invokingRoot)
-    $result = Invoke-QualityProcess -FilePath $git -ArgumentList $Arguments -WorkingDirectory $WorkingDirectory -TimeoutSeconds 120
+    $result = Invoke-QualityProcess -FilePath $git -ArgumentList (@('-c', 'core.longpaths=true') + $Arguments) `
+        -WorkingDirectory $WorkingDirectory -TimeoutSeconds 120
     if ($result.TimedOut -or $result.ExitCode -ne 0) {
         $detail = Protect-QualityText -Text (($result.Stderr + ' ' + $result.Stdout).Trim())
         throw "Git $($Arguments[0]) failed (exit $($result.ExitCode), timeout $($result.TimedOut)): $detail"
@@ -274,7 +275,7 @@ function Remove-AuditWorktrees {
             $pathLineWindows = "worktree $path"
             if ($pathLineWindows -notin $listedLines) { throw "Git no longer identifies this run-created worktree: $path" }
         }
-        $remove = Invoke-QualityProcess -FilePath $git -ArgumentList @('-C', $invokingRoot, 'worktree', 'remove', '--force', $path) `
+        $remove = Invoke-QualityProcess -FilePath $git -ArgumentList @('-c', 'core.longpaths=true', '-C', $invokingRoot, 'worktree', 'remove', '--force', $path) `
             -WorkingDirectory $invokingRoot -TimeoutSeconds 120
         if ($remove.TimedOut -or $remove.ExitCode -ne 0) { throw "Could not remove verified clean worktree '$path'." }
         $entry.removed = $true
