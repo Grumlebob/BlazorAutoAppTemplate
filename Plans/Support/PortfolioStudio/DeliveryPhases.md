@@ -1,10 +1,12 @@
 # Portfolio delivery phases
 
-Parent: [PortfolioStudioImplementation.md](../../PortfolioStudioImplementation.md). State: [Progress.md](Progress.md). Content: [PageBriefs.md](PageBriefs.md) and [ProjectInventory.md](ProjectInventory.md). Node work: [NodeHandoff.md](NodeHandoff.md).
+Parent: [PortfolioStudioImplementation.md](../../PortfolioStudioImplementation.md). Architecture/slices: [Architecture.md](Architecture.md). State: [Progress.md](Progress.md). Content: [PageBriefs.md](PageBriefs.md) and [ProjectInventory.md](ProjectInventory.md). Node work: [NodeHandoff.md](NodeHandoff.md).
 
 ## Execution rules
 
 Each packet is a small unit that another agent can resume. A phase may require several PRs; combine tightly coupled code, contract, audit, test and documentation changes. Do not combine all cleanup and product work in one PR. Start a packet only when its listed inputs exist. Record actual file names after inspecting the chosen baseline; paths below describe the intended destination, not files already created.
+
+The owner prefers vertical slice architecture and delivery. P0–P3 establish the independent product; VS1 then combines P4, P5 and first-story P7.1/P7.3 into one complete ImprovedDb reading journey. Begin API and UI against that story together, include direct readable HTML/hosting/acceptance before declaring VS1 complete, then repeat P6 per story. Phase IDs group tasks; [Architecture.md](Architecture.md) sets the product completion boundaries.
 
 For each packet:
 
@@ -25,10 +27,10 @@ Markdown-only packets require Markdown review and `git diff --check`; inherited 
 | P1 | P0; CI capacity when needed | Complete Portfolio naming and React selection |
 | P2 | P1 | React-only frontend/C# host; Blazor UI/profile removed |
 | P3 | P2 | LocalSingleNode-only deployment with preserved shared gates |
-| P4 | P2; merge after P3 | Public content contract/export and Books-domain replacement |
-| P5 | P4 | Approved Studio home and ImprovedDb reader implemented |
-| P6 | P5 | Distinct, illustrated project stories; reviewed launch set |
-| P7 | P3, P5 and reviewed P6 launch set | Prerendering, final Portfolio acceptance and release readiness |
+| P4 | P2; merge after P3; co-developed with P5 | VS1's first-story content/export/API and Books-domain replacement |
+| P5 | Incremental P4 contracts; co-developed with P4 | VS1's approved Studio home and ImprovedDb reader |
+| P6 | VS1 verified; source preparation may begin earlier | Repeatable full story slices and reviewed launch set |
+| P7 | P7.1/P7.3 begin within VS1; final P7.4 requires reviewed launch set | Per-slice prerender/acceptance, runtime alignment and final release readiness |
 | P8 | P0 identity; latest P3/P7 for installation/deploy | Native node, runner, LAN readiness and controller SSH |
 | P9 | P7, P8 and recorded launch authorization | Cloudflare publication and public acceptance |
 | P10 | P9; remaining P6 packets | Recovery, authoring handover and final backlog disposition |
@@ -160,13 +162,13 @@ Exit evidence: neither removed directory exists; no active workflow/script impor
 
 Inputs: P2; master sections 4–5; source register.
 
-- Create `Content/Portfolio/site.json`, per-project metadata/Markdown/media and a draft starter. Include all eleven metadata entries as drafts initially.
-- Implement C# validation/export and DTOs for site, summary/detail, sections, supported blocks, assets and published manifest. Pick one safe Markdown parser and document it.
+- Create `Content/Portfolio/site.json`, per-project metadata/Markdown/media and a draft starter. Begin with ImprovedDb's actual story; other catalog entries remain draft metadata until their slice is prepared.
+- Implement C# validation/export and DTOs needed by the first story's site, summary/detail, sections, blocks, assets and published manifest. Pick one safe Markdown parser and document it. Extend contracts only for a concrete later story requirement.
 - Produce deterministic public-only normalized output and a content revision. No DB/Redis/network/credentials are required for export.
 - Validate unsafe HTML/links/SVG, path containment/case, missing media, duplicate IDs, internal links to drafts, dimensions, supported block kinds and payload budgets.
 - Keep provenance/review notes out of public DTOs. Draft content and media cannot ship merely because they live near published files.
 
-Exit: deterministic export, invalid fixtures rejected, valid starter supported, unpublished projects/media excluded, and a documented real export command.
+Exit: deterministic export, invalid fixtures rejected, first-story content supported, unpublished projects/media excluded, and a documented real export command. This packet is partial VS1 work until the corresponding API/UI/prerender journey is verified.
 
 ### P4.2 — Public API and generated client
 
@@ -208,11 +210,11 @@ Exit: no Books UX/API/simulator in the product; generated schema and runtime dep
 
 Review real home/ImprovedDb at the required viewport sizes in both themes. Compare with portable Studio references. Verify keyboard navigation, deep fragment reload, final short section, long figure/code sections and 200% text zoom. Record screenshots and actual findings. Correct drift before duplicating content across projects.
 
-Exit: one complete real story, approved layout faithfully implemented and components suitable for different section counts. This checkpoint is review evidence, not a requirement to stop for another style choice.
+Exit: one complete real story, approved layout faithfully implemented and components suitable for different section counts. Finish first-story P7.1/P7.3 hosting/prerender/image acceptance before marking VS1 verified. This checkpoint is review evidence, not a requirement to stop for another style choice.
 
 ## P6 — Prepare the eleven distinct project stories
 
-Use the detailed [page briefs](PageBriefs.md). Each story is its own resumable content packet; keep a per-project source/media/publication row in Progress.
+Use the detailed [page briefs](PageBriefs.md). Each story is a resumable vertical content slice; keep a per-project source/media/publication row in Progress. Its exit includes actual export/API/catalog/detail/prerender/metadata/media and applicable checks together, not merely a Markdown draft. Introduce needed contract/renderer behavior in that same story slice. P6.1's initial publication requirements are part of VS1.
 
 | Packet | Story | Required output |
 | --- | --- | --- |
@@ -239,6 +241,8 @@ Recommended first launch set: ImprovedDb, KinoJoin, TraceBack, Unlost. Do not pu
 
 ### P7.1 — Prerender and exact C# hosting
 
+Begin this packet within VS1 for home and ImprovedDb, then extend known routes/generated output in each P6 story slice. It is not deferred until all stories are written.
+
 - Use the pinned Router version's supported prerendering with `ssr:false`, explicit published routes and snapshot loaders. Verify version-specific APIs rather than upgrading to match current examples.
 - Build content first, then contracts/frontend, then package the exact bundle and generated HTML/navigation data in the C# image. Production has no Node process.
 - Serve correct documents/data for home and known slugs. Reject missing assets/data, unknown/draft routes and reserved paths with real statuses; do not return a generic shell everywhere.
@@ -253,6 +257,8 @@ Default: keep inherited PostgreSQL/Redis where runtime/tooling still requires th
 Produce a dependency decision for each remaining DB, Redis, Identity, migration, Data Protection, SMTP/social-auth and simulator service. Remove unused account services. Either retain required DB/Redis with honest operational docs or remove them in a separate cohesive PR covering startup, Compose, workflows, release artifacts, backups, doctor, audits and tests. Do not leave dummy DB/Redis checks or claim backups protect file-only content. No unnecessary service-removal rewrite is required for v1.
 
 ### P7.3 — Replace sample acceptance with Portfolio acceptance
+
+Introduce the first-story profile/assertions within VS1. Expand the manifest-driven acceptance with later published slices and complete final launch checks in P7.4.
 
 - Introduce a clearly named Portfolio public acceptance profile, recommended `PortfolioPublicV1`; preserve `FrontendProfile=React`.
 - Update resolver, build/image labels, release manifest, Docker smoke, setup-state machine, deployment workflow and controller acceptance together.

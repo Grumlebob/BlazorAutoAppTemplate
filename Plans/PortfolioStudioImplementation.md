@@ -8,6 +8,7 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | Read this document | Purpose |
 | --- | --- |
 | This master plan | Product scope, approved Studio design, content/API architecture and final acceptance |
+| [Architecture.md](Support/PortfolioStudio/Architecture.md) | Feature boundaries, end-to-end vertical slices, first-story implementation sequence and slice acceptance |
 | [DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) | Ordered phases, small executable packets, dependency gates, checks and removal inventories |
 | [Progress.md](Support/PortfolioStudio/Progress.md) | Current task, packet ledger, blockers, decision records and resume prompt |
 | [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, eleven project story treatments, illustration briefs and publication checklist |
@@ -30,12 +31,12 @@ The current React goal retains P0–P7's reusable implementation and controller 
 
 ### Implementation readiness
 
-The plan is ready to begin P0. It defines eleven phases, 27 numbered technical packets and twelve P6 content/catalog packets. A packet can span several small PRs; the ledger records exact inputs, claimed files, checks, merge evidence and next action. None of these Portfolio implementation packets has been executed by this planning task.
+The plan is ready to begin P0. It defines eleven phases, 27 numbered technical packets and twelve P6 content/catalog packets, grouped into [vertical delivery slices](Support/PortfolioStudio/Architecture.md). A packet can span several small PRs; the ledger records exact inputs, claimed files, checks, merge evidence and next action. None of these Portfolio implementation packets has been executed by this planning task.
 
 | Area | Defined contract | Remaining execution work |
 | --- | --- | --- |
 | Architecture | React/TypeScript frontend, C# host/API/exporter, Git-authored content, generated API types, one public content revision | Verify pinned upstream versions and actual module paths in P0; choose the Markdown parser in P4.1 |
-| Product slices | Import/identity, React-only cleanup, single-node cleanup, content/API, home plus ImprovedDb reader, individual stories, rendering/release, node, launch, recovery | Complete packets in dependency order; P5 supplies the first real end-to-end reading experience |
+| Product slices | Platform prerequisites, complete ImprovedDb journey, one reviewed story at a time, runtime alignment, public launch, recovery | VS1 combines P4/P5 with first-story P7 rendering/acceptance; finish content/API/React/direct HTML together |
 | Design/content | Approved Studio layout, shared route/block model, eleven distinct page briefs, media and publication rules | Preserve portable references, review preferred reports, confirm individual roles/status and approve prose/media |
 | Operations | Portfolio app/image identity, scoped resources, native actor handoffs, SSH, LocalSingleNode/Cloudflare and recovery | Establish native identity/access and CI capacity; authorize the specific live bootstrap/deployment when applicable |
 | Acceptance | Content validation, direct-route statuses, draft exclusion, both themes/mobile/accessibility, exact-head CI and public acceptance | Implement and record actual evidence; planning is not a passed runtime check |
@@ -48,7 +49,7 @@ The launch recommendation is four reviewed stories, followed by remaining indepe
 | --- | --- | --- |
 | UI | React + TypeScript + Vite, using the delivered template's pinned versions | Reuse its build, development, error handling and deployment integration |
 | Routes | React Router Framework Mode | Route modules, layouts, navigation, route types and a path to static prerendering |
-| Rendering | Begin in SPA mode; prerender public pages before production launch | Validate the design early, then deliver readable HTML and metadata on direct requests |
+| Rendering | SPA as a development increment; prerender home/ImprovedDb before VS1 completes, then each published story | Every verified product slice has readable direct HTML and metadata |
 | API state | TanStack Query and the template's shared QueryClient | API caching, cancellation, retries and request states without another server-state store |
 | Styling | Tailwind CSS with a small local component set and shared theme tokens | Preserve Studio consistently without imposing a large component library |
 | Backend | ASP.NET Core, serving frontend assets and same-origin APIs | Retain validation, public content contracts and hosting in C# |
@@ -182,6 +183,8 @@ Do not infer employers, clients, dates, project roles, frameworks, public reposi
 For each story, record fact notes using the companion register's source IDs. Each numerical claim, historical date, implementation statement or outcome needs an evidence reference. Proposed personal motivation and lessons require owner review. Keep an explicit list of open questions instead of silently converting them into public copy.
 
 ## 5. Content architecture and API contract
+
+The owner prefers vertical slice architecture. [Architecture.md](Support/PortfolioStudio/Architecture.md) defines use-case feature boundaries and how each visitor outcome crosses content, C#, React, hosting and checks. P4 and P5 are work inventories for the first product slice; deliver first-story prerendering/acceptance from P7 in that same slice. Do not use the phase numbers to finish all backend work before beginning UI or defer direct readable HTML until every story exists.
 
 ### Authoring and publishing
 
@@ -328,7 +331,7 @@ Optional related-project links at the end of a story derive from published slugs
 
 These are portfolio-specific settings to confirm in the first slice, not replacements for the template's global defaults. Query considers data stale by default and can refetch on focus, mount and reconnect; choose the policy deliberately. See [Query defaults](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults).
 
-In the initial SPA slice, hooks use the generated API and optional `clientLoader` prefetching uses the same query options. In the prerendered release, editorial data can be rendered directly from the build snapshot. Do not add a Query request just to obtain data already present in static route output. When an existing API-backed hook is seeded, use the same key/DTO; revision-scoped static story entries can use `staleTime: Infinity` to prevent a later release replacing the narrative during reading. The ordinary API policy above still applies to unseeded/runtime reads. Keep real timestamps and content revisions; do not manufacture build-time data freshness to suppress hydration problems.
+During VS1's SPA development increment, hooks use the generated API and optional `clientLoader` prefetching uses the same query options. Before VS1 completes, prerendered editorial data can be rendered directly from the build snapshot. Do not add a Query request just to obtain data already present in static route output. When an existing API-backed hook is seeded, use the same key/DTO; revision-scoped static story entries can use `staleTime: Infinity` to prevent a later release replacing the narrative during reading. The ordinary API policy above still applies to unseeded/runtime reads. Keep real timestamps and content revisions; do not manufacture build-time data freshness to suppress hydration problems.
 
 ### Section links and scroll tracking
 
@@ -358,7 +361,7 @@ Use the project inventory's shot lists to prepare real media. For Unlost, select
 
 ## 7. Public rendering and hosting
 
-SPA mode is the development milestone, not the intended final public reading experience. Before launch, set `ssr:false` with an explicit prerender list containing `/` and every published `/projects/{slug}`. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
+SPA mode is an intermediate development milestone within VS1. Before VS1 completes, set `ssr:false` with an explicit prerender list containing `/` and the published ImprovedDb story; extend it to every published `/projects/{slug}` in each subsequent story slice. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
 
 Prerender loaders read the compiled public snapshot, not a live production API. They are a build-time adapter, not a second backend or an independent server-state store. For API-backed components, seed the same Query definitions from this snapshot and prevent a redundant hydration fetch. Keep runtime-only data out of static output. Match implementation details to the delivered Router version and verify generated HTML, navigation data and fallback artifacts rather than assuming their filenames.
 
@@ -377,6 +380,8 @@ Use [Progress.md](Support/PortfolioStudio/Progress.md) as the single execution l
 Start with one eligible packet per session. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient.
 
 Review the real Studio home and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
+
+Use [Architecture.md](Support/PortfolioStudio/Architecture.md) for feature ownership and vertical completion. A P4/P5 checkpoint is partial VS1 until first-story P7 hosting/prerender/acceptance works. Subsequent stories ship their content, contracts/renderers when needed, routes, metadata and checks together. The slice ledger summarizes these outcomes over the same packet inventory.
 
 ### Planned verification during implementation
 
