@@ -59,3 +59,9 @@ Mark full delivery complete only when SR1-SR6 and the profile plan's applicable 
 
 - Planning packet: documents the owner's confirmed single-repository/two-app outcome and verified completed cleanup. No publishing setting, app configuration, readiness secret, node resource or deployment has changed in this packet. Required PR/head/merge/main evidence will be recorded in its PR description.
 - Next: SR1 release/profile contract and optional publication implementation. Preserve the existing default pipeline and runner.
+
+### SR1 implementation evidence
+
+Optional publication now uses the validated `ADDITIONAL_FRONTEND_PROFILES` repository variable in the existing trusted-main publishing job. Unset preserves selected-only publication and primary image/artifact names. The additional profile has a distinct derived image/artifact, its own manifest/digest, a fresh profile-specific browser build, staging hash/source/run validation, smoke before push and scoped cleanup. The shared manifest writer also verifies ownership labels and refuses existing output. No repository setting or deployment was changed during implementation.
+
+Local validation passed: formatting; both complete solution suites (Blazor 211 passed/13 expected skips, React 203 passed/13 expected skips); 55 CI fixtures including 16 new release fixtures with zero skips on Linux; all single-node/common/cluster and shell fixtures; release/cloud/observability validation; deployment audit; template rendering; YAML, shell and Actions lint; and single-node Ansible syntax. A transient local syntax-check working-directory failure passed after the gate explicitly re-anchored each subprocess to its checkout. Full gate passed before pushing; integration from current main added only Markdown. Required PR/head/merge/main evidence belongs in the implementation PR description. Live optional publication remains to be enabled and verified after merged main is green.
