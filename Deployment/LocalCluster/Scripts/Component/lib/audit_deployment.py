@@ -80,6 +80,9 @@ required_files = [
     "Deployment/Common/ci-python-constraints.txt",
     "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh",
+    "Scripts/CI/validate-frontend-profiles.sh",
+    "Scripts/CI/validate_dotnet_test_results.py",
+    "Scripts/CI/tests/test_validate_dotnet_test_results.py",
     "Deployment/LocalCluster/Scripts/check-node-main-capacity.sh",
     "Deployment/LocalCluster/Scripts/localcluster-capacity-thresholds.sh",
     "Scripts/CI/check-runner-capacity.sh",
@@ -864,14 +867,29 @@ for needle, why in [
     ("pip==26.2.1", "pinned pip bootstrap"),
     ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
     ("rhysd/actionlint:1.7.12", "current actionlint container"),
-    ("node-version: 24", "current Node.js LTS setup"),
+    ("node-version: 24.21.0", "React Node.js version pinned to its declared toolchain"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
-    ("dotnet restore", "restore step"),
-    ("dotnet build --configuration Release --no-restore", "Release build step"),
-    ("dotnet test --configuration Release --no-build", "test step"),
+    ("Build and test both frontend profiles", "both-profile .NET validation gate"),
+    ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
+    ("Test required .NET test-result counts", "strict .NET result parser unit tests"),
+    ("python3 -m unittest Scripts/CI/tests/test_validate_dotnet_test_results.py -v", "strict .NET test result count validator tests"),
+    ("--expected-passed 3 --expected-skipped 0", "Testcontainers lifecycle rejects missing or skipped tests"),
+    ("Validate local Compose frontend profiles", "local Compose target validation for both profiles"),
+    ("Install pinned npm for React frontend", "pinned React npm is installed in runner temporary storage"),
+    ('npm_prefix="$RUNNER_TEMP/react-npm-12.2.0"', "React npm install uses an isolated temporary prefix"),
+    ('echo "$npm_prefix/bin" >> "$GITHUB_PATH"', "pinned React npm is used by subsequent CI steps"),
+    ('test "$(npm --version)" = "12.2.0"', "CI verifies the exact React npm version"),
+    ("Install React frontend dependencies", "locked React frontend dependency install"),
+    ("Audit React frontend dependencies", "React frontend dependency audit"),
+    ("Check React OpenAPI contract", "generated React OpenAPI contract validation"),
+    ("Lint React frontend", "React frontend lint validation"),
+    ("Test React frontend", "React unit tests with exact no-skip counts"),
+    ("expectedTestCount = 31", "React unit tests must all execute at the expected count"),
+    ("report.numPendingTests !== 0", "React unit tests must not pass with skips"),
+    ("Build React frontend", "React frontend production build"),
     ("dotnet ef migrations bundle", "migration bundle build"),
     ('--runtime "${MIGRATION_RUNTIME}"', "shared migration runtime usage"),
     ("docker build", "Docker image build"),
@@ -884,7 +902,8 @@ for needle, why in [
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
     ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
-    ('docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"', "exact-tag CI image removal"),
+    ('docker image rm "${APP_IMAGE}:${image_tag}"', "exact profile-tag CI image removal"),
+    ('image_tag="${CI_IMAGE_TAG}-${profile}"', "separate exact image tag for each frontend profile"),
     ('ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"', "per-run CI image tag"),
     ("bash Scripts/CI/check-runner-capacity.sh", "report-only runner capacity check"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
@@ -921,6 +940,16 @@ for needle, why in [
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+
+profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
+for needle, why in [
+    ("--expected-skipped 13", "both profile suites enforce their expected opt-in skips"),
+    ("expected_passed=210", "Blazor profile enforces its complete pass count"),
+    ("expected_passed=202", "React profile enforces its complete pass count"),
+    ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
+]:
+    if needle not in profile_gate:
+        fail(f"Scripts/CI/validate-frontend-profiles.sh: missing {why}: {needle}")
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
 for needle, why in [

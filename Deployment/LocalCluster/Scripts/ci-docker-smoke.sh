@@ -296,6 +296,8 @@ else
   [[ -n "$postgres_host_port" ]] || { echo "web container did not publish port 5432" >&2; exit 1; }
 
   pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
+  browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/BlazorAuto"
+  mkdir -p "$browser_results_dir"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
   RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \
@@ -303,5 +305,10 @@ else
   E2E_SLOW_MO_MS=0 \
     dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
       --configuration Release --no-build --no-restore \
-      --filter "$BROWSER_SMOKE_FILTER"
+      --filter "$BROWSER_SMOKE_FILTER" \
+      --logger "trx;LogFileName=blazor-browser-smoke.trx" \
+      --results-directory "$browser_results_dir"
+  python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
+    "$browser_results_dir/blazor-browser-smoke.trx" \
+    --expected-passed 2 --expected-skipped 0 --suite "Blazor Docker browser smoke"
 fi

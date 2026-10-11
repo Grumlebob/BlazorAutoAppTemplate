@@ -7,6 +7,7 @@ using Xunit;
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
 [Collection(TestCollectionNames.Integration)]
+[Trait("FrontendProfile", "BlazorAuto")]
 public sealed class RenderModeHtmlTests(WebAppFactory factory)
 {
     private readonly HttpClient _client = factory.HttpClient;

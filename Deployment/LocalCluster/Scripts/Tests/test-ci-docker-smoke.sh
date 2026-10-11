@@ -124,6 +124,17 @@ if [[ "$(basename "$0")" == dotnet ]]; then
   [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 34
   [[ "$*" == *"RenderModeE2ETests"*"PreHydrationControlsE2ETests"* ]] || exit 3
   [[ "${E2E_CLEANUP_CONNECTION_STRING:-}" == *"Host=127.0.0.1;Port=34567;"* ]] || exit 4
+  results_dir=""
+  previous=""
+  for argument in "$@"; do
+    if [[ "$previous" == "--results-directory" ]]; then results_dir="$argument"; fi
+    previous="$argument"
+  done
+  [[ -n "$results_dir" ]] || exit 5
+  mkdir -p "$results_dir"
+  cat > "$results_dir/blazor-browser-smoke.trx" <<'XML'
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results><UnitTestResult testName="first" outcome="Passed"/><UnitTestResult testName="second" outcome="Passed"/></Results></TestRun>
+XML
   exit "${FAIL_BROWSER:-0}"
 fi
 exit 0
@@ -132,7 +143,8 @@ done
 chmod +x "$TMP_ROOT/bin/"*
 run_case() {
   local expected="$1" status=0
-  GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  mkdir -p "$TMP_ROOT/runner-temp"
+  RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
   [[ "$status" == "$expected" ]] || { cat "$TMP_ROOT/output" >&2; echo "expected $expected, got $status" >&2; exit 1; }
   [[ -z "$(find "$SMOKE_STATE" -type f -print)" ]] || { echo "owned resources leaked" >&2; exit 1; }
 }

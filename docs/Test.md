@@ -24,6 +24,8 @@ dotnet test .\BlazorAutoApp.sln --no-build
 
 Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
+CI restores, builds and tests the complete solution sequentially under both frontend profiles. The required result counts are 210 passed and 13 expected opt-in skips for `BlazorAuto`, and 202 passed and 13 expected opt-in skips for `React`. The React run excludes only tests tagged `FrontendProfile=BlazorAuto`, which assert Blazor document assets or render modes. CI checks the TRX results so failures, extra skips, missing tests, or unknown outcomes fail the job. The opt-in Testcontainers lifecycle suite separately requires 3 passed and zero skips.
+
 ## Frontend Profile Hosting
 
 The React host build excludes the Blazor client project, WebAssembly server package, Google handler and Razor component inputs. Its hosting tests exercise the physical static root, GET/HEAD navigation, reserved routes, missing assets, non-HTML/unsafe requests and traversal attempts. Run them with the React profile after building that profile:
@@ -82,7 +84,7 @@ npm test
 npm run build
 ```
 
-The build writes `BlazorAutoApp.React/build/client`; it does not stage files in the C# web root. For live Vite-to-C# development instructions, see [Frontend Profiles](FrontendProfiles.md#react-local-development).
+CI uses Node 24.21.0 and npm 12.2.0 for the React package, and requires all 31 current unit tests to pass with zero skips. The build writes `BlazorAutoApp.React/build/client`; it does not stage files in the C# web root. For live Vite-to-C# development instructions, see [Frontend Profiles](FrontendProfiles.md#react-local-development).
 
 ## Local Gate
 
@@ -327,7 +329,7 @@ Interactive controls rendered before hydration must stay disabled until the comp
 
 ## CI Docker And Browser Smoke
 
-For every pull request, and before every `main` publish, CI runs `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` against the freshly built image. It starts the image with disposable PostgreSQL and Redis containers and checks:
+For every pull request, CI builds and smoke-tests both frontend image profiles. A `main` run publishes and smoke-tests only the profile selected by the tracked release setting. Each smoke starts the image with disposable PostgreSQL and Redis containers and checks:
 
 - `/health/ready`,
 - the server-rendered home page,
