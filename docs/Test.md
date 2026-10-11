@@ -44,6 +44,13 @@ dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=Reac
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter "FullyQualifiedName~GetAuthorBooksTests|FullyQualifiedName~HostingResponseBehaviourTests"
 ```
 
+React profile tests check response security headers on shells, assets and reserved-route errors, production HSTS on HTTPS, inactive account/auth routes, and the startup seed path without Identity seed services. Run them with the selected React composition after building that profile:
+
+```powershell
+dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=React
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter "FullyQualifiedName~ReactFrontendHostingTests|FullyQualifiedName~FrontendCompositionTests"
+```
+
 ## Local Gate
 
 Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.

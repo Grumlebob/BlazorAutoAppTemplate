@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using BlazorAutoApp.Features.Login;
 using BlazorAutoApp.Frontend;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Xunit;
@@ -55,14 +58,58 @@ public sealed class ReactFrontendHostingTests
         Assert.DoesNotContain("<html", await missingResponse.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ReactResponses_UseRestrictiveSecurityHeaders()
+    {
+        await using var host = await ReactTestHost.CreateAsync();
+
+        using var shellRequest = CreateHtmlRequest(HttpMethod.Get, "/books");
+        using var shellResponse = await host.Client.SendAsync(shellRequest);
+        AssertSecurityHeaders(shellResponse);
+
+        using var assetResponse = await host.Client.GetAsync("/assets/app.js");
+        AssertSecurityHeaders(assetResponse);
+
+        using var reservedRequest = CreateHtmlRequest(HttpMethod.Get, "/api/auth/login");
+        using var reservedResponse = await host.Client.SendAsync(reservedRequest);
+        Assert.Equal(HttpStatusCode.NotFound, reservedResponse.StatusCode);
+        AssertSecurityHeaders(reservedResponse);
+    }
+
+    [Fact]
+    public async Task SelectedProductionMiddleware_AddsHstsForHttpsRequests()
+    {
+        await using var host = await ReactTestHost.CreateAsync(
+            environmentName: Environments.Production,
+            useSelectedFrontendMiddleware: true,
+            forceHttps: true);
+        using var request = CreateHtmlRequest(HttpMethod.Get, "https://example.test/books");
+
+        using var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var hsts = Assert.Single(response.Headers.GetValues("Strict-Transport-Security"));
+        Assert.Contains("max-age=", hsts, StringComparison.OrdinalIgnoreCase);
+        if (IsReactCompositionSelected())
+        {
+            AssertSecurityHeaders(response);
+        }
+    }
+
     [Theory]
     [InlineData("/Account")]
+    [InlineData("/Account/Login")]
+    [InlineData("/ACCOUNT/Register")]
     [InlineData("/account/profile")]
     [InlineData("/API/auth")]
+    [InlineData("/api/auth/login")]
+    [InlineData("/API/AUTH/google")]
     [InlineData("/api/unknown")]
     [InlineData("/signin-google")]
+    [InlineData("/signin-oidc")]
     [InlineData("/SIGNIN-OIDC/callback")]
     [InlineData("/oauth/callback")]
+    [InlineData("/OAuth2/Callback")]
     [InlineData("/health/ready")]
     [InlineData("/_framework/missing")]
     [InlineData("/_content/missing")]
@@ -138,6 +185,29 @@ public sealed class ReactFrontendHostingTests
         return request;
     }
 
+    private static void AssertSecurityHeaders(HttpResponseMessage response)
+    {
+        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("DENY", Assert.Single(response.Headers.GetValues("X-Frame-Options")));
+        Assert.Equal(
+            "strict-origin-when-cross-origin",
+            Assert.Single(response.Headers.GetValues("Referrer-Policy")));
+        Assert.Equal("local-network-access=()", Assert.Single(response.Headers.GetValues("Permissions-Policy")));
+
+        var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+        Assert.Equal(ReactFrontendHosting.ContentSecurityPolicy, policy);
+        Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("unsafe-eval", policy, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsReactCompositionSelected()
+    {
+        var services = new ServiceCollection();
+        FrontendComposition.AddFrontendServices(services, new ConfigurationBuilder().Build());
+        var currentUser = Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ICurrentUserAccessor));
+        return currentUser.ImplementationType == typeof(HttpPrincipalCurrentUserAccessor);
+    }
+
     private sealed class ReactTestHost : IAsyncDisposable
     {
         public const string Shell = "<!doctype html><title>React test shell</title>";
@@ -160,7 +230,10 @@ public sealed class ReactFrontendHostingTests
 
         public HttpClient Client { get; }
 
-        public static async Task<ReactTestHost> CreateAsync()
+        public static async Task<ReactTestHost> CreateAsync(
+            string environmentName = "Development",
+            bool useSelectedFrontendMiddleware = false,
+            bool forceHttps = false)
         {
             var rootPath = Directory.CreateTempSubdirectory("react-static-root-").FullName;
             var assetPath = Path.Combine(rootPath, "assets");
@@ -173,11 +246,30 @@ public sealed class ReactFrontendHostingTests
 
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions
             {
-                EnvironmentName = Environments.Development
+                EnvironmentName = environmentName
             });
+            builder.Services.AddProblemDetails();
             builder.WebHost.UseTestServer();
             var app = builder.Build();
             var fileProvider = new PhysicalFileProvider(rootPath);
+            if (forceHttps)
+            {
+                app.Use(async (context, next) =>
+                {
+                    context.Request.Scheme = "https";
+                    await next();
+                });
+            }
+
+            if (useSelectedFrontendMiddleware)
+            {
+                FrontendComposition.UseFrontendMiddleware(app);
+            }
+            else
+            {
+                ReactFrontendHosting.UseSecurityHeaders(app);
+            }
+
             ReactFrontendHosting.UseStaticFiles(app, fileProvider);
             ReactFrontendHosting.MapNavigationFallback(app, fileProvider);
             await app.StartAsync();
