@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from ls_settings import ROOT, command, settings
+from ls_settings import ROOT, command, runner_app, settings
 
 
 def candidates(images, containers, release, now):
@@ -57,7 +57,7 @@ def main():
             continue
         command("docker", "image", "rm", image)
         print("Removed proven old app image " + image)
-    residue = subprocess.run(["bash", str(ROOT / "Deployment/Common/Scripts/prune-actions-runner-residue.sh"), "--runner-root", "/home/deploy/actions-runner-" + config["app_name"], "--defer-if-skipped"], check=False)
+    residue = subprocess.run(["bash", str(ROOT / "Deployment/Common/Scripts/prune-actions-runner-residue.sh"), "--runner-root", "/home/deploy/actions-runner-" + runner_app(), "--defer-if-skipped"], check=False)
     if residue.returncode:
         return residue.returncode if residue.returncode in (1, 2, 75) else 1
     print("Dangling volumes (report only):")

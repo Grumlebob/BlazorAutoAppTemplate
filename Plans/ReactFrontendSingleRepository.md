@@ -83,3 +83,11 @@ SR3 local gate passed before push: Blazor 211/13 and React 203/13 passed/expecte
 
 Provider preflight subsequently found that Cloudflare returns `config: null` for a newly created remotely managed tunnel. The protected ownership state recorded the created tunnel before this response stopped setup; no DNS record or connector credential was created. The shared helper now treats an absent configuration as empty only after recorded tunnel ownership matches the account inventory. It still refuses malformed non-object configuration and foreign ingress. Three offline regressions cover initialization without duplicate resources, read-only refusal without mutation and malformed configuration refusal. The deployment audit requires these checks. Final local gate and exact-head/main CI evidence are recorded in the SR3 PR description.
 
+### SR6 operations tooling
+
+Maintenance now selects the same protected primary/additional application identity as CD, requires successful exact-source main CI and validates native ownership before operations. Backup, isolated restore verification and HTTP acceptance share the selected settings. Doctor and runner residue retain the existing primary runner identity. Additional operations cannot request a shared host reboot; temporary configuration is removed on every outcome.
+
+An explicit acceptance-only restart check holds the shared lock, validates the immutable running release and all app service ownership, and restarts only the selected web container. It proves a nonempty public catalog survives, storage and release identity remain intact, the process changes without automatic restart loops, and backing services plus the primary sibling stay unchanged. Restart failure stops for inspection without another mutation. Offline tests and the deployment audit cover selection, scope, ownership, persistence and failures.
+
+Live browser testing also exposed an axe instrumentation failure under the production CSP. The local test helper now evaluates its installed axe script through Playwright without changing application headers or publishing a test asset. Operational and browser execution, full local gate, exact-head/main checks and final acceptance remain required; their evidence belongs in this packet's PR description and the final delivery record.
+

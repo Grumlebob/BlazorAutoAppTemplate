@@ -281,7 +281,9 @@ public abstract class BlazorE2ETestBase : PageTest
                 Assert.True(
                     File.Exists(axePath),
                     $"axe-core script was not found at {axePath}. Run `npm --prefix BlazorAutoApp.Client ci` before axe-enabled E2E tests.");
-                await Page.AddScriptTagAsync(new PageAddScriptTagOptions { Path = axePath });
+                // Test instrumentation executes through Playwright without adding a blocked inline script
+                // or changing the application's production Content Security Policy.
+                await Page.EvaluateAsync(await File.ReadAllTextAsync(axePath));
             }
         }
 

@@ -4,7 +4,7 @@ import json
 import shutil
 import sys
 
-from ls_settings import ETC, command, read_yaml, settings
+from ls_settings import ETC, command, read_yaml, runner_app, settings
 from platform_check import native
 
 
@@ -56,7 +56,7 @@ def check():
     if not values[0]["pass"]:
         return values
     machine = read_yaml(ETC / "localsinglenode/machine.yml", node=True)
-    record("runner", lambda: runner_active(config["app_name"]))
+    record("runner", lambda: runner_active(runner_app()))
     record("docker-group", lambda: "docker" in command("id", "-nG", "deploy").split())
     # UFW's world-readable rule file avoids a sudo probe in this read-only command.
     record("firewall", lambda: "ENABLED=yes" in (ETC / "ufw/ufw.conf").read_text())

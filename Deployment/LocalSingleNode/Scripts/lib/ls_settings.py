@@ -101,3 +101,8 @@ def print_setting(key: str) -> None:
         raise ValueError(f"unknown single-node setting: {key}")
     value = values[key]
     print(json.dumps(value) if isinstance(value, (list, bool)) else value)
+
+
+def runner_app() -> str:
+    """The node's existing runner belongs to the tracked primary application."""
+    return settings(TARGET / "inventory/group_vars/all.yml")["app_name"]
