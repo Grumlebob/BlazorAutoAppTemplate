@@ -534,7 +534,8 @@ function Ensure-QualityProjectToken {
     }
     $owned = @(Get-QualityOwnedTokens -Login 'admin' | Where-Object { $_.name -eq $tokenName })
     foreach ($existing in $owned) {
-        if ($existing.projectKey -and $existing.projectKey -ne $ProjectKey) {
+        $existingProjectKey = Get-QualityTokenProjectKey -Token $existing
+        if ($existingProjectKey -and $existingProjectKey -ne $ProjectKey) {
             throw "Owned token name '$tokenName' is attached to an unexpected project; preserve it and inspect the repository namespace."
         }
         Revoke-QualityOwnedToken -Login 'admin' -Name $tokenName

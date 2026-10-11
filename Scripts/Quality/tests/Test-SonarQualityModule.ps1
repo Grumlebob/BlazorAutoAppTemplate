@@ -30,6 +30,9 @@ Assert-Equal (ConvertTo-RepositoryIdentity 'https://user:password@example.com/Ow
 Assert-Throws { ConvertTo-RepositoryIdentity 'file:///tmp/repo' } 'unsupported origin scheme'
 Assert-Equal (New-QualityAuthHeader -Token 'token-value').Authorization 'Bearer token-value' 'bearer authentication'
 Assert-Throws { New-QualityAuthHeader -User admin } 'incomplete basic authentication'
+Assert-Equal (Get-QualityTokenProjectKey -Token ([pscustomobject]@{ projectKey = 'legacy-project-key' })) 'legacy-project-key' 'legacy token project key'
+Assert-Equal (Get-QualityTokenProjectKey -Token ([pscustomobject]@{ project = [pscustomobject]@{ key = 'current-project-key'; name = 'Current project' } })) 'current-project-key' 'current token project key'
+Assert-Equal (Get-QualityTokenProjectKey -Token ([pscustomobject]@{ project = $null })) $null 'missing token project key'
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) "quality-module-$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $tempRoot | Out-Null

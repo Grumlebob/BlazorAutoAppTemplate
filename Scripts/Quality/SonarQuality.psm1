@@ -689,6 +689,24 @@ function New-QualityAuthHeader {
     return @{ Authorization = "Basic $pair" }
 }
 
+function Get-QualityTokenProjectKey {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$Token)
+
+    $projectKey = $Token.PSObject.Properties['projectKey']
+    if ($null -ne $projectKey -and -not [string]::IsNullOrWhiteSpace([string]$projectKey.Value)) {
+        return [string]$projectKey.Value
+    }
+
+    $project = $Token.PSObject.Properties['project']
+    if ($null -eq $project -or $null -eq $project.Value) { return $null }
+    if ($project.Value -is [string]) { return [string]$project.Value }
+
+    $key = $project.Value.PSObject.Properties['key']
+    if ($null -ne $key) { return [string]$key.Value }
+    return $null
+}
+
 function Invoke-QualityApi {
     [CmdletBinding()]
     param(
@@ -760,6 +778,6 @@ Export-ModuleMember -Function @(
     'Protect-QualityText', 'ConvertTo-QualityDisplayArguments', 'Invoke-QualityProcess',
     'Test-QualityPathWithinRoot', 'Assert-QualitySafeChildPath', 'Remove-QualityScannerState',
     'Get-QualitySecretPath', 'Set-QualitySecret', 'Get-QualitySecret', 'Test-QualitySecret',
-    'Remove-QualitySecret', 'New-QualityPassword', 'New-QualityAuthHeader', 'Invoke-QualityApi',
+    'Remove-QualitySecret', 'New-QualityPassword', 'New-QualityAuthHeader', 'Get-QualityTokenProjectKey', 'Invoke-QualityApi',
     'Wait-QualityServer'
 )
