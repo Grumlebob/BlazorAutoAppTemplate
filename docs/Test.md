@@ -95,7 +95,7 @@ Run this before pushing a non-Markdown-only change. Each command must pass; CI r
 ```bash
 git diff --check
 dotnet restore BlazorAutoApp.sln
-python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
+python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py
 dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh

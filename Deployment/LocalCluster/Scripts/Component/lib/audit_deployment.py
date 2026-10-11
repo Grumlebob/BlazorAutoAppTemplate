@@ -1203,10 +1203,13 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     ):
         fail(".github/workflows/ci.yml: final release artifact must be the bundle plus release-manifest.json")
     manifest_step = workflow_step("publish-main", "Resolve pushed image digest and write release manifest")
+    if "python3 Scripts/CI/write_release_manifest.py --directory artifacts/migrations" not in manifest_step:
+        fail(".github/workflows/ci.yml: selected release must invoke the shared verified manifest writer")
+    manifest_writer = read("Scripts/CI/write_release_manifest.py")
     for needle in (
         '"schema_version": 2',
-        '"frontend_profile": os.environ["FRONTEND_PROFILE"]',
-        '"acceptance_profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"]',
+        '"frontend_profile": profile',
+        '"acceptance_profile": env["FRONTEND_ACCEPTANCE_PROFILE"]',
         '"image_digest": digest',
         '"ordered_migration_ids"',
         '"bundle_sha256"',
@@ -1214,8 +1217,43 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         '"com.blazorautoapp.frontend-profile"',
         '"com.blazorautoapp.acceptance-profile"',
     ):
-        if needle not in manifest_step:
-            fail(f".github/workflows/ci.yml: release manifest step is missing {needle}")
+        if needle not in manifest_writer:
+            fail(f"Scripts/CI/write_release_manifest.py: release manifest writer is missing {needle}")
+    for needle in ("validate_staging_artifact(", "acceptance_profile_for_frontend(profile)", 'output.open("x"'):
+        if needle not in manifest_writer:
+            fail(f"Scripts/CI/write_release_manifest.py: missing release validation {needle}")
+    release_plan = read("Scripts/CI/frontend_release_plan.py")
+    additional_publisher = read("Scripts/CI/publish_additional_frontend.sh")
+    settings_step = workflow_step("publish-main", "Load release settings")
+    if "ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}" not in settings_step or "python3 Scripts/CI/frontend_release_plan.py" not in settings_step:
+        fail(".github/workflows/ci.yml: optional publication must use the validated release plan")
+    for needle in ('if not additional.strip():', 'seen = {selected}', 'acceptance_profile_for_frontend(profile)',
+                   "{settings['app_image']}-{profile.lower()}", "{settings['migration_artifact_name']}-{profile.lower()}"):
+        if needle not in release_plan:
+            fail(f"Scripts/CI/frontend_release_plan.py: missing default isolation or validation {needle}")
+    additional_step = workflow_step("publish-main", "Publish additional frontend")
+    if ("if: ${{ steps.release_settings.outputs.additional_profile != '' }}" not in additional_step
+            or "bash Scripts/CI/publish_additional_frontend.sh" not in additional_step
+            or "APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}" not in additional_step):
+        fail(".github/workflows/ci.yml: additional publication must be opt-in with its own image")
+    for needle in ('"${primary_image}-${suffix}"', '"$FRONTEND_PROFILE" != "$primary_profile"',
+                   "--directory artifacts/additional-migrations", "trap cleanup EXIT", "--cleanup-only",
+                   "Scripts/CI/write_release_manifest.py", 'docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"'):
+        if needle not in additional_publisher:
+            fail(f"Scripts/CI/publish_additional_frontend.sh: missing isolated publication check {needle}")
+    if (additional_publisher.find("migration_staging_artifact.py validate") > additional_publisher.find("docker build")
+            or "bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh\ndocker tag" not in additional_publisher):
+        fail("Scripts/CI/publish_additional_frontend.sh: staging validation and image smoke must precede push")
+    additional_cleanup = workflow_step("publish-main", "Remove additional frontend resources after interruption")
+    if "always()" not in additional_cleanup or "--cleanup-only" not in additional_cleanup or "outputs.additional_image" not in additional_cleanup:
+        fail(".github/workflows/ci.yml: interrupted additional releases require scoped cleanup")
+    additional_upload = workflow_step("publish-main", "Upload additional migration bundle")
+    for needle in ("outputs.additional_artifact_name", "artifacts/additional-migrations/release-manifest.json",
+                   "retention-days: 7", "if-no-files-found: error", "steps.additional_release.outcome == 'success'"):
+        if needle not in additional_upload:
+            fail(f".github/workflows/ci.yml: missing additional release artifact check {needle}")
+    if "migration-provenance.json" in additional_upload:
+        fail(".github/workflows/ci.yml: additional release artifact must exclude internal staging provenance")
 
 release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
 for needle, why in [
