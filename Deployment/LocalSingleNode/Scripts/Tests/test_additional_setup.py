@@ -153,7 +153,8 @@ class SetupScopeTests(unittest.TestCase):
 
     def test_setup_workflow_preserves_existing_runner_and_requires_main_ci(self):
         workflow = (SCRIPTS.parents[2] / ".github/workflows/localsinglenode-app-setup.yml").read_text()
-        self.assertIn("find-successful-ci-run.py --target-sha", workflow)
+        self.assertIn("verify-operation-source.py", workflow)
+        self.assertIn("fetch-depth: 0", workflow)
         self.assertIn("with-deploy-lock.sh", workflow)
         self.assertIn("--prepare-additional", workflow)
         self.assertIn("LOCALSINGLENODE_RUNNER_LABEL", workflow)

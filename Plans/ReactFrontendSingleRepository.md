@@ -91,3 +91,9 @@ An explicit acceptance-only restart check holds the shared lock, validates the i
 
 Live browser testing also exposed an axe instrumentation failure under the production CSP. The local test helper now evaluates its installed axe script through Playwright without changing application headers or publishing a test asset. Operational and browser execution, full local gate, exact-head/main checks and final acceptance remain required; their evidence belongs in this packet's PR description and the final delivery record.
 
+### Operations and the documentation CI exception
+
+After #174 passed exact-head/main CI, additional-app maintenance passed a fresh protected backup, isolated restore, all eight doctor checks and LAN/public acceptance. Concurrent documentation governance then advanced main with `[skip ci]`, exposing that setup/maintenance demanded a CI run which the new policy intentionally omits.
+
+The operational source gate now pins a full trusted main checkout and normally requires exact-source successful main-push CI. Only when no eligible run exists may it traverse ordinary documentation commits on first-parent main history to a green identical-code source. Complete raw diffs check regular non-executable modes and both rename paths; code/configuration changes, disguised Markdown in implementation directories, incomplete history, failed/pending/changed CI and malformed responses stop the gate. The source and validated-code SHAs are recorded. Release selection and all CD consumers retain exact source/run/attempt/artifact/digest provenance with no documentation fallback. The follow-up code packet still requires the full local gate and exact-head/main CI; documentation-only handover follows the current repository exception.
+
