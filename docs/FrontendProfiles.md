@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation; later packets add the built React bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy; later packets add the built React bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
 
 ## Selecting a profile
 
@@ -34,6 +34,8 @@ The delivered routes are `/`, `/books` and `/books/author/<seed-key>`. Public bo
 React v1 has no login, logout, registration, account settings, private bookcase, session provider or account API. It adds no SMTP/MailKit, recovery, external Google handler, passkeys, export, deletion or reauthentication support. Shared Identity cookies and authorization remain for protected backend APIs; public API requests omit credentials. Existing Blazor account pages and protected `/api/books` behavior remain in place. Anonymous protected API requests must return JSON `401`, not private data, login HTML, an SPA page or a successful write.
 
 Reserve `/Account`, `/account`, `/api/auth` and provider callback paths case-insensitively. These inactive routes return real `404` responses. Never route API, health, missing assets or unknown reserved paths to the SPA shell.
+
+React responses carry a restrictive Content Security Policy (`default-src 'self'`, no inline/eval scripts, no framing, and self-hosted assets), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy: local-network-access=()`. Production uses ASP.NET Core HSTS and HTTPS redirection. Blazor keeps its existing middleware and header behavior. React startup still runs shared migrations and public author-book seeding but skips local/demo account seeding; it does not delete existing Identity rows or remove Identity storage.
 
 In React production, the selected static root is the host's published `wwwroot`. Development defaults to `BlazorAutoApp/Frontend/React/wwwroot`; `Frontend:React:StaticRoot` may point to another repository-contained generated directory. Static files use ordinary ASP.NET Core static-file middleware. The navigation fallback serves `index.html` only for GET or HEAD requests that accept `text/html`; missing assets, API/health/account/provider/framework paths, non-HTML requests and unsafe methods remain `404`. HEAD returns shell headers without a body. Each frontend publish clears only the destination `wwwroot` before copying that profile's files, preventing a profile switch from retaining the other frontend's assets; publishing directly over the source `wwwroot` is rejected.
 

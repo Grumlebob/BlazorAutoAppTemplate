@@ -2,10 +2,13 @@ using BlazorAutoApp.Features.Login;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Frontend;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace BlazorAutoApp.Test.Architecture.Composition;
@@ -52,6 +55,13 @@ public sealed class FrontendCompositionTests
             Assert.DoesNotContain(services, descriptor =>
                 descriptor.ServiceType.Namespace?.StartsWith("Microsoft.AspNetCore.Components", StringComparison.Ordinal) == true);
             Assert.DoesNotContain(schemes, scheme => scheme.Name == "Google");
+
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                EnvironmentName = Environments.Production
+            });
+            await using var app = builder.Build();
+            await FrontendComposition.SeedFrontendDataAsync(app);
         }
     }
 }

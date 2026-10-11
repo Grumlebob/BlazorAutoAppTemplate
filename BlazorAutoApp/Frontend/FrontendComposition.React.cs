@@ -17,6 +17,8 @@ internal static class FrontendComposition
             app.UseExceptionHandler();
             app.UseHsts();
         }
+
+        ReactFrontendHosting.UseSecurityHeaders(app);
     }
 
     public static void UseFrontendStaticFiles(WebApplication app)

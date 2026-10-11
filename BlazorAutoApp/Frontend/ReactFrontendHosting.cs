@@ -6,6 +6,24 @@ namespace BlazorAutoApp.Frontend;
 
 internal static class ReactFrontendHosting
 {
+    internal const string ContentSecurityPolicy =
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
+
+    public static void UseSecurityHeaders(IApplicationBuilder app)
+    {
+        app.Use(async (context, next) =>
+        {
+            var headers = context.Response.Headers;
+            headers["Content-Security-Policy"] = ContentSecurityPolicy;
+            headers["X-Content-Type-Options"] = "nosniff";
+            headers["X-Frame-Options"] = "DENY";
+            headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            headers["Permissions-Policy"] = "local-network-access=()";
+
+            await next();
+        });
+    }
+
     public static void UseStaticFiles(IApplicationBuilder app, IFileProvider fileProvider)
     {
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
