@@ -5,12 +5,12 @@ Portable rules for people and coding agents working in this repository. Machine-
 ## Plans
 
 - Retained plans live in `Plans/` (tracked). Scratch notes go in `Plans.local/` (ignored).
-- A plan-driven change is complete when it is merged to `main` and `main` CI is green. Record the merge commit in the plan or the PR description.
+- A plan-driven change is complete when it is verified on `origin/main` and applicable checks pass. Code/configuration changes require green exact-main CI; documentation-only changes use the exception below. Record the integrated commit and verification in the plan or the PR description.
 
 ## Changes and checks
 
 - Code changes go through a pull request. The required check is `build-test-push`; merge only when it is green on the PR's exact head.
-- Changes consisting only of `.md` files do not require local builds, format verification, tests or deployment gates. Review the Markdown and run `git diff --check` before pushing. Use a PR for retained documentation changes; preserve applicable branch protection and CI requirements.
+- Documentation-only changes (every changed file is ordinary `.md` or `.mdx` documentation; no source, build, workflow, deployment configuration, or other non-Markdown file) do not require local builds, format verification, tests, deployment gates, or waiting for PR/main CI. Review the complete PR diff, including both paths of renames, and run `git diff --check` before pushing. Use a PR for retained documentation changes. Add `[skip ci]` to documentation commits and the squash-merge title, then fetch and verify the integrated content on `origin/main`. A mixed PR uses the full code gate even if its last commit is documentation-only. Respect enforced GitHub protection; never weaken it or manufacture a passing check to use this exception.
 - For changes that include code, configuration or other non-Markdown files, run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
   ```bash
   dotnet format BlazorAutoApp.sln --verify-no-changes

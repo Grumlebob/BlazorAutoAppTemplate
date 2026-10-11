@@ -268,7 +268,7 @@ Implement Phases 0–2, then lifecycle/provisioning in Phase 3, coverage/scope i
 
 Phase 8 runs offline tests, then complete **candidate** audits with both profiles, then the current full repository gate and exact-head tooling PR CI. Commit the candidate before running `-Candidate`; run the driver from that clean commit. If candidate validation changes code, commit the correction and repeat affected validation against the new SHA. Do not merge untested server tooling because no trusted main baseline exists yet.
 
-Phase 9 runs trusted audits from merged main, records baseline evidence, builds a real backlog, and integrates documentation with CI. No remediation wave, Linux credential provider, branch experimentation framework, global package migration, or personal MCP registration is necessary to finish. No task depends on a calendar date or a future operator preference.
+Phase 9 runs trusted audits from merged main, records baseline evidence, builds a real backlog, and integrates documentation through the repository's reviewed Markdown-only exception. No remediation wave, Linux credential provider, branch experimentation framework, global package migration, or personal MCP registration is necessary to finish. No task depends on a calendar date or a future operator preference.
 
 The MCP launcher accepts `-FrontendProfile BlazorAuto|React` and an optional non-secret `-ProjectKey` limited to that profile's derived main key or owned candidate-key pattern. The headless probe supplies the candidate key explicitly before merge, then the main key during baseline acceptance; it must not query an unanalyzed main project and mistake empty measures for candidate results. The launcher/probe receive the resolved private settings path for port/network consistency. Read-only launcher startup does not acquire the batch/lifecycle lock or start the server. A running MCP reader container is removed by its `--rm` process shutdown, not by deleting Sonar history.
 
@@ -280,7 +280,7 @@ Use a dedicated implementation worktree and a PR. Keep .NET build/test processes
 
 ### Phase 0 — Establish the current baseline
 
-- [ ] **0.1 Fetch and isolate.** If the plan/goal documentation PR is still open, integrate that Markdown packet first using exact-head CI; do not begin implementation from a main commit lacking the plan. Fetch `origin`, record its current `main` SHA, and create a uniquely named feature worktree/branch. Leave the primary checkout and other tasks unchanged. Verification: `git status --porcelain` is empty in the new worktree, and the branch starts at the recorded SHA with both planning files present.
+- [ ] **0.1 Fetch and isolate.** If the plan/goal documentation PR is still open, review its complete Markdown-only diff, run `git diff --check`, merge with `[skip ci]`, and verify it on fetched `origin/main`; no PR/main CI wait is required for this packet. Do not begin implementation from a main commit lacking the plan. Fetch `origin`, record its current `main` SHA, and create a uniquely named feature worktree/branch. Leave the primary checkout and other tasks unchanged. Verification: `git status --porcelain` is empty in the new worktree, and the branch starts at the recorded SHA with both planning files present.
 - [ ] **0.2 Recheck relevant contracts.** Read the current profile resolver, profile test script, test project, dependency manifests, and workflow. Record any differences from section 2. Verification: the execution record names actual package versions and current test expectations.
 - [ ] **0.3 Verify executable resolution.** Check PowerShell 7, Python, .NET, Docker Linux containers, Node, and npm. Require Node/npm pins for React analysis. Use a verified per-user runtime if necessary; no administrator installation is required for the planned workflow. Verification: subprocesses launched by the audit resolve the intended Node and npm, not merely the parent terminal.
 - [ ] **0.4 Check ownership and resources.** Inspect only Sonar-related Compose projects, the selected loopback port, available Docker memory, kernel memory-map/file limits, and required images. Use decision 3's first-use fallback if the default port is busy. Do not start or inspect credentials from ImprovedDb. Verification: selected namespace is distinct, its persisted port is available, and the pinned server prerequisites are met without changing shared host settings.
@@ -381,8 +381,8 @@ Use a dedicated implementation worktree and a PR. Keep .NET build/test processes
 - [ ] **9.3 Triage high-value findings.** Read actual code for security, reliability, and highest-risk examples. Classify each as confirmed defect, worthwhile improvement, reviewed noise, or deferred design work. A security hotspot is a review task, not automatically a vulnerability. No blanket `NOSONAR` or rule deactivation to manufacture a green report.
 - [ ] **9.4 Create the improvement backlog.** Write `Plans/CodeQualityImprovements.md` from the accepted report with the template in section 8. Prioritize correctness/security, then valuable low-effort work, then tested refactors. Include both frontends and shared infrastructure findings as appropriate. Do not begin those changes unless authorized by scope.
 - [ ] **9.5 Respect the accepted stop point.** Verify all reported application improvements remain backlog items and no unrequested remediation changes were included. Record future quick wins with exact issue evidence and acceptance criteria. Verification: tooling/baseline/backlog are complete; implementing the backlog is not required to tick this task.
-- [ ] **9.6 Integrate evidence and backlog.** Use a documentation PR with Markdown review and `git diff --check`; preserve existing CI requirements. Record each merge commit and green main CI in this plan or PR descriptions.
-- [ ] **9.7 Finish resource accounting.** Confirm no run-owned worktree/process/scanner state remains; reports are archived; owned server is stopped unless explicitly retained; all history volumes remain; ImprovedDb/application resources are unchanged. Mark this plan complete only when required PRs are merged and main CI is green.
+- [ ] **9.6 Integrate evidence and backlog.** Review the complete documentation-only PR diff and run `git diff --check`. Merge with `[skip ci]`, fetch, and verify its content on `origin/main`; do not wait for documentation PR/main CI. Mixed PRs retain the full code gate. Record documentation merge SHA and verification alongside the tooling merge's green exact-main CI in this plan or PR descriptions.
+- [ ] **9.7 Finish resource accounting.** Confirm no run-owned worktree/process/scanner state remains; reports are archived; owned server is stopped unless explicitly retained; all history volumes remain; ImprovedDb/application resources are unchanged. Mark this plan complete only when required PRs are integrated, tooling exact-main CI is green, and the final Markdown content is verified on `origin/main`.
 
 ## 6. Command contract for the finished feature
 
@@ -457,9 +457,9 @@ For each wave, preserve before/after SHA and report/configuration digests. A low
 Delivery uses two required implementation PRs, after integrating the planning documentation packet if needed:
 
 1. Tooling, coverage plumbing, offline tests, and operator documentation. Validate locally and on exact PR head before merge.
-2. Accepted baseline evidence, improvement backlog, and plan execution record. Markdown-only local exemption applies; existing CI requirements still apply.
+2. Accepted baseline evidence, improvement backlog, and plan execution record. Review and `git diff --check` are required; the Markdown-only exception permits merging with `[skip ci]` without waiting for PR/main CI. Verify integration on fetched `origin/main`.
 
-Application remediation PRs belong to future work and are outside this goal. Each code/configuration PR uses the full current local gate. No PR requires a production deployment for tooling acceptance. Do not bypass CI with skip markers. The final documentation merge changes only excluded documentation; its accepted baseline can cite the tooling merge SHA without an endless scan/edit/rescan cycle.
+Application remediation PRs belong to future work and are outside this goal. Each code/configuration or mixed PR uses the full current local gate and exact-head/main CI; never use skip markers for those PRs. No PR requires a production deployment for tooling acceptance. The final documentation merge changes only excluded documentation; its accepted baseline can cite the tooling merge SHA without an endless scan/edit/rescan cycle. The operator requested the ImprovedDb-inspired docs-only exception: classify the complete PR, preserve enforced protection, and verify the integrated content rather than requiring a new build of unchanged source.
 
 If tooling is faulty, stop the owned local stack and revert the tooling PR through a new PR. Remove only run-owned temporary artifacts and optional personal MCP configuration after verifying their ownership. Preserve Sonar history volumes and encrypted credentials for diagnosis. Never automate volume deletion as rollback. Back up the owned database before a deliberate future server upgrade; migration approval is a separate upgrade operation, not a first-install requirement.
 
@@ -488,7 +488,7 @@ Fill this during implementation. Keep preparation, candidate verification, and a
 | Phase 8 local gate and tooling PR | Not started | |
 | Tooling merge and main CI | Not started | |
 | Phase 9 accepted full baseline | Not started | |
-| Backlog/evidence PR merge and main CI | Not started | |
+| Backlog/evidence Markdown integration verification | Not started | No docs-only CI wait. |
 | Application remediation wave | Outside accepted goal | Prioritized backlog only. |
 | Resource closeout | Not started | |
 
