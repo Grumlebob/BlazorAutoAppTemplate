@@ -8,8 +8,8 @@ Last updated: 2026-10-11. Planning prepared; no Portfolio code, node bootstrap o
 
 - Destination: [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio). It existed and was empty when inspected; recheck before import.
 - Source: [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate).
-- Inspected upstream main: `99c319fc38b3b443cd7115093a5c614c1f9de7e3`; successful [CI run 38146167014](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38146167014). This is a planning checkpoint, not the final seed selection.
-- Another agent owns the unfinished [React delivery goal](../../ReactFrontendDeliveryGoal.md). Fetch/read its current evidence; preserve its work.
+- Latest readiness inspection: upstream main `310dca9610419523c9f07412ed8ea6c0cb665ef4`; successful [CI run 38153407171](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38153407171). This is a planning checkpoint, not the final seed selection. Portfolio advertised no Git refs at this review.
+- Another agent owns the [React delivery goal](../../ReactFrontendDeliveryGoal.md). Its P0–P7 implementation/controller SSH remain; the separate demo release/deployment was withdrawn. Do not wait for or recreate it. Fetch/read current evidence and preserve that agent's cleanup work.
 - Product decisions: Portfolio naming, React frontend/C# backend, Books/Blazor removal, LocalSingleNode-only deployment and intended public URL `https://portfolio.jacobgrum.com/`.
 - Supplied local checkout/node details: ignored `Plans.local/Portfolio/OperatorIntent.md`. Transfer privately to the downstream checkout. GitHub authentication on the fresh native node is reported, not independently verified.
 - Recommended next task: **P0.1**. Inspect the live upstream dependency gate, then decide the seed baseline. No project source needs to be changed for that inspection.
@@ -23,7 +23,7 @@ Statuses: `pending`, `ready`, `in progress`, `blocked`, `merged`, `verified`, `o
 
 | Phase | Status | PR / final head / merge / main CI | Evidence or exact next action |
 | --- | --- | --- | --- |
-| P0 Baseline/import | Pending | — | Verify upstream completion/dependencies, remote state and selected SHA |
+| P0 Baseline/import | Ready to begin | — | Verify retained React foundation/dependencies, remote state and selected SHA; no import executed |
 | P1 Portfolio naming | Pending | — | Build rename inventory after import; establish CI capacity if absent |
 | P2 React-only cleanup | Pending | — | Remove Blazor/profile branches with replacement checks |
 | P3 Single-node cleanup | Pending | — | Move shared audit/smoke dependencies before target deletion |
@@ -74,13 +74,13 @@ Each cell requires real evidence. Source preparation from the existing inventory
 | P6.6 MiniTwit | Prior report/docs review | Outline | Historical figures; select | Team context; role pending | Pending | Align source/report and dated claims |
 | P6.7 BestBets | Prior report review; preferred Exam/deck located | Outline | Preferred deck/figures need review | Design study; role pending | Pending | Review owner-selected materials and reconcile versions |
 | P6.8 Geospatial research | Notebook/report structure | Outline | Genuine maps/plots; select | Team context; role pending | Pending | Dates, attribution and limitations |
-| P6.9 GeckoBot | Private mail/MailDemo trees/declarations reviewed | Brief | Fictional captures pending | Version/status pending | Draft | Review requirements and confirm intended version |
+| P6.9 GeckoBot | Private mail selected; trees/AST structure reviewed | Brief | Fictional captures pending | Historical use/status pending | Draft | Review mail requirements/use; demo deleted with complete private Git backup |
 | P6.10 Grumlebob | Owner explanation; restricted folder located | Domain-neutral brief | Approved generic figures pending | Pending | Draft | Obtain approved public explanation; source inspection optional |
 | P6.11 JobHunt | General private docs reviewed | Outline | Flow concept; fictional captures pending | Boundary alignment pending | Draft | Resolve manual-writing/account-creation copy |
 
 Launch set: not yet approved/published. Recommended: ImprovedDb, KinoJoin, TraceBack, Unlost when ready. Initial launch does not close unfinished story packets.
 
-Owner source update on 2026-10-11: GeckoBot's private mail/MailDemo repositories are recorded, with mail recommended from read-only tree/Python-declaration comparison. BestBets' preferred Exam PDF and presentation are located but unreviewed. Grumlebob's restricted background folder is located; use the owner's approved explanation, exclude private context/artifacts/results, and do not require source inspection. Exact local locations and the explicit private publication boundary are in ignored `Plans.local/Portfolio/ProjectSources.md`.
+Owner source update on 2026-10-11: GeckoBot's private mail repository is the selected sole active source after read-only tree/AST comparison. MailDemo was deleted at the owner's request; its complete five-commit Git history and distinct event/timezone examples were verified and retained privately. BestBets' preferred Exam PDF and presentation are located but unreviewed. Grumlebob's restricted background folder is located; use the owner's approved explanation, exclude private context/artifacts/results, and do not require source inspection. Exact local locations, backup/recovery evidence and the explicit private publication boundary are in ignored `Plans.local/Portfolio/ProjectSources.md`.
 
 ## Decision and blocker records
 
@@ -130,7 +130,7 @@ Remaining operator action or limitation:
 ## Resume prompt for another agent
 
 ```text
-Continue Portfolio using Plans/PortfolioStudioImplementation.md. Read all linked companions, especially Progress.md, before editing. This is an independent product in Grumlebob/Portfolio, cloned from a verified merged BlazorAutoAppTemplate baseline. Another agent owns upstream React delivery; preserve its plan/worktrees/demo.
+Continue Portfolio using Plans/PortfolioStudioImplementation.md. Read all linked companions, especially Progress.md, before editing. This is an independent product in Grumlebob/Portfolio, cloned from a verified merged BlazorAutoAppTemplate baseline. Another agent owns upstream React delivery/cleanup; preserve its plan/worktrees and existing Blazor deployment. Its separate demo was withdrawn; do not recreate it or wait for its cancelled acceptance.
 
 Inspect actual repository/remotes/main CI, task ownership and dirty files. Read the ignored Plans.local/Portfolio/OperatorIntent.md if present; never commit its local paths/node facts/secrets. If still in the template, complete P0 and move implementation to the intended Portfolio checkout. After import, use the downstream ledger as authority.
 

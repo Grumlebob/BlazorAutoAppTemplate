@@ -44,7 +44,7 @@ Inputs: current upstream React goal/profile plan, live upstream main and main CI
 - Fetch upstream and inspect the other agent's progress, open PRs and unresolved handoffs.
 - Verify merged React Router/Vite/Tailwind foundation, generated API contracts, local HTTPS development, static C# serving, image/release profile labels, CI checks, LocalSingleNode setup and controller/public runbooks.
 - Record upstream SHA, CI run URL, dependency/lockfile versions and any still-required open fixes in the ledger.
-- Prefer the completed React delivery. If its remaining demo acceptance is independent, record the explicit dependency assessment before proceeding; never claim the demo finished.
+- Verify the retained P0–P7 React foundation. The current React goal withdraws the separate demo release/deployment; do not wait for or recreate it. Record any genuine missing reusable foundation/tooling as a dependency; do not claim the withdrawn demo finished.
 - Pin that SHA. Recheck once more before import if another upstream fix lands. Do not repeatedly chase main without a concrete needed fix.
 
 Exit: one reproducible merged baseline with successful main CI; unresolved dependencies classified as blocking or independent. Planning checkpoint SHAs are evidence of inspection, not a mandatory baseline.
@@ -224,7 +224,7 @@ Use the detailed [page briefs](PageBriefs.md). Each story is its own resumable c
 | P6.6 | MiniTwit | Historical evolution/DevOps narrative with architecture, delivery and useful operational figure |
 | P6.7 | BestBets | Owner-selected Exam PDF/deck reviewed against repository evidence; architecture views and targets-versus-results figure |
 | P6.8 | Geospatial research | Attributed genuine maps/plots, data/methods and findings with limitations |
-| P6.9 | GeckoBot | Private mail/MailDemo version/requirements review; fictional Outlook booking/email examples and accurate UI/parser story |
+| P6.9 | GeckoBot | Selected private mail source/requirements and historical-use review; fictional Outlook booking/email examples and accurate UI/parser story; deleted demo retained only in private backup |
 | P6.10 | Grumlebob | Owner-approved domain-neutral explanation and permitted generic figures; restricted background contents/context excluded |
 | P6.11 | JobHunt | Eight-step responsibility figure, factual writing boundary and fictional administrative examples |
 | P6.12 | Catalog review | Stable order, all ready stories complete, no dangling public cards/links, launch set recorded |
