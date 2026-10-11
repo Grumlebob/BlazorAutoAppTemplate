@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,6 +23,20 @@ spec.loader.exec_module(restart)
 
 
 class AppOperationsTests(unittest.TestCase):
+    def test_real_compose_project_selection_overrides_foreign_app_environment(self):
+        # config does not contact Docker or create resources.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / '.env').write_text('APP_NAME=primary\n')
+            (root / 'compose.yml').write_text('name: ${APP_NAME}\nservices:\n  web:\n    image: example.invalid/app:fixture\n')
+            env = {key: value for key, value in os.environ.items() if key not in ('COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_ENV_FILES')}
+            env['APP_NAME'] = 'additional'
+            base = ['docker', 'compose', '--project-directory', str(root), '-f', str(root / 'compose.yml')]
+            inherited = json.loads(subprocess.check_output(base + ['config', '--format', 'json'], env=env, text=True))
+            pinned = json.loads(subprocess.check_output(base + ['--project-name', 'primary', 'config', '--format', 'json'], env=env, text=True))
+            self.assertEqual('additional', inherited['name'])
+            self.assertEqual('primary', pinned['name'])
+
     def fixture(self):
         return {service: {'id': service, 'image': 'image', 'started': 'before', 'restarts': 0, 'mounts': []}
                 for service in ('web', 'postgres', 'redis')}
@@ -64,8 +79,12 @@ class AppOperationsTests(unittest.TestCase):
                        'localsinglenode.app': config['app_name'], 'com.docker.compose.project.working_dir': config['deploy_root']}}}
                   for service in ('web', 'postgres', 'redis')]
         def inspect(fixture):
-            with patch.object(restart, 'command', side_effect=['web\npostgres\nredis', json.dumps(fixture)]):
-                return restart.containers(config)
+            with patch.dict(os.environ, {'APP_NAME': 'other-app'}), \
+                    patch.object(restart, 'command', side_effect=['web\npostgres\nredis', json.dumps(fixture)]) as command:
+                result = restart.containers(config)
+                self.assertEqual(('docker', 'compose', '--project-directory', config['deploy_root'],
+                                  '--project-name', config['app_name'], 'ps', '-q'), command.call_args_list[0].args)
+                return result
         self.assertEqual({'web', 'postgres', 'redis'}, set(inspect(values)))
         for key in ('com.docker.compose.project', 'localsinglenode.app', 'com.docker.compose.project.working_dir'):
             broken = copy.deepcopy(values)
@@ -93,7 +112,7 @@ class AppOperationsTests(unittest.TestCase):
                 patch.dict(os.environ, {'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template'}), \
                 patch.object(restart, 'command') as command:
             self.assertEqual(0, restart.main())
-            command.assert_called_once_with('docker', 'compose', '--project-directory', '/opt/catalog', 'restart', 'web', timeout=60)
+            command.assert_called_once_with('docker', 'compose', '--project-directory', '/opt/catalog', '--project-name', 'catalog', 'restart', '--no-deps', 'web', timeout=60)
 
     def test_failed_ownership_or_release_prevents_restart(self):
         for target in ('ownership', 'release', 'catalog'):
