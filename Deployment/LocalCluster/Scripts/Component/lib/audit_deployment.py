@@ -887,6 +887,9 @@ for needle, why in [
     ("frontend_profile: ${{ steps.frontend_profile.outputs.profile }}", "validated profile passed from CI validation to release"),
     ("-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}", "resolved frontend profile passed to MSBuild"),
     ('--build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}"', "resolved frontend profile passed to Docker builds"),
+    ('--target "${docker_target}"', "selected profile Docker target passed to image build"),
+    ("BlazorAuto) docker_target=final-blazor ;;", "Blazor profile selects its isolated image target"),
+    ("React) docker_target=final-react ;;", "React profile selects its isolated image target"),
     ("needs.validate.outputs.frontend_profile", "main release uses the validated profile"),
     ("python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py", "migration staging provenance tests"),
     ("Deployment/Common/Scripts/Tests/test_release_contract.py", "release manifest contract tests"),
@@ -911,13 +914,42 @@ for needle, why in [
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
 for needle, why in [
-    ("COPY Directory.Build.targets ./", "Docker profile validation target copied before restore"),
-    ("COPY frontend-profile.txt ./", "tracked frontend profile copied before restore"),
-    ("ARG FRONTEND_PROFILE_OVERRIDE", "temporary Docker profile validation override"),
-    ("-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE", "same profile passed to Docker restore/build/publish"),
+    ("FROM node:24.21.0-bookworm-slim AS react-dependencies", "pinned Node toolchain is isolated in React dependency stage"),
+    ("npm install --global npm@12.2.0 && npm ci", "pinned npm install from the React lockfile"),
+    ("FROM react-dependencies AS react-assets", "React asset build reuses its isolated dependency stage"),
+    ("npm run build && test -s build/client/index.html", "React build must produce its shell"),
+    ("COPY Directory.Build.targets ./", "MSBuild profile validation target copied into Docker source"),
+    ("COPY frontend-profile.txt ./", "tracked frontend profile copied into Docker source"),
+    ("FROM source AS publish-blazor", "Blazor publish is isolated from Node assets"),
+    ("FROM source AS publish-react", "React publish has its own selected asset stage"),
+    ('test "$profile" = "BlazorAuto"', "Blazor target rejects a mismatched profile"),
+    ('test "$profile" = "React"', "React target rejects a mismatched profile"),
+    ("rm -rf ./BlazorAutoApp/Frontend/React/wwwroot", "React publish starts from a clean selected asset root"),
+    ("test -s /tmp/react-client/index.html", "React publish fails when its bundle is missing"),
+    ('"-p:FrontendProfile=$profile"', "same resolved profile passed to the selected Docker publish"),
+    ("FROM base AS final-blazor", "Blazor final image target"),
+    ("FROM base AS final-react", "React final image target"),
+    ('ENTRYPOINT ["dotnet", "BlazorAutoApp.dll"]', "final images run the ASP.NET Core host"),
 ]:
     if needle not in dockerfile:
         fail(f"BlazorAutoApp/Dockerfile: missing {why}")
+
+blazor_publish_stage = dockerfile.split("FROM source AS publish-blazor", 1)[1].split("FROM source AS publish-react", 1)[0]
+if "react-assets" in blazor_publish_stage:
+    fail("Blazor Docker target must not depend on the React npm stage")
+if dockerfile.count("COPY --from=react-assets") != 1:
+    fail("React bundle must be copied only into the React publish stage")
+final_image_stages = dockerfile.split("FROM base AS final-blazor", 1)[1]
+if "node:" in final_image_stages or "COPY --from=react-assets" in final_image_stages:
+    fail("final runtime images must not copy Node or the Node build stage")
+
+compose = read("docker-compose.yml")
+for needle, why in [
+    ("target: ${FRONTEND_DOCKER_TARGET:-final-blazor}", "Compose build target follows the selected profile"),
+    ("FRONTEND_PROFILE_OVERRIDE: ${FRONTEND_PROFILE_OVERRIDE:-}", "Compose passes the resolved profile to Docker"),
+]:
+    if needle not in compose:
+        fail(f"docker-compose.yml: missing {why}")
 
 for path, checks in {
     ".yamllint.yml": [
@@ -1841,6 +1873,26 @@ for path in (ROOT / single).rglob("*"):
 require_contains(".gitignore", "Deployment/LocalSingleNode/machine.yml", "ignored detected node facts")
 require_contains("Deployment/Common/Scripts/install-ansible.sh", "USER_ONLY", "unprivileged install-user provisioning")
 require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "HTTP form acceptance in CI")
+smoke = read("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh")
+for needle, why in [
+    ('FRONTEND_PROFILE="${FRONTEND_PROFILE:-BlazorAuto}"', "container smoke defaults to the persisted template profile"),
+    ('if [[ "$FRONTEND_PROFILE" == "React" ]]; then', "React image has a separate public-only smoke path"),
+    ("command -v node", "final image smoke rejects a Node runtime"),
+    ('/books/author/example', "React image smoke covers direct detail navigation"),
+    ('/api/author-books', "React image smoke reads the public seeded catalog"),
+    ('^Cache-Control:[[:space:]]*public, ?max-age=31536000, ?immutable', "React image smoke verifies immutable fingerprinted assets"),
+    ('^Cache-Control:[[:space:]]*private, ?no-store', "React image smoke verifies private API cache denial"),
+    ('for path in /Account /api/auth/login /assets/missing.js', "React image smoke verifies inactive and missing paths stay 404"),
+    ('test ! -e /app/wwwroot/_framework && test ! -e /app/wwwroot/_content', "React image smoke rejects inactive Blazor assets"),
+    ('test ! -e /app/wwwroot/index.html && test ! -e /app/wwwroot/assets', "Blazor image smoke rejects inactive React assets"),
+]:
+    if needle not in smoke:
+        fail(f"Deployment/LocalCluster/Scripts/ci-docker-smoke.sh: missing {why}")
+react_smoke_start = smoke.index('if [[ "$FRONTEND_PROFILE" == "React" ]]; then')
+react_smoke_end = smoke.index("\nelse\n", react_smoke_start)
+react_smoke = smoke[react_smoke_start:react_smoke_end]
+if "Test-DeployedSite.ps1" in react_smoke or "BlazorAutoApp.Test" in react_smoke:
+    fail("React Docker smoke must not run Blazor account acceptance")
 require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
 require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address", "show"', "mDNS check discovers the interface owning the deployment IPv4")
 require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu", str(index), "0", name, "0", "0"', "mDNS check resolves the deployment name on its LAN interface")

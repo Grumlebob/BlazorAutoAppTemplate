@@ -51,6 +51,36 @@ PY
 cat > "$TMP_ROOT/bin/curl" <<'SH'
 #!/usr/bin/env bash
 url="${*: -1}"
+if [[ "${FRONTEND_PROFILE:-BlazorAuto}" == "React" ]]; then
+  if [[ "$url" == */ && "$*" == *"--dump-header"* ]]; then
+    printf 'HTTP/1.1 200 OK\r\nCache-Control: no-cache\r\nContent-Security-Policy: default-src '\''self'\''; script-src '\''self'\'' '\''sha256-abcd'\''\r\n\r\n'
+    exit
+  fi
+  case "$url" in
+    */health/ready) printf '200' ;;
+    */) printf '<!DOCTYPE html><script type="module" src="/assets/app-abcdef123456.js"></script>\n200' ;;
+    */api/author-books) printf '{"books":[{}]}' ;;
+    */api/books)
+      printf 'HTTP/1.1 401 Unauthorized\r\nCache-Control: private, no-store\r\n\r\n'
+      ;;
+    */index.html)
+      printf 'HTTP/1.1 200 OK\r\nCache-Control: no-cache\r\n\r\n'
+      ;;
+    */assets/app-abcdef123456.js)
+      printf 'HTTP/1.1 200 OK\r\nCache-Control: public,max-age=31536000,immutable\r\n\r\n'
+      ;;
+    */Account|*/api/auth/login|*/assets/missing.js) printf '\n404' ;;
+    */books|*/books/author/example)
+      if [[ " $* " == *" --head "* ]]; then
+        printf 'HTTP/1.1 200 OK\r\nContent-Length: 123\r\n\r\n'
+      else
+        printf '<!DOCTYPE html><script type="module" src="/assets/app-abcdef123456.js"></script>'
+      fi
+      ;;
+    *) exit 22 ;;
+  esac
+  exit
+fi
 case "$url" in
   */health/ready) printf '200' ;;
   */api/books)
@@ -68,9 +98,11 @@ for name in sleep pwsh dotnet; do
   cat > "$TMP_ROOT/bin/$name" <<'SH'
 #!/usr/bin/env bash
 if [[ "$(basename "$0")" == pwsh && "$*" == *Test-DeployedSite.ps1* ]]; then
+  [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 33
   exit "${FAIL_HTTP_ACCEPTANCE:-0}"
 fi
 if [[ "$(basename "$0")" == dotnet ]]; then
+  [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 34
   [[ "$*" == *"RenderModeE2ETests"*"PreHydrationControlsE2ETests"* ]] || exit 3
   [[ "${E2E_CLEANUP_CONNECTION_STRING:-}" == *"Host=127.0.0.1;Port=34567;"* ]] || exit 4
   exit "${FAIL_BROWSER:-0}"
@@ -86,6 +118,7 @@ run_case() {
   [[ -z "$(find "$SMOKE_STATE" -type f -print)" ]] || { echo "owned resources leaked" >&2; exit 1; }
 }
 run_case 0
+FRONTEND_PROFILE=React run_case 0
 FAIL_REDIS=1 run_case 17
 FAIL_API=1 run_case 1
 FAIL_BROWSER=19 run_case 19
