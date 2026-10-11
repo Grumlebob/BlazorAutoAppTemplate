@@ -11,7 +11,7 @@ export function CatalogPage() {
     <div className="space-y-8 sm:space-y-10">
       <section className="max-w-3xl">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-800">The public shelf</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">Books by independent authors.</h1>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl" id="page-title">Books by independent authors.</h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">Take a look through the collection. Each title leads to its author and any book link they have shared.</p>
       </section>
 

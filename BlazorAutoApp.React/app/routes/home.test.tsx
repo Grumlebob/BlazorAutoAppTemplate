@@ -11,7 +11,7 @@ describe("home route", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Find a book that stays with you." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Find a book that stays with you." })).toHaveAttribute("id", "page-title");
     expect(screen.getByRole("link", { name: "Browse the books" })).toHaveAttribute("href", "/books");
     expect(screen.queryByRole("link", { name: /log in|sign in|account/i })).not.toBeInTheDocument();
   });

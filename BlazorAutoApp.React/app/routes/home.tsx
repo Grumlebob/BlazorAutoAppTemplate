@@ -13,7 +13,7 @@ export default function Home() {
       <section className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)] lg:gap-14">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-800">A public shelf for independent voices</p>
-          <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+          <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl" id="page-title">
             Find a book that stays with you.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700">

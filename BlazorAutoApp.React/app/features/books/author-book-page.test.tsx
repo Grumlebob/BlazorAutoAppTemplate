@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import type { components } from "../../api/generated/schema";
 import { publicApi } from "../../api/client";
@@ -49,7 +49,8 @@ describe("public author-book details", () => {
 
     renderAuthorBook("ship");
 
-    expect(await screen.findByRole("heading", { name: "Ship Inspections" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Ship Inspections" })).toHaveAttribute("id", "page-title");
+    await waitFor(() => expect(document.title).toBe("Ship Inspections | The Authors Bookcase"));
     expect(screen.getByText((_, node) => node?.textContent === "By Jacob Grum")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open book link" })).toHaveAttribute("href", "https://books.example.test/ship");
     expect(screen.getByRole("link", { name: "Open book link" })).toHaveAttribute("rel", "noreferrer");
