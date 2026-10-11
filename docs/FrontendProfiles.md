@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P7.1 still needs to stage and serve that build from C#; later packets add profile-aware release validation and deployment provenance.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P5.2 adds the typed read-only public API transport, normalized errors and one bounded QueryClient. P7.1 still needs to stage and serve that build from C#; later packets add profile-aware release validation and deployment provenance.
 
 ## Selecting a profile
 
@@ -121,6 +121,8 @@ Open `https://localhost:5173`. The Vite server serves the app over HTTPS and pro
 If the C# API uses another HTTPS origin, set `REACT_API_ORIGIN` to that origin in both terminals before starting the API and Vite.
 
 `npm run build` creates the static client in `build/client`; ASP.NET Core still owns production hosting. The package ignores that output and React Router's generated route types.
+
+The public client exposes only the generated author-book read operations. It sends same-origin requests with browser credentials omitted and passes TanStack Query's abort signal through to `fetch`. HTTP failures become typed errors with safe JSON ProblemDetails, field errors, `Retry-After` bounded to 60 seconds, and an available correlation ID. Empty, malformed, or unexpected-media-type success bodies become invalid-response errors without exposing upstream HTML. The app-level QueryClient keeps results fresh for 60 seconds, removes unused entries after five minutes, and refetches on focus and reconnect. It retries once only for network failures and HTTP 502/503/504; it does not retry 4xx responses, including 429. The public client adds no auth or CSRF bootstrap.
 
 Primary references: [Node 24.21.0 LTS](https://nodejs.org/en/blog/release/v24.21.0), [React 19.3](https://react.dev/blog/2026/09/09/react-19-3), [React Router v8 release contract](https://reactrouter.com/start/start/changelog), [React Router SPA mode](https://reactrouter.com/how-to/spa), [Vite supported releases](https://vite.dev/releases), [Tailwind CSS v4.3](https://tailwindcss.com/blog/tailwindcss-v4-3). Package engine and peer ranges were checked from npm registry metadata on the review date.
 
