@@ -1,7 +1,9 @@
 # Portfolio project inventory and story briefs
 
 Reviewed: 2026-10-11.
-Parent plan: [Studio portfolio implementation](../../PortfolioStudioImplementation.md).
+Parent plan: [Portfolio Studio delivery master plan](../../PortfolioStudioImplementation.md).
+
+Use [PageBriefs.md](PageBriefs.md) for editorial headlines and illustration treatments, [DeliveryPhases.md](DeliveryPhases.md) for executable packets, and [Progress.md](Progress.md) for current publication evidence. This inventory remains the factual source register and stable section-ID reference; proposed copy is not proof of implemented behavior.
 
 This inventory covers the six owner projects named in the template's author-book seed and five additional projects explicitly supplied by the owner: MiniTwit, BestBets, Geospatial research, Grumlebob and JobHunt. The application template and cover demonstrations are excluded from the portfolio catalog. It is a content preparation specification, not a claim that every story is ready to publish. Local source review was read-only; no project was started, modified or tested.
 
