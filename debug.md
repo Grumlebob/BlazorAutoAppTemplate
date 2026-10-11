@@ -6,7 +6,9 @@ The owner authorizes both the main-PC controller agent and the native-node agent
 
 The owner's next priority is persistent controller SSH access so the main-PC agent can perform authorized node work directly. Follow [ControllerSsh.md](Deployment/LocalSingleNode/ControllerSsh.md). Do not repeat native bootstrap. Controller preparation publishes its dedicated public key through authenticated repository variables; no private key is transferred.
 
-Native-node agent: after syncing the merged SSH handoff change, run the following as the original install user in the existing upstream checkout, without sudo. Obtain the repository identity from the checkout's origin, not from a public response or guessed target:
+Controller: prefer the dedicated `localsinglenode-controller-ssh.yml` workflow on verified main through the existing native runner. Record and inspect the same run until completion. It performs only the authorized key handoff as the original install user; it does not run deployment or ordinary maintenance. If this route cannot complete, use the native-agent fallback below.
+
+Native-node agent fallback: after syncing the merged SSH handoff change, run the following as the original install user in the existing upstream checkout, without sudo. Obtain the repository identity from the checkout's origin, not from a public response or guessed target:
 
 ```bash
 python3 Deployment/LocalSingleNode/Scripts/controller-ssh.py authorize --repo '<owner/repository from existing origin>' --controller main-pc
@@ -16,7 +18,9 @@ This authorized SSH step may write the original install user's `.ssh/authorized_
 
 Controller findings: SSH is reachable. The node public host key matches an existing trusted address entry, while the hostname alias lacks trust configuration. Existing controller keys do not match the GitHub public keys imported by bootstrap. This is an incomplete controller handoff; no new application deployment failure was observed. Controller key preparation and native authorization are separate from the read-only React readiness gate below.
 
-Controller update: preparation is complete; the dedicated public key is available in the repository variable for `main-pc`. The private key remains on the main PC. Native install-user authorization is the next required step. After its sanitized response, the controller will configure and verify the persistent alias before assigning further node checks.
+Controller update: preparation is complete; the dedicated public key is available in the repository variable for `main-pc`. The private key remains on the main PC. Native install-user authorization through the existing runner is the next required step. After its successful run or the fallback's sanitized response, the controller will configure and verify the persistent alias before assigning further node checks.
+
+Owner cleanup instruction: once fixes and coordination are complete, remove this temporary file and obsolete handoff files through the normal PR process. Retain reusable setup tooling/runbooks and required sanitized evidence in the retained plan or PR description. Do not remove this file while a required agent response is still pending.
 
 ## Verified completion (2026-10-10)
 

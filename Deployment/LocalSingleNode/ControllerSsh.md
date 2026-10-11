@@ -16,7 +16,15 @@ Choose a unique controller name within the repository and a local SSH alias. The
 
    On Windows, use `python` when that is the installed Python command. The private key remains under the controller user's `.ssh/localsinglenode/` with restricted permissions. The key is generated without a passphrase for unattended agent use; protect the controller user account and its storage. No password or private key goes to GitHub or the node.
 
-2. On the existing native node, its local agent runs:
+2. If the existing native Actions runner is online, the controller can dispatch the dedicated authorization workflow from verified main:
+
+   ```bash
+   gh workflow run localsinglenode-controller-ssh.yml --repo OWNER/REPOSITORY --ref main -f controller=main-pc
+   ```
+
+   Record the run ID immediately and inspect that same run until it succeeds; do not dispatch again because watching stops. The workflow requires main, an enabled LocalSingleNode target and the expected native hostname. It uses the runner's existing privilege to execute only the authorization script as the original install user with that user's existing GitHub authentication. It performs no backup, cleanup, restart or deployment. Temporary public program files are removed when the step exits.
+
+   Without a usable runner, the existing native agent can instead run this command as the original install user, without sudo:
 
    ```bash
    python3 Deployment/LocalSingleNode/Scripts/controller-ssh.py authorize --repo OWNER/REPOSITORY --controller main-pc
@@ -40,6 +48,8 @@ Report only `controller key published`, `node authorization complete`, `controll
 Prefer this verified SSH connection for authorized node inspection and repository work from the main PC. SSH access does not grant approval for deployments, shared-service changes or privileged commands. Continue to use the deployment runbooks and existing operator authorization. The original install user retains its existing privileges; this handoff grants no root or Docker permissions.
 
 Record the controller name, alias and pairing status in an ignored private note. Both controller and node agents may update sanitized requests/results in `debug.md` through normal documentation PRs. Preserve each other's entries and sync before writing. Once SSH works, the controller can perform most checks directly; use the node-side agent only for a remaining local-access or operator requirement.
+
+After fixes and coordination are complete, remove `debug.md` and obsolete temporary handoff files through the normal PR process. Keep reusable setup commands, runbooks and required sanitized evidence. Do not remove private keys or trust records that provide the working persistent connection.
 
 After a LAN address change, update native machine facts through the existing node process, repeat `authorize`, then repeat `configure`. The pinned host key must remain identical. A DHCP reservation makes address changes less likely. For a replaced node or intentional host-key rotation, verify the new public key through the native session before deliberately replacing the dedicated local trust record. Never disable strict checking or delete unrelated known-host entries to bypass a mismatch.
 

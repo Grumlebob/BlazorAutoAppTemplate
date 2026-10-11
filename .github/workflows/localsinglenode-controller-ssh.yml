@@ -1,0 +1,39 @@
+name: LocalSingleNode controller SSH
+on:
+  workflow_dispatch:
+    inputs:
+      controller:
+        description: Prepared controller name in this repository
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: localsinglenode-controller-ssh
+  cancel-in-progress: false
+jobs:
+  authorize:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 5
+    steps:
+      - name: Verify the intended native node
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *",localsinglenode,"* ]]
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Authorize the prepared controller as the install user
+        env:
+          CONTROLLER: ${{ inputs.controller }}
+        run: bash Deployment/LocalSingleNode/Scripts/authorize-controller-ssh.sh "$GITHUB_REPOSITORY" "$CONTROLLER"
