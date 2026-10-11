@@ -2,6 +2,8 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$SCRIPT_DIR/lib/acceptance_profile.sh"
+resolve_acceptance_profiles "$REPO_ROOT" "$SCRIPT_DIR"
 APP_NAME="$(bash "$SCRIPT_DIR/read-setting.sh" app_name)"
 PUBLIC_URL="$(python3 - "$SCRIPT_DIR/lib" "$APP_NAME" <<'PY'
 import json
@@ -20,4 +22,6 @@ if [[ -z "$PUBLIC_URL" ]]; then
   exit 0
 fi
 python3 "$SCRIPT_DIR/lib/readiness.py" "$PUBLIC_URL/health/ready"
-exec pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -BaseUrl "$PUBLIC_URL"
+exec pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
+  -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE" \
+  -BaseUrl "$PUBLIC_URL"

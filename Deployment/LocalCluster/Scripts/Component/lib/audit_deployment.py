@@ -96,6 +96,11 @@ required_files = [
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
     "Deployment/LocalSingleNode/Scripts/verify-release-identity.sh",
     "Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh",
+    "Deployment/LocalSingleNode/Scripts/lib/acceptance_profile.sh",
+    "Deployment/LocalSingleNode/Scripts/lib/read_release_acceptance.py",
+    "Deployment/LocalSingleNode/Scripts/Tests/test_release_acceptance.py",
+    "Scripts/Test-DeployedSite.ps1",
+    "Scripts/CI/tests/test_deployed_site_acceptance.py",
     "Scripts/CI/migration_staging_artifact.py",
     "Scripts/CI/tests/test_migration_staging_artifact.py",
     "Deployment/Common/Scripts/install-ansible.sh",
@@ -885,6 +890,7 @@ for needle, why in [
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh", "Docker smoke resource lifecycle test"),
     ("python3 -m unittest Scripts/CI/tests/test_frontend_profile.py", "frontend profile resolver and MSBuild validation tests"),
+    ("python3 -m unittest Scripts/CI/tests/test_deployed_site_acceptance.py -v", "trusted profile split and read-only React HTTP acceptance tests"),
     ("python3 Scripts/Frontend/resolve_frontend_profile.py", "single validated frontend profile resolver"),
     ("frontend_profile: ${{ steps.frontend_profile.outputs.profile }}", "validated profile passed from CI validation to release"),
     ("-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}", "resolved frontend profile passed to MSBuild"),
@@ -904,6 +910,7 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
+    ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
     ("global-json-file: global.json", "SDK pinned by global.json"),
@@ -1953,7 +1960,7 @@ for path in (ROOT / single).rglob("*"):
             fail(f"localsinglenode: unsupported tracked IPv4 literal {address} in {path.relative_to(ROOT)}")
 require_contains(".gitignore", "Deployment/LocalSingleNode/machine.yml", "ignored detected node facts")
 require_contains("Deployment/Common/Scripts/install-ansible.sh", "USER_ONLY", "unprivileged install-user provisioning")
-require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "HTTP form acceptance in CI")
+require_contains("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Scripts/Test-DeployedSite.ps1", "profile-aware HTTP acceptance in CI")
 smoke = read("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh")
 for needle, why in [
     ('FRONTEND_PROFILE="${FRONTEND_PROFILE:-BlazorAuto}"', "container smoke defaults to the persisted template profile"),
@@ -1972,8 +1979,27 @@ for needle, why in [
 react_smoke_start = smoke.index('if [[ "$FRONTEND_PROFILE" == "React" ]]; then')
 react_smoke_end = smoke.index("\nelse\n", react_smoke_start)
 react_smoke = smoke[react_smoke_start:react_smoke_end]
-if "Test-DeployedSite.ps1" in react_smoke or "BlazorAutoApp.Test" in react_smoke:
-    fail("React Docker smoke must not run Blazor account acceptance")
+if "Test-DeployedSite.ps1" not in react_smoke or '-AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE"' not in react_smoke:
+    fail("React Docker smoke must run ReactPublicV1 HTTP acceptance")
+if "BlazorAutoApp.Test" in react_smoke:
+    fail("React Docker smoke must not run Blazor browser/account acceptance")
+deployed_site_acceptance = read("Scripts/Test-DeployedSite.ps1")
+for needle, why in [
+    ("[ValidateSet('BlazorAuto', 'React')]", "validated frontend acceptance input"),
+    ("[ValidateSet('BlazorAutoV1', 'ReactPublicV1')]", "validated acceptance contract input"),
+    ("FrontendProfile and AcceptanceProfile do not match", "mismatched profile pair fails before network access"),
+    ("function Invoke-ReactPublicAcceptance", "separate React public-only acceptance branch"),
+    ("function Invoke-BlazorAccountAcceptance", "preserved Blazor account acceptance branch"),
+    ("React-no-cookie", "React acceptance proves no session cookie was created"),
+    ("RequestMethod 'HEAD'", "React acceptance includes safe HEAD checks"),
+]:
+    if needle not in deployed_site_acceptance:
+        fail(f"Scripts/Test-DeployedSite.ps1: missing {why}")
+react_acceptance_start = deployed_site_acceptance.index("function Invoke-ReactPublicAcceptance")
+react_acceptance_end = deployed_site_acceptance.index("function Invoke-BlazorAccountAcceptance", react_acceptance_start)
+react_acceptance = deployed_site_acceptance[react_acceptance_start:react_acceptance_end]
+if "Form " in react_acceptance or "Login " in react_acceptance or "'POST'" in react_acceptance:
+    fail("React public HTTP acceptance must not submit forms or credentials")
 require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
 require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address", "show"', "mDNS check discovers the interface owning the deployment IPv4")
 require_contains(single + "/Scripts/lib/doctor.py", '"ResolveHostName", "iisiu", str(index), "0", name, "0", "0"', "mDNS check resolves the deployment name on its LAN interface")
@@ -1982,6 +2008,9 @@ require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,
 require_contains(single + "/Scripts/lib/collisions.py", 'recorded_source.casefold() == source.casefold()', "case-insensitive GitHub repository ownership with exact app roots")
 require_contains(single + "/Scripts/lib/collisions.py", '(network.get("IPAM") or {}).get("Config") or []', "nullable built-in Docker network IPAM while checking foreign subnets")
 require_contains(single + "/Scripts/acceptance-check.sh", 'lib/readiness.py', "bounded LAN warmup before the unchanged full acceptance check")
+require_contains(single + "/Scripts/acceptance-check.sh", '-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', "LAN acceptance uses trusted release profiles")
+require_contains(single + "/Scripts/lib/acceptance_profile.sh", "read_release_acceptance.py", "standalone node acceptance reads the deployed release marker")
+require_contains(single + "/Scripts/lib/acceptance_profile.sh", "Both FRONTEND_PROFILE and ACCEPTANCE_PROFILE are required together.", "acceptance profile input must be a complete pair")
 require_contains(single + "/Scripts/lib/readiness.py", 'timeout=180', "180-second LAN readiness deadline")
 require_contains(single + "/Scripts/run-maintenance.sh", '--report-fresh-since "$requested"', "requested backups prove fresh completion before maintenance")
 require_contains(".github/workflows/localsinglenode-maintenance.yml", "restart_connector:", "opt-in connector restart recovery")
@@ -1994,6 +2023,7 @@ require_contains(single + "/Scripts/lib/backup.py", 'completed < started', "requ
 require_contains(single + "/Scripts/lib/backup.py", 'Fresh protected backup:', "explicit fresh dump evidence without secret contents")
 require_contains(single + "/Scripts/acceptance-check.sh", 'public-acceptance-check.sh', "public acceptance after LAN acceptance")
 require_contains(single + "/Scripts/lib/readiness.py", 'response.read(64).strip() == b"Healthy"', "readiness rejects empty HTTP 200")
+require_contains(single + "/Scripts/public-acceptance-check.sh", '-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', "public acceptance uses trusted release profiles")
 require_contains(single + "/Scripts/public-acceptance-check.sh", '-BaseUrl "$PUBLIC_URL"', "configured public HTTPS acceptance")
 require_contains(single + "/Scripts/lib/public_config.py", 'os.O_EXCL | os.O_NOFOLLOW', "protected public secret output")
 require_contains(single + "/Scripts/lib/public_config.py", 'claims.get("t") != tunnel_id', "matching connector credential identity")
@@ -2011,6 +2041,13 @@ require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "'
 require_contains(single + "/ansible/roles/single_node_public/tasks/main.yml", "'ExecMainStatus=0'", "connector process must have a successful exit status")
 require_contains("Scripts/Test-DeployedSite.ps1", "@('http', 'https')", "HTTP and HTTPS acceptance")
 require_contains("Scripts/Test-DeployedSite.ps1", "'HTTPS-cookie'", "public authentication cookie security")
+for path, verify_name, acceptance_name in [
+    (".github/workflows/cd-localcluster.yml", "Verify running release identity", "Run acceptance check"),
+    (".github/workflows/cd-localsinglenode.yml", "Verify running release identity", "Run HTTP acceptance"),
+]:
+    workflow = read(path)
+    if workflow.index(verify_name) > workflow.index(acceptance_name):
+        fail(f"{path}: running image identity must be verified before profile-selected HTTP acceptance")
 require_contains(".github/workflows/cd-localsinglenode.yml", '-e @"$PUBLIC_EXTRA_VARS_FILE"', "validated public inputs deployed")
 require_contains(".github/workflows/cd-localsinglenode.yml", 'rm -f -- "$PUBLIC_EXTRA_VARS_FILE"', "temporary connector credential cleanup")
 require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'Tunnel name exists without recorded ownership', "foreign tunnel refusal")

@@ -54,7 +54,7 @@ The controller performs this live-test sequence when the operator has authorized
 | 1 | Confirm native Mint is installed; an existing installation stays | Verify platform and LAN facts; no controller bootstrap |
 | 2 | Authenticate and run the one printed root command | Local agent reaches done and reports initial CD URL/SHA/digest |
 | 3 | No additional deployment if the local agent already did it | Controller verifies online `<node>-<app_name>` runner and app label; inspect initial successful CD, release manifest and running digest |
-| 4 | Use the independent controller session | Run `Test-DeployedSite.ps1 -Address <node-ip> -Port <lan_http_port>`; require `RESULT: PASS`; record `.local` separately |
+| 4 | Use the independent controller session | Run `Test-DeployedSite.ps1` with `-FrontendProfile` and `-AcceptanceProfile` from the verified release manifest and the LAN address; require `RESULT: PASS`; record `.local` separately |
 | 5 | No further action | Deploy the same verified SHA with `run_migrations=false`; acceptance passes again |
 | 6 | No further action | Run maintenance with `reboot_check=true`; require success, then poll runner every 60 seconds for up to 15 minutes and run `acceptance_only=true`; uptime must be under 30 minutes |
 | 7 | No further action | Select an older ancestor of main with successful push CI/publishing and identical migrations; deploy it, then deploy newest again; both pass |
@@ -63,10 +63,12 @@ The controller performs this live-test sequence when the operator has authorized
 The main-PC check needs PowerShell 5.1 or 7, with no .NET SDK or browser:
 
 ```powershell
-& .\Scripts\Test-DeployedSite.ps1 -Address <node-ip> -Port <lan_http_port>
+$frontendProfile = "React" # copy frontend_profile from the verified release manifest
+$acceptanceProfile = "ReactPublicV1" # copy acceptance_profile from the verified release manifest
+& .\Scripts\Test-DeployedSite.ps1 -FrontendProfile $frontendProfile -AcceptanceProfile $acceptanceProfile -Address $nodeIp -Port $lanHttpPort
 ```
 
-It checks DNS/TCP, readiness, HTML/Blazor, anonymous API 401, registration, password login in a fresh session, the authenticated account page and rejected published admin credentials. A `finally` block deletes its test account and verifies the credentials no longer work.
+For a Blazor release, use `BlazorAuto` and `BlazorAutoV1`. The script rejects mismatched profile pairs before connecting. React acceptance checks public reads and inactive routes with GET/HEAD only; Blazor acceptance keeps its account, login and cleanup checks.
 
 Node acceptance first waits up to 180 seconds for LAN `/health/ready` to return 200. A runner can return before Docker services are ready after a reboot. Only that read-only readiness probe is retried; the full HTTP acceptance check runs once and any failure still fails the workflow.
 

@@ -264,6 +264,10 @@ if [[ "$FRONTEND_PROFILE" == "React" ]]; then
     echo "React image contains inactive Blazor assets" >&2
     exit 1
   fi
+  pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
+    -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE" \
+    -ForwardedProto https -BaseUrl "$base_url"
+  echo "React public HTTP acceptance passed"
   echo "React HTTP smoke passed"
 else
   home_html="$(curl --fail --silent --show-error --max-time 30 "${forwarded_proto[@]}" "${base_url}/")"
@@ -283,7 +287,9 @@ else
     echo "anonymous /api/books redirected instead of returning 401" >&2
     exit 1
   fi
-  pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -BaseUrl "$base_url"
+  pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
+    -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE" \
+    -BaseUrl "$base_url"
   echo "Blazor HTTP smoke passed"
 
   postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"

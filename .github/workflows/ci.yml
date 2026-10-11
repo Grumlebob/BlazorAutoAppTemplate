@@ -139,6 +139,11 @@ jobs:
       - name: Test frontend profile selection
         run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
 
+      - name: Test deployed-site acceptance profile split
+        run: |
+          command -v pwsh
+          python3 -m unittest Scripts/CI/tests/test_deployed_site_acceptance.py -v
+
       - name: Restore
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}

@@ -332,7 +332,7 @@ For every pull request, and before every `main` publish, CI runs `Deployment/Loc
 - `/health/ready`,
 - the server-rendered home page,
 - that anonymous `/api/books` returns 401 without a redirect,
-- shared HTTP acceptance (`Scripts/Test-DeployedSite.ps1`): registration, fresh-session login, account access, rejected published admin credentials and finally-account deletion,
+- profile-selected HTTP acceptance (`Scripts/Test-DeployedSite.ps1`): Blazor retains registration, fresh-session login, account access, rejected published admin credentials and final account deletion; React checks public data, inactive account routes, protected API denial and security headers using only GET/HEAD and creates no account, user data or session,
 - the browser smoke tests `RenderModeE2ETests` and `PreHydrationControlsE2ETests`.
 
 To run it locally against an image you built:
@@ -340,6 +340,8 @@ To run it locally against an image you built:
 ```bash
 APP_IMAGE=<image> APP_VERSION=<tag> bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 ```
+
+The smoke resolves the expected acceptance profile from the frontend profile and checks both against the image labels. For a React image, set `FRONTEND_PROFILE=React FRONTEND_ACCEPTANCE_PROFILE=ReactPublicV1`.
 
 ## Failure Artifacts
 
