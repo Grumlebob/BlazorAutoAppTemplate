@@ -31,12 +31,14 @@ def normalized_source(value: str, repo_root: Path) -> tuple[str, bool]:
     return relative, resolved.is_file()
 
 
-def is_generated_source(value: str) -> bool:
+def is_ignored_source(value: str) -> bool:
     source = value.strip().replace("\\", "/").casefold()
     parts = source.split("/")
     name = parts[-1]
-    return any(part in {"bin", "obj"} for part in parts) or name.endswith(
-        (".g.cs", ".generated.cs", ".designer.cs")
+    return (
+        source.startswith("/_/src/")
+        or any(part in {"bin", "obj"} for part in parts)
+        or name.endswith((".g.cs", ".generated.cs", ".designer.cs"))
     )
 
 
@@ -83,7 +85,7 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
                     source_path = source_file.get("path")
                     if source_id is None or source_path is None:
                         raise ValueError(f"Coverage source mapping is incomplete in {report.name}.")
-                    if is_generated_source(source_path):
+                    if is_ignored_source(source_path):
                         ignored_source_ids.add(source_id)
                         continue
                     relative, exists = normalized_source(source_path, repo_root)

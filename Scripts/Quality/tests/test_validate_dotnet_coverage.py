@@ -67,18 +67,20 @@ class DotnetCoverageValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not resolve"):
             validate_reports(self.tests, self.repo, "BlazorAuto")
 
-    def test_ignores_nonphysical_generated_source_under_obj(self) -> None:
+    def test_ignores_generated_and_sourcelink_sources_outside_repository(self) -> None:
         report = self.write_report("BlazorAutoApp.Client/Book.cs")
         generated = self.repo / "BlazorAutoApp.Test/obj/Release/net10.0/GeneratedSupport.generated.cs"
         contents = report.read_text(encoding="utf-8")
         contents = contents.replace(
             '<range source_id="1" start_line="1" end_line="1" covered="yes" />',
             '<range source_id="1" start_line="1" end_line="1" covered="yes" />'
-            '<range source_id="2" start_line="1" end_line="1" covered="no" />',
+            '<range source_id="2" start_line="1" end_line="1" covered="no" />'
+            '<range source_id="3" start_line="1" end_line="1" covered="no" />',
         )
         contents = contents.replace(
             "</source_files>",
-            f'<source_file id="2" path="{generated.as_posix()}" /></source_files>',
+            f'<source_file id="2" path="{generated.as_posix()}" />'
+            '<source_file id="3" path="/_/src/StackExchange.Redis/RedisFeatures.cs" /></source_files>',
         )
         report.write_text(contents, encoding="utf-8")
 
