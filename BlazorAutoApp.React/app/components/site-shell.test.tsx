@@ -28,7 +28,7 @@ describe("public site shell", () => {
     await user.tab();
     expect(skipLink).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole("link", { name: "The Authors Bookcase home" })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "The Authors Bookcase Independent books, collected." })).toHaveFocus();
     await user.click(skipLink);
     expect(screen.getByRole("main")).toHaveFocus();
     expect(screen.queryByRole("link", { name: /log in|sign in|account/i })).not.toBeInTheDocument();

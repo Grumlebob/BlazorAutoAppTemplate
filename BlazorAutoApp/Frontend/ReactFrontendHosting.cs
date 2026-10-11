@@ -1,3 +1,9 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Net.Http.Headers;
@@ -6,15 +12,23 @@ namespace BlazorAutoApp.Frontend;
 
 internal static class ReactFrontendHosting
 {
+    private static readonly Regex InlineScriptPattern = new(
+        "<script\\b(?<attributes>[^>]*)>(?<body>.*?)</script\\s*>",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+    private static readonly Regex ScriptSourcePattern = new(
+        "\\bsrc\\s*=",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     internal const string ContentSecurityPolicy =
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
 
-    public static void UseSecurityHeaders(IApplicationBuilder app)
+    public static void UseSecurityHeaders(IApplicationBuilder app, IFileProvider? fileProvider = null)
     {
+        var contentSecurityPolicy = GetContentSecurityPolicy(fileProvider);
         app.Use(async (context, next) =>
         {
             var headers = context.Response.Headers;
-            headers["Content-Security-Policy"] = ContentSecurityPolicy;
+            headers["Content-Security-Policy"] = contentSecurityPolicy;
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -22,6 +36,40 @@ internal static class ReactFrontendHosting
 
             await next();
         });
+    }
+
+    internal static string GetContentSecurityPolicy(IFileProvider? fileProvider)
+    {
+        if (fileProvider is null)
+        {
+            return ContentSecurityPolicy;
+        }
+
+        var shell = fileProvider.GetFileInfo("index.html");
+        if (!shell.Exists || shell.IsDirectory)
+        {
+            return ContentSecurityPolicy;
+        }
+
+        using var stream = shell.CreateReadStream();
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        var html = reader.ReadToEnd();
+        var hashes = InlineScriptPattern.Matches(html)
+            .Cast<Match>()
+            .Where(match => !ScriptSourcePattern.IsMatch(match.Groups["attributes"].Value))
+            .Select(match => Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(match.Groups["body"].Value))))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (hashes.Length == 0)
+        {
+            return ContentSecurityPolicy;
+        }
+
+        var hashSources = string.Join(' ', hashes.Select(hash => $"'sha256-{hash}'"));
+        return ContentSecurityPolicy.Replace(
+            "script-src 'self'",
+            $"script-src 'self' {hashSources}",
+            StringComparison.Ordinal);
     }
 
     public static void UseStaticFiles(IApplicationBuilder app, IFileProvider fileProvider)

@@ -18,7 +18,8 @@ internal static class FrontendComposition
             app.UseHsts();
         }
 
-        ReactFrontendHosting.UseSecurityHeaders(app);
+        var staticRoot = app.Services.GetService<ReactFrontendStaticRoot>();
+        ReactFrontendHosting.UseSecurityHeaders(app, staticRoot?.FileProvider);
     }
 
     public static void UseFrontendStaticFiles(WebApplication app)
