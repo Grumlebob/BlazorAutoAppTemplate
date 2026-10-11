@@ -11,7 +11,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - [LocalSingleNode setup](Deployment/LocalSingleNode/AgentSetup.md) is the local-agent entry point for the explicitly selected native PC.
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
-- `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing.
+- `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing; [SonarQubeAnalysis.md](docs/Quality/SonarQubeAnalysis.md) covers on-demand source audits.
 - `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
 - `docs/HowToForkThisRepo.md` explains fork identity, target selection and the prepared LocalCluster path; its single-node path links the native agent setup.
 - `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.

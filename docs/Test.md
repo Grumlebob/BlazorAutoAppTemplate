@@ -11,6 +11,7 @@ This project has these test layers:
 - Infrastructure/hosting behavior tests.
 - Headed Playwright E2E tests for real browser render mode, Books, and Identity flows.
 - Lighthouse performance checks for local and deployed pages.
+- On-demand SonarQube source audits and coverage reports.
 
 ## Normal Test Run
 
@@ -358,6 +359,10 @@ TestResults/Playwright
 
 Failed E2E runs also retain a Playwright trace zip, and browser videos are written under `TestResults/Playwright/Videos`. `TestResults` is generated output and can be deleted.
 Normal snapshot runs write page screenshots under `TestResults/Playwright/Snapshots`.
+
+## SonarQube Source Analysis
+
+[On-demand SonarQube audits](Quality/SonarQubeAnalysis.md) inspect source findings and test coverage. They run only when explicitly invoked and remain informational; they are not part of this local gate.
 
 ## Lighthouse Performance
 

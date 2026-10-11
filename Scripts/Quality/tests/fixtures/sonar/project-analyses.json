@@ -1,0 +1,23 @@
+{
+  "paging": {"pageIndex": 1, "pageSize": 2, "total": 2},
+  "analyses": [
+    {
+      "key": "7d5ec4c9-f501-46e1-91fd-44f653016317",
+      "date": "2026-10-08T12:04:21+0000",
+      "events": [{"key": "e687abf5-08d1-4253-a9dd-9af02f5ad759", "category": "VERSION", "name": "2026.10.08-ed87fed"}],
+      "projectVersion": "20261008-ed87fedcaf09",
+      "manualNewCodePeriodBaseline": false,
+      "revision": "ed87fedcaf09ab7e3c8b62303ae8b64325b30aea",
+      "detectedCI": "undetected"
+    },
+    {
+      "key": "3a0b8c7d-2e1f-4d6a-9b5c-8f7e6d5c4b3a",
+      "date": "2026-10-07T11:00:56+0000",
+      "events": [{"key": "24e8e851-84e5-4bd1-9309-3e019a9e7cd8", "category": "SQ_UPGRADE", "name": "26.9.0.129388"}],
+      "projectVersion": "2026.10.07-907e7ce",
+      "manualNewCodePeriodBaseline": false,
+      "revision": "907e7cec4960a880e8f7ee0c52c5d3c783968f3d",
+      "detectedCI": "undetected"
+    }
+  ]
+}

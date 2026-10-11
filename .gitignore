@@ -38,6 +38,8 @@ npm-debug.log*
 /BlazorAutoApp.React/build/
 /BlazorAutoApp.React/.react-router/
 /BlazorAutoApp.React/coverage/
+.sonarqube/
+Scripts/Quality/quality-settings.local.json
 
 # Test and coverage output
 TestResults/

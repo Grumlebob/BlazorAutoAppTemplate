@@ -1,0 +1,16 @@
+{
+  "component": {
+    "key": "blazorautoapp-abc12345-BlazorAuto",
+    "name": "BlazorAuto",
+    "qualifier": "TRK",
+    "measures": [
+      {"metric": "coverage", "value": "73.8", "bestValue": false},
+      {"metric": "lines_to_cover", "value": "100"},
+      {"metric": "uncovered_lines", "value": "27"},
+      {"metric": "ncloc", "value": "137732"},
+      {"metric": "duplicated_lines_density", "value": "2.3"},
+      {"metric": "cognitive_complexity", "value": "23742"},
+      {"metric": "ncloc_language_distribution", "value": "cs=95401;py=32940;css=8336;js=687;terraform=254;docker=114"}
+    ]
+  }
+}
