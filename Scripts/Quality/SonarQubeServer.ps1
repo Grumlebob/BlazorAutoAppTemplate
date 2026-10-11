@@ -399,11 +399,16 @@ function Ensure-QualityProject {
         $null = Invoke-QualityAdminApi -Path 'api/permissions/add_group' -Method POST `
             -Form @{ projectKey = $projectKey; groupName = $groupName; permission = $permission }
     }
+    $adminPermissions = @(Get-QualityGroupPermissions -GroupName 'sonar-administrators' -ProjectKey $projectKey)
+    if ('scan' -notin $adminPermissions) {
+        $null = Invoke-QualityAdminApi -Path 'api/permissions/add_group' -Method POST `
+            -Form @{ projectKey = $projectKey; groupName = 'sonar-administrators'; permission = 'scan' }
+    }
     $effectiveGroups = [pscustomobject]@{ groups = @(Get-QualityGroupsWithPermissions -ProjectKey $projectKey) }
     $unexpectedGroups = @($effectiveGroups.groups | Where-Object {
         $permissions = @($_.permissions | ForEach-Object { [string]$_ })
         $isExpectedAdministrator = $_.name -eq 'sonar-administrators' -and
-            $permissions.Count -eq 1 -and $permissions[0] -eq 'admin'
+            $permissions.Count -eq 2 -and 'admin' -in $permissions -and 'scan' -in $permissions
         $_.name -ne $groupName -and -not $isExpectedAdministrator -and $permissions.Count -gt 0
     } | ForEach-Object { [string]$_.name })
     if ($unexpectedGroups.Count -gt 0) {
