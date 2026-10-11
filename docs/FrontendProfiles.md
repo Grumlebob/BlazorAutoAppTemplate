@@ -148,6 +148,20 @@ Both profiles are supported in this repository; selecting or validating React do
 
 Implementation status, packet evidence and deployment target details live in `Plans/ReactFrontendProfile.md` and applicable ignored installation records. Keep hostnames, node identity, resource IDs, ports, capacity, credentials, run IDs and authenticated deployment evidence in ignored or protected records, never here.
 
+### Diagnose a deployed public app
+
+Use the selected app's read-only maintenance acceptance and doctor first; see [LocalSingleNode operations](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md#additional-application-on-an-existing-node). Preserve the failed run/check and redacted logs before repair.
+
+| Symptom | Check and action |
+| --- | --- |
+| Persistent 5xx or pending readiness | Inspect selected app/container status and database/cache readiness. Verify the running immutable release before an approved repair; retain data and locks. |
+| Missing chunk after an update | Use the existing bounded refresh recovery. If it persists, check shell revalidation, fingerprinted asset URLs and deployed frontend/digest; avoid reload loops or cache-policy changes without evidence. |
+| Public API fails while the shell loads | Inspect the public read response and correlation ID. Keep protected API denial intact; check backend readiness rather than exposing a private route. |
+| LAN works but public HTTPS fails | Check this app's connector, protected ingress and owned DNS through [PublicSetup](../Deployment/LocalSingleNode/PublicSetup.md#repeated-setup-and-recovery). Keep another app's tunnel and shared listener intact. |
+| Backup or restore verification fails | Inspect the selected app's backup status, protected dump and isolated verification log. Use the documented replacement-database recovery; do not overwrite the active database. |
+
+Database/cache secrets, persisted data-protection keys and registry credentials remain protected app configuration. Do not replace them during ordinary updates. Intentional connector rotation/removal follows [the explicit public maintenance procedure](../Deployment/LocalSingleNode/PublicSetup.md#explicit-rotation-and-removal); app removal is a separate ownership-checked operator action.
+
 ## Optional additional frontend releases
 
 Clones publish only the profile selected by `frontend-profile.txt` by default. The selected profile keeps the image repository from `Deployment/Common/release.yml` and the existing migration artifact name. Changing the frontend locally does not publish another release.

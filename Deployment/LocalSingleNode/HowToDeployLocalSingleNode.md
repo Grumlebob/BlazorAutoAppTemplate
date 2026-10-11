@@ -153,7 +153,7 @@ This is an operator recovery command, not an SSH privilege grant or an automatic
 
 ## Remove the app
 
-Removal is a separate operator decision. First record a verified off-machine backup and the exact app identity/resources. Disable this app's backup timer and stop its app-specific runner; remove only that runner's registration if it is no longer needed. Do not stop another app's runner or shared Docker/Caddy service.
+Removal is a separate operator decision. First record a verified off-machine backup and the exact app identity/resources. Disable this app's backup timer. Stop/remove a runner only if it is dedicated to the removed app and no remaining app needs it. An additional app using the primary runner has no separate registration to remove; preserve that runner. Do not stop another app's runner or shared Docker/Caddy service.
 
 From the runtime directory, the operator stops this Compose project:
 
