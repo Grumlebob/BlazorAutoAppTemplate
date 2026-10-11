@@ -12,6 +12,7 @@ public static class AuthorBooksEndpoints
     {
         var group = routes.MapGroup("/api/author-books")
             .WithTags("Author Books")
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName);
 
         group.MapGet("/", ListAuthorBooksAsync)

@@ -17,33 +17,34 @@ public static class BookEndpoints
         var group = routes.MapGroup("/api/books")
             .WithTags("Books")
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .WithPrivateNoStoreResponses();
 
         group.MapGet("/", ListBooksAsync)
             .WithName("ListBooks")
-            .RequireAuthorization();
+            .WithAuthorizationResponses();
 
         group.MapGet("/{id:int}", GetBookAsync)
             .WithName("GetBook")
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireAuthorization();
+            .WithAuthorizationResponses();
 
         group.MapPost("/", CreateBookAsync)
             .WithName("CreateBook")
             .ProducesValidationProblem()
-            .RequireAuthorization();
+            .WithAuthorizationResponses();
 
         group.MapPut("/{id:int}", UpdateBookAsync)
             .WithName("UpdateBook")
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireAuthorization();
+            .WithAuthorizationResponses();
 
         group.MapDelete("/{id:int}", DeleteBookAsync)
             .WithName("DeleteBook")
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireAuthorization();
+            .WithAuthorizationResponses();
 
         return routes;
     }
@@ -204,6 +205,12 @@ public static class BookEndpoints
             statusCode: StatusCodes.Status404NotFound,
             title: "Book not found",
             detail: $"Book {id} was not found.");
+
+    private static RouteHandlerBuilder WithAuthorizationResponses(this RouteHandlerBuilder endpoint) =>
+        endpoint
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequireAuthorization();
 }
 
 internal sealed class BooksEndpointLogCategory;
