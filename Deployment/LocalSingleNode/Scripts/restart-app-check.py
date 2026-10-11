@@ -15,6 +15,7 @@ from platform_check import native
 spec = importlib.util.spec_from_file_location('app_instance', Path(__file__).with_name('resolve-app-instance.py'))
 instance = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(instance)
+CHECK_PHASE = 'initial guards'
 
 
 def guards():
@@ -30,7 +31,9 @@ def guards():
 
 def containers(config):
     root, app = config['deploy_root'], config['app_name']
-    identifiers = command('docker', 'compose', '--project-directory', root, 'ps', '-q').splitlines()
+    # APP_NAME belongs to the selected app and overrides another root's .env.
+    # Pin the project independently when inspecting the primary sibling.
+    identifiers = command('docker', 'compose', '--project-directory', root, '--project-name', app, 'ps', '-q').splitlines()
     values = json.loads(command('docker', 'inspect', *identifiers)) if identifiers else []
     result = {}
     for value in values:
@@ -89,16 +92,25 @@ def verify_after(before, after):
 
 
 def main():
+    global CHECK_PHASE
+    CHECK_PHASE = 'initial guards'
     guards()
     config = settings()
     source = os.environ['GITHUB_SERVER_URL'] + '/' + os.environ['GITHUB_REPOSITORY']
     instance.verify_owned(config, source)
+    CHECK_PHASE = 'selected container inventory'
     before = containers(config)
+    CHECK_PHASE = 'selected release identity'
     release = verify_release(config)
+    CHECK_PHASE = 'public catalog snapshot'
     seed = catalog(config)
     primary = settings(TARGET / 'inventory/group_vars/all.yml')
+    CHECK_PHASE = 'primary sibling inventory'
     sibling = containers(primary) if primary['app_name'] != config['app_name'] else None
-    command('docker', 'compose', '--project-directory', config['deploy_root'], 'restart', 'web', timeout=60)
+    CHECK_PHASE = 'web restart'
+    print('Preflight passed; restarting only the explicitly selected web project.', flush=True)
+    command('docker', 'compose', '--project-directory', config['deploy_root'], '--project-name', config['app_name'], 'restart', 'web', timeout=60)
+    CHECK_PHASE = 'catalog recovery'
     deadline = time.monotonic() + 180
     while True:
         try:
@@ -109,6 +121,7 @@ def main():
             if time.monotonic() >= deadline:
                 raise ValueError('Catalog/readiness did not recover unchanged before deadline') from None
             time.sleep(2)
+    CHECK_PHASE = 'release, storage and sibling stability'
     verify_after(before, containers(config))
     time.sleep(10)
     verify_after(before, containers(config))
@@ -124,5 +137,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (ValueError, OSError, KeyError, TypeError):
-        print('Scoped app restart check failed; inspect the owned app without automatic retry.', file=sys.stderr)
+        print('Scoped app restart check failed during ' + CHECK_PHASE + '; inspect the owned app without automatic retry.', file=sys.stderr)
         sys.exit(1)

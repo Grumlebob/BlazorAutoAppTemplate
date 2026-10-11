@@ -2167,7 +2167,8 @@ for needle in ("app_instance:", "inputs.app_instance", "vars.LOCALSINGLENODE_ADD
                "Additional-app maintenance cannot request a shared host reboot", "if: always()", "instance-settings.yml"):
     require_contains(".github/workflows/localsinglenode-maintenance.yml", needle, "protected per-app maintenance and scoped restart")
 for needle in ("instance.verify_owned(config, source)", "verify-release-identity.sh", "LOCALCLUSTER_DEPLOY_LOCK_TOKEN",
-               "'restart', 'web'", "catalog(config) != seed", "containers(primary) != sibling", "'mounts', 'restarts'"):
+               "'--project-name', app, 'ps', '-q'", "'--project-name', config['app_name'], 'restart', 'web'",
+               "CHECK_PHASE = 'primary sibling inventory'", "catalog(config) != seed", "containers(primary) != sibling", "'mounts', 'restarts'"):
     require_contains(single + "/Scripts/restart-app-check.py", needle, "owned app persistence and sibling protection")
 require_contains(single + "/Scripts/lib/doctor.py", "runner_active(runner_app())", "additional app reuses primary runner")
 require_contains(single + "/Scripts/lib/maintenance.py", 'runner_app()', "runner residue uses the existing primary registration")

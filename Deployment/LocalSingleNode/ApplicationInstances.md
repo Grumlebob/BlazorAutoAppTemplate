@@ -47,6 +47,8 @@ For normal operations, leave `acceptance_only=false` and `backup_now=true`. The 
 
 To check persistence, select the intended app, `acceptance_only=true`, `restart_app=true`, and leave `restart_connector=false` and `reboot_check=false`. Under the shared lock, the check requires the verified immutable deployed release, ownership of all three Compose services and a nonempty public catalog. It restarts only `web`, verifies catalog equality and a new process, retains image/container/storage identity, and checks backing services, restart counts and the primary sibling remain unchanged. HTTP acceptance follows. A failed check stops for inspection without an automatic restart retry. Connector recovery remains a separate explicit selection; never combine both restart checks.
 
+Compose inspection and restart explicitly pin each validated project name. The selected app's inherited `APP_NAME` must not change the primary sibling selection. Failure reports name the check phase without exposing configuration or credentials; a failure before the web restart phase performs no restart.
+
 ## Prepare an additional app on an existing node
 
 After merged tooling and exact-main CI are green, configure the distinct protected environment and `LOCALSINGLENODE_APP_INSTANCE` secret. Dispatch **LocalSingleNode additional app setup** from trusted main and record the run ID before observing it. Reuse the existing native runner. The workflow requires green main CI for the dispatched code, recorded primary ownership and native deployment-user identity. The strict ordinary-documentation exception above applies to setup as well.
