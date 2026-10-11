@@ -271,20 +271,44 @@ function Get-QualityProjectKey {
 
 function Ensure-QualityGroup {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Description)
-    $search = Invoke-QualityAdminApi -Path 'api/user_groups/search' -Query @{ q = $Name; ps = 500 }
-    $existing = @($search.groups | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
+    $groups = [Collections.Generic.List[object]]::new()
+    $page = 1
+    $total = $null
+    do {
+        $search = Invoke-QualityAdminApi -Path 'api/user_groups/search' -Query @{ q = $Name; p = $page; ps = 100 }
+        if ($null -eq $total) { $total = [int]$search.paging.total }
+        foreach ($group in @($search.groups)) { $groups.Add($group) }
+        $page++
+    } while ($groups.Count -lt $total)
+    if ($groups.Count -ne $total) { throw "Could not enumerate all SonarQube groups matching '$Name'." }
+    $existing = @($groups | Where-Object { $_.name -eq $Name }) | Select-Object -First 1
     if ($null -eq $existing) {
         $null = Invoke-QualityAdminApi -Path 'api/user_groups/create' -Method POST `
             -Form @{ name = $Name; description = $Description }
     }
 }
 
+function Get-QualityGroupsWithPermissions {
+    param([string]$ProjectKey)
+    $groups = [Collections.Generic.List[object]]::new()
+    $page = 1
+    $total = $null
+    do {
+        $query = @{ p = $page; ps = 100 }
+        if ($ProjectKey) { $query.projectKey = $ProjectKey }
+        $response = Invoke-QualityAdminApi -Path 'api/permissions/groups' -Query $query
+        if ($null -eq $total) { $total = [int]$response.paging.total }
+        foreach ($group in @($response.groups)) { $groups.Add($group) }
+        $page++
+    } while ($groups.Count -lt $total)
+    if ($groups.Count -ne $total) { throw 'Could not enumerate every group permission.' }
+    return @($groups)
+}
+
 function Get-QualityGroupPermissions {
     param([Parameter(Mandatory)][string]$GroupName, [string]$ProjectKey)
-    $query = @{ ps = 500 }
-    if ($ProjectKey) { $query.projectKey = $ProjectKey }
-    $result = Invoke-QualityAdminApi -Path 'api/permissions/groups' -Query $query
-    $group = @($result.groups | Where-Object { $_.name -eq $GroupName }) | Select-Object -First 1
+    $groups = @(Get-QualityGroupsWithPermissions -ProjectKey $ProjectKey)
+    $group = @($groups | Where-Object { $_.name -eq $GroupName }) | Select-Object -First 1
     if ($null -eq $group) { return @() }
     return @($group.permissions | ForEach-Object { [string]$_ } | Sort-Object -Unique)
 }
@@ -318,7 +342,7 @@ function Get-QualityReaderGroups {
     $page = 1
     $total = $null
     do {
-        $response = Invoke-QualityAdminApi -Path 'api/users/groups' -Query @{ login = $Login; p = $page; ps = 500 }
+        $response = Invoke-QualityAdminApi -Path 'api/users/groups' -Query @{ login = $Login; p = $page; ps = 100 }
         if ($null -eq $total) { $total = [int]$response.paging.total }
         foreach ($group in @($response.groups)) { $groups.Add($group) }
         $page++
@@ -375,7 +399,7 @@ function Ensure-QualityProject {
         $null = Invoke-QualityAdminApi -Path 'api/permissions/add_group' -Method POST `
             -Form @{ projectKey = $projectKey; groupName = $groupName; permission = $permission }
     }
-    $effectiveGroups = Invoke-QualityAdminApi -Path 'api/permissions/groups' -Query @{ projectKey = $projectKey; ps = 500 }
+    $effectiveGroups = [pscustomobject]@{ groups = @(Get-QualityGroupsWithPermissions -ProjectKey $projectKey) }
     $unexpectedGroups = @($effectiveGroups.groups | Where-Object {
         $_.name -ne $groupName -and @($_.permissions).Count -gt 0
     } | ForEach-Object { [string]$_.name })
@@ -391,8 +415,17 @@ function Ensure-QualityProject {
 
 function Test-QualityUserExists {
     param([Parameter(Mandatory)][string]$Login)
-    $result = Invoke-QualityAdminApi -Path 'api/users/search' -Query @{ q = $Login; ps = 500 }
-    return @($result.users | Where-Object { $_.login -eq $Login }).Count -gt 0
+    $users = [Collections.Generic.List[object]]::new()
+    $page = 1
+    $total = $null
+    do {
+        $result = Invoke-QualityAdminApi -Path 'api/users/search' -Query @{ q = $Login; p = $page; ps = 100 }
+        if ($null -eq $total) { $total = [int]$result.paging.total }
+        foreach ($user in @($result.users)) { $users.Add($user) }
+        $page++
+    } while ($users.Count -lt $total)
+    if ($users.Count -ne $total) { throw "Could not enumerate every SonarQube user matching '$Login'." }
+    return @($users | Where-Object { $_.login -eq $Login }).Count -gt 0
 }
 
 function Ensure-QualityReader {

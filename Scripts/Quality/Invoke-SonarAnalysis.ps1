@@ -233,9 +233,18 @@ function Get-QualityScannerArguments {
 function Get-AnalysisFromServer {
     param([Parameter(Mandatory)][string]$AnalysisId, [Parameter(Mandatory)][string]$Token)
     $headers = Get-QualityApiHeaders -Token $Token
-    $response = Invoke-QualityApi -BaseUrl $Context.BaseUrl -Path 'api/project_analyses/search' `
-        -Query @{ project = $ProjectKey; ps = 500 } -Headers $headers -RedactValues @($Token)
-    $analysis = @($response.analyses | Where-Object { $_.key -eq $AnalysisId }) | Select-Object -First 1
+    $analyses = [Collections.Generic.List[object]]::new()
+    $page = 1
+    $total = $null
+    do {
+        $response = Invoke-QualityApi -BaseUrl $Context.BaseUrl -Path 'api/project_analyses/search' `
+            -Query @{ project = $ProjectKey; p = $page; ps = 100 } -Headers $headers -RedactValues @($Token)
+        if ($null -eq $total) { $total = [int]$response.paging.total }
+        foreach ($analysisRecord in @($response.analyses)) { $analyses.Add($analysisRecord) }
+        $page++
+    } while ($analyses.Count -lt $total)
+    if ($analyses.Count -ne $total) { throw 'Could not enumerate all SonarQube analyses for the project.' }
+    $analysis = @($analyses | Where-Object { $_.key -eq $AnalysisId }) | Select-Object -First 1
     if ($null -eq $analysis) { throw 'The completed compute-engine analysis is missing from the project analysis history.' }
     if (-not $analysis.revision -or $analysis.revision -ne $AnalyzedSha) {
         throw 'The server analysis revision does not match the immutable source SHA.'

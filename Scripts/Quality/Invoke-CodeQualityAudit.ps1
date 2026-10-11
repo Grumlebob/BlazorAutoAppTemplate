@@ -142,21 +142,48 @@ function Get-SecretValuesForArchive {
     return @($values)
 }
 
+function Add-AuditJsonStrings {
+    param([AllowNull()]$Value, [Parameter(Mandatory)][Collections.Generic.List[string]]$Strings)
+    if ($null -eq $Value) { return }
+    if ($Value -is [string]) { $Strings.Add($Value); return }
+    if ($Value -is [System.Collections.IDictionary]) {
+        foreach ($key in $Value.Keys) {
+            $Strings.Add([string]$key)
+            Add-AuditJsonStrings -Value $Value[$key] -Strings $Strings
+        }
+        return
+    }
+    if ($Value -is [System.Collections.IList]) {
+        foreach ($item in $Value) { Add-AuditJsonStrings -Value $item -Strings $Strings }
+    }
+}
+
 function Assert-ArchiveSanitized {
     param([Parameter(Mandatory)][string]$Directory)
     $secrets = @(Get-SecretValuesForArchive)
     $privateValues = @($invokingRoot, $context.BaseDirectory) | Where-Object { $_ }
     foreach ($file in Get-ChildItem -LiteralPath $Directory -File -Recurse) {
         $content = [IO.File]::ReadAllText($file.FullName)
-        foreach ($secret in $secrets) {
-            if ($content.Contains($secret, [StringComparison]::Ordinal)) { throw "Archive hygiene check found a credential in '$($file.Name)'." }
+        $textValues = [Collections.Generic.List[string]]::new()
+        if ($file.Extension -eq '.json') {
+            try {
+                $document = ConvertFrom-Json -InputObject $content -AsHashtable
+                Add-AuditJsonStrings -Value $document -Strings $textValues
+            }
+            catch { throw "Archive hygiene check found invalid JSON in '$($file.Name)'." }
         }
-        foreach ($privateValue in $privateValues) {
-            if ($content.Contains($privateValue, [StringComparison]::OrdinalIgnoreCase)) { throw "Archive hygiene check found a machine-local path in '$($file.Name)'." }
+        else { $textValues.Add($content) }
+        foreach ($textValue in $textValues) {
+            foreach ($secret in $secrets) {
+                if ($textValue.Contains($secret, [StringComparison]::Ordinal)) { throw "Archive hygiene check found a credential in '$($file.Name)'." }
+            }
+            foreach ($privateValue in $privateValues) {
+                if ($textValue.Contains($privateValue, [StringComparison]::OrdinalIgnoreCase)) { throw "Archive hygiene check found a machine-local path in '$($file.Name)'." }
+            }
+            if ($textValue -match '(?i)(?:[A-Z]:\\|\\\\)[^\s"<>]+') { throw "Archive hygiene check found a Windows path in '$($file.Name)'." }
+            if ($textValue -match '(?<!\w)/(?:home|users|mnt|tmp)/[^\s"<>]+') { throw "Archive hygiene check found a Unix user or temporary path in '$($file.Name)'." }
+            if ($textValue -match '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b') { throw "Archive hygiene check found an email address in '$($file.Name)'." }
         }
-        if ($content -match '(?i)(?:[A-Z]:\\|\\\\)[^\s"<>]+') { throw "Archive hygiene check found a Windows path in '$($file.Name)'." }
-        if ($content -match '(?<!\w)/(?:home|users|mnt|tmp)/[^\s"<>]+') { throw "Archive hygiene check found a Unix user or temporary path in '$($file.Name)'." }
-        if ($content -match '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b') { throw "Archive hygiene check found an email address in '$($file.Name)'." }
     }
 }
 
