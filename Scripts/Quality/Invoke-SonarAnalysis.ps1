@@ -244,7 +244,7 @@ function Get-QualityScannerArguments {
 
 function Get-AnalysisFromServer {
     param([Parameter(Mandatory)][string]$AnalysisId, [Parameter(Mandatory)][string]$Token)
-    $headers = Get-QualityApiHeaders -Token $Token
+    $headers = New-QualityAuthHeader -Token $Token
     $analyses = [Collections.Generic.List[object]]::new()
     $page = 1
     $total = $null
