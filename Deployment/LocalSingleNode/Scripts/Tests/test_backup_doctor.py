@@ -16,6 +16,7 @@ import backup
 import bootstrap
 import doctor
 from machine import yaml
+from test_settings_fixture import fixture_settings
 
 
 class BackupTests(unittest.TestCase):
@@ -154,6 +155,11 @@ class BackupTests(unittest.TestCase):
 
 
 class DoctorTests(unittest.TestCase):
+    def setUp(self):
+        fixture = patch.object(doctor, 'settings', side_effect=fixture_settings)
+        fixture.start()
+        self.addCleanup(fixture.stop)
+
     def test_unsupported_platform_stops_before_services(self):
         with patch.object(doctor, 'native', return_value=False), patch.object(doctor, 'command') as command:
             self.assertEqual([dict(name='native-linux', **{'pass': False})], doctor.check())

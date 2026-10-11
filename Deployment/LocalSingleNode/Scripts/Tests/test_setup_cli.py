@@ -3,10 +3,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from test_settings_fixture import write_settings
 
 ROOT = Path(__file__).resolve().parents[4]
 TARGET = ROOT / "Deployment/LocalSingleNode"
@@ -39,7 +41,7 @@ elif name == 'git':
     if state.get('error'):
         sys.exit(1)
     if 'get-url' in args:
-        owner = 'fixture-owner' if not state.get('fork', True) else 'grumlebob'
+        owner = 'fixture-owner' if not state.get('fork', True) else 'template-owner'
         say('https://github.com/' + owner + '/fixture-repo.git')
     elif 'status' in args:
         say(' M file' if state.get('dirty') else '')
@@ -89,6 +91,16 @@ class StatusCliTests(unittest.TestCase):
     def invoke(self, state):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
+            fixture_root = folder / 'repo'
+            fixture_target = fixture_root / 'Deployment/LocalSingleNode'
+            library = fixture_target / 'Scripts/lib'
+            library.mkdir(parents=True)
+            for source in (TARGET / 'Scripts/lib').glob('*.py'):
+                shutil.copyfile(source, library / source.name)
+            write_settings(fixture_target / 'inventory/group_vars/all.yml')
+            release = fixture_root / 'Deployment/Common/release.yml'
+            release.parent.mkdir(parents=True)
+            release.write_text('app_image: ghcr.io/template-owner/fixture-repo\n')
             tools = folder / "bin"
             tools.mkdir()
             for name in ("git", "gh", "uname", "hostname", "ip", "id", "bash"):
@@ -98,9 +110,9 @@ class StatusCliTests(unittest.TestCase):
             etc = folder / "etc/localsinglenode"
             etc.mkdir(parents=True)
             if state.get('root', True):
-                owner = 'fixture-owner' if not state.get('fork', True) else 'grumlebob'
+                owner = 'fixture-owner' if not state.get('fork', True) else 'template-owner'
                 (etc / 'bootstrap.json').write_text(json.dumps(dict(version=1, apps={'books': dict(version=1, node='node-rehearsal', app='books', repo=owner + '/fixture-repo', ci_runner=False), 'other-app': dict(repo='foreign/preserve')})))
-            record_path = folder / '.local/share/localsinglenode-setup' / hashlib.sha256(str(ROOT).encode()).hexdigest()[:16] / 'node-rehearsal.json'
+            record_path = folder / '.local/share/localsinglenode-setup' / hashlib.sha256(str(fixture_root).encode()).hexdigest()[:16] / 'node-rehearsal.json'
             record_path.parent.mkdir(parents=True)
             record = dict(sha=SHA)
             if state.get('verify', True):
@@ -110,7 +122,7 @@ class StatusCliTests(unittest.TestCase):
             record_path.write_text(json.dumps(record))
             environment = {key: value for key, value in os.environ.items() if key not in ('WSL_INTEROP', 'WSL_DISTRO_NAME', 'SUDO_USER')}
             environment.update(PATH=str(tools) + ':/usr/bin:/bin', LOCALSINGLENODE_ETC=str(folder / 'etc'), HOME=str(folder), FIXTURE_STATE=json.dumps(state))
-            result = subprocess.run([sys.executable, str(TARGET / 'Scripts/lib/setup_status.py'), '--node', 'node-rehearsal', '--json'], capture_output=True, text=True, env=environment)
+            result = subprocess.run([sys.executable, str(library / 'setup_status.py'), '--node', 'node-rehearsal', '--json'], capture_output=True, text=True, env=environment)
             self.assertTrue(result.stdout.strip(), result.stderr)
             return result.returncode, json.loads(result.stdout)
 
