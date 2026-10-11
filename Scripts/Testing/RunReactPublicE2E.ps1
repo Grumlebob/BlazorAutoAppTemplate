@@ -242,13 +242,19 @@ try {
     }
 
     $quotedAppDll = '"' + $appDll + '"'
-    $appProcess = Start-Process -FilePath 'dotnet' `
-        -ArgumentList @($quotedAppDll, '--urls', $baseUrl) `
-        -WorkingDirectory (Join-Path $repoRoot 'BlazorAutoApp') `
-        -WindowStyle Hidden `
-        -RedirectStandardOutput $appOutputPath `
-        -RedirectStandardError $appErrorPath `
-        -PassThru
+    $startProcessOptions = @{
+        FilePath = 'dotnet'
+        ArgumentList = @($quotedAppDll, '--urls', $baseUrl)
+        WorkingDirectory = (Join-Path $repoRoot 'BlazorAutoApp')
+        RedirectStandardOutput = $appOutputPath
+        RedirectStandardError = $appErrorPath
+        PassThru = $true
+    }
+    if ($IsWindows) {
+        $startProcessOptions.WindowStyle = 'Hidden'
+    }
+
+    $appProcess = Start-Process @startProcessOptions
 
     $appReady = $false
     for ($attempt = 0; $attempt -lt 90; $attempt++) {
