@@ -52,7 +52,7 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
    powershell -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile React -AcceptanceProfile ReactPublicV1 -BaseUrl https://demo.example.com
    ```
 
-   The selected profiles must match the verified release manifest. Certificate validation stays enabled. React acceptance checks readiness, the public shell and data, inactive account routes, protected API denial, cache/security headers and no session cookie; it performs no account or user-data writes. Verify interactive React behavior in a real browser. Prove public recovery after an authorized connector restart and native reboot. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
+   The selected profiles must match the verified release manifest. Certificate validation stays enabled. React acceptance checks readiness, the public shell and data, inactive account routes, protected API denial, cache/security headers and no session cookie; it performs no account or user-data writes. Verify interactive React behavior in a real browser. For the React v1 goal, perform one scoped app restart and verify public seed-data persistence, connector health, and existing backup/doctor status. Connector restart or node reboot drills are conditional on changed connector/boot behavior or a concrete recovery concern. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
 
 ## Repeated setup and recovery
 
