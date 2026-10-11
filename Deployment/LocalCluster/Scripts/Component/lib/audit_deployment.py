@@ -2028,7 +2028,7 @@ require_contains(single + "/Scripts/lib/ls_settings.py", 'os.environ.get("LOCALS
 require_file(single + "/Scripts/Tests/test_app_instance.py")
 
 setup_workflow = read(".github/workflows/localsinglenode-app-setup.yml")
-for needle in ("test \"$GITHUB_REF\" = refs/heads/main", "find-successful-ci-run.py --target-sha", "--prepare-additional",
+for needle in ("test \"$GITHUB_REF\" = refs/heads/main", "verify-operation-source.py", "fetch-depth: 0", "--prepare-additional",
                "vars.LOCALSINGLENODE_RUNNER_LABEL", "with-deploy-lock.sh", "prepare-additional-app.sh", "if: always()"):
     if needle not in setup_workflow:
         fail(f".github/workflows/localsinglenode-app-setup.yml: missing scoped setup guard {needle}")
@@ -2162,7 +2162,7 @@ require_contains(".github/workflows/localsinglenode-maintenance.yml", "Scripts/r
 require_contains(single + "/Scripts/restart-public-connector-check.sh", 'sudo -n systemctl restart "$UNIT"', "connector restart is non-interactive and scoped to the app unit")
 require_contains(single + "/Scripts/restart-public-connector-check.sh", "InvocationID", "connector recovery proves a new systemd invocation")
 for needle in ("app_instance:", "inputs.app_instance", "vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT",
-               "secrets.LOCALSINGLENODE_APP_INSTANCE", "resolve-app-instance.py", "Require successful exact-source main CI",
+               "secrets.LOCALSINGLENODE_APP_INSTANCE", "resolve-app-instance.py", "Require green main CI for unchanged operation code",
                "restart_app:", "inputs.restart_app == true", "Scripts/restart-app-check.py", "with-deploy-lock.sh",
                "Additional-app maintenance cannot request a shared host reboot", "if: always()", "instance-settings.yml"):
     require_contains(".github/workflows/localsinglenode-maintenance.yml", needle, "protected per-app maintenance and scoped restart")
@@ -2172,6 +2172,10 @@ for needle in ("instance.verify_owned(config, source)", "verify-release-identity
 require_contains(single + "/Scripts/lib/doctor.py", "runner_active(runner_app())", "additional app reuses primary runner")
 require_contains(single + "/Scripts/lib/maintenance.py", 'runner_app()', "runner residue uses the existing primary registration")
 require_file(single + "/Scripts/Tests/test_app_operations.py")
+for needle in ("--first-parent", "--no-renames", "100644", "ordinary_documentation", "no_eligible_run", "cat-file", "decode('utf-8')",
+               "validated_code_sha", "--is-shallow-repository", "find-successful-ci-run.py"):
+    require_contains("Deployment/Common/Scripts/verify-operation-source.py", needle, "strict unchanged-code operational CI gate")
+require_file("Deployment/Common/Scripts/Tests/test_operation_source.py")
 require_contains(single + "/Scripts/lib/backup.py", 'completed < started', "requested backups cannot reuse stale completion markers")
 require_contains(single + "/Scripts/lib/backup.py", 'Fresh protected backup:', "explicit fresh dump evidence without secret contents")
 require_contains(single + "/Scripts/acceptance-check.sh", 'public-acceptance-check.sh', "public acceptance after LAN acceptance")
