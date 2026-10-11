@@ -509,6 +509,7 @@ Executor review identified and resolved these risks:
 | A file-based lock could appear permanently stale after a crash. | OS-held exclusive handle releases on process death; metadata/file existence is not ownership. |
 | Quick analysis could leave optional analyzer packages in default build inputs. | Normal selected-profile restore runs in the driver finalizer, tested after success and failure. |
 | Windows Git rejected the private full-audit worktree path at 263 characters. | A command-scoped `core.longpaths=true` worktree add/remove succeeded at the same path. The Full driver now applies that setting to its Git operations; the failed run archived its summary and started no server. |
+| The first Full candidate retry reached the server lifecycle wrapper but array splatting bound switch strings positionally. | The wrapper now forwards lifecycle actions through a named parameter hashtable. The failure occurred before Docker startup; the archived run retained its failure summary and cleaned its worktree. |
 | Coverage collection was assumed and duplicate files could distort import. | Both profile probes passed with the existing collector; direct GUID-child glob imports one canonical copy. |
 | React still compiles Client through solution/test references. | Explicit profile scope matrix and named server-inventory checks; no blanket Login exclusion. |
 | A second-profile failure could produce a misleading successful overall audit. | Per-profile status preservation and a nonzero, baseline-ineligible batch outcome. |

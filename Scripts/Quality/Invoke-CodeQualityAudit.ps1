@@ -87,8 +87,10 @@ function Get-OwnedSonarContainer {
 }
 
 function Invoke-ServerAction {
-    param([Parameter(Mandatory)][string]$Script, [Parameter(Mandatory)][string[]]$Arguments)
-    & $Script @Arguments -RepoRoot $context.RepoRoot -Context $context | Out-Host
+    param([Parameter(Mandatory)][string]$Script, [Parameter(Mandatory)][hashtable]$Parameters)
+    $Parameters.RepoRoot = $context.RepoRoot
+    $Parameters.Context = $context
+    & $Script @Parameters | Out-Host
 }
 
 function ConvertTo-AuditSafeMessage {
@@ -371,7 +373,7 @@ try {
     $beforeContainer = Get-OwnedSonarContainer
     $batch.server.wasRunning = -not [string]::IsNullOrWhiteSpace($beforeContainer)
     $serverStartAttempted = $true
-    Invoke-ServerAction -Script $serverScript -Arguments @('-Start', '-Initialize')
+    Invoke-ServerAction -Script $serverScript -Parameters @{ Start = $true; Initialize = $true }
     $afterContainer = Get-OwnedSonarContainer
     $serverStartedByCommand = (-not $batch.server.wasRunning) -and (-not [string]::IsNullOrWhiteSpace($afterContainer))
     $batch.server.startedByCommand = $serverStartedByCommand
@@ -405,7 +407,12 @@ try {
         }
         try {
             if ($Candidate) {
-                Invoke-ServerAction -Script $serverScript -Arguments @('-Start', '-EnsureCandidate', '-FrontendProfile', $profile, '-CandidateSha', $sourceSha)
+                Invoke-ServerAction -Script $serverScript -Parameters @{
+                    Start = $true
+                    EnsureCandidate = $true
+                    FrontendProfile = $profile
+                    CandidateSha = $sourceSha
+                }
             }
             $analysisScript = Join-Path $entry.path 'Scripts/Quality/Invoke-SonarAnalysis.ps1'
             $analysis = & $analysisScript -FrontendProfile $profile -ProjectKey $projectKey -AnalyzedSha $sourceSha `
@@ -460,7 +467,7 @@ finally {
         }
         if ($serverStartAttempted -and $serverStartedByCommand -and -not $KeepServerRunning -and $worktrees.Count -gt 0) {
             $serverScript = Join-Path $worktrees[0].path 'Scripts/Quality/SonarQubeServer.ps1'
-            Invoke-ServerAction -Script $serverScript -Arguments @('-Stop')
+            Invoke-ServerAction -Script $serverScript -Parameters @{ Stop = $true }
             if ($batch) { $batch.server.stoppedByCommand = $true }
         }
     }
