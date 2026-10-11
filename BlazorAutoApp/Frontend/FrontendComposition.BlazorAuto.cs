@@ -43,6 +43,10 @@ internal static class FrontendComposition
 
     public static Task SeedFrontendDataAsync(WebApplication app) => app.SeedLocalLoginAccountsAsync();
 
+    public static void UseFrontendStaticFiles(WebApplication app)
+    {
+    }
+
     public static void MapFrontendEndpoints(WebApplication app)
     {
         app.MapStaticAssets();

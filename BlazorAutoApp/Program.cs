@@ -48,6 +48,8 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+FrontendComposition.UseFrontendStaticFiles(app);
+
 await app.ApplyAppMigrationsAsync();
 await app.SeedAuthorBooksAsync();
 await FrontendComposition.SeedFrontendDataAsync(app);

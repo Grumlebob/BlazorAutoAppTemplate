@@ -7,6 +7,7 @@ internal static class FrontendComposition
     public static void AddFrontendServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ICurrentUserAccessor, HttpPrincipalCurrentUserAccessor>();
+        services.AddSingleton<ReactFrontendStaticRoot>();
     }
 
     public static void UseFrontendMiddleware(WebApplication app)
@@ -18,10 +19,19 @@ internal static class FrontendComposition
         }
     }
 
+    public static void UseFrontendStaticFiles(WebApplication app)
+    {
+        ReactFrontendHosting.UseStaticFiles(
+            app,
+            app.Services.GetRequiredService<ReactFrontendStaticRoot>().FileProvider);
+    }
+
     public static Task SeedFrontendDataAsync(WebApplication app) => Task.CompletedTask;
 
     public static void MapFrontendEndpoints(WebApplication app)
     {
-        // React static assets and SPA routes are added by the static-hosting packet.
+        ReactFrontendHosting.MapNavigationFallback(
+            app,
+            app.Services.GetRequiredService<ReactFrontendStaticRoot>().FileProvider);
     }
 }
