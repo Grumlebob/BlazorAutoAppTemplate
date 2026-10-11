@@ -79,3 +79,9 @@ Do not create directories, change Docker/Caddy/DNS/tunnel state, install or reco
 - Runner scope: unverified for the downstream repository. The configured node runner check passed, but repository access scope could not be verified without the downstream repository identity.
 
 No sudo or node configuration changes were used or made. No deployment, restart, cleanup, or resource changes were performed.
+
+## Controller continuation: runner decision (2026-10-11)
+
+The owner has explicitly approved a separate downstream repository runner registration on the same native node, preserving the existing upstream runner. This supersedes the earlier default against adding a second service for this delivery only. Native collision, Docker-backed workload/doctor and capacity checks must still pass before registration or owned app setup. It does not authorize moving the existing runner, broader SSH privileges, shared-service disruption, or bypassing release gates.
+
+PR #158 merged persistent SSH/readiness evidence and profile-aware test instructions as `ef6c844cb323897a4ae251b97aaffd72ac420e72`, after exact-head required run `38148042847` succeeded. Main run `38148508808` remains pending at this checkpoint. PR #160 isolates offline fixtures from customized deployment settings; local template and candidate checks pass, and exact-head CI is pending. Both candidate application profiles and React package checks pass locally. The candidate remains unpushed. Use the new read-only native readiness workflow only after its own merge and green main CI. Final cleanup remains last.

@@ -1,0 +1,33 @@
+name: LocalSingleNode read-only readiness
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: localsinglenode-readiness
+  cancel-in-progress: false
+jobs:
+  readiness:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 5
+    steps:
+      - name: Require trusted enabled main
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *",localsinglenode,"* ]]
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Verify the intended native node
+        env:
+          READINESS_CANDIDATE: ${{ secrets.LOCALSINGLENODE_READINESS_CANDIDATE }}
+        run: python3 Deployment/LocalSingleNode/Scripts/native-readiness.py --verify-only
+      - name: Inspect candidate readiness without mutation
+        env:
+          READINESS_CANDIDATE: ${{ secrets.LOCALSINGLENODE_READINESS_CANDIDATE }}
+        run: python3 Deployment/LocalSingleNode/Scripts/native-readiness.py

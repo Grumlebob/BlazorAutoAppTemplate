@@ -54,3 +54,7 @@ After fixes and coordination are complete, remove `debug.md` and obsolete tempor
 After a LAN address change, update native machine facts through the existing node process, repeat `authorize`, then repeat `configure`. The pinned host key must remain identical. A DHCP reservation makes address changes less likely. For a replaced node or intentional host-key rotation, verify the new public key through the native session before deliberately replacing the dedicated local trust record. Never disable strict checking or delete unrelated known-host entries to bypass a mismatch.
 
 To revoke a controller, remove only its exact unrestricted public-key entry from the install user's `authorized_keys` through an authorized native session. Remove its two repository variables and its dedicated local include/config/key files only after checking their ownership. Preserve other controllers, user keys and shared node services.
+
+## Docker-backed readiness
+
+When the original install user's SSH session lacks Docker access, use [the read-only native runner diagnostics](Readiness.md). The existing deployment account performs the ordinary candidate collision check, configured doctor and workload/backup/capacity inspection without sudo or application mutation. This preserves the SSH user's existing privileges and keeps candidate installation values out of public logs.

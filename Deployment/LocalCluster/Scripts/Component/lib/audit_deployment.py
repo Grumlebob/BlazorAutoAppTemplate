@@ -1880,7 +1880,13 @@ for workflow in workflow_paths:
                     fail(f"{workflow}: every CI job must verify the configured CI host")
         elif single_node_workflow:
             require_contains(workflow, "Verify the intended native node", "explicit native deployment host verification")
-            require_contains(workflow, 'test "$(hostname)" = "$LOCALSINGLENODE_HOST"', "mandatory configured single-node host")
+            if workflow == ".github/workflows/localsinglenode-readiness.yml":
+                require_contains(workflow, "native-readiness.py --verify-only", "protected candidate host verification before Docker inspection")
+                require_contains(workflow, "secrets.LOCALSINGLENODE_READINESS_CANDIDATE", "masked native host identity input")
+                require_contains("Deployment/LocalSingleNode/Scripts/native-readiness.py", "host != socket.gethostname()", "exact protected single-node host identity")
+                require_contains("Deployment/LocalSingleNode/Scripts/native-readiness.py", "read_yaml(ETC / 'localsinglenode/machine.yml', node=True)['name'] != host", "protected host agrees with recorded native facts")
+            else:
+                require_contains(workflow, 'test "$(hostname)" = "$LOCALSINGLENODE_HOST"', "mandatory configured single-node host")
         else:
             require_contains(workflow, "Verify node-main runner", "explicit node-main runner verification")
     if Path(workflow).name.startswith("cd-") or Path(workflow).name.endswith("-maintenance.yml"):
@@ -2036,6 +2042,10 @@ require_contains(single + "/Scripts/lib/doctor.py", 'data[4] == machine["ip"]', 
 require_contains(single + "/Scripts/lib/doctor.py", '"--property=Id,ActiveState,User,WorkingDirectory"', "read-only runner service inspection without deploy home access")
 require_contains(single + "/Scripts/lib/collisions.py", 'recorded_source.casefold() == source.casefold()', "case-insensitive GitHub repository ownership with exact app roots")
 require_contains(single + "/Scripts/lib/collisions.py", '(network.get("IPAM") or {}).get("Config") or []', "nullable built-in Docker network IPAM while checking foreign subnets")
+require_contains(single + "/Scripts/lib/collisions.py", 'config = settings(settings_file)', "candidate collision settings use the normal parser and validation")
+require_contains(single + "/Scripts/lib/collisions.py", 'parser.add_argument("--settings-file", type=Path)', "explicit read-only candidate settings file")
+require_contains(".github/workflows/localsinglenode-readiness.yml", 'secrets.LOCALSINGLENODE_READINESS_CANDIDATE', "private candidate data is masked in runner logs")
+require_contains(single + "/Scripts/native-readiness.py", "collisions.check(payload['source_repo_url'], settings_file=path)", "candidate inspection preserves the normal non-bootstrap collision gate")
 require_contains(single + "/Scripts/acceptance-check.sh", 'lib/readiness.py', "bounded LAN warmup before the unchanged full acceptance check")
 require_contains(single + "/Scripts/acceptance-check.sh", '-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', "LAN acceptance uses trusted release profiles")
 require_contains(single + "/Scripts/lib/acceptance_profile.sh", "read_release_acceptance.py", "standalone node acceptance reads the deployed release marker")
