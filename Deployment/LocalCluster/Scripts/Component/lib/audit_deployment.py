@@ -2027,6 +2027,43 @@ for role in ("single_node_stack", "single_node_public"):
 require_contains(single + "/Scripts/lib/ls_settings.py", 'os.environ.get("LOCALSINGLENODE_SETTINGS_FILE")', "selected instance settings shared by runtime verification and acceptance")
 require_file(single + "/Scripts/Tests/test_app_instance.py")
 
+setup_workflow = read(".github/workflows/localsinglenode-app-setup.yml")
+for needle in ("test \"$GITHUB_REF\" = refs/heads/main", "find-successful-ci-run.py --target-sha", "--prepare-additional",
+               "vars.LOCALSINGLENODE_RUNNER_LABEL", "with-deploy-lock.sh", "prepare-additional-app.sh", "if: always()"):
+    if needle not in setup_workflow:
+        fail(f".github/workflows/localsinglenode-app-setup.yml: missing scoped setup guard {needle}")
+scoped_setup = read(single + "/ansible/playbooks/PrepareAdditionalApp.yml")
+for needle in ("verify-additional-app.py", "check-port-collisions.sh", "--settings-file", "backup_existing_host: true",
+               "force: false", '"/etc/{{ app_name }}/settings.yml"', "single_node_backup", "ufw allow from {{ lan_cidr }} to any port {{ lan_http_port }}"):
+    if needle not in scoped_setup:
+        fail(f"{single}/ansible/playbooks/PrepareAdditionalApp.yml: missing owned-app setup {needle}")
+for needle in ("mint_base", "caddy_install", "single_node_firewall", "avahi", "state: restarted", "ansible.builtin.user", "ansible.builtin.apt", "sudoers"):
+    if needle in scoped_setup:
+        fail(f"{single}/ansible/playbooks/PrepareAdditionalApp.yml: app setup cannot change shared host configuration {needle}")
+scoped_wrapper = read(single + "/Scripts/prepare-additional-app.sh")
+for needle in ("LOCALCLUSTER_DEPLOY_LOCK_TOKEN", "env -u LOCALSINGLENODE_SETTINGS_FILE", "native-readiness.py", "PrepareAdditionalApp.yml"):
+    if needle not in scoped_wrapper:
+        fail(f"{single}/Scripts/prepare-additional-app.sh: missing lock/readiness scope {needle}")
+if scoped_wrapper.find("native-readiness.py") > scoped_wrapper.find("ansible-playbook"):
+    fail("localsinglenode: recheck existing workload, backup and capacity before scoped preparation")
+resource_guard = read(single + "/Scripts/verify-additional-app.py")
+for needle in ("instance.verify_owned(primary, source)", "instance.verify_owned(candidate, source)", "root.parents", "inspect_resources",
+               'for kind in ("network", "volume")', "unowned backup unit", "os.geteuid() != 0"):
+    if needle not in resource_guard:
+        fail(f"{single}/Scripts/verify-additional-app.py: missing foreign-resource rejection {needle}")
+backup_tasks = read(single + "/ansible/roles/single_node_backup/tasks/main.yml")
+if backup_tasks.count("when: not (backup_existing_host | default(false) | bool)") != 3:
+    fail("localsinglenode: app-only backup preparation must skip deploy group and shared reboot-helper changes")
+require_contains(single + "/Scripts/validate-playbooks.sh", "PrepareSingleNode PrepareAdditionalApp site", "scoped app playbook syntax coverage")
+require_file(single + "/Scripts/Tests/test_additional_setup.py")
+
+public_publisher = read(single + "/Scripts/configure-public-deployment.py")
+for needle in ("--environment", "--instance-config-file", "module.validate_additional", "configured distinct repository environment",
+               '"LOCALSINGLENODE_APP_INSTANCE"', '"--env", args.environment', "input_value=json.dumps(payload, sort_keys=True)"):
+    if needle not in public_publisher:
+        fail(f"{single}/Scripts/configure-public-deployment.py: missing additional public secret isolation {needle}")
+require_file(single + "/Scripts/Tests/test_public_instance.py")
+
 single_release_identity = read(single + "/Scripts/verify-release-identity.sh")
 for needle, why in [
     ("com.blazorautoapp.frontend-profile", "running frontend profile identity"),
@@ -2158,6 +2195,10 @@ require_contains(".github/workflows/cd-localsinglenode.yml", '-e @"$PUBLIC_EXTRA
 require_contains(".github/workflows/cd-localsinglenode.yml", 'rm -f -- "$PUBLIC_EXTRA_VARS_FILE"', "temporary connector credential cleanup")
 require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'Tunnel name exists without recorded ownership', "foreign tunnel refusal")
 require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'replacement is refused', "foreign DNS refusal")
+require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'current_result.get("config") is None', "unconfigured owned tunnel response handling")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_new_tunnel_null_configuration_is_initialized_once', "new tunnel null configuration regression")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_owned_null_configuration_read_only_check_never_mutates', "unconfigured tunnel read-only regression")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_malformed_owned_configuration_is_refused', "malformed tunnel configuration refusal regression")
 
 
 if failures:

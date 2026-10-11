@@ -72,3 +72,14 @@ The existing LocalSingleNode workflow now accepts `primary` (default) or `additi
 
 SR2 full local gate passed: both profile suites retained 211/203 passing tests with 13 expected skips each; all Python and shell fixtures, validators, audit, rendering, lint and single-node playbook syntax passed. All 15 new instance fixtures passed. No application configuration, runner, native resource or deployment changed. Required exact-head/main CI remains pending.
 
+
+### SR3 implementation
+
+The new existing-runner additional-app setup workflow requires trusted enabled main, a distinct protected environment, exact-source successful main CI and primary native ownership. Under the shared lock it repeats native workload/backup/capacity readiness and ordinary collisions. A privileged read-only guard refuses foreign app containers/networks/data volumes, backup units and symlinked roots before the app-only playbook creates owned roots, fresh retained secrets, persisted settings, scoped backup integration and one LAN HTTP firewall allowance. Backup integration skips deploy group and shared reboot-helper changes for this route. No full bootstrap, additional runner, host package/identity/SSH changes or shared-service restart occurs.
+
+Public configuration publishing also accepts a validated additional environment and protected instance file, verifies provider state and token binding, and writes only that environment's public variables and secrets. Primary public configuration stays intact. Setup and public publication have offline scope/failure fixtures and deployment audit coverage. Live readiness, setup and public deployment remain pending.
+
+SR3 local gate passed before push: Blazor 211/13 and React 203/13 passed/expected skips; 55 CI, 130 single-node (17 new scoped-setup/public-publication checks), 69 common and 23 cluster fixtures; all shell fixtures, validators, audit, rendering and lint; and syntax for all three native playbooks. Actions lint caught masked command-substitution exit statuses in two exports; assignments now fail correctly before export, and lint plus relevant gates passed again. Installation settings remain private; no node resources or deployment changed.
+
+Provider preflight subsequently found that Cloudflare returns `config: null` for a newly created remotely managed tunnel. The protected ownership state recorded the created tunnel before this response stopped setup; no DNS record or connector credential was created. The shared helper now treats an absent configuration as empty only after recorded tunnel ownership matches the account inventory. It still refuses malformed non-object configuration and foreign ingress. Three offline regressions cover initialization without duplicate resources, read-only refusal without mutation and malformed configuration refusal. The deployment audit requires these checks. Final local gate and exact-head/main CI evidence are recorded in the SR3 PR description.
+

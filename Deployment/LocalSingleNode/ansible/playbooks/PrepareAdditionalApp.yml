@@ -1,0 +1,101 @@
+---
+- name: Prepare only the additional app on an already configured native node
+  hosts: all
+  become: true
+  vars_files:
+    - ../../inventory/group_vars/all.yml
+    - ../../../Common/release.yml
+  vars:
+    backup_existing_host: true
+  pre_tasks:
+    - name: Require existing native identity and scoped setup inputs
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == ansible_hostname
+          - "'microsoft' not in ansible_kernel | lower"
+          - source_repo_url is match('^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
+          - instance_settings_file | length > 0
+          - install_user not in ['root', 'deploy']
+    - name: Verify current and candidate ownership before mutation
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ playbook_dir }}/../../Scripts/verify-additional-app.py"
+          - --settings-file
+          - "{{ instance_settings_file }}"
+          - --source-repo-url
+          - "{{ source_repo_url }}"
+      changed_when: false
+    - name: Check ordinary port subnet and directory collisions
+      ansible.builtin.command:
+        argv:
+          - bash
+          - "{{ playbook_dir }}/../../Scripts/check-port-collisions.sh"
+          - --source-repo-url
+          - "{{ source_repo_url }}"
+          - --settings-file
+          - "{{ instance_settings_file }}"
+      changed_when: false
+    - name: Require existing deploy backup group membership
+      ansible.builtin.command: id -Gn deploy
+      register: existing_deploy_groups
+      changed_when: false
+    - name: Refuse privilege changes to add an app
+      ansible.builtin.assert:
+        that:
+          - install_group in existing_deploy_groups.stdout.split()
+    - name: Require the existing firewall to be active
+      ansible.builtin.command: ufw status
+      register: existing_firewall
+      changed_when: false
+      failed_when: "'Status: active' not in existing_firewall.stdout"
+    - name: Record only the additional app ownership
+      ansible.builtin.copy:
+        content: "{{ {'source_repo_url': source_repo_url, 'deploy_root': deploy_root, 'backup_root': backup_root} | to_nice_json }}"
+        dest: "/etc/localsinglenode/apps/{{ app_name }}.json"
+        owner: root
+        group: root
+        mode: "0644"
+    - name: Ensure only the additional deployment root
+      ansible.builtin.file:
+        path: "{{ deploy_root }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0750"
+    - name: Ensure the protected additional runtime secret directory
+      ansible.builtin.file:
+        path: "/etc/{{ app_name }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: "0711"
+    - name: Preserve validated app settings for scoped operator commands
+      ansible.builtin.copy:
+        src: "{{ instance_settings_file }}"
+        dest: "/etc/{{ app_name }}/settings.yml"
+        owner: root
+        group: root
+        mode: "0644"
+    - name: Generate fresh app secrets only when absent
+      ansible.builtin.copy:
+        dest: "/etc/{{ app_name }}/secrets.yml"
+        content: |
+          vault_postgres_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
+          vault_redis_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
+        force: false
+        owner: deploy
+        group: deploy
+        mode: "0600"
+      no_log: true
+    - name: Preserve protected secret permissions on reuse
+      ansible.builtin.file:
+        path: "/etc/{{ app_name }}/secrets.yml"
+        owner: deploy
+        group: deploy
+        mode: "0600"
+    - name: Add only the additional LAN HTTP firewall allowance
+      ansible.builtin.command: "ufw allow from {{ lan_cidr }} to any port {{ lan_http_port }} proto tcp"
+      changed_when: false
+  roles:
+    - single_node_backup
