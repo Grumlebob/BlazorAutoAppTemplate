@@ -70,7 +70,7 @@ Publication blockers: current source/revision, conflicting award cutoff copy, da
 
 **Standfirst suggestion:** A tool for recurring email tasks, with the actual workflow explained through one concrete example.
 
-Private `mail` and `MailDemo` sources are now supplied. Begin with `mail`: it explicitly names GeckoBot and separates Outlook booking flow, parser and Tkinter UI modules. The related demo is useful for comparison. Review requirements and confirm the owner's intended version before publishing; declarations have been inspected, but runtime behavior has not.
+Private `mail` is the selected sole active source: it explicitly names GeckoBot and separates Outlook booking flow, parser and Tkinter UI modules. The owner requested deletion of MailDemo; its distinct examples and complete Git history are retained only in a private backup. Review mail's requirements and actual historical use before publishing; source structure has been inspected, but runtime behavior has not.
 
 - The repetitive work: establish the real task and why it was repetitive.
 - The workflow: describe trigger, inputs, transformations and output from source evidence.

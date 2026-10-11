@@ -8,6 +8,7 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | Read this document | Purpose |
 | --- | --- |
 | This master plan | Product scope, approved Studio design, content/API architecture and final acceptance |
+| [Architecture.md](Support/PortfolioStudio/Architecture.md) | Feature boundaries, end-to-end vertical slices, first-story implementation sequence and slice acceptance |
 | [DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) | Ordered phases, small executable packets, dependency gates, checks and removal inventories |
 | [Progress.md](Support/PortfolioStudio/Progress.md) | Current task, packet ledger, blockers, decision records and resume prompt |
 | [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, eleven project story treatments, illustration briefs and publication checklist |
@@ -20,11 +21,27 @@ Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.m
 
 Build Jacob Grum's public portfolio from the approved Studio mockup. Home presents projects. Each project opens a continuous, illustrated story with navigation between its sections.
 
-This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md) and [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) deliver the reusable public React foundation and its reference deployment. Another agent owns that delivery. Do not add portfolio requirements to its current packets, modify its worktrees, or treat its public demo as the portfolio deployment.
+This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md) and [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) record the reusable public React foundation and its current owner scope. Another agent owns that work and cleanup. Do not add portfolio requirements to its current packets, modify its worktrees, or treat the template's existing deployment as the portfolio deployment.
 
 The present request expands the plan; it does not execute the product migration, bootstrap a node or dispatch a deployment. A future instruction to execute this plan authorizes its ordinary repository work. Before live bootstrap or deployment, record the operator's applicable instruction and the exact target/release in the progress ledger. Do not borrow the other React agent's deployment authorization.
 
-Planning checkpoint: upstream `main` was `99c319fc38b3b443cd7115093a5c614c1f9de7e3`, with successful [main CI run 38146167014](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38146167014). The Portfolio repository existed with no default branch/content, and the requested local Portfolio checkout did not exist. These facts were inspected on 2026-10-11; recheck them at execution. The React goal still records unfinished node/public acceptance. Expect it to finish soon, but never treat that expectation as evidence. Planning, source briefs and private operator preparation can proceed immediately; select the actual baseline through P0.
+Initial planning checkpoint: upstream `main` was `99c319fc38b3b443cd7115093a5c614c1f9de7e3`, with successful [main CI run 38146167014](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38146167014). The requested local Portfolio checkout did not exist at that inspection. A later readiness review on 2026-10-11 inspected upstream `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with successful [main CI run 38153407171](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38153407171); Portfolio still advertised no Git refs. These are inspection checkpoints, not a mandatory seed SHA.
+
+The current React goal retains P0–P7's reusable implementation and controller SSH, but withdraws its separate demo repository/release/deployment. Do not wait for that cancelled demo or recreate its resources. Its cleanup remains another agent's work. P0.1 must verify the actual merged foundation and reusable runbooks needed by Portfolio; Portfolio still has its own node, runner and public-release gates. Planning, source briefs and private operator preparation can proceed immediately.
+
+### Implementation readiness
+
+The plan is ready to begin P0. It defines eleven phases, 27 numbered technical packets and twelve P6 content/catalog packets, grouped into [vertical delivery slices](Support/PortfolioStudio/Architecture.md). A packet can span several small PRs; the ledger records exact inputs, claimed files, checks, merge evidence and next action. None of these Portfolio implementation packets has been executed by this planning task.
+
+| Area | Defined contract | Remaining execution work |
+| --- | --- | --- |
+| Architecture | React/TypeScript frontend, C# host/API/exporter, Git-authored content, generated API types, one public content revision | Verify pinned upstream versions and actual module paths in P0; choose the Markdown parser in P4.1 |
+| Product slices | Platform prerequisites, complete ImprovedDb journey, one reviewed story at a time, runtime alignment, public launch, recovery | VS1 combines P4/P5 with first-story P7 rendering/acceptance; finish content/API/React/direct HTML together |
+| Design/content | Approved Studio layout, shared route/block model, eleven distinct page briefs, media and publication rules | Preserve portable references, review preferred reports, confirm individual roles/status and approve prose/media |
+| Operations | Portfolio app/image identity, scoped resources, native actor handoffs, SSH, LocalSingleNode/Cloudflare and recovery | Establish native identity/access and CI capacity; authorize the specific live bootstrap/deployment when applicable |
+| Acceptance | Content validation, direct-route statuses, draft exclusion, both themes/mobile/accessibility, exact-head CI and public acceptance | Implement and record actual evidence; planning is not a passed runtime check |
+
+The launch recommendation is four reviewed stories, followed by remaining independent story packets. Missing GeckoBot media, Grumlebob's approved explanation or other late story inputs do not block the renderer or ready stories. DB/Redis retention/removal remains a deliberate P7.2 dependency decision. These are bounded packet decisions and content inputs, not reasons to redesign the overall architecture.
 
 ### Recommended decisions
 
@@ -32,7 +49,7 @@ Planning checkpoint: upstream `main` was `99c319fc38b3b443cd7115093a5c614c1f9de7
 | --- | --- | --- |
 | UI | React + TypeScript + Vite, using the delivered template's pinned versions | Reuse its build, development, error handling and deployment integration |
 | Routes | React Router Framework Mode | Route modules, layouts, navigation, route types and a path to static prerendering |
-| Rendering | Begin in SPA mode; prerender public pages before production launch | Validate the design early, then deliver readable HTML and metadata on direct requests |
+| Rendering | SPA as a development increment; prerender home/ImprovedDb before VS1 completes, then each published story | Every verified product slice has readable direct HTML and metadata |
 | API state | TanStack Query and the template's shared QueryClient | API caching, cancellation, retries and request states without another server-state store |
 | Styling | Tailwind CSS with a small local component set and shared theme tokens | Preserve Studio consistently without imposing a large component library |
 | Backend | ASP.NET Core, serving frontend assets and same-origin APIs | Retain validation, public content contracts and hosting in C# |
@@ -53,10 +70,10 @@ ASP.NET Core remains the runtime authority. Git is the authoring source for edit
 Before implementation:
 
 1. Read the master plan, companions, applicable repository rules, `docs/Test.md`, `docs/FrontendProfiles.md`, fork guide and LocalSingleNode runbooks. Inspect Git status, task ownership, worktrees and live PR/check evidence.
-2. Recheck the other agent's React delivery. Select a merged commit with green main CI containing the required React foundation, typed contracts, development commands, C# production hosting and reusable deployment tooling. Record what remains unfinished. Missing required infrastructure blocks seeding; unrelated demo acceptance may be waived only by recording why Portfolio does not depend on it. Do not copy unmerged work or alter the other agent's plan/worktrees.
+2. Recheck the other agent's React delivery. Select a merged commit with green main CI containing the required React foundation, typed contracts, development commands, C# production hosting and reusable deployment tooling. Record any unfinished reusable dependency. Missing required infrastructure blocks seeding; the withdrawn separate-demo acceptance is not a Portfolio dependency. Do not copy unmerged work or alter the other agent's plan/worktrees.
 3. Reinspect the supplied Portfolio repository before seeding. If it is still empty, disable inherited Actions during initial import and use a plain clone/import of the verified template commit with retained history. Apply the small Portfolio app/image/React seed configuration and inherited local gate described in P0.2 before the initial push or native bootstrap. Preserve pristine upstream provenance separately; point `origin` at Portfolio and `upstream` at the template. If it now contains work, preserve it and reconcile through a branch/PR. Never force-push or replace it.
 4. Create the sibling Portfolio checkout from the private intent note. Record independent app/image/release identity and `React` selection. Use the inherited bootstrap path for runner capacity if no runner can execute PR checks; do not get stuck waiting for CI on an unbootstrapped fresh node.
-5. Rename projects and namespaces deliberately, remove Blazor and unused targets through separate verified packets, then replace the Books domain. All product changes occur in Portfolio. Keep the template multi-profile/multi-target and its existing demo untouched.
+5. Rename projects and namespaces deliberately, remove Blazor and unused targets through separate verified packets, then replace the Books domain. All product changes occur in Portfolio. Keep the template multi-profile/multi-target and its existing Blazor deployment untouched.
 6. Make the Portfolio copy of this plan and its progress ledger authoritative after import. Link the template planning record to the downstream execution record once the first downstream PR is merged. Consume future upstream fixes selectively through review; do not blindly merge template changes over Portfolio removals.
 
 Planning and content preparation can proceed before the upstream gate. Product implementation begins once its dependencies are merged. Upstream fixes discovered later belong in separate template PRs and must be consumed through a verified merge.
@@ -137,7 +154,7 @@ Research notes describe seven possible rating signals, valid-value normalization
 
 ### Other project examples
 
-- **GeckoBot:** the owner supplied the private `Grumlebob/mail` and `Grumlebob/MailDemo` repositories. Begin with `mail`, which explicitly names GeckoBot and separates Outlook booking flow, parser and Tkinter UI modules; retain MailDemo as related demo evidence until the intended version is confirmed. Prepare fictional booking/email examples. No runtime behavior has been verified, and private source URLs are not public actions.
+- **GeckoBot:** the selected sole active source is private `Grumlebob/mail`, which explicitly names GeckoBot and separates Outlook booking flow, parser and Tkinter UI modules. At the owner's request, the earlier MailDemo repository was deleted after a complete private Git backup of its distinct examples. Repository selection is resolved; review requirements and actual historical use before publishing. Prepare fictional booking/email examples. No runtime behavior has been verified, and private source/backup URLs are not public actions.
 - **TraceBack:** describe the documented research prototype, explicit experiment/pipeline structure, data locations, saved run manifests, snapshots and recreation of saved context. Capture a synthetic workflow and preserve its reproducibility boundaries. Do not claim full pipeline execution or guaranteed identical results.
 - **KinoJoin:** use the owner-supplied [KinoJoin repository](https://github.com/Grumlebob/KinoJoin). Its inspected source supports cinema/showtime filtering, creating and sharing an event, participant preferences, results, host confirmation and calendar actions. Prepare a project-specific story, not a copy of ImprovedDb's headings.
 - **Ship Inspections:** use the owner-supplied [BlazorTusReliableUpload repository](https://github.com/Grumlebob/BlazorTusReliableUpload). Its inspected source contains vessel-part navigation, condition forms, attached images and resumable upload handling. Present the local/sample status accurately; do not infer production operation, compliance or working AI inference from the UI.
@@ -159,13 +176,15 @@ Do not infer employers, clients, dates, project roles, frameworks, public reposi
 3. Prepare Ship Inspections from its actual forms/upload source and capture a fictional inspection. Prepare Unlost from its confirmed historical report and existing screenshots; source recovery is not required.
 4. Prepare MiniTwit from the reviewed application/report/docs and BestBets first from the owner-selected Exam PDF and presentation, reconciled with report/prototype evidence. Keep historical operation, hypothetical requirements and measured evidence distinct.
 5. Prepare Geospatial research from its notebook/report, with a few legible attributed maps and plots, method explanations and limitations.
-6. Review GeckoBot's supplied sources/requirements and confirm the intended version. Obtain Grumlebob's approved public explanation and permitted generic figures; restricted source inspection is optional. These remaining content inputs do not block the other stories.
+6. Review GeckoBot's selected mail source/requirements and actual historical use. Obtain Grumlebob's approved public explanation and permitted generic figures; restricted source inspection is optional. These remaining content inputs do not block the other stories.
 7. Prepare JobHunt's administrative-work story and compact personal/assisted-task comparison using fictional examples. Reconcile its writing boundary and verify account-creation/credential claims before final public wording. Do not modify its private workflow as part of portfolio planning.
 8. Review each project's role/context, facts, media and links independently. An incomplete project stays a draft while ready projects proceed.
 
 For each story, record fact notes using the companion register's source IDs. Each numerical claim, historical date, implementation statement or outcome needs an evidence reference. Proposed personal motivation and lessons require owner review. Keep an explicit list of open questions instead of silently converting them into public copy.
 
 ## 5. Content architecture and API contract
+
+The owner prefers vertical slice architecture. [Architecture.md](Support/PortfolioStudio/Architecture.md) defines use-case feature boundaries and how each visitor outcome crosses content, C#, React, hosting and checks. P4 and P5 are work inventories for the first product slice; deliver first-story prerendering/acceptance from P7 in that same slice. Do not use the phase numbers to finish all backend work before beginning UI or defer direct readable HTML until every story exists.
 
 ### Authoring and publishing
 
@@ -312,7 +331,7 @@ Optional related-project links at the end of a story derive from published slugs
 
 These are portfolio-specific settings to confirm in the first slice, not replacements for the template's global defaults. Query considers data stale by default and can refetch on focus, mount and reconnect; choose the policy deliberately. See [Query defaults](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults).
 
-In the initial SPA slice, hooks use the generated API and optional `clientLoader` prefetching uses the same query options. In the prerendered release, editorial data can be rendered directly from the build snapshot. Do not add a Query request just to obtain data already present in static route output. When an existing API-backed hook is seeded, use the same key/DTO; revision-scoped static story entries can use `staleTime: Infinity` to prevent a later release replacing the narrative during reading. The ordinary API policy above still applies to unseeded/runtime reads. Keep real timestamps and content revisions; do not manufacture build-time data freshness to suppress hydration problems.
+During VS1's SPA development increment, hooks use the generated API and optional `clientLoader` prefetching uses the same query options. Before VS1 completes, prerendered editorial data can be rendered directly from the build snapshot. Do not add a Query request just to obtain data already present in static route output. When an existing API-backed hook is seeded, use the same key/DTO; revision-scoped static story entries can use `staleTime: Infinity` to prevent a later release replacing the narrative during reading. The ordinary API policy above still applies to unseeded/runtime reads. Keep real timestamps and content revisions; do not manufacture build-time data freshness to suppress hydration problems.
 
 ### Section links and scroll tracking
 
@@ -342,7 +361,7 @@ Use the project inventory's shot lists to prepare real media. For Unlost, select
 
 ## 7. Public rendering and hosting
 
-SPA mode is the development milestone, not the intended final public reading experience. Before launch, set `ssr:false` with an explicit prerender list containing `/` and every published `/projects/{slug}`. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
+SPA mode is an intermediate development milestone within VS1. Before VS1 completes, set `ssr:false` with an explicit prerender list containing `/` and the published ImprovedDb story; extend it to every published `/projects/{slug}` in each subsequent story slice. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
 
 Prerender loaders read the compiled public snapshot, not a live production API. They are a build-time adapter, not a second backend or an independent server-state store. For API-backed components, seed the same Query definitions from this snapshot and prevent a redundant hydration fetch. Keep runtime-only data out of static output. Match implementation details to the delivered Router version and verify generated HTML, navigation data and fallback artifacts rather than assuming their filenames.
 
@@ -361,6 +380,8 @@ Use [Progress.md](Support/PortfolioStudio/Progress.md) as the single execution l
 Start with one eligible packet per session. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient.
 
 Review the real Studio home and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
+
+Use [Architecture.md](Support/PortfolioStudio/Architecture.md) for feature ownership and vertical completion. A P4/P5 checkpoint is partial VS1 until first-story P7 hosting/prerender/acceptance works. Subsequent stories ship their content, contracts/renderers when needed, routes, metadata and checks together. The slice ledger summarizes these outcomes over the same packet inventory.
 
 ### Planned verification during implementation
 
