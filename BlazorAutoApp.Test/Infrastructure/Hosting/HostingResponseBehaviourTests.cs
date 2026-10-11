@@ -2,12 +2,18 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
+using BlazorAutoApp.Core.Features.Books.UseCases.CreateBook;
+using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
+using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -69,6 +75,54 @@ public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixtur
     }
 
     [Fact]
+    public async Task ProtectedBookApi_AnonymousHtmlRequests_Return401WithoutRedirectOrMutation()
+    {
+        using var client = fixture.Factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        var bookCountBefore = await CountBooksAsync(fixture.Factory.Services);
+        using var createContent = JsonContent.Create(new CreateBookRequest
+        {
+            Title = "Anonymous write must be denied",
+            Author = "No user",
+            Url = "https://example.test/anonymous-write"
+        });
+        using var updateContent = JsonContent.Create(new UpdateBookRequest
+        {
+            Id = 424242,
+            Title = "Anonymous update must be denied",
+            Author = "No user",
+            Url = "https://example.test/anonymous-update"
+        });
+        var requests = new[]
+        {
+            new HttpRequestMessage(HttpMethod.Get, "/api/books"),
+            new HttpRequestMessage(HttpMethod.Get, "/api/books/424242"),
+            new HttpRequestMessage(HttpMethod.Post, "/api/books") { Content = createContent },
+            new HttpRequestMessage(HttpMethod.Put, "/api/books/424242") { Content = updateContent },
+            new HttpRequestMessage(HttpMethod.Delete, "/api/books/424242")
+        };
+
+        for (var index = 0; index < requests.Length; index++)
+        {
+            using var request = requests[index];
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", $"203.0.113.{20 + index}");
+
+            using var response = await client.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Null(response.Headers.Location);
+            Assert.NotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
+            Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal(bookCountBefore, await CountBooksAsync(fixture.Factory.Services));
+    }
+
+    [Fact]
     public async Task TestAuthentication_AddsRolesFromHeader()
     {
         using var client = fixture.Factory.CreateAuthenticatedClient($"roles-{Guid.NewGuid():N}@example.test");
@@ -98,6 +152,14 @@ public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixtur
         Assert.True(response.Headers.CacheControl!.Private);
         Assert.True(response.Headers.CacheControl.NoStore);
         Assert.Contains("no-cache", response.Headers.Pragma.Select(value => value.Name));
+    }
+
+    private static async Task<int> CountBooksAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.Books.CountAsync();
     }
 }
 
