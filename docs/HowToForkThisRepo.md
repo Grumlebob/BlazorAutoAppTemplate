@@ -618,7 +618,7 @@ Actions -> CI
 CI has two jobs:
 
 - `validate` checks every pull request and every `main` push: deployment settings and audit, script tests, build, tests (with Docker), Tailwind output, and for pull requests a Docker image plus an HTTP and browser smoke test. Pull requests never push images. On pull requests this job is the required `build-test-push` check.
-- `publish-main` runs only for `main` after `validate` succeeds, and carries the `build-test-push` name there. It builds and smoke-tests the image, pushes `<APP_IMAGE>:<commit-sha>`, and uploads the migration bundle together with `release-manifest.json`. The manifest binds the commit, the CI run and attempt, the image digest and the migration IDs, and CD checks every one of them.
+- `publish-main` runs only for `main` after `validate` succeeds, and carries the `build-test-push` name there. It builds and smoke-tests the image, pushes `<APP_IMAGE>:<commit-sha>`, and uploads the migration bundle together with `release-manifest.json`. Schema v2 binds the source commit, CI run and attempt, frontend/acceptance profile pair, image digest and migration bundle. CD checks the manifest and matching baked image labels before migration. Legacy schema v1 remains restricted to verified Blazor releases; older commits without `frontend-profile.txt` resolve to that historical default.
 
 CI must pass on `main` before you deploy.
 
@@ -656,13 +656,13 @@ The CD workflow:
 - selects the app-specific runner through `LOCALCLUSTER_RUNNER_LABEL`,
 - refuses commits that are not on `main`,
 - finds the newest successful `main` CI run for the commit,
-- downloads that run's release artifact and validates `release-manifest.json` against the registry digest and the migration bundle,
+- resolves the frontend and acceptance profiles from the selected commit, downloads that run's release artifact, and validates `release-manifest.json` against registry digest, baked image labels and migration bundle,
 - reads `Deployment/Common/release.yml` and LocalCluster `all.yml`,
 - stages the exact image digest on both app nodes before stopping anything,
 - deploys PostgreSQL and Redis on `node-db` and runs migrations when requested,
 - deploys the app containers on `node-app1` and `node-app2` one at a time,
 - renders Caddy and `cloudflared` on `node-main`,
-- runs acceptance checks and verifies that every app node runs the released digest,
+- runs acceptance checks and verifies that every app node runs the released digest and matching source/profile labels,
 - runs the observability doctor when observability is enabled.
 
 ## 17. Verify The Fork
@@ -679,10 +679,10 @@ fi
 bash ./Deployment/LocalCluster/Scripts/list-deployed-apps.sh
 ```
 
-To confirm by hand which image every app node runs, pass the image and the digest from the CD run summary:
+To confirm by hand which image every app node runs, pass the trusted identity values from the release manifest and CD run:
 
 ```bash
-bash ./Deployment/LocalCluster/Scripts/verify-release-identity.sh <APP_IMAGE> sha256:<digest>
+bash ./Deployment/LocalCluster/Scripts/verify-release-identity.sh <APP_IMAGE> <sha256-digest> <frontend-profile> <acceptance-profile> <source-sha> <manifest-schema> <ci-run-id> <ci-run-attempt> <source-repo-url>
 ```
 
 [CurrentPC]

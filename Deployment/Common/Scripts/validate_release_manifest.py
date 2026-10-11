@@ -7,11 +7,18 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "Scripts" / "Frontend"))
+from resolve_frontend_profile import acceptance_profile_for_frontend
+
 
 DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
+FRONTEND_PROFILE_LABEL = "com.blazorautoapp.frontend-profile"
+ACCEPTANCE_PROFILE_LABEL = "com.blazorautoapp.acceptance-profile"
+REVISION_LABEL = "org.opencontainers.image.revision"
 
 
 class ManifestError(ValueError):
@@ -76,8 +83,11 @@ def validate_manifest(
     expected_ci_run_attempt: str,
     expected_image: str,
     expected_bundle_name: str,
+    expected_frontend_profile: str,
+    expected_acceptance_profile: str,
     bundle_dir: Path,
     registry_payload: Any,
+    image_labels: Any,
 ) -> str:
     required = {
         "schema_version",
@@ -94,8 +104,29 @@ def validate_manifest(
     missing = sorted(required.difference(manifest))
     if missing:
         raise ManifestError(f"release manifest missing fields: {missing}")
-    if manifest["schema_version"] != 1:
+    schema_version = manifest["schema_version"]
+    if type(schema_version) is not int or schema_version not in (1, 2):
         raise ManifestError(f"unsupported release manifest schema: {manifest['schema_version']!r}")
+    try:
+        mapped_acceptance_profile = acceptance_profile_for_frontend(expected_frontend_profile)
+    except ValueError as error:
+        raise ManifestError(str(error)) from error
+    if mapped_acceptance_profile != expected_acceptance_profile:
+        raise ManifestError("expected acceptance profile does not match the selected frontend profile")
+    if schema_version == 1:
+        if expected_frontend_profile != "BlazorAuto" or expected_acceptance_profile != "BlazorAutoV1":
+            raise ManifestError("legacy schema v1 is supported only for verified BlazorAuto releases")
+        if "frontend_profile" in manifest or "acceptance_profile" in manifest:
+            raise ManifestError("schema v1 cannot contain frontend/acceptance metadata; use schema v2")
+    else:
+        required_v2 = {"frontend_profile", "acceptance_profile"}
+        missing_v2 = sorted(required_v2.difference(manifest))
+        if missing_v2:
+            raise ManifestError(f"release manifest schema v2 missing fields: {missing_v2}")
+        if manifest["frontend_profile"] != expected_frontend_profile:
+            raise ManifestError("release manifest frontend_profile does not match the target source selection")
+        if manifest["acceptance_profile"] != expected_acceptance_profile:
+            raise ManifestError("release manifest acceptance_profile does not match the frontend contract")
     if manifest["repository"] != expected_repository:
         raise ManifestError("release manifest repository does not match this repository")
     if manifest["commit_sha"] != expected_sha:
@@ -113,6 +144,34 @@ def validate_manifest(
         raise ManifestError("release manifest image_digest is not a valid registry digest")
     if registry_digest(registry_payload, expected_image=expected_image) != image_digest:
         raise ManifestError("registry digest does not match the release manifest")
+
+    if not isinstance(image_labels, dict):
+        raise ManifestError("image labels must be an object")
+    expected_ci_repository = expected_repository.removeprefix("https://github.com/")
+    if expected_ci_repository == expected_repository or "/" not in expected_ci_repository:
+        raise ManifestError("expected repository must be a GitHub repository URL")
+    common_labels = {
+        "org.opencontainers.image.source": expected_repository,
+        "localcluster.ci.repository": expected_ci_repository,
+        "localcluster.ci.run_id": expected_ci_run_id,
+        "localcluster.ci.run_attempt": expected_ci_run_attempt,
+    }
+    for key, expected in common_labels.items():
+        if image_labels.get(key) != expected:
+            raise ManifestError(f"image label {key!r} does not match the verified CI release")
+    profile_labels = {
+        FRONTEND_PROFILE_LABEL: expected_frontend_profile,
+        ACCEPTANCE_PROFILE_LABEL: expected_acceptance_profile,
+        REVISION_LABEL: expected_sha,
+    }
+    if schema_version == 2:
+        for key, expected in profile_labels.items():
+            if image_labels.get(key) != expected:
+                raise ManifestError(f"image label {key!r} does not match the release manifest")
+    else:
+        for key, expected in profile_labels.items():
+            if key in image_labels and image_labels[key] != expected:
+                raise ManifestError(f"legacy image label {key!r} conflicts with the Blazor release")
 
     migrations = manifest["ordered_migration_ids"]
     if not isinstance(migrations, list) or not all(
@@ -153,6 +212,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-ci-run-attempt", required=True)
     parser.add_argument("--expected-image", required=True)
     parser.add_argument("--expected-bundle-name", required=True)
+    parser.add_argument("--expected-frontend-profile", required=True)
+    parser.add_argument("--expected-acceptance-profile", required=True)
+    parser.add_argument("--image-labels-json", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -161,6 +223,7 @@ def main() -> int:
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
         registry_payload = json.loads(args.registry_json.read_text(encoding="utf-8"))
+        image_labels = json.loads(args.image_labels_json.read_text(encoding="utf-8"))
         if not isinstance(manifest, dict) or not isinstance(registry_payload, (dict, list)):
             raise ManifestError("manifest must be an object and registry response must be an object or list")
         digest = validate_manifest(
@@ -171,8 +234,11 @@ def main() -> int:
             expected_ci_run_attempt=args.expected_ci_run_attempt,
             expected_image=args.expected_image,
             expected_bundle_name=args.expected_bundle_name,
+            expected_frontend_profile=args.expected_frontend_profile,
+            expected_acceptance_profile=args.expected_acceptance_profile,
             bundle_dir=args.bundle_dir,
             registry_payload=registry_payload,
+            image_labels=image_labels,
         )
     except (OSError, json.JSONDecodeError, ManifestError) as exc:
         print(f"release manifest validation failed: {exc}", flush=True)

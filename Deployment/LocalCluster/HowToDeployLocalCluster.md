@@ -1080,7 +1080,7 @@ For `main`, `publish-main` builds and smoke-tests the image, pushes:
 <app_image>:<selected-commit-sha>
 ```
 
-and uploads the release artifact `<migration_artifact_name>` with two files: the migration bundle and `release-manifest.json`. The manifest records the repository, commit, CI run id and attempt, the image's registry digest, the ordered migration ids, the bundle's SHA-256 and the .NET SDK. CD validates every field before it touches a node, and deploys the image by digest, not by tag.
+and uploads the release artifact `<migration_artifact_name>` with two files: the migration bundle and `release-manifest.json`. Schema v2 records the repository, source commit, CI run id and attempt, `frontend_profile`, its paired `acceptance_profile`, image digest, ordered migration ids, bundle SHA-256 and .NET SDK. Target-specific Docker labels bake the source SHA and profile pair into the image. CD validates the manifest and pulled image labels against the selected source commit before it interrupts a service or runs migrations, then verifies the same digest/profile identity on every server after deployment. Legacy schema v1 remains restricted to previously verified `BlazorAuto` / `BlazorAutoV1` releases; older commits without `frontend-profile.txt` resolve to that historical default, while schema v2 requires the file. Schema v1 cannot describe React.
 
 CI and CD are intentionally tied to the same commit:
 
@@ -1092,7 +1092,7 @@ Migration bundle artifact: <migration_artifact_name>
 Migration bundle file: <migration_bundle_name>
 ```
 
-The CD workflow first finds the newest successful `main` CI run for the selected commit, downloads its release artifact, and checks `release-manifest.json` against the registry digest and the downloaded bundle. If any of those values do not line up, deploy stops instead of mixing artifacts from different commits or runs.
+The CD workflow first finds the newest successful `main` CI run for the selected commit, resolves that commit's tracked frontend profile, downloads its release artifact, and checks `release-manifest.json` against the image's registry digest and baked labels plus the downloaded bundle. If the profile, source SHA, digest, CI run, or bundle do not line up, deployment stops before migration.
 
 Release artifacts have 7-day retention. The maintenance workflow keeps the newest 2 and never deletes the artifacts behind the last two successful deploys. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
 
@@ -1488,7 +1488,7 @@ Wrapper script with a local migration bundle:
 bash ./Deployment/LocalCluster/Scripts/deploy.sh <git-sha> --migrate <path-to-migration-bundle>
 ```
 
-Pin the exact image with `--digest sha256:<digest>` (copy it from the CI run's `release-manifest.json`). A manual deploy skips the CI and manifest checks that CD performs, so prefer the CD workflow.
+Pin the exact image with `--digest sha256:<digest>` (copy it from the CI run's `release-manifest.json`). The manual wrapper resolves the repository's tracked frontend profile and requires the selected image's source/profile labels to match the requested commit before migration. It skips the successful-CI and manifest checks that CD performs, so prefer the CD workflow.
 
 ## Routine Deployments
 

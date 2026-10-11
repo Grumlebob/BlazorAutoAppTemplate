@@ -29,6 +29,12 @@ class FrontendProfileResolverTests(unittest.TestCase):
     def test_tracked_default_profile_resolves_to_blazor_auto(self) -> None:
         self.assertEqual(resolver.resolve_frontend_profile(REPOSITORY_ROOT / "frontend-profile.txt"), "BlazorAuto")
 
+    def test_acceptance_profile_is_paired_with_frontend(self) -> None:
+        self.assertEqual(resolver.acceptance_profile_for_frontend("BlazorAuto"), "BlazorAutoV1")
+        self.assertEqual(resolver.acceptance_profile_for_frontend("React"), "ReactPublicV1")
+        with self.assertRaisesRegex(ValueError, "unsupported frontend profile"):
+            resolver.acceptance_profile_for_frontend("unknown")
+
     def test_file_value_is_trimmed(self) -> None:
         self.profile_file.write_text(" \tReact \r\n", encoding="utf-8")
 
@@ -72,6 +78,40 @@ class FrontendProfileResolverTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "React\n")
         self.assertEqual(result.stderr, "")
+
+    def test_cli_emits_acceptance_profile_for_selected_frontend(self) -> None:
+        self.profile_file.write_text("React\n", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--acceptance-profile"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "ReactPublicV1\n")
+        self.assertEqual(result.stderr, "")
+
+    def test_legacy_default_applies_only_when_selected_profile_file_is_missing(self) -> None:
+        self.profile_file.unlink(missing_ok=True)
+        result = subprocess.run(
+            [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--legacy-blazor-default"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "BlazorAuto\n")
+
+        self.profile_file.write_text("invalid\n", encoding="utf-8")
+        invalid_result = subprocess.run(
+            [sys.executable, str(RESOLVER_PATH), "--profile-file", str(self.profile_file), "--legacy-blazor-default"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(invalid_result.returncode, 2)
 
 
 class MsBuildFrontendProfileTests(unittest.TestCase):

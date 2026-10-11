@@ -94,6 +94,8 @@ required_files = [
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
     "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
+    "Deployment/LocalSingleNode/Scripts/verify-release-identity.sh",
+    "Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh",
     "Scripts/CI/migration_staging_artifact.py",
     "Scripts/CI/tests/test_migration_staging_artifact.py",
     "Deployment/Common/Scripts/install-ansible.sh",
@@ -896,6 +898,7 @@ for needle, why in [
     ("Deployment/Common/Scripts/Tests/test_ci_provenance.py", "CI provenance selection tests"),
     ("Deployment/Common/Scripts/Tests/test_target_gate.py", "exact deployment target gate fixtures"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh", "release identity fixture test"),
+    ("bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh", "single-node release identity fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-localcluster-maintenance.sh", "maintenance fixture test"),
     ("bash Deployment/LocalCluster/Scripts/Tests/test-prune-docker-residue-low-disk.sh", "Docker cleanup fixture test"),
     ("bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
@@ -1164,9 +1167,33 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     ):
         fail(".github/workflows/ci.yml: final release artifact must be the bundle plus release-manifest.json")
     manifest_step = workflow_step("publish-main", "Resolve pushed image digest and write release manifest")
-    for needle in ('"schema_version": 1', '"image_digest": digest', '"ordered_migration_ids"', '"bundle_sha256"'):
+    for needle in (
+        '"schema_version": 2',
+        '"frontend_profile": os.environ["FRONTEND_PROFILE"]',
+        '"acceptance_profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"]',
+        '"image_digest": digest',
+        '"ordered_migration_ids"',
+        '"bundle_sha256"',
+        '"org.opencontainers.image.revision"',
+        '"com.blazorautoapp.frontend-profile"',
+        '"com.blazorautoapp.acceptance-profile"',
+    ):
         if needle not in manifest_step:
             fail(f".github/workflows/ci.yml: release manifest step is missing {needle}")
+
+release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
+for needle, why in [
+    ("schema_version not in (1, 2)", "only supported release manifest schemas"),
+    ("legacy schema v1 is supported only for verified BlazorAuto releases", "schema-v1 Blazor-only compatibility"),
+    ("expected_frontend_profile", "manifest bound to target source frontend profile"),
+    ("expected_acceptance_profile", "manifest bound to target acceptance profile"),
+    ("image_labels", "registry image labels required by manifest validation"),
+    ("FRONTEND_PROFILE_LABEL", "baked frontend profile validation"),
+    ("ACCEPTANCE_PROFILE_LABEL", "baked acceptance profile validation"),
+    ("REVISION_LABEL", "baked source revision validation"),
+]:
+    if needle not in release_validator:
+        fail(f"Deployment/Common/Scripts/validate_release_manifest.py: missing {why}")
 
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [
@@ -1192,12 +1219,20 @@ for needle, why in [
     ("CI_RUN_ID=", "CI run id export"),
     ("CI_RUN_ATTEMPT=", "CI run attempt export"),
     ("validate_release_manifest.py", "release manifest validation"),
+    ("git show \"${TARGET_SHA}:frontend-profile.txt\"", "frontend profile resolved from selected target commit"),
+    ("--legacy-blazor-default", "historical v1 target without a profile file resolves to Blazor"),
+    ("TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", "selected profile file presence is recorded"),
+    ('if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "schema-v2 target requires its tracked profile file"),
+    ('--expected-frontend-profile "$FRONTEND_PROFILE"', "manifest bound to selected frontend profile"),
+    ('--expected-acceptance-profile "$ACCEPTANCE_PROFILE"', "manifest bound to selected acceptance profile"),
+    ('--image-labels-json "$IMAGE_LABELS_PATH"', "manifest bound to pulled image labels"),
     ('--expected-ci-run-attempt "$CI_RUN_ATTEMPT"', "release manifest bound to the CI attempt"),
     ("release_image_digest=${RELEASE_IMAGE_DIGEST}", "digest-pinned deployment"),
     ('-e @"${GHCR_EXTRA_VARS_FILE}"', "workflow-token registry credentials"),
     ("GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "workflow token instead of a stored PAT"),
     ('rm -f "${GHCR_EXTRA_VARS_FILE}"', "registry credential file cleanup"),
     ("verify-release-identity.sh", "running release identity verification"),
+    ('"${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"', "post-deploy identity checks source repository labels"),
     ("timeout-minutes: 60", "bounded deploy job"),
     ("uses: actions/download-artifact@v8", "CI migration artifact download"),
     ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact download name"),
@@ -1245,6 +1280,22 @@ if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: workflow name must be explicitly CD-oriented")
 if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan or "dotnet tool restore" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
+manual_deploy = read("Deployment/LocalCluster/Scripts/deploy.sh")
+for needle, why in [
+    ('git -C "$REPO_ROOT" show "${APP_VERSION}:frontend-profile.txt"', "manual deploy profile resolved from selected source commit"),
+    ('release_manifest_schema_version=2', "manual deploy uses schema-v2 identity rules"),
+    ('release_source_sha=$APP_VERSION', "manual deploy binds image revision to selected commit"),
+]:
+    if needle not in manual_deploy:
+        fail(f"Deployment/LocalCluster/Scripts/deploy.sh: missing {why}")
+
+for label in (
+    "org.opencontainers.image.revision",
+    "com.blazorautoapp.frontend-profile",
+    "com.blazorautoapp.acceptance-profile",
+):
+    if label not in release_validator:
+        fail(f"release validator must require baked image label {label}")
 
 find_ci = read("Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py")
 for needle, why in [
@@ -1298,6 +1349,16 @@ if stage_pos < 0 or stop_pos < 0 or stage_pos > stop_pos:
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: stage the exact app image before stopping apps")
 if "Require the registry digest on the staged image" not in site:
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: staged image must be checked against the release digest")
+identity_assert_pos = site.find("Require staged release identity before app interruption or migration")
+if identity_assert_pos < 0 or identity_assert_pos > stop_pos:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: check baked release identity before stopping apps or migrating")
+for label in (
+    "org.opencontainers.image.revision",
+    "com.blazorautoapp.frontend-profile",
+    "com.blazorautoapp.acceptance-profile",
+):
+    if label not in site:
+        fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: staged image must match {label}")
 apps_play = site[apps_pos:site.find("\n- name:", apps_pos + 1)] if apps_pos >= 0 else ""
 if "serial: 1" not in apps_play or "any_errors_fatal: true" not in apps_play:
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: deploy app servers one at a time and stop on the first failure")
@@ -1846,7 +1907,7 @@ elif (
 
 # LocalSingleNode: a peer target with strict provenance and loopback-only services.
 single = "Deployment/LocalSingleNode"
-for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
+for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "Scripts/verify-release-identity.sh", "Scripts/Tests/test-verify-release-identity.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
     require_file(single + "/" + path)
 single_compose = read(single + "/compose/docker-compose.yml")
 for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_compose):
@@ -1855,8 +1916,28 @@ for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_com
 if single_compose.count('"127.0.0.1:') != 3:
     fail("localsinglenode: all three service publications must bind loopback")
 require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled: "false"', "deployment account seeding disabled")
-for needle in ("find-successful-ci-run.py --target-sha", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "--expected-ci-run-attempt", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode"):
+for needle in ("find-successful-ci-run.py --target-sha", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "git show \"${TARGET_SHA}:frontend-profile.txt\"", "--legacy-blazor-default", "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", 'if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "--expected-frontend-profile \"$FRONTEND_PROFILE\"", "--expected-acceptance-profile \"$ACCEPTANCE_PROFILE\"", "--image-labels-json \"$IMAGE_LABELS_PATH\"", "--expected-ci-run-attempt", "verify-release-identity.sh \"$APP_IMAGE\" \"$RELEASE_IMAGE_DIGEST\" \"$FRONTEND_PROFILE\" \"$ACCEPTANCE_PROFILE\" \"$TARGET_SHA\" \"$RELEASE_MANIFEST_SCHEMA_VERSION\" \"$CI_RUN_ID\" \"$CI_RUN_ATTEMPT\" \"$SOURCE_REPO_URL\"", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode", "release_frontend_profile=$FRONTEND_PROFILE", "release_acceptance_profile=$ACCEPTANCE_PROFILE"):
     require_contains(".github/workflows/cd-localsinglenode.yml", needle, "strict single-node release contract")
+
+single_release_identity = read(single + "/Scripts/verify-release-identity.sh")
+for needle, why in [
+    ("com.blazorautoapp.frontend-profile", "running frontend profile identity"),
+    ("com.blazorautoapp.acceptance-profile", "running acceptance profile identity"),
+    ("org.opencontainers.image.revision", "running source revision identity"),
+    ("schema v1 is supported only for BlazorAuto", "legacy Blazor-only identity rule"),
+]:
+    if needle not in single_release_identity:
+        fail(f"{single}/Scripts/verify-release-identity.sh: missing {why}")
+for needle, why in [
+    ("Require staged release identity before migration or replacement", "pre-migration image identity check"),
+    ("com.blazorautoapp.frontend-profile", "staged frontend profile identity"),
+    ("com.blazorautoapp.acceptance-profile", "staged acceptance profile identity"),
+    ("org.opencontainers.image.revision", "staged source revision identity"),
+]:
+    if needle not in read(single + "/ansible/roles/single_node_stack/tasks/main.yml"):
+        fail(f"{single}/ansible/roles/single_node_stack/tasks/main.yml: missing {why}")
+if "bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh" not in ci:
+    fail(".github/workflows/ci.yml: LocalSingleNode release identity fixtures must run in CI")
 for path in (".github/workflows/cd-localsinglenode.yml", ".github/workflows/localsinglenode-maintenance.yml"):
     workflow = read(path)
     if "vars.LOCALSINGLENODE_HOST" not in workflow or "test -n" not in workflow or "'localsinglenode-books'" not in workflow:
