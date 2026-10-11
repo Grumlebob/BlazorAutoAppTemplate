@@ -72,13 +72,15 @@ Each cell requires real evidence. Source preparation from the existing inventory
 | P6.4 Unlost | Report/artifacts reviewed | Outline | Genuine figures; select | Team context; role pending | Pending | Review attribution/figure reuse |
 | P6.5 Ship Inspections | Prior source/docs review | Outline | Synthetic capture pending | Sample; role pending | Pending | Reconcile upload behavior/limits |
 | P6.6 MiniTwit | Prior report/docs review | Outline | Historical figures; select | Team context; role pending | Pending | Align source/report and dated claims |
-| P6.7 BestBets | Prior report passages | Outline | Architecture figures; select | Design study; role pending | Pending | Keep requirements distinct from results |
+| P6.7 BestBets | Prior report review; preferred Exam/deck located | Outline | Preferred deck/figures need review | Design study; role pending | Pending | Review owner-selected materials and reconcile versions |
 | P6.8 Geospatial research | Notebook/report structure | Outline | Genuine maps/plots; select | Team context; role pending | Pending | Dates, attribution and limitations |
-| P6.9 GeckoBot | Purpose only | Provisional | Pending | Pending | Draft | Need source and actual email workflow |
-| P6.10 Grumlebob | Purpose only | Provisional | Pending | Pending | Draft | Need actual tool sources/workflows |
+| P6.9 GeckoBot | Private mail/MailDemo trees/declarations reviewed | Brief | Fictional captures pending | Version/status pending | Draft | Review requirements and confirm intended version |
+| P6.10 Grumlebob | Owner explanation; restricted folder located | Domain-neutral brief | Approved generic figures pending | Pending | Draft | Obtain approved public explanation; source inspection optional |
 | P6.11 JobHunt | General private docs reviewed | Outline | Flow concept; fictional captures pending | Boundary alignment pending | Draft | Resolve manual-writing/account-creation copy |
 
 Launch set: not yet approved/published. Recommended: ImprovedDb, KinoJoin, TraceBack, Unlost when ready. Initial launch does not close unfinished story packets.
+
+Owner source update on 2026-10-11: GeckoBot's private mail/MailDemo repositories are recorded, with mail recommended from read-only tree/Python-declaration comparison. BestBets' preferred Exam PDF and presentation are located but unreviewed. Grumlebob's restricted background folder is located; use the owner's approved explanation, exclude private context/artifacts/results, and do not require source inspection. Exact local locations and the explicit private publication boundary are in ignored `Plans.local/Portfolio/ProjectSources.md`.
 
 ## Decision and blocker records
 

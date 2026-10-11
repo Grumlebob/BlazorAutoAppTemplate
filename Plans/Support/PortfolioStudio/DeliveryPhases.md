@@ -222,14 +222,16 @@ Use the detailed [page briefs](PageBriefs.md). Each story is its own resumable c
 | P6.4 | Unlost | Historical report-backed map/search/pathfinding story and genuine figures; no Java-source recovery gate |
 | P6.5 | Ship Inspections | Synthetic vessel/part/image journey, real upload states and sourced TUS flow |
 | P6.6 | MiniTwit | Historical evolution/DevOps narrative with architecture, delivery and useful operational figure |
-| P6.7 | BestBets | Fictitious scenario, architecture requirements/views and explicit targets-versus-results figure |
+| P6.7 | BestBets | Owner-selected Exam PDF/deck reviewed against repository evidence; architecture views and targets-versus-results figure |
 | P6.8 | Geospatial research | Attributed genuine maps/plots, data/methods and findings with limitations |
-| P6.9 | GeckoBot | Source-confirmed email workflow and fictional examples; purpose-only remains draft |
-| P6.10 | Grumlebob | Verified AHK/Python/analysis/bookkeeping/billing examples; no guessed repository |
+| P6.9 | GeckoBot | Private mail/MailDemo version/requirements review; fictional Outlook booking/email examples and accurate UI/parser story |
+| P6.10 | Grumlebob | Owner-approved domain-neutral explanation and permitted generic figures; restricted background contents/context excluded |
 | P6.11 | JobHunt | Eight-step responsibility figure, factual writing boundary and fictional administrative examples |
 | P6.12 | Catalog review | Stable order, all ready stories complete, no dangling public cards/links, launch set recorded |
 
 For every story, confirm source revision, individual role, status/context, safe media rights, meaningful caption/alt text, valid outbound links and accurate limitations. A header suggestion is editorial copy, never a source for a factual claim. Related links point only to published stories.
+
+For Grumlebob, the owner's approved explanation is the primary source; restricted code inspection is not an exit gate. Validate that all public output, including filenames/alt text/social metadata, respects the private scope recorded in the source note. Do not fabricate a substitute real use case. For GeckoBot, private source access does not authorize publishing real employee/customer/email/calendar data or a private repository button.
 
 Recommended first launch set: ImprovedDb, KinoJoin, TraceBack, Unlost. Do not publish incomplete cards to meet a count. Continue later packets independently. Owner-approved deferrals must be recorded before full-plan completion.
 

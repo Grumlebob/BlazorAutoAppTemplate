@@ -12,15 +12,15 @@ This inventory covers the six owner projects named in the template's author-book
 | Proposed order | Portfolio slug | Display name | Evidence available | Next content task |
 | --- | --- | --- | --- | --- |
 | 10 | `improveddb` | ImprovedDb | Owner motivation; prior source/public-interface review; genuine captures | Recheck factual copy, select media and prepare six sections |
-| 20 | `geckobot` | GeckoBot | Owner description: email automation; seed confirms name | Locate source or obtain workflow details and publishable examples |
+| 20 | `geckobot` | GeckoBot | Private mail/MailDemo sources supplied; Python declarations reviewed | Confirm intended version; review requirements and prepare fictional booking examples |
 | 30 | `traceback` | TraceBack | Owner description and local README/concept/boundary/demo documentation | Prepare a prototype case study and capture a synthetic-data workflow |
 | 40 | `kinojoin` | KinoJoin | Local UI, domain, import and calendar source | Prepare a cinema-planning case study and capture an example event |
 | 50 | `ship-inspections` | Ship Inspections | Owner-confirmed repository; local inspection/upload source and feature docs | Prepare a vessel-part/image-upload story and capture a synthetic inspection |
 | 60 | `unlost` | Unlost | Owner-confirmed Project map folder; project report and genuine UI/algorithm images | Prepare a map/pathfinding story using existing artifacts; Java source is not required for this content draft |
 | 70 | `minitwit` | MiniTwit | Owner-supplied repository; local report, system description and operational documentation | Prepare a microblogging/DevOps story with dated architecture and workflow figures |
-| 80 | `bestbets` | BestBets | Owner-supplied Architecture repository; local architecture report and prototype artifacts | Explain the fictitious scenario, burst-load requirements and evaluated design tradeoffs |
+| 80 | `bestbets` | BestBets | Architecture report/prototypes; owner-selected school Exam PDF and BestBets deck located | Review preferred PDF/deck and reconcile their versions with repository evidence |
 | 90 | `geospatial-research` | Geospatial research | Owner-supplied ExamGDS repository; local notebook and New York crime report | Prepare a research story with attributed maps, methods and limitations |
-| 100 | `grumlebob` | Grumlebob | Owner description: AHK/Python game automation and analysis, bookkeeping and automated billing | Identify actual tools/source and prepare publishable examples across these workflows |
+| 100 | `grumlebob` | Grumlebob | Owner explanation; restricted local background folder supplied | Obtain approved domain-neutral explanation and permitted generic illustrations |
 | 110 | `jobhunt` | JobHunt | Owner's administrative/personal-work boundary; private repository and local workflow documentation | Prepare a restrained story with fictional examples; reconcile writing scope before publication |
 
 Ordering is an editorial proposal; the manifest owns it. All eleven entries belong in the content backlog and local review catalog. Public visibility follows content readiness. Do not fill an incomplete entry with invented product features or publish a broken card destination.
@@ -66,11 +66,11 @@ This explains the larger visible demo catalog. The reviewed source establishes s
 | `SRC-SHIP` | Ship Inspections | Owner-supplied [Grumlebob/BlazorTusReliableUpload](https://github.com/Grumlebob/BlazorTusReliableUpload), plus the local checkout/file list in section 7 | Vessel-part forms, image handling and TUS implementation | Screenshot capture, public/local revision alignment and behavior claims requiring execution |
 | `SRC-TRACEBACK` | TraceBack | Owner description; local `README.md`, `Docs/CoreConcepts.md`, `Docs/ReproducibilityBoundaries.md` and `Docs/Demos.md` | Research-prototype purpose, concepts, saved context and limitations | Media capture, individual contribution and an approved public source/tutorial URL |
 | `SRC-UNLOST` | Unlost | Owner-confirmed Dropbox **Project map** folder; `rapport.pdf`, `rapport/user/` and `rapport/images/` | Historical map/pathfinding account and genuine project figures | Selected media permissions/attribution and individual contribution; no Java-source recovery gate |
-| `SRC-GECKOBOT` | GeckoBot | Owner description: automating emails | Purpose only | Source repository, actual workflow, status, media and outcomes |
+| `SRC-GECKOBOT` | GeckoBot | Owner-supplied private [mail](https://github.com/Grumlebob/mail) and [MailDemo](https://github.com/Grumlebob/MailDemo); reviewed file trees/Python declarations | Outlook/COM booking-email flow, parser/UI separation and related demos; no execution evidence | Confirm intended version; review requirements/actual use and prepare fictional media; omit private source buttons |
 | `SRC-MINITWIT` | MiniTwit | Owner-supplied [Grumlebob/The-Pentuple-MiniTwit](https://github.com/Grumlebob/The-Pentuple-MiniTwit); local report chapters and `MiniTwitSolution/Documentation/` | Microblogging purpose, historical .NET migration, architecture and documented DevOps work | Capture selected media, confirm individual contribution and align the reviewed local/public revisions |
-| `SRC-BESTBETS` | BestBets | Owner-supplied [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture); local `Deliverables/BestBets.pdf`, diagrams and `Prototyping/` artifacts | Fictitious architecture scenario, quality attributes, burst-load design and tradeoffs | Select diagrams, establish individual contribution and distinguish requirements from measured prototype results |
+| `SRC-BESTBETS` | BestBets | Owner-selected school `Exam.pdf` and `BestBets.pptx` (locations private), plus [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture), report/diagrams/prototypes | Prior repository report supports the fictitious architecture story; newly supplied PDF/deck are located but unreviewed | Review preferred PDF/deck, reconcile versions, select figures, confirm contribution and distinguish targets from results |
 | `SRC-GEOSPATIAL` | Geospatial research | Owner-supplied [Grumlebob/ExamGDS](https://github.com/Grumlebob/ExamGDS); local `exam.ipynb` and `New_York_Crime.pdf` | New York crime/amenity research question, documented spatial methods and data-preparation issues | Verify dataset windows/licenses, select legible figures and review conclusions and contribution |
-| `SRC-GRUMLEBOB` | Grumlebob | Owner description: game automation using AHK/Python, game analysis, bookkeeping and automated billing | Purpose and proposed scope only | Source locations, exact tools/workflows, publishable media, status and outcomes |
+| `SRC-GRUMLEBOB` | Grumlebob | Owner explanation as primary source; restricted background folder recorded in ignored notes | Owner-supplied scope only; no folder contents reviewed | Approved public description, contribution and generic media; exclude private domain/context/results without inventing another use case |
 | `SRC-JOBHUNT` | JobHunt | Owner-supplied [Grumlebob/JobHunt](https://github.com/Grumlebob/JobHunt); authenticated repository metadata confirms private visibility; local `README.md`, `AGENTS.md` and `jobhunt/applications/` procedures | Administrative workflow, document organization, Notion tracking, browser-assisted preparation and user-only final submission policy | Align the owner's manual-writing boundary with current drafting instructions; verify account-creation scope, select fictional media and review final public wording |
 
 Keep these source IDs in private editorial fact notes so later copy changes can be traced to evidence. Public copy includes only useful source links and permitted provenance, not this preparation table or private machine paths. The owner explicitly excluded `hojelseMaps.zip`; it is not an Unlost source. Record exact local locations in ignored preparation notes when needed, rather than introducing machine-specific paths into tracked plans.
@@ -181,11 +181,13 @@ Prefer a local synthetic demo for screenshots. Avoid research datasets, institut
 
 ## 6. GeckoBot
 
-Known fact: the owner describes GeckoBot as automating emails. The template seed confirms its name. No implementation source or actual interface was found during this review.
+The owner supplied private [mail](https://github.com/Grumlebob/mail) and [MailDemo](https://github.com/Grumlebob/MailDemo) repositories. Read-only tree/Python-declaration review on 2026-10-11 inspected `mail` at `af54ad38f5a9ca3c0098ca663a4ea78fff58db79` and MailDemo at `fc9a44c6be1a1cd28d4a5a3a4341accd0a5f30be`. No app, inbox, calendar or automation was executed.
+
+Recommend `mail` as the starting source: it includes `GeckoBot.bat`, separate `geckoBot.py`, `mailParsers.py` and `ui.py`, a requirements document and guide. Declarations support Windows Outlook/COM integration, booking-email parsing, new/changed/cancelled meeting handling, folder movement and a Tkinter UI. MailDemo holds related integrated/event-based and timezone demo scripts. This comparison does not establish which version the owner used, runtime correctness or timezone compatibility; confirm those before publication. Both private repositories remain editorial references, not public source buttons. Do not use employee/customer/inbox/calendar records for media.
 
 Proposed card copy: **Automating repetitive email work.** Do not label it an AI agent, outreach platform or autonomous sending service without source evidence.
 
-Provisional section brief, to refine after source/owner review:
+Section brief, to refine after requirements and owner-version review:
 
 | Stable ID | Heading | Information needed |
 | --- | --- | --- |
@@ -289,6 +291,8 @@ Prepare media from the client, report diagrams and operational docs. Treat `Perf
 
 Source: [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture). The owner describes designing architecture for fictitious scenarios with very large data volumes and bursts during events such as the World Cup.
 
+The owner additionally prioritizes the school-material `Exam.pdf` and `BestBets.pptx`. Both files were located on 2026-10-11; their content has not yet been read/rendered for this update. Record locations privately. Read these first during final content preparation, then reconcile with the repository's report, diagrams and prototypes. Do not assume `Exam.pdf` is the same document as `Deliverables/BestBets.pdf`.
+
 Proposed card copy: **Architecture research for a fictitious platform facing large data volumes and major sports-event traffic spikes.**
 
 ### Reviewed evidence
@@ -331,21 +335,23 @@ Use static exports of genuine research figures; the portfolio does not need a GI
 
 ## 12. Grumlebob
 
-The owner names this project **Grumlebob** and describes AHK/Python game automation, game analysis, bookkeeping and automated billing. This project name is separate from the portfolio's **Jacob Grum** branding and the GitHub account name. A source repository or local folder has not been supplied; do not attach another automation repository by guessing.
+The owner names this project **Grumlebob** and previously described AHK/Python automation, analysis, bookkeeping and automated billing. A local background folder is now supplied and recorded privately; only its presence was checked. The owner's explanation is the primary editorial source, and inspecting or publishing that folder is not a prerequisite. No GitHub repository has been supplied; do not guess one from the account name.
 
-Proposed card copy: **AHK and Python tools for game automation and analysis, bookkeeping and automated billing.**
+Public content must exclude the owner's private domain context, sensitive workflows/data/results and identifying artifacts. Apply the restriction to copy, screenshots, diagrams, filenames, alt text, captions, social previews and links. Use approved generic technical explanations and fictional examples when accurate. Do not fabricate an unrelated real application to replace the omitted context. Obtain the owner's approved public description before publication.
+
+Proposed card copy, subject to the owner's public explanation: **AHK and Python tools for automation, analysis, bookkeeping and automated billing.**
 
 ### Proposed sections
 
 | Stable ID | Heading | Story and evidence to obtain | Media request |
 | --- | --- | --- | --- |
-| `automating-recurring-work` | Automating recurring work | Introduce the actual collection of tools and their purpose | Genuine tool/workflow cover, or an explicitly illustrative draft |
-| `game-automation` | Game automation | Describe one real AHK/Python workflow and how the owner controls it | Selected script excerpt and example interaction with no credentials |
-| `game-analysis` | Game analysis | Explain the actual data, question and analysis method | A real chart or analysis output with its interpretation |
+| `automating-recurring-work` | Automating recurring work | Introduce the approved public scope of the tools and their purpose | Owner-approved generic cover or explanatory illustration |
+| `automation` | Automation using AHK and Python | Explain an approved technical workflow from the owner's account without exposing restricted context | Newly prepared generic diagram; source excerpt only if specifically approved |
+| `analysis` | Analysis | Explain approved methods and lessons without private datasets/results | Generic explanatory figure or fictional example, accurately labelled |
 | `bookkeeping-and-billing` | Bookkeeping and automated billing | Show the real record-to-bill workflow and implemented controls | Synthetic records and an example bill with fictional details |
 | `design-and-lessons` | Design and lessons | Explain verified boundaries, failure handling and maintenance decisions | Reviewed workflow diagram and owner reflection |
 
-Keep this as one proposed project entry with distinct sections unless the owner later chooses separate projects. Source review must establish whether these workflows share code or only a common personal-tool context. Do not assume game titles, ML/computer vision, billing integrations, autonomous sending, payment collection or financial outcomes. Use fictional billing/accounting data for media. Finding sources and capturing examples are future content tasks; no automation script, invoice or game interaction is executed by this plan.
+Keep this as one proposed entry unless the owner chooses otherwise. The approved explanation should establish whether the workflows share code or only a personal-tool context. Do not infer integrations, ML/computer vision, autonomous sending, payment collection or outcomes. Use fictional billing/accounting examples only where they represent approved real functionality. Existing restricted folder contents are not approved media. No automation script, invoice or interaction is executed for this preparation.
 
 ## 13. JobHunt
 
@@ -431,13 +437,13 @@ Prepare all public media using fictional employers, applicant details, documents
 | ImprovedDb | Prior review; recheck at content release | Outlined | Existing captures; select/update | Personal motivation supplied; role details pending | Live site known; recheck | Pending editorial review |
 | KinoJoin | Source reviewed; runtime unverified | Outlined | Pending capture | Pending | Owner-supplied public repository; live app unknown | Pending editorial review |
 | TraceBack | Docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Research context documented; personal role pending | Pending | Pending editorial review |
-| GeckoBot | Owner purpose only | Provisional brief | None; illustrative cover only | Pending | Unknown | Draft |
+| GeckoBot | Private sources/tree/declarations reviewed; runtime unverified | Brief | Fictional captures pending | Version/status pending | Both supplied repositories private; omit public buttons | Draft pending requirements/version review |
 | Ship Inspections | Source/docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Pending | Owner-supplied public repository; live app unknown | Pending editorial review |
 | Unlost | Owner-confirmed report/artifacts; Java source unavailable | Outlined | Genuine report-folder images available; select/review | Team context documented; individual contribution pending | Unknown | Pending editorial review |
 | MiniTwit | Repository/report/docs reviewed; runtime unverified | Outlined | Report/source artifacts identified; capture/select | Team context documented; individual contribution pending | Owner-supplied public repository; live app unverified | Pending editorial review |
-| BestBets | Repository/report passages reviewed; prototypes not executed | Outlined | Diagrams/prototype artifacts identified; select | Team context documented; individual contribution pending | Owner-supplied public repository | Pending editorial review |
+| BestBets | Prior report review; owner-selected Exam/deck located, not reviewed | Outlined | Preferred deck/figures pending review | Team context; individual role pending | Public repository supplied | Pending preferred-source review |
 | Geospatial research | Notebook structure/report reviewed; results not reproduced | Outlined | Report/notebook figures identified; select/export | Team context documented; individual contribution pending | Owner-supplied public repository | Pending editorial review |
-| Grumlebob | Owner purpose only; source pending | Provisional brief | Pending genuine or synthetic examples | Pending | Unknown | Draft |
+| Grumlebob | Owner explanation; restricted folder present, contents unreviewed | Domain-neutral brief | Approved generic examples pending | Pending | None approved | Draft pending approved public explanation |
 | JobHunt | Private repository/general docs reviewed; runtime unverified | Outlined with eight-step flow; writing boundary needs alignment | Workflow preview prepared; fictional examples pending | Personal intent supplied; contribution/status wording pending | Private source supplied; omit inaccessible public action | Draft pending factual boundary and copy review |
 
 For each row, turn pending work into explicit tasks in the parent plan's S0/S1/S3 packet records. Readiness must not be inferred from the presence of a folder, a cover image or a seed row. Recheck facts and links at execution time because implementation is deliberately scheduled for later.
