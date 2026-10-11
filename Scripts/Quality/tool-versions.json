@@ -1,0 +1,22 @@
+{
+  "schema": "blazorautoapp.sonar-tools/1",
+  "sonarqubeImage": "sonarqube:26.9.0.129388-community",
+  "databaseImage": "postgres:17.11-alpine3.23",
+  "mcpImage": "sonarsource/sonarqube-mcp:1.28.0.4397",
+  "scanner": {
+    "package": "dotnet-sonarscanner",
+    "version": "11.3.0"
+  },
+  "analyzer": {
+    "package": "SonarAnalyzer.CSharp",
+    "version": "10.35.0.4138"
+  },
+  "node": {
+    "version": "24.21.0",
+    "npmVersion": "12.2.0",
+    "windowsArchiveUrl": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip",
+    "windowsArchiveSha256": "158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541",
+    "npmTarballUrl": "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
+    "npmIntegrity": "sha512-ZsJjKpTnlmSXOLLXiU1xDCzC4Wlok4IwZmh/aw2KUuXytU7q6qMv/cUT7MoeSf95Slwuw/lRXYefGzGCspHPNQ=="
+  }
+}

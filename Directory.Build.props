@@ -11,4 +11,13 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RunSonarAnalyzers)' == 'true'">
+    <SonarErrorLogDirectory Condition="'$(SonarErrorLogDirectory)' == ''">$(BaseIntermediateOutputPath)sonar-sarif/</SonarErrorLogDirectory>
+    <ErrorLog>$(SonarErrorLogDirectory)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RunSonarAnalyzers)' == 'true'">
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

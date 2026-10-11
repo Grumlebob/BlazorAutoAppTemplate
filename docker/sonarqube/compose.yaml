@@ -1,0 +1,73 @@
+services:
+  database:
+    image: postgres:17.11-alpine3.23
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONARQUBE_DB_PASSWORD:?SONARQUBE_DB_PASSWORD must be set by the lifecycle command}
+      POSTGRES_DB: sonar
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: &local-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 512m
+    restart: "no"
+    labels:
+      com.blazorautoapp.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
+
+  sonarqube:
+    image: sonarqube:26.9.0.129388-community
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://database:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONARQUBE_DB_PASSWORD:?SONARQUBE_DB_PASSWORD must be set by the lifecycle command}
+      SONAR_TELEMETRY_ENABLE: "false"
+      SONAR_WEB_JAVAOPTS: "-Xmx768m"
+      SONAR_CE_JAVAOPTS: "-Xmx1536m"
+      SONAR_SEARCH_JAVAOPTS: "-Xms768m -Xmx768m"
+    ports:
+      - "127.0.0.1:${SONARQUBE_HOST_PORT:?host port must be set}:9000"
+    volumes:
+      - data:/opt/sonarqube/data
+      - extensions:/opt/sonarqube/extensions
+      - logs:/opt/sonarqube/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:9000/api/system/status | grep -q 'UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
+    logging: *local-logging
+    mem_limit: 4g
+    restart: "no"
+    labels:
+      com.blazorautoapp.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
+
+networks:
+  default:
+    name: ${SONARQUBE_NETWORK_NAME:?network name must be set}
+
+volumes:
+  database:
+    name: ${SONARQUBE_COMPOSE_PROJECT:?compose project must be set}-database
+  data:
+    name: ${SONARQUBE_COMPOSE_PROJECT:?compose project must be set}-data
+  extensions:
+    name: ${SONARQUBE_COMPOSE_PROJECT:?compose project must be set}-extensions
+  logs:
+    name: ${SONARQUBE_COMPOSE_PROJECT:?compose project must be set}-logs

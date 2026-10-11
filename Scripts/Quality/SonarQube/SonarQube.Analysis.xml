@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<SonarQubeAnalysisProperties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
+  <Property Name="sonar.sourceEncoding">UTF-8</Property>
+  <Property Name="sonar.scanner.scanAll">true</Property>
+  <Property Name="sonar.python.version">3.13</Property>
+  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,.git/**,.sonarqube/**,**/node_modules/**,artifacts/**,**/TestResults/**,Plans/**,Plans.local/**,BlazorAutoApp.React/build/**,BlazorAutoApp.React/.react-router/**,BlazorAutoApp.React/coverage/**,BlazorAutoApp.React/app/api/generated/**,BlazorAutoApp.React/api/openapi.json,BlazorAutoApp/wwwroot/tailwind.css,**/Migrations/**,**/*.Designer.cs,**/*.g.cs</Property>
+  <Property Name="sonar.coverage.exclusions">Scripts/**,Deployment/**,docker/**,BlazorAutoApp.Simulation/**</Property>
+  <Property Name="sonar.cpd.exclusions">**/Migrations/**</Property>
+</SonarQubeAnalysisProperties>

@@ -103,6 +103,8 @@ gh repo clone <GITHUB_OWNER>/<GITHUB_REPO>
 cd <GITHUB_REPO>
 ```
 
+Optional local source-quality audits use the normalized Git `origin` URL to derive their private SonarQube namespace. A fork therefore gets separate local projects, credentials, and history. Follow [On-demand source quality audit](Quality/SonarQubeAnalysis.md) when you want to use the tool; it does not change deployment identity or run as part of CI.
+
 Update the high-level documentation:
 
 ```text
