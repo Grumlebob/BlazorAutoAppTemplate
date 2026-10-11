@@ -86,6 +86,8 @@ npm run build
 
 CI uses Node 24.21.0 and npm 12.2.0 for the React package, and requires all 31 current unit tests to pass with zero skips. The build writes `BlazorAutoApp.React/build/client`; it does not stage files in the C# web root. For live Vite-to-C# development instructions, see [Frontend Profiles](FrontendProfiles.md#react-local-development).
 
+Public browser acceptance can target a deployed React app through `E2E_BASE_URL`, `RUN_E2E=1` and `E2E_HEADLESS=1`. Use the `Category=ReactPublicBroad` filter for Chromium and `Category=ReactPublicSmoke` for Firefox/WebKit; install the matching Playwright browsers first. Install the Client lockfile for local `axe-core` instrumentation. The default axe helper evaluates the local script through Playwright, without publishing test assets or relaxing production CSP. An explicit `E2E_AXE_URL` still requires the app's own origin. These React tests perform public navigation and protected GET denial checks without creating accounts or submitting writes.
+
 ## Local Gate
 
 Changes consisting only of `.md` files are exempt from the local build, format, test and deployment gate. Review the changed Markdown and run `git diff --check` before pushing. The exemption does not disable existing CI or branch-protection requirements. A mixed change containing code, configuration or any other non-Markdown file uses the full gate below.

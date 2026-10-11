@@ -37,6 +37,14 @@ The configured app must already have a protected root-owned ownership marker mat
 
 For operator commands outside this workflow, an explicit `LOCALSINGLENODE_SETTINGS_FILE` selects a validated settings file; an explicit parser path takes precedence. Leave the variable unset for primary defaults. Store installation files privately, and use only the repository's scoped setup/maintenance procedures.
 
+## Maintain and verify an application
+
+The **LocalSingleNode maintenance** workflow accepts the same `primary` (default) or protected `additional` selection. It requires successful exact-source main CI and validates native ownership before backup, maintenance, restart or acceptance. The additional app uses its own protected environment and settings throughout. Doctor and runner residue checks use the existing primary runner registration. Temporary settings are removed on every outcome. Additional-app operations cannot request a shared host reboot.
+
+For normal operations, leave `acceptance_only=false` and `backup_now=true`. The workflow creates and reports a fresh protected app backup, verifies an isolated restore, performs existing scoped maintenance and runs doctor plus LAN/public acceptance. Backup recovery uses this app's persisted `/etc/<app_name>/settings.yml` and its documented backup root; see [HowToDeployLocalSingleNode.md](HowToDeployLocalSingleNode.md). Never restore primary credentials or live data into the additional app.
+
+To check persistence, select the intended app, `acceptance_only=true`, `restart_app=true`, and leave `restart_connector=false` and `reboot_check=false`. Under the shared lock, the check requires the verified immutable deployed release, ownership of all three Compose services and a nonempty public catalog. It restarts only `web`, verifies catalog equality and a new process, retains image/container/storage identity, and checks backing services, restart counts and the primary sibling remain unchanged. HTTP acceptance follows. A failed check stops for inspection without an automatic restart retry. Connector recovery remains a separate explicit selection; never combine both restart checks.
+
 ## Prepare an additional app on an existing node
 
 After merged tooling and exact-main CI are green, configure the distinct protected environment and `LOCALSINGLENODE_APP_INSTANCE` secret. Dispatch **LocalSingleNode additional app setup** from that verified main commit and record the run ID before observing it. Reuse the existing native runner. The workflow requires successful exact-source main CI, recorded primary ownership and native deployment-user identity.

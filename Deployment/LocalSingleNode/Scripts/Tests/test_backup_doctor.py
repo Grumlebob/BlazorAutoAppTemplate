@@ -159,6 +159,9 @@ class DoctorTests(unittest.TestCase):
         fixture = patch.object(doctor, 'settings', side_effect=fixture_settings)
         fixture.start()
         self.addCleanup(fixture.stop)
+        runner = patch.object(doctor, 'runner_app', return_value='books')
+        runner.start()
+        self.addCleanup(runner.stop)
 
     def test_unsupported_platform_stops_before_services(self):
         with patch.object(doctor, 'native', return_value=False), patch.object(doctor, 'command') as command:

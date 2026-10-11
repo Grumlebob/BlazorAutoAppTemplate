@@ -3,6 +3,18 @@ run-name: "LocalSingleNode maintenance @ ${{ github.sha }}"
 on:
   workflow_dispatch:
     inputs:
+      app_instance:
+        description: Select the primary app or the protected additional app
+        required: true
+        default: primary
+        type: choice
+        options:
+          - primary
+          - additional
+      restart_app:
+        description: Restart only this app's web container and verify public catalog persistence; requires acceptance_only=true
+        type: boolean
+        default: false
       backup_now:
         description: Create and verify a protected backup
         type: boolean
@@ -29,6 +41,8 @@ jobs:
   maintenance:
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 30
+    environment:
+      name: ${{ inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     steps:
       - name: Require this deployment target to be enabled
         env:
@@ -56,13 +70,40 @@ jobs:
         env:
           ACCEPTANCE_ONLY: ${{ inputs.acceptance_only }}
           RESTART_CONNECTOR: ${{ inputs.restart_connector }}
+          RESTART_APP: ${{ inputs.restart_app }}
+          REBOOT_CHECK: ${{ inputs.reboot_check }}
+          APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
         run: |
-          if [[ "$RESTART_CONNECTOR" == true && "$ACCEPTANCE_ONLY" != true ]]; then
-            echo "Connector restart checks require acceptance_only=true so backups and maintenance are skipped." >&2
+          if [[ ( "$RESTART_CONNECTOR" == true || "$RESTART_APP" == true ) && "$ACCEPTANCE_ONLY" != true ]]; then
+            echo "Restart checks require acceptance_only=true so backups and maintenance are skipped." >&2
+            exit 1
+          fi
+          if [[ "$RESTART_CONNECTOR" == true && "$RESTART_APP" == true ]]; then
+            echo "Select only one restart check per run." >&2
+            exit 1
+          fi
+          if [[ "$APP_INSTANCE" == additional && "$REBOOT_CHECK" == true ]]; then
+            echo "Additional-app maintenance cannot request a shared host reboot." >&2
             exit 1
           fi
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Require successful exact-source main CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$GITHUB_SHA" --json > "$RUNNER_TEMP/maintenance-ci.json"
+      - name: Resolve protected application instance
+        env:
+          INPUT_APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
       - name: Protected backup and scoped maintenance
         if: inputs.acceptance_only != true
         env:
@@ -74,6 +115,13 @@ jobs:
       - name: Prove public connector restart recovery
         if: inputs.restart_connector == true
         run: bash Deployment/LocalSingleNode/Scripts/restart-public-connector-check.sh
+      - name: Prove scoped app restart and catalog persistence
+        if: inputs.restart_app == true
+        run: |
+          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/LocalSingleNode/Scripts/restart-app-check.py
+      - name: Read-only native doctor
+        run: bash Deployment/LocalSingleNode/Scripts/doctor.sh --json
       - name: Run HTTP acceptance and report uptime
         run: |
           bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
@@ -92,3 +140,8 @@ jobs:
           PY
           )"
           sudo -n systemd-run --unit="localsinglenode-reboot-$GITHUB_RUN_ID"             --on-active=5s /usr/local/lib/localsinglenode/wait-for-successful-run-reboot.sh             "$INSTALL_USER" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$EXPECTED_NODE"
+      - name: Remove temporary app configuration
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json" \
+            "$RUNNER_TEMP/maintenance-ci.json"
