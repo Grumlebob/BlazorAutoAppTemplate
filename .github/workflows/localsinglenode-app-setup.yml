@@ -37,11 +37,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-      - name: Require successful exact-source main CI
+          fetch-depth: 0
+      - name: Require green main CI for unchanged operation code
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$GITHUB_SHA" --json > "$RUNNER_TEMP/app-setup-ci.json"
+          python3 Deployment/Common/Scripts/verify-operation-source.py > "$RUNNER_TEMP/app-setup-ci.json"
       - name: Resolve protected additional application
         env:
           INPUT_APP_INSTANCE: additional

@@ -173,7 +173,7 @@ class AppOperationsTests(unittest.TestCase):
         self.assertIn('vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT', workflow)
         self.assertIn('secrets.LOCALSINGLENODE_APP_INSTANCE', workflow)
         self.assertLess(workflow.index('resolve-app-instance.py'), workflow.index('Protected backup and scoped maintenance'))
-        for text in ('Require successful exact-source main CI','acceptance_only=true','Select only one restart',
+        for text in ('Require green main CI for unchanged operation code','fetch-depth: 0','verify-operation-source.py','acceptance_only=true','Select only one restart',
                      'Additional-app maintenance cannot request a shared host reboot','if: always()', 'restart-app-check.py'):
             self.assertIn(text, workflow)
 
