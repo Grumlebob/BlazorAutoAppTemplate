@@ -25,8 +25,8 @@ def caddy_root():
     raise ValueError("Foreign /etc/caddy/Caddyfile: inspect it before single-node setup")
 
 
-def check(source, bootstrap=False):
-    config = settings()
+def check(source, bootstrap=False, settings_file=None):
+    config = settings(settings_file) if settings_file is not None else settings()
     app = config["app_name"]
     opt = Path(os.environ.get("OPT_ROOT", "/opt"))
     deploy = opt / str(Path(config["deploy_root"]).relative_to("/opt"))
@@ -125,9 +125,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-repo-url", required=True)
     parser.add_argument("--bootstrap", action="store_true")
+    parser.add_argument("--settings-file", type=Path)
     args = parser.parse_args()
     try:
-        check(args.source_repo_url, args.bootstrap)
+        check(args.source_repo_url, args.bootstrap, args.settings_file)
     except (ValueError, OSError, KeyError) as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)
