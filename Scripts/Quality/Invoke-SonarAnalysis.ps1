@@ -488,7 +488,7 @@ try {
     if (-not $taskProperties.ceTaskId) { throw 'Scanner report-task.txt has no compute-engine task ID.' }
     $summary.ceTaskId = $taskProperties.ceTaskId
 
-    $analysisHeaders = Get-QualityApiHeaders -Token $analysisToken
+    $analysisHeaders = New-QualityAuthHeader -Token $analysisToken
     $ceDeadline = [DateTime]::UtcNow.AddMinutes(15)
     if ($ceDeadline -gt $DeadlineUtc) { $ceDeadline = $DeadlineUtc }
     $ceTask = $null
