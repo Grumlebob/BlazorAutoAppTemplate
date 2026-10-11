@@ -481,9 +481,12 @@ function Ensure-QualityReader {
         $confirmed = $pending
     }
 
-    $null = Invoke-QualityAdminApi -Path 'api/user_groups/add_user' -Method POST `
-        -Form @{ name = $GroupName; login = $login }
     $memberships = @(Get-QualityReaderGroups -Login $login)
+    if ($GroupName -notin $memberships) {
+        $null = Invoke-QualityAdminApi -Path 'api/user_groups/add_user' -Method POST `
+            -Form @{ name = $GroupName; login = $login }
+        $memberships = @(Get-QualityReaderGroups -Login $login)
+    }
     $expectedMemberships = @('sonar-users', $GroupName) | Sort-Object -Unique
     if (Compare-Object -ReferenceObject $expectedMemberships -DifferenceObject $memberships) {
         throw "Reader '$login' belongs to unexpected groups: $($memberships -join ', '). Expected only sonar-users and $GroupName."
