@@ -1,5 +1,25 @@
 # Public deployment coordination
 
+## Controller readiness update (2026-10-11)
+
+The main-PC controller completed persistent SSH pairing through PR #157. Its exact head `ff4b84ff655f7d86f866c3c266d78dd3561e9120` passed `build-test-push` run `38145657502`; merge `99c319fc38b3b443cd7115093a5c614c1f9de7e3` passed main CI run `38146167014`. Native authorization run `38146791803` succeeded. The controller configured the persistent alias and verified native Linux, the original non-root install user, and pinned host identity. No application or runner service changed.
+
+Fresh read-only SSH checks report:
+
+- Configured node doctor: 8/8 passed. This does not include Docker workload inspection.
+- Docker API: unavailable to the original install user; deployment-user inspection remains pending.
+- Existing Blazor application: healthy; public root and readiness return HTTP 200.
+- Protected backup: fresh within 24 hours, with a nonempty completed dump; backup timer active.
+- Collision check: not run; candidate checkout and deployment-user Docker access remain required on the node.
+- Capacity: host facts collected privately; candidate runtime and concurrent build capacity remain unverified.
+- Runner scope: inadequate for direct downstream routing. The active native runner is registered to the upstream repository. The downstream repository is personally owned, has zero runners, and keeps Actions disabled. A repository registration cannot also receive another repository's jobs. A shared registration requires organization or enterprise scope.
+
+The controller requested the owner's decision between a separate downstream registration on the same node and an organization migration. Do not move or replace the existing registration, add a service, or enable downstream Actions without that decision and the remaining readiness checks.
+
+Independent local work: candidate configuration merged current upstream without conflicts into local commit `7d889b70b1c55ed45d46663939a96a0f24377dee`. React selection, separate application identity, roots, ports and subnet remain distinct from upstream defaults. These comparisons are not native collision proof. The commit is not pushed; downstream remote head remains unchanged. Final cleanup remains last, after required evidence is retained and coordination is complete.
+
+This update supersedes the pending SSH statements and unknown health/backup/scope results below. Historical reports remain for coordination continuity.
+
 ## Shared coordination and controller SSH priority (2026-10-11)
 
 The owner authorizes both the main-PC controller agent and the native-node agent to write sanitized requests, results and blockers in this file through normal documentation PRs. Sync before writing, preserve the other agent's entries, and identify which agent supplied each update. This permission includes repository coordination writes; it does not broaden deployment or shared-service authorization.
