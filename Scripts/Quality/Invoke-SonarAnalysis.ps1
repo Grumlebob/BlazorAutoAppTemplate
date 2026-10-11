@@ -115,8 +115,9 @@ function Invoke-QualityStep {
 
 function Get-GitValue {
     param([Parameter(Mandatory)][string[]]$Arguments)
+    $gitArguments = @('-c', 'core.longpaths=true') + $Arguments
     $result = Invoke-QualityStep -Name "git-$([guid]::NewGuid().ToString('N').Substring(0, 6))" `
-        -Executable $Context.GitExecutable -Arguments $Arguments -WorkingDirectory $repoRoot -MaximumSeconds 30
+        -Executable $Context.GitExecutable -Arguments $gitArguments -WorkingDirectory $repoRoot -MaximumSeconds 30
     return $result.Stdout.Trim()
 }
 
