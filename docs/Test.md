@@ -16,15 +16,15 @@ This project has these test layers:
 
 E2E tests are skipped unless `RUN_E2E=1` is set.
 
-```powershell
-dotnet restore .\BlazorAutoApp.sln
-dotnet build .\BlazorAutoApp.sln --no-restore
-dotnet test .\BlazorAutoApp.sln --no-build
+Run the existing CI script to restore, build and test both frontend profiles sequentially. It applies the React-only exclusion of Blazor asset/render-mode tests and validates the expected result counts. Restore again whenever switching profiles; their package inputs differ.
+
+```bash
+bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
 ```
 
 Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
-CI restores, builds and tests the complete solution sequentially under both frontend profiles. The required result counts are 210 passed and 13 expected opt-in skips for `BlazorAuto`, and 202 passed and 13 expected opt-in skips for `React`. The React run excludes only tests tagged `FrontendProfile=BlazorAuto`, which assert Blazor document assets or render modes. CI checks the TRX results so failures, extra skips, missing tests, or unknown outcomes fail the job. The opt-in Testcontainers lifecycle suite separately requires 3 passed and zero skips.
+CI restores, builds and tests the complete solution sequentially under both frontend profiles. The required result counts are 211 passed and 13 expected opt-in skips for `BlazorAuto`, and 203 passed and 13 expected opt-in skips for `React`. The React run excludes only tests tagged `FrontendProfile=BlazorAuto`, which assert Blazor document assets or render modes. CI checks the TRX results so failures, extra skips, missing tests, or unknown outcomes fail the job. The opt-in Testcontainers lifecycle suite separately requires 3 passed and zero skips.
 
 ## Frontend Profile Hosting
 
@@ -97,8 +97,7 @@ git diff --check
 dotnet restore BlazorAutoApp.sln
 python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
 dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
-dotnet build BlazorAutoApp.sln --configuration Release --no-restore
-dotnet test BlazorAutoApp.sln --configuration Release --no-build          # needs Docker
+bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh
 bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
 bash Deployment/Common/observability/scripts/validate-observability.sh

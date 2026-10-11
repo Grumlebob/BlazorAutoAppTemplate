@@ -14,8 +14,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 - For changes that include code, configuration or other non-Markdown files, run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
   ```bash
   dotnet format BlazorAutoApp.sln --verify-no-changes
-  dotnet build BlazorAutoApp.sln --configuration Release
-  dotnet test BlazorAutoApp.sln --configuration Release --no-build   # needs Docker
+  bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
   bash Deployment/LocalCluster/Scripts/audit-deployment.sh
   ```
 - Keep `dotnet build` and `dotnet test` sequential in one checkout. Never run them at the same time against the same files.
