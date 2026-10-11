@@ -126,9 +126,18 @@ function Get-ScannerExecutable {
     $toolDirectory = Join-Path $Context.ToolsDirectory "dotnet-sonarscanner/$version"
     $executable = Join-Path $toolDirectory 'dotnet-sonarscanner.exe'
     if (Test-Path -LiteralPath $executable -PathType Leaf) {
-        $probe = Invoke-QualityStep -Name 'scanner-version' -Executable $executable -Arguments @('--version') `
+        $probe = Invoke-QualityStep -Name 'scanner-version' -Executable $Context.DotnetExecutable `
+            -Arguments @('tool', 'list', '--tool-path', $toolDirectory, '--format', 'json') `
             -WorkingDirectory $repoRoot -MaximumSeconds 30
-    if (($probe.Stdout + $probe.Stderr) -notmatch [regex]::Escape($version)) {
+        try { $installedTools = $probe.Stdout | ConvertFrom-Json -AsHashtable }
+        catch { throw "Pinned scanner tool manifest is invalid; preserve it and inspect $toolDirectory." }
+        $matchingTools = @($installedTools.data | Where-Object {
+            $_.packageId -eq 'dotnet-sonarscanner' -and 'dotnet-sonarscanner' -in @($_.commands)
+        })
+        if ($matchingTools.Count -ne 1) {
+            throw "Pinned scanner path does not contain exactly one expected dotnet-sonarscanner command; inspect $toolDirectory."
+        }
+        if ([string]$matchingTools[0].version -ne $version) {
             throw "Pinned scanner path contains a mismatched version; expected $version. Preserve it and inspect $toolDirectory."
         }
         return $executable
