@@ -109,7 +109,7 @@ def main():
     sibling = containers(primary) if primary['app_name'] != config['app_name'] else None
     CHECK_PHASE = 'web restart'
     print('Preflight passed; restarting only the explicitly selected web project.', flush=True)
-    command('docker', 'compose', '--project-directory', config['deploy_root'], '--project-name', config['app_name'], 'restart', 'web', timeout=60)
+    command('docker', 'compose', '--project-directory', config['deploy_root'], '--project-name', config['app_name'], 'restart', '--no-deps', 'web', timeout=60)
     CHECK_PHASE = 'catalog recovery'
     deadline = time.monotonic() + 180
     while True:

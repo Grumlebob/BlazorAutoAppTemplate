@@ -112,7 +112,7 @@ class AppOperationsTests(unittest.TestCase):
                 patch.dict(os.environ, {'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template'}), \
                 patch.object(restart, 'command') as command:
             self.assertEqual(0, restart.main())
-            command.assert_called_once_with('docker', 'compose', '--project-directory', '/opt/catalog', '--project-name', 'catalog', 'restart', 'web', timeout=60)
+            command.assert_called_once_with('docker', 'compose', '--project-directory', '/opt/catalog', '--project-name', 'catalog', 'restart', '--no-deps', 'web', timeout=60)
 
     def test_failed_ownership_or_release_prevents_restart(self):
         for target in ('ownership', 'release', 'catalog'):
