@@ -28,6 +28,8 @@
       - "{{ public_origin_port | string }}"
       - --cloudflared-version
       - "{{ public_cloudflared_version }}"
+  environment:
+    LOCALSINGLENODE_SETTINGS_FILE: "{{ instance_settings_file | default('') }}"
   changed_when: false
 - name: Inspect existing connector token
   ansible.builtin.slurp:

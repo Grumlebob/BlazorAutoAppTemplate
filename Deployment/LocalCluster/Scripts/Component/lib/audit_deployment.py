@@ -1999,6 +1999,34 @@ require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled
 for needle in ("find-successful-ci-run.py --target-sha", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "git show \"${TARGET_SHA}:frontend-profile.txt\"", "--legacy-blazor-default", "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", 'if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "--expected-frontend-profile \"$FRONTEND_PROFILE\"", "--expected-acceptance-profile \"$ACCEPTANCE_PROFILE\"", "--image-labels-json \"$IMAGE_LABELS_PATH\"", "--expected-ci-run-attempt", "verify-release-identity.sh \"$APP_IMAGE\" \"$RELEASE_IMAGE_DIGEST\" \"$FRONTEND_PROFILE\" \"$ACCEPTANCE_PROFILE\" \"$TARGET_SHA\" \"$RELEASE_MANIFEST_SCHEMA_VERSION\" \"$CI_RUN_ID\" \"$CI_RUN_ATTEMPT\" \"$SOURCE_REPO_URL\"", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode", "release_frontend_profile=$FRONTEND_PROFILE", "release_acceptance_profile=$ACCEPTANCE_PROFILE"):
     require_contains(".github/workflows/cd-localsinglenode.yml", needle, "strict single-node release contract")
 
+instance_resolver = read(single + "/Scripts/resolve-app-instance.py")
+for needle, why in [
+    ('instance not in ("primary", "additional")', "closed instance selector"),
+    ('set(config) != {"schema_version", "frontend_profile", "settings", "public"}', "protected instance schema"),
+    ('profile == selected_profile', "additional frontend distinct from primary"),
+    ('roots must be disjoint', "cross-app directory rejection"),
+    ('additional service ports overlap', "cross-app port rejection"),
+    ('additional subnet overlaps', "cross-app subnet rejection"),
+    ('verify_owned(config', "native ownership binding before deployment"),
+    ('additional instance requires its own protected GitHub environment', "secret environment isolation"),
+    ('os.O_EXCL | os.O_NOFOLLOW', "protected temporary files without overwrite"),
+    ('"-" + profile.lower()', "distinct additional release names"),
+]:
+    if needle not in instance_resolver:
+        fail(f"{single}/Scripts/resolve-app-instance.py: missing {why}")
+instance_cd = read(".github/workflows/cd-localsinglenode.yml")
+for needle in ("default: primary", "vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT", "secrets.LOCALSINGLENODE_APP_INSTANCE",
+               "python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py", '-e @"$INSTANCE_EXTRA_VARS_FILE"',
+               'export PUBLIC_HOSTNAME="$INSTANCE_PUBLIC_HOSTNAME"', '"$RUNNER_TEMP/instance-settings.yml"', '"$RUNNER_TEMP/instance-vars.json"'):
+    if needle not in instance_cd:
+        fail(f".github/workflows/cd-localsinglenode.yml: missing app isolation {needle}")
+if instance_cd.find("resolve-app-instance.py") > instance_cd.find("Download release artifact from CI"):
+    fail(".github/workflows/cd-localsinglenode.yml: validate instance identity before downloading release inputs")
+for role in ("single_node_stack", "single_node_public"):
+    require_contains(single + f"/ansible/roles/{role}/tasks/main.yml", "LOCALSINGLENODE_SETTINGS_FILE: \"{{ instance_settings_file | default('') }}\"", "collision check uses selected instance settings through privilege elevation")
+require_contains(single + "/Scripts/lib/ls_settings.py", 'os.environ.get("LOCALSINGLENODE_SETTINGS_FILE")', "selected instance settings shared by runtime verification and acceptance")
+require_file(single + "/Scripts/Tests/test_app_instance.py")
+
 single_release_identity = read(single + "/Scripts/verify-release-identity.sh")
 for needle, why in [
     ("com.blazorautoapp.frontend-profile", "running frontend profile identity"),

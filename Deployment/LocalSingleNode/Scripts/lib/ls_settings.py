@@ -65,7 +65,8 @@ def read_yaml(path: Path, node: bool = False) -> dict:
 
 
 def settings(path: Path | None = None) -> dict:
-    values = read_yaml(path or TARGET / "inventory/group_vars/all.yml")
+    selected_path = path or os.environ.get("LOCALSINGLENODE_SETTINGS_FILE") or TARGET / "inventory/group_vars/all.yml"
+    values = read_yaml(Path(selected_path))
     required = {"app_name", "app_port", "postgres_port", "redis_port", "deploy_root", "docker_subnet",
                 "lan_http_port", "lan_hostnames", "backup_root", "backup_keep_days", "observability_enabled"}
     if set(values) != required:

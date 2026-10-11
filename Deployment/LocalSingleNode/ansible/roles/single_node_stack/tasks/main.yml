@@ -28,6 +28,8 @@
       - "{{ playbook_dir }}/../../Scripts/check-port-collisions.sh"
       - --source-repo-url
       - "{{ source_repo_url }}"
+  environment:
+    LOCALSINGLENODE_SETTINGS_FILE: "{{ instance_settings_file | default('') }}"
   changed_when: false
 - name: Stage the exact app image before app interruption
   ansible.builtin.shell: |
