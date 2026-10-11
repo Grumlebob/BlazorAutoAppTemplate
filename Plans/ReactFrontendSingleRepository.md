@@ -4,7 +4,7 @@
 
 The owner confirmed on 2026-10-11: keep both public apps on the existing native demo node, using this repository and its existing runner. Do not create another hosted repository or runner service. The template default stays `BlazorAuto`; both frontend profiles remain supported. Existing Blazor services, data, release source and public access must remain healthy.
 
-P0-P7 frontend implementation is complete; retain its evidence in [ReactFrontendProfile.md](ReactFrontendProfile.md#14-evidence-and-completion). Public React delivery and P9 operational/fresh-clone acceptance remain incomplete. Cleanup is complete: the extra hosted repository is absent, its temporary readiness secret is absent, and operator cleanup removed the retired local clone, eight scratch files, three log directories and its own script. PR #163 merged as `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with exact-head run `38152925871` and successful main run `38153407171`. Persistent controller SSH still works. Do not restore the retired repository or installation notes.
+P0-P7 frontend implementation and SR1-SR5 are complete; retain historical evidence in [ReactFrontendProfile.md](ReactFrontendProfile.md#14-evidence-and-completion) and current results in [delivery acceptance](ReactFrontendDeliveryAcceptance.md). Both public apps are live. SR6 actual scoped restart, delivery scratch cleanup and final integration remain pending. The retired extra repository and its temporary readiness secret are absent. Earlier operator cleanup removed its local clone, eight scratch files, three log directories and its own script; PR #163 merged as `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with exact-head `38152925871` and main `38153407171`. Persistent controller SSH still works. Do not restore the retired method or installation notes.
 
 ## Release design
 
@@ -58,7 +58,7 @@ Mark full delivery complete only when SR1-SR6 and the profile plan's applicable 
 ## Ledger
 
 - Planning packet: documents the owner's confirmed single-repository/two-app outcome and verified completed cleanup. No publishing setting, app configuration, readiness secret, node resource or deployment has changed in this packet. Required PR/head/merge/main evidence will be recorded in its PR description.
-- Next: SR1 release/profile contract and optional publication implementation. Preserve the existing default pipeline and runner.
+- Current: SR1-SR5 completed. SR6 backup/restore/doctor, public browser/accessibility checks, fresh-clone walkthrough and brief observation passed. Complete the #177 Compose project-selection repair, actual single scoped restart, scratch cleanup and #176 final documentation integration. Exact release and packet evidence is consolidated in the delivery acceptance report.
 
 ### SR1 implementation evidence
 
