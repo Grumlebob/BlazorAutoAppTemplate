@@ -269,11 +269,11 @@ jobs:
             -e "machine_local_path=$RUNNER_TEMP/machine.yml" \
             -e "migration_bundle_local_path=$GITHUB_WORKSPACE/artifacts/migrations/$MIGRATION_BUNDLE_NAME"
 
-      - name: Run HTTP acceptance
-        run: bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
-
       - name: Verify running release identity
         run: bash Deployment/LocalSingleNode/Scripts/verify-release-identity.sh "$APP_IMAGE" "$RELEASE_IMAGE_DIGEST" "$FRONTEND_PROFILE" "$ACCEPTANCE_PROFILE" "$TARGET_SHA" "$RELEASE_MANIFEST_SCHEMA_VERSION" "$CI_RUN_ID" "$CI_RUN_ATTEMPT" "$SOURCE_REPO_URL"
+
+      - name: Run HTTP acceptance
+        run: bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
 
       - name: Remove temporary credential files
         if: always()

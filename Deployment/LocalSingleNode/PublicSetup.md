@@ -49,10 +49,10 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
 7. Require LAN and public acceptance. From the independent controller:
 
    ```powershell
-   powershell -NoProfile -File Scripts/Test-DeployedSite.ps1 -BaseUrl https://demo.example.com
+   powershell -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile React -AcceptanceProfile ReactPublicV1 -BaseUrl https://demo.example.com
    ```
 
-   Certificate validation stays enabled. Require exact readiness, Blazor assets, registration, fresh login, account management, anonymous API denial, rejected default credentials, Secure/HttpOnly auth cookies and temporary-account deletion. Verify interactive Blazor and relevant live transport in a real browser. Prove public recovery after an authorized connector restart and native reboot. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
+   The selected profiles must match the verified release manifest. Certificate validation stays enabled. React acceptance checks readiness, the public shell and data, inactive account routes, protected API denial, cache/security headers and no session cookie; it performs no account or user-data writes. Verify interactive React behavior in a real browser. Prove public recovery after an authorized connector restart and native reboot. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
 
 ## Repeated setup and recovery
 

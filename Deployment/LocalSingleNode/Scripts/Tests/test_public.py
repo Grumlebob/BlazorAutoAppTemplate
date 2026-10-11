@@ -166,7 +166,11 @@ class PublicTests(unittest.TestCase):
         self.assertEqual(1, lane.count("Scripts/Test-DeployedSite.ps1"))
         self.assertEqual(1, public.count("Scripts/Test-DeployedSite.ps1"))
         self.assertIn("public-acceptance-check.sh", lane)
+        self.assertIn('-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', lane)
+        self.assertIn("resolve_acceptance_profiles", lane)
+        self.assertIn("read_release_acceptance.py", (LIB / "acceptance_profile.sh").read_text())
         self.assertIn('-BaseUrl "$PUBLIC_URL"', public)
+        self.assertIn('-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', public)
         self.assertIn("lib/readiness.py", public)
 
 

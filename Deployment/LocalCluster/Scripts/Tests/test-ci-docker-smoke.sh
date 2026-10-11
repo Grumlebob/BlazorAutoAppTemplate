@@ -110,8 +110,15 @@ for name in sleep pwsh dotnet; do
   cat > "$TMP_ROOT/bin/$name" <<'SH'
 #!/usr/bin/env bash
 if [[ "$(basename "$0")" == pwsh && "$*" == *Test-DeployedSite.ps1* ]]; then
-  [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 33
-  exit "${FAIL_HTTP_ACCEPTANCE:-0}"
+  profile="$(printenv FRONTEND_PROFILE || printf BlazorAuto)"
+  case "$profile" in
+    BlazorAuto) acceptance="BlazorAutoV1" ;;
+    React) acceptance="ReactPublicV1" ;;
+    *) exit 35 ;;
+  esac
+  [[ " $* " == *" -FrontendProfile $profile "* ]] || exit 36
+  [[ " $* " == *" -AcceptanceProfile $acceptance "* ]] || exit 37
+  exit "$(printenv FAIL_HTTP_ACCEPTANCE || printf 0)"
 fi
 if [[ "$(basename "$0")" == dotnet ]]; then
   [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 34

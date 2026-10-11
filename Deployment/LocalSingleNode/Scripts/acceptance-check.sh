@@ -2,6 +2,8 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$SCRIPT_DIR/lib/acceptance_profile.sh"
+resolve_acceptance_profiles "$REPO_ROOT" "$SCRIPT_DIR"
 NODE_IP="$(python3 - "$SCRIPT_DIR/lib" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
@@ -12,5 +14,7 @@ PY
 )"
 HTTP_PORT="$(bash "$SCRIPT_DIR/read-setting.sh" lan_http_port)"
 python3 "$SCRIPT_DIR/lib/readiness.py" "http://$NODE_IP:$HTTP_PORT/health/ready"
-pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" -Address "$NODE_IP" -Port "$HTTP_PORT"
+pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
+  -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE" \
+  -Address "$NODE_IP" -Port "$HTTP_PORT"
 bash "$SCRIPT_DIR/public-acceptance-check.sh"
