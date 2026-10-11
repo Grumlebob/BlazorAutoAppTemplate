@@ -26,6 +26,8 @@ Caddy uses the official GitHub release Debian package, with its version and arch
 
 The runner's `deploy` account has Docker group access and passwordless sudo. Both confer root-equivalent power. The install user gets no sudoers change. A fresh one-PC fork can explicitly enable `--ci-runner`; bootstrap registers the same runner service with both LocalSingleNode and `ci-<app_name>` labels, and grants the install user Docker group access for local gates. Use a fresh group session afterwards. CI and CD share that one runner and run sequentially. An existing CI runner elsewhere is preserved unless the repository's CI runner label and expected host are deliberately changed.
 
+Complete [persistent controller SSH access](ControllerSsh.md) as part of the node handoff. The controller needs its own authorized key, verified native host identity and reusable SSH alias. The pairing script uses authenticated repository variables for public keys and connection configuration, preserves existing access and needs no sudo. For an existing node, pair the controller directly; do not bootstrap again. Prefer verified SSH for authorized checks from the main PC, retaining the runbook's deployment and privilege boundaries.
+
 ## Portable settings
 
 Edit `inventory/group_vars/all.yml` through the normal PR process. Keep the internal app slug consistent with the fork settings used by CI. The shared image and migration identity lives in `../Common/release.yml`.
