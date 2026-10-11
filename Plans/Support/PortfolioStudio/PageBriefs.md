@@ -70,7 +70,7 @@ Publication blockers: current source/revision, conflicting award cutoff copy, da
 
 **Standfirst suggestion:** A tool for recurring email tasks, with the actual workflow explained through one concrete example.
 
-Only the purpose is confirmed. Do not publish a detailed invented workflow. The inventory's provisional five-section structure remains draft until sources arrive.
+Private `mail` and `MailDemo` sources are now supplied. Begin with `mail`: it explicitly names GeckoBot and separates Outlook booking flow, parser and Tkinter UI modules. The related demo is useful for comparison. Review requirements and confirm the owner's intended version before publishing; declarations have been inspected, but runtime behavior has not.
 
 - The repetitive work: establish the real task and why it was repetitive.
 - The workflow: describe trigger, inputs, transformations and output from source evidence.
@@ -78,11 +78,11 @@ Only the purpose is confirmed. Do not publish a detailed invented workflow. The 
 - Implementation: explain one verified integration or architecture decision.
 - Outcomes and lessons: use demonstrated outcomes or owner reflection; no invented time savings.
 
-**Cover:** a restrained mail/workflow illustration labelled illustrative until genuine evidence exists. **Supporting figures:** real preview/configuration if present, fictional input/output email and source-backed workflow. If there is no UI, use a reviewed excerpt and diagram.
+**Cover:** a fictional booking/email example using the actual UI if safely captured, or a clearly illustrative workflow graphic. **Supporting figures:** new/change/cancel meeting flow, fictional booking email and source-backed parser/Outlook boundary diagram. Do not inspect real employee, customer, inbox or calendar data for captures. Keep private source links out of public actions.
 
 **Reader takeaway:** automation of a specific recurring task. **Related:** Grumlebob, JobHunt.
 
-Publication blockers: source location, actual workflow, implemented sending/review boundary, contribution/status and media. Do not describe AI, bulk outreach or autonomous sending without evidence. Capturing media must never send real mail.
+Publication blockers: intended source version, requirements/actual use, sending/review boundary, contribution/status and fictional media. Do not describe AI, bulk outreach or autonomous sending without evidence. Capturing media must never send real mail or modify a real calendar.
 
 ## 5. TraceBack — `/projects/traceback`
 
@@ -196,6 +196,8 @@ Publication blockers: personal contribution, figure selection/revision, dates an
 
 Use the five inventory sections:
 
+Prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`; their private locations are in the source overview. These newly supplied files are located but unreviewed. Reconcile them with the repository's report/prototypes before selecting claims or figures.
+
 - The fictitious scenario: state that this is a design study of odds aggregation.
 - Turning constraints into requirements: **When demand concentrates around one event.** Present one clear quality-attribute scenario.
 - Architectural views: show a readable responsibility/module view before a detailed deployment view.
@@ -206,7 +208,7 @@ Use the five inventory sections:
 
 **Reader takeaway:** architectural reasoning connects a workload to concrete choices and limits. **Links:** supplied Architecture repository. **Related:** MiniTwit, TraceBack.
 
-Publication blockers: selected source figures, role and results/targets distinction. No claim of production betting, payments or demonstrated large-scale traffic.
+Publication blockers: preferred PDF/deck review, source-version agreement, selected figures, role and results/targets distinction. No claim of production betting, payments or demonstrated large-scale traffic.
 
 ## 11. Geospatial research — `/projects/geospatial-research`
 
@@ -230,23 +232,23 @@ Publication blockers: reviewed source/result period, dataset/map attribution, co
 
 ## 12. Grumlebob — `/projects/grumlebob`
 
-**Card:** Personal tools for game automation, analysis, bookkeeping and billing.
+**Card suggestion:** Personal tools for automation, analysis, bookkeeping and billing.
 
 **Standfirst suggestion:** A collection of tools built around recurring tasks and useful questions.
 
-Keep one entry with distinct sections unless the owner later chooses otherwise. Use the five provisional inventory sections:
+The owner's explanation is the primary source. A restricted local folder is recorded privately; its contents are not approved publication material and need not be inspected. Obtain the approved public description before publishing. Keep one entry with distinct sections unless the owner chooses otherwise:
 
 - Automating recurring work: explain whether these are one system or separate tools.
-- Game automation: show one actual AHK/Python workflow and its controls.
-- Game analysis: explain the real data/question and a genuine output.
+- Automation using AHK and Python: explain approved technical decisions and controls through a generic diagram.
+- Analysis: explain approved methods/lessons using an accurately labelled generic or fictional example.
 - Bookkeeping and automated billing: follow fictional records to a reviewed example bill; describe only implemented controls.
 - Design and lessons: explain verified failure/maintenance boundaries and owner reflections.
 
-**Cover:** genuine tool/workflow composition once sources exist; illustrative draft until then. **Supporting figures:** reviewed excerpt, real chart, fictional bookkeeping record/bill and source-backed flow.
+**Cover:** an approved generic workflow illustration. **Supporting figures:** a newly prepared technical diagram and fictional bookkeeping/billing example where supported by the approved explanation. Source excerpts or actual artifacts require specific publication approval.
 
 **Reader takeaway:** practical scripts solve specific recurring tasks. **Related:** GeckoBot, JobHunt.
 
-Publication blockers: actual source locations, integration boundaries, role, workflow/media and status. Do not infer source from the matching account name, game titles, payment collection, ML or financial results. Media preparation must not send invoices or run real game automation.
+Publication blockers: approved public explanation, role/status and permitted figures. Exclude private domain context, sensitive workflows/data/results and identifying source artifacts from prose, images, filenames, alt text, captions, social previews and links. Do not invent another real use case to replace excluded context. Do not infer a repository, integrations, payment collection, ML or outcomes. Media preparation must not execute real automation or send invoices.
 
 ## 13. JobHunt — `/projects/jobhunt`
 
