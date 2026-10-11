@@ -1,0 +1,17 @@
+# Portfolio Studio delivery goal
+
+Deliver the complete Portfolio plan at https://portfolio.jacobgrum.com using React/TypeScript, a C# backend and LocalSingleNode/Cloudflare. This file is the prompt for a later `/goal`; creating it does not start implementation or authorize live operations.
+
+Read AGENTS.md, Plans/PortfolioStudioImplementation.md and all indexed companions. Inspect remotes, status, claims, main CI and ignored operator/source notes. Preserve others' work. Apply the recorded recommendations, resolve routine choices autonomously and document necessary deviations.
+
+Upstream React delivery is unfinished. Verify ReactFrontendDeliveryGoal.md and ReactFrontendSingleRepository.md against merged code/checks. Prepare independent content while waiting. Pin a merged-green baseline with P0's required capabilities; do not copy open PRs, revive the retired demo repository or alter the template's live Blazor app. Cleanup is not delivery completion.
+
+Execute P0-P10 in the independent Grumlebob/Portfolio checkout. Seed safe Portfolio app/image/runner identity before first push or bootstrap; preserve history and existing destination work. Rename to Portfolio. Remove Blazor, Books/accounts, Cloud and LocalCluster after relocating retained shared checks. Deliver the final file-only runtime, including coherent removal of unused DB/cache/migration services from release, CI and operations.
+
+Use vertical slices: after platform prerequisites, finish ImprovedDb through reviewed content, deterministic C# export, generated API contracts, Studio home/reader, direct prerendered HTML, exact C# hosting and PortfolioPublicV1 acceptance. Then add each story end to end through the shared metadata reader. Follow all eleven page/figure briefs, factual/privacy rules, responsive media, both themes, native section links, mobile/keyboard accessibility, true 404s and matching content/release revisions. Omit unsupported claims; do not fabricate results, roles, permissions or approval. Four reviewed stories may launch first; completion requires all eleven published or explicitly owner-deferred.
+
+Claim one eligible checkpoint, use small PRs and explicit staged paths. Run the applicable local gate before push, with build/test sequentially. Markdown-only work needs review/diff check. Require build-test-push on the exact final PR head, normal merge and green exact-main CI. Record commands/results, PR/head/merge/main/release evidence and the precise next checkpoint. Continue through full handover.
+
+Use existing native runbooks and verified controller SSH. Record applicable owner authorization before live setup/deployment; never borrow the React agent's authorization. For a genuinely native/human-only step, return one filled verified command or short node-agent prompt, explain the missing input and resume after evidence. Never bootstrap Windows/WSL, guess host values, run sudo yourself, expose secrets, mutate foreign resources or redispatch because a watcher stopped.
+
+Finish with independent public HTTPS/browser/API/deep-link/denial acceptance, immutable running release evidence, scoped update/restart/recovery and compatible rollback evidence, full catalog disposition and executable authoring/operations handover. Keep Progress authoritative downstream. Only mark complete when required packets are merged-green and public/full-handover evidence is recorded; keep true missing external inputs explicit while progressing independent work.

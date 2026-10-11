@@ -2,6 +2,8 @@
 
 Parent: [master plan](../../PortfolioStudioImplementation.md). Work items: [DeliveryPhases.md](DeliveryPhases.md). State: [Progress.md](Progress.md).
 
+Implementation defaults and failure review: [ExecutionDecisions.md](ExecutionDecisions.md). Ordered packet checkpoints: [ImplementationCheckpoints.md](ImplementationCheckpoints.md). Figure specifications: [VisualProduction.md](VisualProduction.md).
+
 ## Owner decision and delivery rule
 
 The owner prefers vertical slices of architecture. Organize application code around visitor use cases, and deliver each product slice through content, backend, frontend, hosting and acceptance together. The phase/packet IDs remain the task inventory; the slice table below groups them into visitor-visible outcomes. It does not create a second competing backlog.
@@ -15,7 +17,7 @@ P0–P3 are the necessary product import/identity/platform prerequisites. After 
 | VS0 — Independent product | Safe Portfolio checkout/image identity, React-only host and retained single-node operations | P0–P3; early P8 access/CI only when necessary | Own remotes/provenance, supported local gate/CI, no active Blazor/removed-target dependency |
 | VS1 — Read ImprovedDb | Open home, choose ImprovedDb, read its full illustrated story and use section links in either theme | P4.1–P4.3, P5.1–P5.3, first-story P7.1/P7.3 and applicable P7.4 checks | One reviewed published story; consistent content/API/HTML revision; direct and fragment URLs; useful HTML without JavaScript; true missing/draft-route 404; keyboard/mobile/theme/image behavior; production image acceptance |
 | VS2 — Add one reviewed story | Discover and read one additional complete project through the same experience | One P6 story packet at a time, followed by P6.12 catalog review | Reviewed contribution/status/prose/media; export/API/card/detail/prerender/sitemap/social output updated together; no public links to drafts; relevant slice checks and green merge/main evidence |
-| VS3 — Match runtime to the product | Operate only services the portfolio actually needs | P7.2 | Explicit retain/remove decision and corresponding startup/Compose/doctor/backup/audit/test changes; verified production image |
+| VS3 — Match runtime to the product | Operate the final file-only portfolio | P7.2 | Unused DB/cache/Identity/migrations removed from startup/Compose/release/doctor/backup/audit/tests; verified production image without fake migration artifacts |
 | VS4 — Visit the public portfolio | Read the reviewed launch set over public HTTPS on the intended hostname | P7.4, remaining P8, P9 | Immutable release and real native/LAN/Cloudflare/public/browser evidence; authorized deployment recorded |
 | VS5 — Update and recover | Add content, release safely and recover using the supported commands | P10 and remaining independent P6 stories | Authoring handover, scoped restart/recovery and honest previous-release/rollback evidence; full catalog disposition |
 
@@ -51,7 +53,7 @@ Keep endpoint/handler/validation/mapping/checks next to their use case where the
 
 `ProjectStories/GetProject` and the React reader serve every project by validated slug/metadata. Individual stories are content slices, not eleven copied backend modules or twelve special-case React pages. A new content block or interaction belongs to the story slice that first needs it; extract shared rendering after its behavior is defined.
 
-Shared responsibilities stay narrow: immutable bundle loading/validation, generated transport/contracts, theme/shell primitives and generic deployment infrastructure. The content compiler/exporter may be invoked by a small C# command/project selected during VS1; record its actual name and command. It must run without DB/Redis/credentials and produce the same deterministic representation consumed by API and prerender. Shared code must not call feature modules to reconstruct a second content model.
+Shared responsibilities stay narrow: immutable bundle loading/validation, generated transport/contracts, theme/shell primitives and generic deployment infrastructure. Implement `Portfolio.ContentTool` referencing compilation in `Portfolio.Core/Content/Compilation` and the single public DTO set in `Portfolio.Core/Features/Portfolio/Contracts`, using ExecutionDecisions' proposed CLI contract. It runs without DB/Redis/credentials and produces the same deterministic representation consumed by API and prerender. Shared code must not call feature modules to reconstruct a second content model. Sharp is a build-only raster preprocessor driven by the C# published-media plan.
 
 ## Cross-boundary contract
 
@@ -76,7 +78,7 @@ Keep the master plan's public endpoints, lightweight collection, block union, st
 
 Use successive reviewable PRs when necessary, retaining one active VS1 record:
 
-1. Prepare the real ImprovedDb source/role/prose/media and preserve the approved Studio references. Choose the safe C# Markdown parser and record it.
+1. Prepare real ImprovedDb source/prose/media and preserve the approved Studio references. Use the selected Markdig/safe-rendering contract; omit personal-role claims until verified rather than blocking neutral project copy.
 2. Implement only the public authoring/export contract needed by this story and home. Other project metadata can remain drafts; do not build an all-purpose content framework first.
 3. Implement the SiteContent, ProjectCatalog and ProjectStories read features with generated transport. Replace the corresponding Books consumer flows and remove former sample/account endpoints through the scoped P4.3 inventory.
 4. Implement home, shared shell/theme and the ImprovedDb reader together with its content. Exercise existing loading/error/cancellation behavior where APIs are used.

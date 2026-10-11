@@ -1,6 +1,6 @@
 # Portfolio progress and resume ledger
 
-Read [master plan](../../PortfolioStudioImplementation.md), [vertical architecture/slices](Architecture.md), [phases](DeliveryPhases.md), [page briefs](PageBriefs.md), [source inventory](ProjectInventory.md) and [node handoff](NodeHandoff.md) before implementation.
+Read [master plan](../../PortfolioStudioImplementation.md), [architecture/slices](Architecture.md), [phases](DeliveryPhases.md), [execution decisions](ExecutionDecisions.md), [implementation checkpoints](ImplementationCheckpoints.md), [page briefs](PageBriefs.md), [visual production](VisualProduction.md), [source inventory](ProjectInventory.md) and [node handoff](NodeHandoff.md). The later goal prompt is [PortfolioStudioDeliveryGoal.md](../../PortfolioStudioDeliveryGoal.md).
 
 ## Current checkpoint
 
@@ -9,11 +9,11 @@ Last updated: 2026-10-11. Planning prepared; no Portfolio code, node bootstrap o
 - Destination: [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio). It existed and was empty when inspected; recheck before import.
 - Source: [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate).
 - Latest readiness inspection: upstream main `310dca9610419523c9f07412ed8ea6c0cb665ef4`; successful [CI run 38153407171](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38153407171). This is a planning checkpoint, not the final seed selection. Portfolio advertised no Git refs at this review.
-- Another agent owns the [React delivery goal](../../ReactFrontendDeliveryGoal.md). Its P0–P7 implementation/controller SSH remain; the separate demo release/deployment was withdrawn. Do not wait for or recreate it. Fetch/read current evidence and preserve that agent's cleanup work.
+- Another agent owns the [React delivery goal](../../ReactFrontendDeliveryGoal.md) and active [SR1–SR6 plan](../../ReactFrontendSingleRepository.md). P0–P7 implementation/controller SSH and retired-repository cleanup are complete; public React delivery is unfinished. Prefer completed reusable delivery; P0 classifies actual merged capabilities/dependencies. Preserve that agent's work and existing deployment.
 - Product decisions: Portfolio naming, React frontend/C# backend, Books/Blazor removal, LocalSingleNode-only deployment and intended public URL `https://portfolio.jacobgrum.com/`.
 - Owner architecture preference: vertical slices organized around use cases. After P0–P3, VS1 completes ImprovedDb's content/C# API/React home-reader/prerender/hosting/acceptance together; later stories repeat that journey.
 - Supplied local checkout/node details: ignored `Plans.local/Portfolio/OperatorIntent.md`. Transfer privately to the downstream checkout. GitHub authentication on the fresh native node is reported, not independently verified.
-- Recommended next task: **P0.1**. Inspect the live upstream dependency gate, then decide the seed baseline. No project source needs to be changed for that inspection.
+- Recommended next implementation task: **P0.1** after a delivery instruction. While reusable upstream dependencies are unfinished, independently prepare source/prose/media using VisualProduction. No Portfolio implementation has started.
 - Public launch authorization: not recorded for execution. This request prepares plans; do not dispatch a deployment from it.
 
 After P0 import, this ledger in **Portfolio** is authoritative. Retain a link from the template plan to downstream execution evidence. Do not maintain two competing live ledgers or import the React agent's progress as Portfolio progress.
@@ -27,7 +27,7 @@ These rows record visitor/operator completion across the existing packets. Keep 
 | VS0 Independent product | Ready | P0–P3; start P0.1; early P8 only for actual access/CI prerequisites | Pending |
 | VS1 Read ImprovedDb | Pending | P4/P5, initial P6.1 review and first-story P7.1/P7.3/applicable P7.4 | Pending content/API/home/story/direct HTML/theme/mobile/image acceptance |
 | VS2 One additional story | Pending | Repeat one eligible P6 packet; catalog review P6.12 | Pending per-story export/API/routes/media/metadata and checks |
-| VS3 Runtime alignment | Pending | P7.2 service decisions and matching operations changes | Pending |
+| VS3 Runtime alignment | Pending | P7.2 final file-only runtime and matching release/operations changes | Pending |
 | VS4 Public launch | Pending | P7.4, remaining P8 and P9 | Pending native/LAN/release/public acceptance |
 | VS5 Update/recover | Pending | P10 and remaining P6 stories | Pending recovery/authoring/full catalog disposition |
 
@@ -55,6 +55,7 @@ Copy this record for each active packet. Keep finished packet records or link th
 
 ```text
 Packet ID and title:
+Last completed checkpoint / exact next checkpoint:
 Vertical slice ID, visitor/operator outcome and owned packet IDs:
 Status:
 Owner/session and start date:
@@ -88,19 +89,21 @@ Each cell requires real evidence. Source preparation from the existing inventory
 | P6.4 Unlost | Report/artifacts reviewed | Outline | Genuine figures; select | Team context; role pending | Pending | Review attribution/figure reuse |
 | P6.5 Ship Inspections | Prior source/docs review | Outline | Synthetic capture pending | Sample; role pending | Pending | Reconcile upload behavior/limits |
 | P6.6 MiniTwit | Prior report/docs review | Outline | Historical figures; select | Team context; role pending | Pending | Align source/report and dated claims |
-| P6.7 BestBets | Prior report review; preferred Exam/deck located | Outline | Preferred deck/figures need review | Design study; role pending | Pending | Review owner-selected materials and reconcile versions |
+| P6.7 BestBets | Preferred Exam/deck text reviewed; final design reconciled | Outline | Original figure visual/reuse review pending | Team design study; individual role optional | Pending | Produce sourced broker/actor/target/tradeoff figures |
 | P6.8 Geospatial research | Notebook/report structure | Outline | Genuine maps/plots; select | Team context; role pending | Pending | Dates, attribution and limitations |
-| P6.9 GeckoBot | Private GeckoBot selected; trees/AST structure reviewed | Brief | Fictional captures pending | Historical use/status pending | Draft | Review GeckoBot requirements/use; demo deleted with complete private Git backup |
+| P6.9 GeckoBot | Private GeckoBot selected; trees/AST structure reviewed | Brief | Fictional captures pending | Historical use/status pending | Draft | Prepare source-backed fictional figures; omit unverified use claims; private demo backup retained |
 | P6.10 Grumlebob | Owner explanation; restricted folder located | Domain-neutral brief | Approved generic figures pending | Pending | Draft | Obtain approved public explanation; source inspection optional |
-| P6.11 JobHunt | General private docs reviewed | Outline | Flow concept; fictional captures pending | Boundary alignment pending | Draft | Resolve manual-writing/account-creation copy |
+| P6.11 JobHunt | General private docs reviewed | Copy boundary resolved | Flow concept; fictional captures pending | Personal review; assisted drafting accurately described | Draft | Produce permitted figures; omit unverified account creation |
 
 Launch set: not yet approved/published. Recommended: ImprovedDb, KinoJoin, TraceBack, Unlost when ready. Initial launch does not close unfinished story packets.
 
-Owner source update on 2026-10-11: the selected sole active private source is `Grumlebob/GeckoBot`, renamed from mail at the owner's request. Its repository ID, main commit and private visibility were verified unchanged by the rename. MailDemo was deleted at the owner's request; its complete five-commit Git history and distinct event/timezone examples were verified and retained privately. BestBets' preferred Exam PDF and presentation are located but unreviewed. Grumlebob's restricted background folder is located; use the owner's approved explanation, exclude private context/artifacts/results, and do not require source inspection. Exact local locations, backup/recovery evidence and the explicit private publication boundary are in ignored `Plans.local/Portfolio/ProjectSources.md`.
+Owner source update on 2026-10-11: `Grumlebob/GeckoBot` remains the sole active private source, with rename identity/history/privacy preserved; deleted MailDemo's complete history remains privately backed up. BestBets' preferred Exam/deck text now supplies final-design/prototype-limit evidence; selected figures still need visual/reuse review. Grumlebob uses only approved public explanation; restricted source inspection is unnecessary. Exact locations, backup evidence and publication boundaries remain in ignored `Plans.local/Portfolio/ProjectSources.md`.
+
+Execution enhancement: D01–D12 resolve routine dependency/compiler/media/runtime/copy choices, ImplementationCheckpoints subdivides all technical packets and repeatable story slices, and VisualProduction specifies eleven project figure sets. Unknown personal roles/counts may be omitted; permission, Grumlebob public explanation and native/human authorization remain genuine scoped inputs. This is planning evidence, not completed product work. Planning PR/head/merge/main evidence belongs in this enhancement's PR description.
 
 ## Decision and blocker records
 
-Record a decision when a future agent would otherwise have to infer it. Examples: seed SHA, audit relocation paths, retained DB/Redis, canonical URL setting, final acceptance-profile name, published launch set and owner-approved deferrals.
+Apply D01–D12 in ExecutionDecisions. Record implementation-specific choices such as seed SHA, relocated gate paths, actual command evidence, file-only service removals, configured origin, launch set and owner-approved deferrals. Do not reopen settled defaults merely because an older outline used “choose.”
 
 ```text
 Decision ID/date:
@@ -146,7 +149,7 @@ Remaining operator action or limitation:
 ## Resume prompt for another agent
 
 ```text
-Continue Portfolio using Plans/PortfolioStudioImplementation.md. Read all linked companions, especially Progress.md, before editing. This is an independent product in Grumlebob/Portfolio, cloned from a verified merged BlazorAutoAppTemplate baseline. Another agent owns upstream React delivery/cleanup; preserve its plan/worktrees and existing Blazor deployment. Its separate demo was withdrawn; do not recreate it or wait for its cancelled acceptance.
+Continue Portfolio using Plans/PortfolioStudioImplementation.md and all companions, especially Progress, ExecutionDecisions, ImplementationCheckpoints and VisualProduction. This is an independent product in Grumlebob/Portfolio from a verified merged template baseline. Another agent owns unfinished upstream React SR1–SR6 delivery; preserve its worktrees and existing Blazor deployment. Retired-repository cleanup is complete; do not recreate it. Prefer completed reusable delivery and inspect actual capability dependencies before import.
 
 Use Architecture.md's vertical slice boundaries. After platform prerequisites, finish one real ImprovedDb journey through content, C# APIs, React home/reader, prerender/hosting and acceptance before expanding the catalog. P4/P5 and first-story P7 work are one VS1 outcome. Repeat later P6 stories end to end; do not mark an API-only or UI-only checkpoint a verified product slice.
 
