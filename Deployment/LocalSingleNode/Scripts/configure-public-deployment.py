@@ -36,11 +36,14 @@ def main():
             raise ValueError("Invalid repository")
         config = validate_config(json.loads(args.config.read_text()))
         state = json.loads(protected_read(args.state))
+        if not isinstance(state, dict):
+            raise ValueError("Cloudflare ownership state is invalid")
         identity = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
         if state.get("identity") != identity or state.get("pending") or not state.get("dns_id"):
             raise ValueError("Cloudflare ownership state is incomplete or belongs to another config")
         token = protected_read(args.connector_token_file).strip()
-        validate(config["public_hostname"], state["tunnel_id"], config["origin_port"], token, settings())
+        validate(config["public_hostname"], state["tunnel_id"], config["origin_port"], token,
+                 settings(), expected_account_id=config["account_id"])
         pages = json.loads(gh("api", f"repos/{args.repo}/actions/variables", "--paginate", "--slurp"))
         existing = {item["name"]: item["value"] for page in pages for item in page["variables"]}
         if existing.get("LOCALSINGLENODE_HOST") != args.node:

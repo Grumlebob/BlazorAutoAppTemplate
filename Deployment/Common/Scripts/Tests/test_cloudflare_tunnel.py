@@ -1,4 +1,5 @@
 """Offline Cloudflare resource ownership, retries and credential safeguards."""
+import base64
 import copy
 import io
 import json
@@ -34,7 +35,7 @@ class FakeApi:
 
     def get(self, path, allow_missing=False):
         if path.endswith("/token"):
-            return "x" * 48
+            return base64.b64encode(json.dumps({"a": ACCOUNT, "t": TUNNEL, "s": "fixture-secret"}).encode()).decode()
         return {"config": copy.deepcopy(self.config)}
 
     def request(self, method, path, body=None):
@@ -188,6 +189,46 @@ class TunnelTests(unittest.TestCase):
         ]) as request:
             self.assertEqual([{"id": 1}, {"id": 2}], api.listing("/zones"))
             self.assertIn("page=2", request.call_args_list[1].args[1])
+
+    def test_connector_token_rejects_mismatched_or_malformed_claims(self):
+        valid = {"a": ACCOUNT, "t": TUNNEL, "s": "fixture-secret"}
+        for claims in [[], {**valid, "a": "b" * 32}, {**valid, "t": "foreign"},
+                       {**valid, "s": ""}, {**valid, "s": 123}]:
+            token = base64.b64encode(json.dumps(claims).encode()).decode()
+            with self.subTest(claims=claims), self.assertRaises(ValueError):
+                cf.validate_connector_token(token, TUNNEL, ACCOUNT)
+        token = base64.urlsafe_b64encode(json.dumps(valid).encode()).decode().rstrip("=")
+        cf.validate_connector_token(token, TUNNEL, ACCOUNT)
+
+    def test_credential_directory_must_be_private_and_not_a_symlink(self):
+        directory = self.root / "credentials"
+        directory.mkdir(mode=0o700)
+        token = directory / "token"
+        cf.private_write(token, "fixture")
+        directory.chmod(0o755)
+        with self.assertRaisesRegex(ValueError, "0700"):
+            cf.protected_read(token)
+        with self.assertRaisesRegex(ValueError, "0700"):
+            cf.private_write(token, "replacement")
+        directory.chmod(0o700)
+        link = self.root / "linked-credentials"
+        link.symlink_to(directory, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "0700"):
+            cf.protected_read(link / "token")
+
+    def test_api_pagination_rejects_unexpected_shapes(self):
+        api = cf.Api("fixture")
+        for envelope in [{"result": [1]}, {"result": [], "result_info": []},
+                         {"result": [], "result_info": {"total_pages": True}},
+                         {"result": [], "result_info": {"total_pages": -1}}]:
+            with self.subTest(envelope=envelope), patch.object(api, "request", return_value=envelope), \
+                    self.assertRaises(ValueError):
+                api.listing("/zones")
+
+    def test_non_object_ownership_state_is_refused(self):
+        cf.private_write(self.state, "[]")
+        with self.assertRaisesRegex(ValueError, "JSON object"):
+            self.provisioner()
 
     def test_cli_errors_never_dump_credential_content(self):
         config = self.root / "config.json"

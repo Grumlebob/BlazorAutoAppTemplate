@@ -19,6 +19,32 @@ import uuid
 API_ROOT = "https://api.cloudflare.com/client/v4"
 
 
+def validate_connector_token(token, tunnel_id, account_id=None):
+    if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9+/=_-]{32,}", token):
+        raise ValueError("Invalid connector token")
+    try:
+        claims = json.loads(base64.b64decode(token + "=" * (-len(token) % 4), altchars=b"-_", validate=True))
+    except (ValueError, TypeError, UnicodeDecodeError):
+        raise ValueError("Invalid connector token") from None
+    if not isinstance(claims, dict):
+        raise ValueError("Invalid connector token")
+    claim_account = claims.get("a")
+    secret = claims.get("s")
+    if (claims.get("t") != tunnel_id
+            or not isinstance(claim_account, str)
+            or not re.fullmatch(r"[0-9a-f]{32}", claim_account)
+            or (account_id is not None and claim_account != account_id)
+            or not isinstance(secret, str) or not secret):
+        raise ValueError("Connector token does not match the configured tunnel/account")
+
+
+def private_directory(path):
+    info = Path(path).lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) != 0o700):
+        raise ValueError("Credential/state directory must be owned by the current user with mode 0700")
+
+
 def hostname(value):
     if not isinstance(value, str) or len(value) > 253 or value != value.lower():
         raise ValueError("Use a lowercase public DNS hostname")
@@ -32,13 +58,13 @@ def validate_config(config):
     expected = {"account_id", "zone_name", "tunnel_name", "public_hostname", "origin_port"}
     if not isinstance(config, dict) or set(config) != expected:
         raise ValueError("Cloudflare config has missing or unknown keys")
-    if not re.fullmatch(r"[0-9a-f]{32}", str(config["account_id"])):
+    if not isinstance(config["account_id"], str) or not re.fullmatch(r"[0-9a-f]{32}", config["account_id"]):
         raise ValueError("Invalid Cloudflare account ID")
     zone = hostname(config["zone_name"])
     site = hostname(config["public_hostname"])
     if not site.endswith("." + zone):
         raise ValueError("Public hostname must be a subdomain of the configured zone")
-    if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", str(config["tunnel_name"])):
+    if not isinstance(config["tunnel_name"], str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", config["tunnel_name"]):
         raise ValueError("Tunnel name must be a lowercase slug")
     if type(config["origin_port"]) is not int or not 1024 <= config["origin_port"] <= 65535:
         raise ValueError("Origin port must be an integer from 1024 through 65535")
@@ -46,11 +72,13 @@ def validate_config(config):
 
 
 def protected_read(path):
-    flags = os.O_RDONLY | os.O_NOFOLLOW
+    private_directory(Path(path).parent)
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
     descriptor = os.open(path, flags)
     try:
         info = os.fstat(descriptor)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o600):
             raise ValueError("Credential/state files must be owned by the current user with mode 0600")
         with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
             descriptor = None
@@ -63,6 +91,7 @@ def protected_read(path):
 def private_write(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    private_directory(path.parent)
     if path.is_symlink():
         raise ValueError("Refusing symlink credential/state output")
     if path.exists():
@@ -75,6 +104,11 @@ def private_write(path, value):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -99,6 +133,7 @@ class Api:
             with self.opener.open(request, timeout=30) as response:
                 envelope = json.load(response)
         except urllib.error.HTTPError as error:
+            error.close()
             if error.code == 404 and allow_missing:
                 return {"result": None}
             # Responses can include submitted values. Never print response bodies.
@@ -118,10 +153,15 @@ class Api:
             query = urllib.parse.urlencode({**(filters or {}), "page": page, "per_page": 100})
             envelope = self.request("GET", path + "?" + query)
             items = envelope.get("result")
-            if not isinstance(items, list):
+            if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
                 raise ValueError("Unexpected Cloudflare list response")
             result.extend(items)
-            pages = envelope.get("result_info", {}).get("total_pages")
+            page_info = envelope.get("result_info")
+            if page_info is not None and not isinstance(page_info, dict):
+                raise ValueError("Unexpected Cloudflare pagination response")
+            pages = page_info.get("total_pages") if page_info else None
+            if pages is not None and (type(pages) is not int or pages < 0):
+                raise ValueError("Unexpected Cloudflare pagination response")
             if (pages is not None and page >= pages) or (pages is None and len(items) < 100):
                 return result
         raise ValueError("Cloudflare pagination exceeded the safe limit")
@@ -134,6 +174,8 @@ class Provisioner:
         self.path = Path(state_path)
         self.identity = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
         self.state = json.loads(protected_read(self.path)) if self.path.exists() or self.path.is_symlink() else {}
+        if not isinstance(self.state, dict):
+            raise ValueError("Cloudflare ownership state must be a JSON object")
         if self.state and self.state.get("identity") != self.identity:
             raise ValueError("Ownership state belongs to different configuration; use a separate state file")
 
@@ -148,7 +190,9 @@ class Provisioner:
             raise ValueError("Exactly one active zone in the configured account is required")
         zone = zones[0]
         zone_id = zone["id"]
-        if not re.fullmatch(r"[0-9a-f]{32}", zone_id) or zone.get("account", {}).get("id") != c["account_id"]:
+        account = zone.get("account")
+        if (not isinstance(zone_id, str) or not re.fullmatch(r"[0-9a-f]{32}", zone_id)
+                or not isinstance(account, dict) or account.get("id") != c["account_id"]):
             raise ValueError("Zone identity does not match the configured account")
         tunnel_base = f'/accounts/{c["account_id"]}/cfd_tunnel'
         dns_base = f"/zones/{zone_id}/dns_records"
@@ -158,6 +202,13 @@ class Provisioner:
         if any(item.get("name") != c["public_hostname"] for item in records) or len(records) > 1:
             raise ValueError("Unexpected or multiple DNS records at the requested hostname")
         tunnel_id = self.state.get("tunnel_id")
+        if tunnel_id is not None:
+            try:
+                valid_tunnel_id = isinstance(tunnel_id, str) and str(uuid.UUID(tunnel_id)) == tunnel_id
+            except ValueError:
+                valid_tunnel_id = False
+            if not valid_tunnel_id:
+                raise ValueError("Recorded tunnel ID is invalid")
         if not tunnel_id:
             if tunnels:
                 raise ValueError("Tunnel name exists without recorded ownership; inspect it, do not adopt automatically")
@@ -168,11 +219,19 @@ class Provisioner:
             if not apply:
                 raise ValueError("Tunnel and DNS are not provisioned")
             self.save(zone_id=zone_id, pending="create-tunnel")
-            tunnel = self.api.request("POST", tunnel_base, {
+            response = self.api.request("POST", tunnel_base, {
                 "name": c["tunnel_name"], "config_src": "cloudflare",
                 "tunnel_secret": base64.b64encode(os.urandom(32)).decode(),
-            })["result"]
-            tunnel_id = str(uuid.UUID(tunnel["id"]))
+            })
+            tunnel = response.get("result")
+            if not isinstance(tunnel, dict) or not isinstance(tunnel.get("id"), str):
+                raise ValueError("Unexpected Cloudflare tunnel creation response")
+            try:
+                tunnel_id = str(uuid.UUID(tunnel["id"]))
+            except ValueError:
+                raise ValueError("Invalid Cloudflare tunnel ID") from None
+            if tunnel_id != tunnel["id"]:
+                raise ValueError("Invalid Cloudflare tunnel ID")
             self.save(tunnel_id=tunnel_id, pending=None)
             tunnels = [tunnel]
         if len(tunnels) != 1 or tunnels[0].get("id") != tunnel_id:
@@ -184,7 +243,15 @@ class Provisioner:
             {"service": "http_status:404"},
         ]}
         current_result = self.api.get(tunnel_base + "/" + tunnel_id + "/configurations", allow_missing=True)
-        current = current_result.get("config", {}) if isinstance(current_result, dict) else {}
+        if current_result is None:
+            current = {}
+        elif isinstance(current_result, dict) and isinstance(current_result.get("config", {}), dict):
+            current = dict(current_result.get("config", {}))
+        else:
+            raise ValueError("Unexpected Cloudflare tunnel configuration response")
+        ingress = current.get("ingress", [])
+        if not isinstance(ingress, list) or any(not isinstance(entry, dict) for entry in ingress):
+            raise ValueError("Unexpected Cloudflare tunnel ingress response")
         # Cloudflare adds empty defaults when returning remotely managed configuration.
         current = {key: value for key, value in current.items()
                    if not (key == "originRequest" and value == {})
@@ -206,6 +273,9 @@ class Provisioner:
             self.save(pending=None)
         target = tunnel_id + ".cfargotunnel.com"
         record = records[0] if records else None
+        if record is not None and (not isinstance(record.get("id"), str)
+                                   or not re.fullmatch(r"[0-9a-f]{32}", record["id"])):
+            raise ValueError("DNS record identity is invalid")
         desired_dns = {"type": "CNAME", "name": c["public_hostname"], "content": target, "proxied": True, "ttl": 1}
         if record:
             if (record.get("type") != "CNAME" or record.get("content") != target
@@ -223,12 +293,15 @@ class Provisioner:
             if not apply:
                 raise ValueError("Public DNS record is missing")
             self.save(pending="create-dns")
-            record = self.api.request("POST", dns_base, desired_dns)["result"]
+            response = self.api.request("POST", dns_base, desired_dns)
+            record = response.get("result")
+            if (not isinstance(record, dict) or not isinstance(record.get("id"), str)
+                    or not re.fullmatch(r"[0-9a-f]{32}", record["id"])):
+                raise ValueError("Unexpected Cloudflare DNS creation response")
             self.save(dns_id=record["id"], pending=None)
         if apply and token_output:
             token = self.api.get(tunnel_base + "/" + tunnel_id + "/token")
-            if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9+/=_-]+", token) or len(token) < 32:
-                raise ValueError("Invalid connector token response")
+            validate_connector_token(token, tunnel_id, c["account_id"])
             private_write(token_output, token + "\n")
         return {"account_id": c["account_id"], "zone_id": zone_id, "tunnel_id": tunnel_id,
                 "dns_id": record["id"], "hostname": c["public_hostname"],
@@ -255,8 +328,17 @@ def main(argv=None):
         if not re.fullmatch(r"[A-Za-z0-9_-]{20,}", token):
             raise ValueError("Invalid API token file")
         args.state.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        private_directory(args.state.parent)
+        if args.connector_token_file:
+            args.connector_token_file.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            private_directory(args.connector_token_file.parent)
         lock_path = args.state.with_name(args.state.name + ".lock")
-        descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        lock_info = os.fstat(descriptor)
+        if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.getuid()
+                or stat.S_IMODE(lock_info.st_mode) != 0o600):
+            os.close(descriptor)
+            raise ValueError("Cloudflare state lock must be owned by the current user with mode 0600")
         with os.fdopen(descriptor, "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             result = Provisioner(Api(token), config, args.state).reconcile(args.apply, args.connector_token_file)

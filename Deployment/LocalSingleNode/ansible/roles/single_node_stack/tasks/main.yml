@@ -207,9 +207,6 @@
     - name: Stop this failed release
       ansible.builtin.fail:
         msg: "Web or LAN readiness failed. Persistent volumes were retained."
-- name: Record shared app ownership marker
-  ansible.builtin.include_role:
-    name: app_marker
 - name: Publish released identity for maintenance
   ansible.builtin.copy:
     content: "{{ {'sha': app_version, 'source_sha': release_source_sha, 'image': app_image, 'digest': release_image_digest, 'frontend_profile': release_frontend_profile, 'acceptance_profile': release_acceptance_profile, 'manifest_schema_version': release_manifest_schema_version | int, 'ci_run_id': release_ci_run_id | string, 'ci_run_attempt': release_ci_run_attempt | string, 'source_repo_url': source_repo_url} | to_nice_json }}"
