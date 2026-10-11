@@ -112,7 +112,7 @@ jobs:
       - name: Test public tunnel ownership and credential safeguards
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py -v
 
-      # Report only. node-main's Docker daemon is shared with other apps, so CI
+      # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
         run: bash Scripts/CI/check-runner-capacity.sh

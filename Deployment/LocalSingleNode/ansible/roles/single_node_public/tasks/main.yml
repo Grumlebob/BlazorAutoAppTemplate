@@ -41,24 +41,31 @@
       - previous_public_token.content is not defined or (previous_public_token.content | b64decode | trim) == vault_public_tunnel_token
     fail_msg: "Connector token differs. Use the documented explicit rotation procedure."
   no_log: true
-- name: Record public resources owned by this app before rendering
-  ansible.builtin.copy:
-    dest: "/etc/{{ app_name }}/public.json"
-    content: "{{ {'hostname': public_hostname, 'tunnel_id': public_tunnel_id, 'origin_port': public_origin_port | int, 'cloudflared_version': public_cloudflared_version, 'source_repo_url': source_repo_url} | to_nice_json }}"
-    owner: root
-    group: root
-    mode: "0644"
+- name: Inspect the shared executable root before using it
+  ansible.builtin.stat:
+    path: /usr/local
+    follow: false
+  register: public_usr_local
 - name: Inspect the shared executable parent before using it
   ansible.builtin.stat:
     path: /usr/local/libexec
     follow: false
   register: public_exec_base
-- name: Require a real, traversable shared executable parent
+- name: Require real, protected, traversable executable parents
   ansible.builtin.assert:
     that:
+      - public_usr_local.stat.exists
+      - public_usr_local.stat.isdir
+      - not public_usr_local.stat.islnk
+      - public_usr_local.stat.uid == 0
+      - public_usr_local.stat.mode[-2] not in ['2', '3', '6', '7']
+      - public_usr_local.stat.mode[-1] not in ['2', '3', '6', '7']
       - not public_exec_base.stat.exists or (public_exec_base.stat.isdir and not public_exec_base.stat.islnk)
+      - not public_exec_base.stat.exists or public_exec_base.stat.uid == 0
+      - not public_exec_base.stat.exists or public_exec_base.stat.mode[-2] not in ['2', '3', '6', '7']
+      - not public_exec_base.stat.exists or public_exec_base.stat.mode[-1] not in ['2', '3', '6', '7']
       - not public_exec_base.stat.exists or public_exec_base.stat.mode[-1] in ['1', '3', '5', '7']
-    fail_msg: "The shared /usr/local/libexec directory must be a real directory with world traversal enabled."
+    fail_msg: "The shared executable parents must be root-owned real directories, not group/world writable, and /usr/local/libexec must allow world traversal."
 - name: Create the shared executable parent only when absent
   ansible.builtin.file:
     path: /usr/local/libexec
@@ -67,6 +74,13 @@
     group: root
     mode: "0755"
   when: not public_exec_base.stat.exists
+- name: Record public resources owned by this app before rendering
+  ansible.builtin.copy:
+    dest: "/etc/{{ app_name }}/public.json"
+    content: "{{ {'hostname': public_hostname, 'tunnel_id': public_tunnel_id, 'origin_port': public_origin_port | int, 'cloudflared_version': public_cloudflared_version, 'source_repo_url': source_repo_url} | to_nice_json }}"
+    owner: root
+    group: root
+    mode: "0644"
 - name: Create the app-owned executable directory
   ansible.builtin.file:
     path: "/usr/local/libexec/cloudflared-{{ app_name }}"

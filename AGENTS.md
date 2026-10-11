@@ -10,8 +10,8 @@ Portable rules for people and coding agents working in this repository. Machine-
 ## Changes and checks
 
 - Code changes go through a pull request. The required check is `build-test-push`; merge only when it is green on the PR's exact head.
-- Documentation-only changes follow the repository owner's rule for docs. When unsure, open a PR.
-- Run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
+- Changes consisting only of `.md` files do not require local builds, format verification, tests or deployment gates. Review the Markdown and run `git diff --check` before pushing. Use a PR for retained documentation changes; preserve applicable branch protection and CI requirements.
+- For changes that include code, configuration or other non-Markdown files, run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
   ```bash
   dotnet format BlazorAutoApp.sln --verify-no-changes
   dotnet build BlazorAutoApp.sln --configuration Release
