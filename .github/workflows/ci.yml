@@ -137,7 +137,7 @@ jobs:
           echo "acceptance_profile=${acceptance_profile}" >> "$GITHUB_OUTPUT"
 
       - name: Test frontend profile selection
-        run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py
+        run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py
 
       - name: Test deployed-site acceptance profile split
         run: |
@@ -591,7 +591,12 @@ jobs:
 
       - name: Load release settings
         id: release_settings
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
+          ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}
         run: |
+          set -euo pipefail
+          python3 Scripts/CI/frontend_release_plan.py
           app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
           migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
@@ -687,77 +692,9 @@ jobs:
             --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-image-repodigests.json"
           docker image inspect "${APP_IMAGE}:${GITHUB_SHA}" \
             --format '{{json .Config.Labels}}' > "${RUNNER_TEMP}/release-image-labels.json"
-          python3 - "${RUNNER_TEMP}/release-image-repodigests.json" "${RUNNER_TEMP}/release-image-labels.json" <<'PY'
-          import hashlib
-          import json
-          import os
-          import pathlib
-          import re
-          import sys
-
-          inspect_path = pathlib.Path(sys.argv[1])
-          labels_path = pathlib.Path(sys.argv[2])
-          payload = json.loads(inspect_path.read_text(encoding="utf-8"))
-          labels = json.loads(labels_path.read_text(encoding="utf-8"))
-          if not isinstance(payload, list):
-              raise SystemExit("docker image inspect did not return RepoDigests")
-          if not isinstance(labels, dict):
-              raise SystemExit("docker image inspect did not return image labels")
-          image_prefix = f"{os.environ['APP_IMAGE']}@"
-          matches = [
-              value.split("@", 1)[1]
-              for value in payload
-              if isinstance(value, str) and value.startswith(image_prefix)
-          ]
-          if len(matches) != 1:
-              raise SystemExit(f"expected one pushed RepoDigest for {image_prefix!r}, got {matches!r}")
-          digest = matches[0]
-          if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-              raise SystemExit("docker image inspect did not return a registry digest")
-
-          expected_labels = {
-              "org.opencontainers.image.source": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
-              "org.opencontainers.image.revision": os.environ["GITHUB_SHA"],
-              "com.blazorautoapp.frontend-profile": os.environ["FRONTEND_PROFILE"],
-              "com.blazorautoapp.acceptance-profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"],
-              "localcluster.ci.repository": os.environ["GITHUB_REPOSITORY"],
-              "localcluster.ci.run_id": os.environ["GITHUB_RUN_ID"],
-              "localcluster.ci.run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-          }
-          for key, expected in expected_labels.items():
-              if labels.get(key) != expected:
-                  raise SystemExit(f"pushed image label {key!r} does not match release metadata")
-
-          staging_path = pathlib.Path("artifacts/migrations/migration-provenance.json")
-          bundle_path = pathlib.Path("artifacts/migrations") / os.environ["MIGRATION_BUNDLE_NAME"]
-          staging = json.loads(staging_path.read_text(encoding="utf-8"))
-          bundle_bytes = bundle_path.read_bytes()
-          bundle_sha256 = hashlib.sha256(bundle_bytes).hexdigest()
-          if not bundle_bytes or bundle_sha256 != staging["bundle_sha256"]:
-              raise SystemExit("verified migration bundle changed before manifest creation")
-          manifest = {
-              "schema_version": 2,
-              "repository": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}",
-              "commit_sha": os.environ["GITHUB_SHA"],
-              "frontend_profile": os.environ["FRONTEND_PROFILE"],
-              "acceptance_profile": os.environ["FRONTEND_ACCEPTANCE_PROFILE"],
-              "ci_run_id": int(os.environ["GITHUB_RUN_ID"]),
-              "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
-              "image_ref": f"{os.environ['APP_IMAGE']}:{os.environ['GITHUB_SHA']}",
-              "image_digest": digest,
-              "ordered_migration_ids": staging["ordered_migration_ids"],
-              "bundle": {
-                  "file": staging["bundle_filename"],
-                  "sha256": bundle_sha256,
-                  "runtime": staging["runtime"],
-              },
-              "tools": {"dotnet_sdk": staging["dotnet_sdk_version"]},
-          }
-          pathlib.Path("artifacts/migrations/release-manifest.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-          )
-          print(json.dumps(manifest, indent=2, sort_keys=True))
-          PY
+          python3 Scripts/CI/write_release_manifest.py --directory artifacts/migrations \
+            --digests "${RUNNER_TEMP}/release-image-repodigests.json" \
+            --labels "${RUNNER_TEMP}/release-image-labels.json"
 
       - name: Upload migration bundle
         uses: actions/upload-artifact@v7
@@ -766,6 +703,39 @@ jobs:
           path: |
             artifacts/migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
             artifacts/migrations/release-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish additional frontend
+        id: additional_release
+        if: ${{ steps.release_settings.outputs.additional_profile != '' }}
+        env:
+          FRONTEND_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
+          APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
+        run: bash Scripts/CI/publish_additional_frontend.sh
+
+      - name: Remove additional frontend resources after interruption
+        if: ${{ always() && steps.additional_release.outcome != 'skipped' && steps.additional_release.outcome != '' }}
+        env:
+          APP_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
+          FRONTEND_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
+          APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only
+          if docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
+            docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
+          fi
+
+      - name: Upload additional migration bundle
+        if: ${{ success() && steps.additional_release.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.release_settings.outputs.additional_artifact_name }}
+          path: |
+            artifacts/additional-migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
+            artifacts/additional-migrations/release-manifest.json
           if-no-files-found: error
           retention-days: 7
 
