@@ -11,6 +11,8 @@ Read [DeliveryPhases.md](DeliveryPhases.md) for packet scope and [ExecutionDecis
 5. Integrate through a small PR, exact final-head `build-test-push`, normal merge and successful exact-main CI. If rebased/updated, recheck the new final head. A completed watcher is not necessarily a completed workflow.
 6. Record merge evidence in the ledger or linked PR description, output revision and precise next checkpoint. Describe partial work as partial until the whole slice passes. Never create a ledger-only commit just to record that same commit's future merge SHA.
 
+Use only the master's [three recommended fresh-chat checkpoints](../../PortfolioStudioImplementation.md#recommended-fresh-chat-checkpoints). They are optional context resets after verified boundaries; prepare Progress's filled handoff and keep full-plan scope. Do not end a chat merely because one packet or PR finished.
+
 ## 2. Platform checkpoints — VS0
 
 | Packet | Perform in order | Reviewable output / next checkpoint |
@@ -26,6 +28,8 @@ Read [DeliveryPhases.md](DeliveryPhases.md) for packet scope and [ExecutionDecis
 | P3.2 | Delete unsupported target directories/workflows; enforce single target; retarget docs/AGENTS and all callers; classify historical matches; run full retained gate. | LocalSingleNode-only product without broken shared operations; next VS1/P4.1. |
 
 P0/P8 capacity-first does not authorize public exposure. Resolve the seed/CI dependency using the inherited state machine, not a new manually installed runner or a secret copied from the template.
+
+**C1 fresh-chat recommendation:** after all VS0 exits and required early access/CI prerequisites are verified, save the handoff and recommend a new chat for VS1. First work: P4.1 plus initial P6.1. Do not carry the import/cleanup transcript forward.
 
 ## 3. First story checkpoints — VS1
 
@@ -67,6 +71,8 @@ Checkpoint output: no sample product, safe removed routes and a buildable graph.
 
 Checkpoint output: complete VS1 only after merged-green code and the production journey pass. Next: eligible P6 story or required VS3 cleanup.
 
+**C2 fresh-chat recommendation:** now save the actual compiler/build/hosting commands, shared renderer/model paths and verified visual/revision evidence. Recommend a new chat for repeatable story delivery; normally start P6.2. Do not trigger C2 after A, B or C alone.
+
 ## 4. Repeatable story checkpoints — P6.1–P6.12 / VS2
 
 For P6.2–P6.11, use the respective inventory sections and [VisualProduction.md](VisualProduction.md). P6.1's initial review happens within VS1. Every story follows the same sequence:
@@ -96,3 +102,5 @@ P6.12: inspect the full catalog/order, each public card/detail pair, related-lin
 | P10.3 | Audit every required packet/slice evidence and public release; link downstream authority from template planning record through a docs PR; retain private trust/ownership records; remove only owned obsolete scratch after evidence is preserved. | Whole plan complete only with merged-green changes, public acceptance and recovery/full catalog evidence. |
 
 Never manufacture a second release merely by changing an evidence timestamp. A legitimate small editorial improvement can provide the second compatible file-only release needed to rehearse rollback. Runtime content is rebuilt and released, never edited on the node.
+
+**C3 fresh-chat recommendation:** after launch-set review, VS3 and final P7.4 are verified, save the exact release, remaining P8 step, native/private-note references, authorization scope and uncompleted stories. Recommend a new chat for remaining P8, P9 and P10. Keep launch/recovery together; an operator handoff is not another planned chat reset.

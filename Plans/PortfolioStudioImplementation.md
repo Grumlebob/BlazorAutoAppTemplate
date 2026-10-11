@@ -381,11 +381,29 @@ JavaScript-disabled direct responses should contain the project title, prose, se
 
 Use [Progress.md](Support/PortfolioStudio/Progress.md) as the single execution ledger. Every packet records its owner/session, branch, exact PR head, local checks, PR, merge SHA, green main CI, changed files, blockers and exact next action. Complete means merged with green main, not merely written or tested locally. Mark verified work complete; keep unverified claims and unavailable checks explicit.
 
-Start with one eligible packet per session. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient.
+Work on one eligible packet at a time. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient. A packet is a work unit, not a requirement to open a new chat for every packet.
 
 Review the real Studio home and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
 
 Use [Architecture.md](Support/PortfolioStudio/Architecture.md) for feature ownership and vertical completion. A P4/P5 checkpoint is partial VS1 until first-story P7 hosting/prerender/acceptance works. Subsequent stories ship their content, contracts/renderers when needed, routes, metadata and checks together. The slice ledger summarizes these outcomes over the same packet inventory.
+
+### Recommended fresh-chat checkpoints
+
+Recommend **three** context resets during full delivery. These are changes in the kind of work, not additional phases or acceptance gates. Prepare the durable handoff before recommending the next chat; if the owner keeps the current chat, continue from the same saved checkpoint. Do not recommend a reset for each PR, project, day or operator step.
+
+| Checkpoint | Recommend a fresh chat only after | Next chat focus / first eligible work |
+| --- | --- | --- |
+| **C1 — Platform to product** | VS0: P0–P3 verified, downstream Portfolio authority established, required early P8 access/CI prerequisites resolved and merge/main evidence saved | Build VS1's ImprovedDb journey, beginning P4.1 with initial P6.1 and co-developing P4/P5/first-story P7. This clears import/rename/removal context before product engineering. |
+| **C2 — First journey to story production** | VS1 verified end to end: reviewed ImprovedDb content, API, Studio home/reader, direct HTML, hosting, image/profile acceptance and merged-green evidence | Repeat VS2 for the next ready story, normally P6.2 KinoJoin; use the shared renderer and VisualProduction. Complete required VS3 runtime cleanup before release readiness. This replaces prototype/debugging context with source, copy and figure production. |
+| **C3 — Product to native/public delivery** | Reviewed launch set, VS3 file-only runtime and final P7.4 release readiness verified; exact release/digest/content identity and outstanding catalog work saved | Finish remaining P8 prerequisites, then P9 public launch and P10 recovery/full handover. This starts operations with current runbooks, native ownership and release evidence. An early P8 bootstrap does not consume this checkpoint. |
+
+Keep content, C# contracts/API, React, prerender/hosting and acceptance together through C2; an API-only or UI-only milestone is not a reset point. C3 does not require all eleven stories before the initial launch. Carry remaining stories into P10; neither a chat reset nor a four-story launch completes the goal. No fourth planned reset is needed between launch and recovery.
+
+At each checkpoint, fill the **Fresh-chat handoff** in [Progress.md](Support/PortfolioStudio/Progress.md). Save the verified boundary, next packet/substep, authoritative repository, base SHA, implementation paths/commands, evidence links, open claims/dirty work, remaining blockers/catalog and authorization scope. Carry useful facts and decisions rather than a transcript or large logs. Reference private notes by location only; transfer those notes privately to the next agent/machine when needed. Never put their values in a public prompt.
+
+Hand off at a safe integration boundary. Finish required checks/merges and record their evidence before declaring C1/C2/C3 ready. If a workflow or unfinished task required for that boundary remains, save its exact run/PR/branch, owner and next action and keep the boundary pending. Independent work and other agents' unrelated workflows do not block the reset; record their ownership. A new chat must inspect those records before taking a claim; do not automatically reclaim another agent's work, restart setup or dispatch another release. When the owner elects to move, the previous chat stops editing the transferred claim and the receiving chat records the transfer.
+
+Give the owner one filled continuation prompt from Progress. Recommend a new chat, but do not automatically pause, complete or abandon an active goal. Follow the goal tool's status rules; the full-plan objective and completion criteria remain in force. The receiving chat rechecks repository state and live evidence rather than trusting a stale handoff as current authorization.
 
 ### Planned verification during implementation
 
