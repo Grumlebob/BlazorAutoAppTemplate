@@ -66,6 +66,22 @@ To deliberately update the committed outputs after reviewing a backend contract 
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --filter FullyQualifiedName~OpenApiMetadataTests
 ```
 
+## React package checks
+
+The React package has separate strict typecheck, lint, unit-test, HTTPS development and static-build commands. Run these in addition to the repository local gate when React package files change:
+
+```powershell
+Set-Location .\BlazorAutoApp.React
+npm ci
+npm run api:check
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+The build writes `BlazorAutoApp.React/build/client`; it does not stage files in the C# web root. For live Vite-to-C# development instructions, see [Frontend Profiles](FrontendProfiles.md#react-local-development).
+
 ## Local Gate
 
 Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
