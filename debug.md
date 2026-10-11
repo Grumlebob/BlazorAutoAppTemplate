@@ -6,33 +6,29 @@ The LocalSingleNode public deployment plan is complete. The readiness false posi
 
 The same verified application SHA was deployed with migrations disabled. Public and LAN acceptance passed. The dedicated connector restart check reported `active/running`, a new systemd invocation, and a stable restart count of zero. The guarded reboot workflow verified a protected backup and restore, then rebooted the node. Post-reboot acceptance passed with 84 seconds uptime; the node-demo runner returned online, and browser observation showed Blazor `Interactive: yes`.
 
-Run evidence is recorded in `Plans/LocalSingleNodePublicDeployment.md`. No manual node-side action is needed. Do not alter DNS, tunnel, Caddy, connector credentials, or unrelated routes for this completed plan. Keep credentials and machine-specific addresses out of tracked files.
+Run evidence is recorded in `Plans/LocalSingleNodePublicDeployment.md`. No manual node-side action is needed for that completed plan. Do not alter DNS, tunnel, Caddy, connector credentials, or unrelated routes for this completed plan. Keep credentials and machine-specific addresses out of tracked files.
 
-## Node-side inventory handoff (2026-10-11)
 
-The controller is preparing a separate React demo on the existing LocalSingleNode. Strict SSH host-key verification succeeded through an existing Windows trust entry, but login authentication was rejected; no remote command ran.
+## React demo: native-node checks (read-only; 2026-10-11)
 
-Please use the node's local session to report a sanitized, read-only inventory for the controller AI:
+Node-side AI: sync repository main and read this section before acting. Then sync the existing downstream React demo checkout to feat/react-demo-config and inspect its candidate inventory. Do not copy candidate values or target identifiers into this public file.
 
-- OS family/version, CPU and memory capacity, and free storage suitable for a separate app.
-- Whether the existing application, containers, volumes, networks, routes, and backups can remain untouched while adding an independent app.
-- Whether an existing runner can safely deploy a separate repository without sharing the existing app's runner identity or deployment resources.
-- Whether SSH access from the controller is the supported path, and what login account or key authorization is needed.
+Before any setup, run the existing collision check from that checkout, without --bootstrap:
 
-Do not include hostnames, IP addresses, domains, usernames, repository names, ports, subnets, runner labels, credentials, environment values, tokens, or keys in this file. Do not change configuration, add keys, restart services, touch containers or volumes, or alter locks. Record only sanitized findings here, then tell the controller AI the inventory is ready.
+```bash
+python3 Deployment/LocalSingleNode/Scripts/lib/collisions.py --source-repo-url '<canonical downstream repository URL>'
+```
 
-## Node-side inventory results (2026-10-11)
+Run the existing LocalSingleNode doctor in JSON mode as the deployment user with working Docker API access. Inspect published Docker ports, networks, running workloads, application readiness, backup freshness, and resource capacity.
 
-Read-only checks from the node session:
+Use the existing node-demo Actions runner for the downstream React demo repository. A second runner service is not required. Verify that the existing runner's GitHub registration scope includes the downstream repository before assigning jobs to it. Keep workflow routing and deployment resources isolated. If runner scope is insufficient or cannot be verified, report that result and wait.
 
-- Linux Mint 22.3; 8 logical CPUs; 7.4 GiB RAM total, with 4.7 GiB available at inspection; about 183 GiB free on the application storage filesystem.
-- The read-only node doctor passed all eight checks: native Linux, configured runner, deployment-service Docker access, firewall, Caddy, protected runtime-secret permissions, more than 20 GiB free application storage, and mDNS.
-- SSH is active. The controller previously verified the host key, but login authentication was rejected; no remote command ran. If SSH is needed, use the configured node install account with its matching authorized public key. No account, key, or SSH configuration was changed.
-- Docker is active, but this interactive session cannot access the Docker API. Exact current container, volume, network, and backup-freshness inventory could not be verified from this session.
-- The earlier public deployment handoff records successful public and LAN acceptance, connector restart verification, protected backup and restore through the guarded reboot workflow, and post-reboot application acceptance.
+Record only sanitized outcomes here: collision check pass/fail and category, Docker API available/unavailable, existing application healthy/unhealthy, backup freshness known/unknown/stale, resource capacity adequate/inadequate/unknown, and runner scope verified/unverified/inadequate. Do not include hostnames, IP addresses, domains, usernames, ports, subnets, runner labels, credentials, environment contents, tokens, keys, user data, container/volume IDs, exact machine capacities, or full machine paths.
 
-The existing application's containers, storage, networks, backups, and ingress can remain untouched when the new app uses its own Compose project and data resources, its own backup configuration, and a distinct ingress configuration if public access is required. Do not change the completed application's route, tunnel, connector, or Caddy configuration as part of this handoff.
+Do not create directories, change Docker/Caddy/DNS/tunnel state, install or reconfigure a runner, run deployment or restart commands, use global cleanup, or use sudo. If any check cannot run, report which access is missing. Stop after the read-only report and wait for the controller AI to sync this file before further steps.
 
-Operator direction: one runner per computer is acceptable even when that computer hosts multiple apps. One runner service is active and the node doctor passes its configured runner check. Before assigning another repository's jobs to it, the controller should verify that its GitHub registration scope covers that repository. Keep each app's workflow routing and deployment resources isolated; add another runner service only if the required GitHub scope cannot support the shared node runner.
+## Earlier node inventory: sanitized integration summary (2026-10-11)
 
-Main-PC follow-up: use the capacity figures for a modest demo plan and verify its resource limits against the app's needs; correct the SSH login account/key authorization only if remote shell access is required; confirm the runner scope for the new repository; and provision separate app data, backup, and ingress resources. An authorized operator can repeat the read-only Docker and backup inventory under the node's deployment context if exact live resource counts or backup freshness are needed. No node configuration or deployment resources were changed for this inventory.
+An earlier read-only node-session report recorded a successful eight-check doctor result. Docker API access was unavailable in that interactive session, so the exact running workload, collision inventory and backup freshness were not verified. The controller previously verified the SSH host key but authentication failed; no remote command ran. Capacity was reported, but suitability for the downstream candidate inventory remains unverified. The completed Blazor deployment's earlier public/LAN, connector restart and protected backup/restore acceptance remain historical evidence in its plan.
+
+The latest read-only React checks above supersede the earlier inventory request. Runner scope is still unverified and must be established before assigning downstream jobs. No node configuration, runner registration, container, volume, network, route, credential or lock was changed by the earlier inventory or this integration. Keep exact capacities and target details in private records.
