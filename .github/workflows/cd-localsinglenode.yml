@@ -4,6 +4,14 @@ run-name: "CD LocalSingleNode @ ${{ inputs.target_sha || github.sha }}"
 on:
   workflow_dispatch:
     inputs:
+      app_instance:
+        description: Deploy the primary app or the additional app configured in its protected environment
+        required: true
+        default: primary
+        type: choice
+        options:
+          - primary
+          - additional
       run_migrations:
         description: Run the EF migration bundle before starting app servers
         required: true
@@ -32,7 +40,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 45
     environment:
-      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+      name: ${{ inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
 
     steps:
       - name: Require this deployment target to be enabled
@@ -117,16 +125,15 @@ jobs:
         run: bash Deployment/Common/Scripts/validate-common-release.sh
 
       - name: Load deployment settings
+        env:
+          INPUT_APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
         run: |
-          APP_NAME="$(bash Deployment/LocalSingleNode/Scripts/read-setting.sh app_name)"
-          APP_IMAGE="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
-          MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
-          MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          set -euo pipefail
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
           {
-            echo "APP_NAME=$APP_NAME"
-            echo "APP_IMAGE=$APP_IMAGE"
-            echo "MIGRATION_BUNDLE_NAME=$MIGRATION_BUNDLE_NAME"
-            echo "MIGRATION_ARTIFACT_NAME=$MIGRATION_ARTIFACT_NAME"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             echo "APP_VERSION=$TARGET_SHA"
           } >> "$GITHUB_ENV"
@@ -250,6 +257,12 @@ jobs:
         run: |
           public_vars="$RUNNER_TEMP/public-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
           echo "PUBLIC_EXTRA_VARS_FILE=$public_vars" >> "$GITHUB_ENV"
+          if [[ "$APP_INSTANCE" == additional ]]; then
+            export PUBLIC_HOSTNAME="$INSTANCE_PUBLIC_HOSTNAME"
+            export PUBLIC_TUNNEL_ID="$INSTANCE_PUBLIC_TUNNEL_ID"
+            export PUBLIC_ORIGIN_PORT="$INSTANCE_PUBLIC_ORIGIN_PORT"
+            if [[ -z "$PUBLIC_HOSTNAME" ]]; then export PUBLIC_TUNNEL_TOKEN=; fi
+          fi
           python3 Deployment/LocalSingleNode/Scripts/lib/public_config.py --output "$public_vars"
 
       - name: Deploy the verified release under the shared lock
@@ -260,7 +273,7 @@ jobs:
           bash ../../Common/Scripts/with-deploy-lock.sh \
             ansible-playbook -i "$RUNNER_TEMP/hosts.yml" playbooks/site.yml \
             -e @"/etc/$APP_NAME/secrets.yml" -e @"$GHCR_EXTRA_VARS_FILE" \
-            -e @"$PUBLIC_EXTRA_VARS_FILE" \
+            -e @"$PUBLIC_EXTRA_VARS_FILE" -e @"$INSTANCE_EXTRA_VARS_FILE" \
             -e "app_version=$TARGET_SHA" -e "release_image_digest=$RELEASE_IMAGE_DIGEST" \
             -e "release_frontend_profile=$FRONTEND_PROFILE" -e "release_acceptance_profile=$ACCEPTANCE_PROFILE" \
             -e "release_manifest_schema_version=$RELEASE_MANIFEST_SCHEMA_VERSION" \
@@ -287,4 +300,4 @@ jobs:
           if [ -n "${DOCKER_CONFIG:-}" ] && [ -d "${DOCKER_CONFIG}" ]; then
             rm -rf "${DOCKER_CONFIG}"
           fi
-          rm -f -- "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml"
+          rm -f -- "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml" "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
