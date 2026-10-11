@@ -143,7 +143,7 @@ function Get-SecretValuesForArchive {
 }
 
 function Add-AuditJsonStrings {
-    param([AllowNull()]$Value, [Parameter(Mandatory)][Collections.Generic.List[string]]$Strings)
+    param([AllowNull()]$Value, [Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[string]]$Strings)
     if ($null -eq $Value) { return }
     if ($Value -is [string]) { $Strings.Add($Value); return }
     if ($Value -is [System.Collections.IDictionary]) {

@@ -401,7 +401,10 @@ function Ensure-QualityProject {
     }
     $effectiveGroups = [pscustomobject]@{ groups = @(Get-QualityGroupsWithPermissions -ProjectKey $projectKey) }
     $unexpectedGroups = @($effectiveGroups.groups | Where-Object {
-        $_.name -ne $groupName -and @($_.permissions).Count -gt 0
+        $permissions = @($_.permissions | ForEach-Object { [string]$_ })
+        $isExpectedAdministrator = $_.name -eq 'sonar-administrators' -and
+            $permissions.Count -eq 1 -and $permissions[0] -eq 'admin'
+        $_.name -ne $groupName -and -not $isExpectedAdministrator -and $permissions.Count -gt 0
     } | ForEach-Object { [string]$_.name })
     if ($unexpectedGroups.Count -gt 0) {
         throw "Project '$projectKey' grants permissions to unexpected groups: $($unexpectedGroups -join ', ')."
