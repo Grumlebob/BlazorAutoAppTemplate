@@ -226,7 +226,7 @@ Use the detailed [page briefs](PageBriefs.md). Each story is a resumable vertica
 | P6.6 | MiniTwit | Historical evolution/DevOps narrative with architecture, delivery and useful operational figure |
 | P6.7 | BestBets | Owner-selected Exam PDF/deck reviewed against repository evidence; architecture views and targets-versus-results figure |
 | P6.8 | Geospatial research | Attributed genuine maps/plots, data/methods and findings with limitations |
-| P6.9 | GeckoBot | Selected private mail source/requirements and historical-use review; fictional Outlook booking/email examples and accurate UI/parser story; deleted demo retained only in private backup |
+| P6.9 | GeckoBot | Selected private GeckoBot source/requirements and historical-use review; fictional Outlook booking/email examples and accurate UI/parser story; deleted demo retained only in private backup |
 | P6.10 | Grumlebob | Owner-approved domain-neutral explanation and permitted generic figures; restricted background contents/context excluded |
 | P6.11 | JobHunt | Eight-step responsibility figure, factual writing boundary and fictional administrative examples |
 | P6.12 | Catalog review | Stable order, all ready stories complete, no dangling public cards/links, launch set recorded |
