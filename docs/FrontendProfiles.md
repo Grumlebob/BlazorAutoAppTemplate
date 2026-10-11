@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P5.2 adds the typed read-only public API transport, normalized errors and one bounded QueryClient. P5.3 adds the public landing page, catalog and author-book details. P6.1 adds route-aware focus and page titles, safe route-error UI, keyboard skip-link focus and reduced-motion support. P6.2 adds browser-level React regression in the existing C# Playwright harness. P7.1 builds profile-specific final images, stages selected assets, applies cache policy and keeps Node out of runtime; later packets add release metadata and deployment provenance.
+Both `BlazorAuto` and public-only `React` are implemented and supported. The template default remains `BlazorAuto`. Builds isolate frontend dependencies and assets; React supplies a typed public catalog with safe static hosting, explicit loading/error states, route focus, security headers and browser coverage. Immutable release manifests bind the actual frontend, acceptance contract, source, CI run and registry digest. Optional additional publication and protected LocalSingleNode application selection allow both apps to share one source repository and the existing runner. See [ApplicationInstances](../Deployment/LocalSingleNode/ApplicationInstances.md) for setup and operations, and [delivery acceptance](../Plans/ReactFrontendDeliveryAcceptance.md) for recorded evidence.
 
 ## Selecting a profile
 
@@ -46,12 +46,12 @@ Recheck this inventory when a packet changes one of these boundaries.
 | Concern | Current entry points | Profile work |
 | --- | --- | --- |
 | Host composition | `BlazorAutoApp/Program.cs`; `BlazorAutoApp/BlazorAutoApp.csproj`; `BlazorAutoApp/Frontend` | `Program` calls the selected composition while common backend services remain shared. The Blazor client reference, WebAssembly server package, Google handler, Razor inputs and account UI compile only for `BlazorAuto`. React uses an HTTP-principal accessor and an isolated physical static root. |
-| Client routes and state | `BlazorAutoApp.Client/Routes.razor`; `BlazorAutoApp.Client/Features/Books`; `BlazorAutoApp/Components` | Keep existing Blazor routes and authenticated state. Add React modules under `BlazorAutoApp.React`; do not copy the Blazor web root into that profile. |
+| Client routes and state | `BlazorAutoApp.Client/Routes.razor`; `BlazorAutoApp.Client/Features/Books`; `BlazorAutoApp/Components` | Blazor retains its routes and authenticated state. React modules live under `BlazorAutoApp.React` with their own static output. |
 | Public and private APIs | `BlazorAutoApp/Features/Books/Endpoints/AuthorBooksEndpoints.cs`; `BooksEndpoints.cs`; `BlazorAutoApp/Features/Books/DependencyInjection.cs` | Reuse public author-book reads. Keep owned-book routes authenticated. Move Blazor-only UI state registration out of common backend composition. |
 | Identity boundary | `BlazorAutoApp/Features/Login/Account/LoginFeatureExtensions.cs`; `CurrentUserAccessor.cs`; `IdentityComponentsEndpointRouteBuilderExtensions.cs` | Keep shared Identity cookies and protected API authorization. Register Blazor authentication state, external Google handler and account endpoints only in Blazor composition. React resolves user identity only from the authenticated HTTP principal and maps no account routes. |
-| API/build inputs | `Directory.Build.props`; `Directory.Packages.props`; `global.json`; `BlazorAutoApp/Dockerfile`; `BlazorAutoApp.Client/package.json` and lockfile | Current Docker build copies both server and Blazor client projects. Existing client npm tooling builds Blazor CSS and Lighthouse assets. Add a separate React package and build stage; keep ordinary Blazor builds independent of React npm. |
-| Local orchestration | `docker-compose.yml`; `Scripts/RunLocal.ps1`; `Scripts/RunLighthouse.ps1` | Add explicit profile-aware local commands and an HTTPS Vite proxy to C#. Do not infer profile from a hostname or installed output. |
-| CI and image release | `.github/workflows/ci.yml` | CI currently installs the Blazor client package, rebuilds committed Tailwind CSS, builds and smokes a Docker image on PRs, then publishes the main image and migration manifest. Validate both clean profiles on PRs; publish only the repository's selected profile from main. |
+| API/build inputs | `Directory.Build.props`; `Directory.Packages.props`; `global.json`; `BlazorAutoApp/Dockerfile`; frontend package lockfiles | Docker uses separate final profile targets and selected static assets. Blazor npm tooling builds CSS and test tools; React has its own package/build stage. Ordinary Blazor builds do not require React npm. |
+| Local orchestration | `docker-compose.yml`; `Scripts/RunLocal.ps1`; `Scripts/RunLighthouse.ps1` | Local commands resolve the explicit profile. React development uses the HTTPS Vite proxy to C#; production remains ASP.NET-hosted. |
+| CI and image release | `.github/workflows/ci.yml` | CI validates both profiles and preserves required Blazor coverage. Main normally publishes the selected profile with its existing image/artifact names. Explicit optional additional publication produces a separate image, digest and manifest in the same trusted publishing job. |
 | Immutable release contract | `Deployment/Common/Scripts/validate_release_manifest.py`; `Deployment/Common/Scripts/Tests`; `.github/workflows/ci.yml`; `cd-localsinglenode.yml`, `cd-localcluster.yml`, `cd-cloud.yml` | Schema-v2 manifests bind the frontend/acceptance pair to the exact source, image digest and migration bundle. Producers, consumers, fixtures and deployment audits validate the pair; schema-v1 remains Blazor-only. |
 | Acceptance | `Scripts/Test-DeployedSite.ps1`; `Deployment/LocalSingleNode/Scripts/acceptance-check.sh`; `public-acceptance-check.sh`; `Deployment/LocalCluster/Scripts/ci-docker-smoke.sh` | Both frontend and acceptance profiles are explicit trusted inputs. Blazor keeps its account checks; `ReactPublicV1` reads public data, checks inactive account routes and private API denial, and uses only GET/HEAD without creating accounts, sessions or user-data fixtures. |
 | Existing tests | `BlazorAutoApp.Test/TestSupport/Integration/WebAppFactory.cs`; `BlazorAutoApp.Test/E2E` | Preserve Blazor account, Auto/WASM, simulation and cookie tests. Add explicitly selected React public fixtures and require real suite counts; do not let profile selection skip existing Blazor coverage. |
@@ -97,6 +97,8 @@ Selected React Router 8 and Vite 8 releases support one another. OpenAPI generat
 
 Install dependencies and run the React checks from `BlazorAutoApp.React/` with the pinned Node/npm versions:
 
+Check `node --version` and `npm --version` before installing. The pinned Node distribution may bundle a different npm version; select npm `12.2.0` explicitly through your version manager or an isolated toolchain. Do not assume installing Node alone selects the required npm. The package rejects incompatible engines. Keep tooling changes local to the clone or your chosen development environment.
+
 ```powershell
 npm ci
 npm run api:check
@@ -126,6 +128,12 @@ The public client exposes only the generated author-book read operations. It sen
 
 The public shell is at `/`, the read-only catalog is at `/books`, and a book detail is linked as `/books/author/<seed-key>`. Details resolve the key against the generated public catalog response before calling the numeric-ID detail endpoint. Missing keys/items have a public not-found state. Catalog and detail pages show explicit loading, empty, rate-limit, network, invalid-response and server-error states; retries are user-triggered. External book links render only for HTTP or HTTPS URLs.
 
+### Extend a typed public feature
+
+Change the actual C# response or endpoint contract first. Run `npm run api:check` to see stale generated output fail, then deliberately run `npm run api:generate` and review both generated files. Generation requires the .NET SDK and pinned frontend tooling, but no running database, Redis, email service or React bundle. Commit backend, schema and generated declarations together.
+
+Add the route or component using the generated public API and existing query keys. Pass the query abort signal to the transport, preserve explicit loading/empty/error states, and add a focused component test. Run `typecheck`, `lint`, `test` and `build`, then the repository local gate. A backend response change should fail a typed consumer before regeneration and compile after it. Cosmetic Vite HMR edits should update the open browser without restarting the API or changing generated contracts.
+
 Primary references: [Node 24.21.0 LTS](https://nodejs.org/en/blog/release/v24.21.0), [React 19.3](https://react.dev/blog/2026/09/09/react-19-3), [React Router v8 release contract](https://reactrouter.com/start/start/changelog), [React Router SPA mode](https://reactrouter.com/how-to/spa), [Vite supported releases](https://vite.dev/releases), [Tailwind CSS v4.3](https://tailwindcss.com/blog/tailwindcss-v4-3). Package engine and peer ranges were checked from npm registry metadata on the review date.
 
 ## Verification and handover
@@ -136,9 +144,23 @@ Track implementation evidence against R01-R16 in the [delivery plan](../Plans/Re
 
 Use the existing C# Playwright harness. React acceptance covers Chromium public flows broadly and Firefox/WebKit smoke before release, with mobile layouts, keyboard/focus, axe checks, manual screen-reader spot checks and repeatable Lighthouse budgets. Public acceptance remains read-only and creates no account or user-data fixture.
 
-Both profiles are supported in this repository; selecting or validating React does not require another GitHub repository. The template default remains `BlazorAuto`. The former separate demo repository approach is withdrawn. Any future public React demo needs a reviewed release/deployment plan within this repository with immutable provenance and preservation of the existing Blazor deployment; do not silently switch the default profile or deploy a PR image or mutable tag.
+Both profiles are supported in this repository; selecting or validating React does not require another GitHub repository. The template default remains `BlazorAuto`. The former separate demo repository approach is withdrawn. A second public app uses explicit optional publication, a protected additional application identity and the existing native runner. Keep the default profile stable and require a verified main release and immutable digest for each deployment.
 
 Implementation status, packet evidence and deployment target details live in `Plans/ReactFrontendProfile.md` and applicable ignored installation records. Keep hostnames, node identity, resource IDs, ports, capacity, credentials, run IDs and authenticated deployment evidence in ignored or protected records, never here.
+
+### Diagnose a deployed public app
+
+Use the selected app's read-only maintenance acceptance and doctor first; see [LocalSingleNode operations](../Deployment/LocalSingleNode/HowToDeployLocalSingleNode.md#additional-application-on-an-existing-node). Preserve the failed run/check and redacted logs before repair.
+
+| Symptom | Check and action |
+| --- | --- |
+| Persistent 5xx or pending readiness | Inspect selected app/container status and database/cache readiness. Verify the running immutable release before an approved repair; retain data and locks. |
+| Missing chunk after an update | Use the existing bounded refresh recovery. If it persists, check shell revalidation, fingerprinted asset URLs and deployed frontend/digest; avoid reload loops or cache-policy changes without evidence. |
+| Public API fails while the shell loads | Inspect the public read response and correlation ID. Keep protected API denial intact; check backend readiness rather than exposing a private route. |
+| LAN works but public HTTPS fails | Check this app's connector, protected ingress and owned DNS through [PublicSetup](../Deployment/LocalSingleNode/PublicSetup.md#repeated-setup-and-recovery). Keep another app's tunnel and shared listener intact. |
+| Backup or restore verification fails | Inspect the selected app's backup status, protected dump and isolated verification log. Use the documented replacement-database recovery; do not overwrite the active database. |
+
+Database/cache secrets, persisted data-protection keys and registry credentials remain protected app configuration. Do not replace them during ordinary updates. Intentional connector rotation/removal follows [the explicit public maintenance procedure](../Deployment/LocalSingleNode/PublicSetup.md#explicit-rotation-and-removal); app removal is a separate ownership-checked operator action.
 
 ## Optional additional frontend releases
 

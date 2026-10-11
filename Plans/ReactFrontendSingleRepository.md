@@ -4,7 +4,7 @@
 
 The owner confirmed on 2026-10-11: keep both public apps on the existing native demo node, using this repository and its existing runner. Do not create another hosted repository or runner service. The template default stays `BlazorAuto`; both frontend profiles remain supported. Existing Blazor services, data, release source and public access must remain healthy.
 
-P0-P7 frontend implementation is complete; retain its evidence in [ReactFrontendProfile.md](ReactFrontendProfile.md#14-evidence-and-completion). Public React delivery and P9 operational/fresh-clone acceptance remain incomplete. Cleanup is complete: the extra hosted repository is absent, its temporary readiness secret is absent, and operator cleanup removed the retired local clone, eight scratch files, three log directories and its own script. PR #163 merged as `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with exact-head run `38152925871` and successful main run `38153407171`. Persistent controller SSH still works. Do not restore the retired repository or installation notes.
+P0-P7 frontend implementation and SR1-SR6 delivery acceptance are complete; retain historical evidence in [ReactFrontendProfile.md](ReactFrontendProfile.md#14-evidence-and-completion) and final results in [delivery acceptance](ReactFrontendDeliveryAcceptance.md). Both public apps are live. The single actual scoped restart and delivery scratch cleanup passed. Final documentation integration/content verification is recorded in #176. The retired extra repository and its temporary readiness secret are absent. Earlier operator cleanup removed its local clone, eight scratch files, three log directories and its own script; PR #163 merged as `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with exact-head `38152925871` and main `38153407171`. Persistent controller SSH still works. Do not repeat completed packets or restore the retired method/installation notes.
 
 ## Release design
 
@@ -47,7 +47,7 @@ The old private target-intent note was intentionally removed. Obtain required Re
 | SR5 | Owned React public setup and LocalSingleNode deployment | Single recorded authorized dispatch; running digest/profile/source match release; normal LAN/public HTTPS and public browser/denial checks pass; no accounts or anonymous writes |
 | SR6 | Persistence, operations, template walkthrough and final cleanup | Public seed survives one scoped React restart; Blazor stays healthy; backup/doctor/recovery and brief observation recorded; fresh-clone/default/React/extension/release docs verified; temporary secrets/notes/worktrees removed |
 
-SR1-SR3 may be implemented independently of missing private public-origin preferences. SR4 depends on merged green implementation, and SR5 depends on readiness plus the exact immutable React release. SR6 is required for delivery completion. Keep .NET build/test sequential in each checkout and use the repository's full local gate for code/configuration. Markdown-only packets use review and `git diff --check`, plus required PR/main CI.
+SR1-SR3 may be implemented independently of missing private public-origin preferences. SR4 depends on merged green implementation, and SR5 depends on readiness plus the exact immutable React release. SR6 is required for delivery completion. Keep .NET build/test sequential in each checkout and use the repository's full local gate for code/configuration. Ordinary documentation-only packets follow the current `AGENTS.md` exception: complete diff review, `git diff --check`, a PR, `[skip ci]` commits/squash title and verification of integrated `origin/main` content. Mixed changes retain the full code gate.
 
 ## Completion and authorization
 
@@ -58,7 +58,7 @@ Mark full delivery complete only when SR1-SR6 and the profile plan's applicable 
 ## Ledger
 
 - Planning packet: documents the owner's confirmed single-repository/two-app outcome and verified completed cleanup. No publishing setting, app configuration, readiness secret, node resource or deployment has changed in this packet. Required PR/head/merge/main evidence will be recorded in its PR description.
-- Next: SR1 release/profile contract and optional publication implementation. Preserve the existing default pipeline and runner.
+- Final: SR1-SR6 completed. SR1 #166, SR2 #168 and SR3 #169 passed full local gates, exact-head and exact-main CI. SR4 readiness `38158362539`, SR5 setup `38168571636` and verified React CD `38168655868` passed. SR6 operations #174, documentation source policy #175 and explicit project/web-only restart repair #177 passed full gates and exact-head/main CI. Maintenance `38170605403`, actual restart `38174865158`, public browser/accessibility checks, fresh-clone walkthrough and 15-minute observation passed. All 51 delivery scratch targets and the cleanup script are verified absent. Final handover #176 records its integrated SHA/content verification and final read-only native acceptance. Exact release and packet evidence is consolidated in the acceptance report; historical implementation checkpoints below are superseded.
 
 ### SR1 implementation evidence
 

@@ -99,6 +99,21 @@ git diff --exit-code <older-main-sha> <newest-main-sha> -- BlazorAutoApp/Infrast
 
 Do not assume an arbitrary application rollback reverses database schema changes.
 
+## Additional application on an existing node
+
+Use [ApplicationInstances.md](ApplicationInstances.md) for the protected environment/instance schema, app-only setup and additional release prerequisites. Reuse the existing runner; adding an app does not repeat machine bootstrap. Primary dispatch remains the default. Select the additional app explicitly for CD and operations:
+
+```bash
+gh workflow run cd-localsinglenode.yml --ref main \
+  -f app_instance=additional -f target_sha=<verified-main-sha> -f run_migrations=true
+gh workflow run localsinglenode-maintenance.yml --ref main \
+  -f app_instance=additional -f backup_now=true
+gh workflow run localsinglenode-maintenance.yml --ref main \
+  -f app_instance=additional -f acceptance_only=true -f restart_app=true
+```
+
+Record each matching run ID before observing it. Maintenance requires green main code and native app ownership, uses the selected protected settings, and verifies backup/isolated restore, doctor and HTTP acceptance. The operations source gate permits a successful first-parent CI source only when every intervening change is verified ordinary documentation; source/configuration changes and failed or pending CI are refused. Deployment release provenance still requires the exact release source/run/attempt. The restart selection changes only this app's web process and proves public catalog/storage/release continuity plus backing-service and primary sibling stability. Keep connector restart separate and leave shared reboot disabled for additional-app operations.
+
 ## Backups and recovery
 
 `<app_name>-backup.timer` runs nightly around 03:00 with jitter. Its service takes the shared deployment lock, writes a custom-format PostgreSQL dump, copies runtime secrets, keeps this app's dumps for `backup_keep_days`, and writes `last-success`. Backup files are mode 0640; the directory is 0750, owned by deploy and the install user's group. Runtime secrets remain 0600. Maintenance fails if the last successful backup is more than 36 hours old.
@@ -126,9 +141,19 @@ sudo bash Deployment/LocalSingleNode/Scripts/verify-backup.sh \
 
 This uses the newest protected dump. Add `--file /opt/recipes-backups/<recipes-dump>.dump` to select another owned dump. It refuses a live/existing target, missing confirmation or a name longer than PostgreSQL's 63-character limit. Validate recovered data before planning a separate, reviewed cutover; the command does not switch application connections. A failed partial replacement is left for operator inspection.
 
+For an additional app, select its persisted settings explicitly in the privileged command so the primary backup/configuration cannot be chosen by default. For a generic app named `catalog`:
+
+```bash
+sudo env LOCALSINGLENODE_SETTINGS_FILE=/etc/catalog/settings.yml \
+  bash Deployment/LocalSingleNode/Scripts/verify-backup.sh \
+  --restore-into catalog_restore_recovery --confirm-restore catalog
+```
+
+This is an operator recovery command, not an SSH privilege grant or an automatic live-database cutover. Use the existing runner workflow for normal protected backup and verification.
+
 ## Remove the app
 
-Removal is a separate operator decision. First record a verified off-machine backup and the exact app identity/resources. Disable this app's backup timer and stop its app-specific runner; remove only that runner's registration if it is no longer needed. Do not stop another app's runner or shared Docker/Caddy service.
+Removal is a separate operator decision. First record a verified off-machine backup and the exact app identity/resources. Disable this app's backup timer. Stop/remove a runner only if it is dedicated to the removed app and no remaining app needs it. An additional app using the primary runner has no separate registration to remove; preserve that runner. Do not stop another app's runner or shared Docker/Caddy service.
 
 From the runtime directory, the operator stops this Compose project:
 

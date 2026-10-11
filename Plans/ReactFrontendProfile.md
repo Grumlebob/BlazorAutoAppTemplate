@@ -1,6 +1,6 @@
 # Independent React Frontend for the ASP.NET Core Template
 
-Status (2026-10-11): P0-P7 are complete and merged. The owner confirmed both public apps on the existing native demo node, using this repository and its existing runner. The extra repository and its local artifacts are removed; cleanup is verified below. Continue public React delivery through [the single-repository packets SR1-SR6](ReactFrontendSingleRepository.md), preserving the Blazor default and existing deployment. The former downstream configuration and additional-runner method is retired. No public React deployment exists yet.
+Status (2026-10-11): Public React v1 delivery is complete through P0-P7 and single-repository SR1-SR6. Both public apps run on the existing native node, using this repository and its existing runner; the default remains BlazorAuto. The former extra repository and additional-runner method are retired. See [delivery acceptance](ReactFrontendDeliveryAcceptance.md) for release, browser, accessibility, fresh-clone, restart and cleanup evidence. Final documentation integration and content verification are recorded in #176. Deferred P8 is outside this goal.
 
 Persistent controller SSH is complete through PR #157, merge `99c319fc38b3b443cd7115093a5c614c1f9de7e3`. Exact-head CI `38145657502`, main CI `38146167014`, and native authorization `38146791803` succeeded. The original install user retains its privileges; working keys and pinned trust remain in place. See the [current cleanup record](#owner-scope-correction-and-cleanup-2026-10-11), which supersedes the historical separate-repository assumptions below.
 
@@ -18,7 +18,7 @@ Checkboxes describe future work until their evidence is recorded. Keep this docu
 2. Inspect branch, remotes, status, registered worktrees, existing task ownership, open relevant PRs, GitHub check runs and the section 14 ledger. Reverify every SHA/check against GitHub. P0-P7 are complete; do not repeat them unless a concrete regression is found. Use replacement packets SR1-SR6; do not resume or recreate the former downstream setup. A previous chat's claim, pending checkbox, or local file is not proof of a merge, green check or live release.
 3. Preserve the dirty source checkout. For implementation, create a task branch/worktree from fetched verified `origin/main`, using the repository's task tooling when applicable. Copy only these approved planning documents into that branch if they are still untracked here. Do not restore the retired demo installation note or copy credential files. Do not import unrelated working changes, stash/reset them, or treat them as released dependencies. Bring required changes from other tasks only through their merged main commits.
 4. Record the next work-packet ID, dependencies, files, acceptance cases and intended PR. Work one coherent packet at a time; related packets may share a small PR when all prerequisites exist. Never put the entire plan into one PR.
-5. Implement the packet, its specified tests, generated contracts and affected audits/docs together. Run the local gate and new targeted checks before pushing. Stage explicit paths, open a PR, verify `build-test-push` on the exact current head, merge normally and wait for successful main validation/publishing as applicable. Record merge SHA and runs before releasing or advancing a dependent packet.
+5. For code/configuration, implement specified tests, contracts and affected audits/docs together. Run the local gate before pushing; stage explicit paths, use a PR, require exact-head `build-test-push`, normal merge and green exact-main validation/publication. Ordinary documentation-only packets use the current `AGENTS.md` exception: complete diff review, `git diff --check`, `[skip ci]` commits/squash title and verified integration on `origin/main`. Record integrated SHA and applicable checks before advancing.
 6. After every PR and before a chat handover, update section 14 with packet IDs, current branch/PR/head, local results, merge/main run, blockers and the exact next command/action. Keep private targets and authenticated artifacts in the ignored record. Re-read current main/runbooks before a deployment; do not execute stale command examples blindly.
 7. Use the completed [persistent controller SSH handoff](../Deployment/LocalSingleNode/ControllerSsh.md) for authorized node work. Record sanitized results in the relevant plan or PR; keep connection details private. Ask for a node-side operator action only when existing access cannot perform it. Do not infer deployment authorization from SSH access.
 
@@ -38,7 +38,7 @@ The tool selection remains appropriate. Router owns navigation and route modules
 2. React is a polished public application: coherent shell, public sample-book catalog/details, responsive layouts, accessible navigation and complete loading/empty/error states. Reuse the existing public author-book APIs and sample data; do not turn private user books into public data.
 3. Generated API types, local development, clean production builds, both-profile CI and immutable release provenance work from a fresh checkout.
 4. A separate React demo runs on the selected existing native node and public hostname. Preserve the existing Blazor demo. Verify the React application in a real browser through public HTTPS.
-5. Documentation explains extension, profile selection, release/update and the simple existing backup/doctor/recovery path. Completion requires PR merges, green main CI and recorded public evidence.
+5. Documentation explains extension, profile selection, release/update and the simple existing backup/doctor/recovery path. Completion requires PR integration, green exact-main CI for code, the current documentation-only exception where applicable, and recorded public evidence.
 
 ### Account area: minimal by omission
 
@@ -659,10 +659,10 @@ On 2026-10-11, the full local gate passed: `dotnet format`; Release build with z
 | P5 | Complete | P5.1 PR #140 merge `574c766dde85197b0ea178deddff05ddf60c97d3`; P5.2 PR #141 merge `3dfe63a7b4271da2170c38e85b5f08723d6dd0d2`; P5.3 PR #142 merge `5f55fbea9574b5fc281f4ea73b231a8f46bb55e4` | Exact-head checks: 38106202892, 38107324193 and 38108442526 passed `build-test-push`; main CI runs 38106462924, 38107550415 and 38108675469 passed on their respective merge commits. All packet local gates passed. |
 | P6 | Complete | P6.1 PR #143 final head `c13a2c16c0d884048a298638601ab58754d60dac`; merge `1f5a8732d33d61508b5457ae307c475448dfd175`; main CI 38110014487 passed. P6.2 PR #144 final head `1bbfb5b131ec15f2397d826b93c438a2e1f6b3a8`; merge `a954595a6621f67f688ee0c24f5c9f94dcbfdd38`; main CI 38113346945 passed | P6.1 exact-head `build-test-push` 38109795951 passed; full local gate and 31 React tests passed. P6.2 full local gate passed; React tests 31/31; broad Chromium, Firefox and WebKit each passed 1/1 with no skips. Initial check 38112649168 failed due Linux PowerShell's unsupported `Start-Process -WindowStyle`; fixed by passing it only on Windows. Final exact-head check 38113004922 passed and main CI 38113346945 passed on the merge commit. P7.1 is next. |
 | P7 | Complete | P7.1 PR #146 merge `058d10c13b7db4d2e31625af4cce6cc22e014695`; P7.2 PR #147 merge `aeef54b40d76f568e4c38580fde0568976fea946`; P7.3 PR #148 merge `9e485f6f2ca30251d066b971173fc128dcca8966`; P7.4 PR #149 merge `61e27183ffb33191c53e7a46d3bb5ca95a389d5b`; P7.5 PR #150 final head `b0b5153d20d84b6c38e46749946dad06e9e37857`, merge `4cd9c97ccd0c31afeac15aa51d801f2bd63a32b8` | P7.1-P7.4 exact-head and main CI results are recorded above. P7.5 full local gate and quality evidence are recorded above; exact-head `build-test-push` run 38128772659 passed, and main CI run 38129246616 passed validation/publishing on the merge. No deployment was dispatched. |
-| P7a | Replaced by SR1-SR4 | One repository and existing runner | Cleanup is verified. Implement optional React publication, validated per-app configuration and owned-app setup; require fresh native readiness and immutable main React release. |
-| P7b | Pending SR5 | - | Owned public React setup and deployment from this repository; no React deployment exists yet. |
+| P7a | Complete through SR1-SR4 | PRs #166, #168, #169 | Optional publication, protected per-app identity and scoped existing-node setup passed full gates/exact-head/main CI; native readiness and immutable additional React release verified. See delivery acceptance. |
+| P7b | Complete through SR5 | #169 merge `5b0ddf90147d2d147932dfac18f23ed93b64c285` | Setup `38168571636` and verified React CD `38168655868` passed; LAN/public/browser/accessibility checks passed and Blazor remained healthy. |
 | P8 | Deferred; outside v1 | - | Accounts and product-specific feature expansion; do not execute |
-| P9 | Pending | - | Operations, fresh-clone docs and final handover |
+| P9 | Complete through SR6 | #174, #175, #177; final handover #176 | Backup/isolated restore/doctor, three public browser engines, operator screen-reader check, fresh-clone walkthrough and 15-minute observation passed. Actual scoped restart `38174865158` passed; scratch cleanup is verified. Final integration/content verification is recorded in #176. |
 
 Record each packet's requirements, branch/worktree/PR, exact head, local commands and suite counts/results, merge SHA, main run/attempt/result, release evidence, blockers and exact next action. Pending/failed/skipped checks remain visible. Keep private targets and authenticated artifacts in ignored/protected records; never commit secrets or real installation values.
 
@@ -700,16 +700,16 @@ Brief observation / conditional risk checks / remaining blockers:
 
 ### Final completion checklist
 
-- [ ] R01-R16 have actual evidence for this public-only scope; no old account milestone is treated as required.
-- [ ] Source/doc changes are merged with exact-head PR checks and green main CI in the applicable repositories; merge commits recorded.
-- [ ] Final app/assets/contracts/migration artifacts match the verified release; running image/profile and `ReactPublicV1` acceptance agree.
-- [ ] Separate public React app passes real HTTPS/browser/public-data checks; existing Blazor demo remains healthy.
-- [ ] React has no account UI/endpoints or SMTP/provider setup; protected APIs remain protected and no test accounts were created.
-- [ ] Required browser/accessibility/performance/security suites ran; blocked/skipped checks are not counted as success.
-- [ ] Public seed data survives app restart; connector and existing backup/doctor status plus simple recovery instructions are verified.
-- [ ] Fresh-clone dev/build/selection/generation/extension/release/deployment docs and handover are complete.
+- [x] R01-R16 have actual evidence for this public-only scope; no old account milestone is treated as required.
+- [x] Code changes are merged with exact-head PR checks and green exact-main CI; ordinary documentation integration uses the current AGENTS.md exception. Integrated commits and verification are recorded in the relevant PR descriptions.
+- [x] Final app/assets/contracts/migration artifacts match the verified release; running image/profile and `ReactPublicV1` acceptance agree.
+- [x] Separate public React app passes real HTTPS/browser/public-data checks; existing Blazor demo remains healthy.
+- [x] React has no account UI/endpoints or SMTP/provider setup; protected APIs remain protected and no test accounts were created.
+- [x] Required browser/accessibility/performance/security suites ran; blocked/skipped checks are not counted as success.
+- [x] Public seed data survives app restart; connector and existing backup/doctor status plus simple recovery instructions are verified.
+- [x] Fresh-clone dev/build/selection/generation/extension/release/deployment docs and handover are complete.
 - [x] Owner-requested repository and temporary-file cleanup is verified; evidence and reusable SSH tooling remain, and references are repaired. PR #163 and operator cleanup evidence are recorded below.
-- [ ] No required v1 blocker remains. Only then mark this plan complete; deferred P8 stays outside this goal.
+- [x] No required v1 blocker remains; deferred P8 stays outside this goal. Current acceptance supersedes historical pending checkpoints below.
 
 ### Owner scope correction and cleanup (2026-10-11)
 
