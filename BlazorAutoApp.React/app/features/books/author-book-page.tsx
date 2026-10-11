@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import type { components } from "../../api/generated/schema";
@@ -10,6 +11,11 @@ type AuthorBookDetails = components["schemas"]["GetAuthorBookResponse"];
 export function AuthorBookPage() {
   const { seedKey } = useParams();
   const query = useQuery({ ...authorBookQueries.bySeedKey(seedKey ?? ""), enabled: Boolean(seedKey) });
+  const bookTitle = query.data?.title;
+
+  useEffect(() => {
+    document.title = `${bookTitle ?? "Book details"} | The Authors Bookcase`;
+  }, [bookTitle]);
 
   if (!seedKey || query.data === null || isBookNotFound(query.error)) {
     return <BookNotFoundState />;
@@ -57,7 +63,7 @@ function BookDetails({ book }: { book: AuthorBookDetails }) {
 
         <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-14">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-800">Book details</p>
-          <h1 className="mt-4 break-words text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-5xl">{book.title}</h1>
+          <h1 className="mt-4 break-words text-4xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-5xl" id="page-title">{book.title}</h1>
           <p className="mt-5 text-lg text-slate-700">By <span className="font-semibold text-slate-950">{book.author || "an independent author"}</span></p>
           <p className="mt-5 max-w-xl leading-7 text-slate-700">This title is part of the public collection. Visit the shared book link to learn more.</p>
           {externalUrl ? (

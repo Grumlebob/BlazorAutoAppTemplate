@@ -15,3 +15,24 @@ body {
   min-height: 100vh;
   background: #f8fafc;
 }
+
+#main-content:focus-visible {
+  outline: none;
+}
+
+#main-content:focus-visible #page-title {
+  border-radius: 0.125rem;
+  outline: 2px solid #4338ca;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -4,7 +4,7 @@ import { ApiError } from "../../api/errors";
 export function LoadingState({ label, pageTitle }: { label: string; pageTitle?: string }) {
   return (
     <section aria-label={label} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
+      {pageTitle ? <h1 className="sr-only" id="page-title">{pageTitle}</h1> : null}
       <div aria-hidden="true" className="space-y-4">
         <span className="block h-4 w-28 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none" />
         <span className="block h-7 w-3/4 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none" />
@@ -36,7 +36,7 @@ export function BookNotFoundState() {
   return (
     <section className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white px-6 py-10 shadow-sm sm:px-10 sm:py-12">
       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-800">Book not found</p>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">This title is no longer on the shelf.</h1>
+      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl" id="page-title">This title is no longer on the shelf.</h1>
       <p className="mt-4 leading-7 text-slate-700">The book may have moved or its link may be out of date. You can return to the public catalog and choose another title.</p>
       <Link className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-indigo-700 px-6 py-3 font-semibold text-white transition hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-indigo-700" to="/books">
         Browse the books
@@ -50,9 +50,9 @@ export function BookReadError({ error, onRetry, compact = false, headingLevel = 
   const Heading = headingLevel;
 
   return (
-    <section aria-labelledby="book-read-error-title" className={`rounded-3xl border border-amber-200 bg-amber-50 ${compact ? "p-5" : "px-6 py-8 sm:px-8"}`} role="alert">
+    <section aria-labelledby={headingLevel === "h1" ? "page-title" : "book-read-error-title"} className={`rounded-3xl border border-amber-200 bg-amber-50 ${compact ? "p-5" : "px-6 py-8 sm:px-8"}`} role="alert">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-900">Catalog update</p>
-      <Heading className="mt-2 text-xl font-semibold tracking-tight text-slate-950" id="book-read-error-title">{presentation.title}</Heading>
+      <Heading className="mt-2 text-xl font-semibold tracking-tight text-slate-950" id={headingLevel === "h1" ? "page-title" : "book-read-error-title"}>{presentation.title}</Heading>
       <p className="mt-2 max-w-2xl leading-7 text-slate-700">{presentation.message}</p>
       {presentation.retryMessage ? <p className="mt-2 text-sm font-medium text-slate-700">{presentation.retryMessage}</p> : null}
       <button

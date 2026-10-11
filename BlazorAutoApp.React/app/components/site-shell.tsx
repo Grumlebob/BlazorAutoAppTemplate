@@ -1,11 +1,13 @@
+import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 
-export function SiteShell() {
+export function SiteShell({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-950">
       <a
         className="sr-only z-50 rounded-md bg-white px-4 py-3 text-slate-950 shadow-lg focus:fixed focus:left-4 focus:top-4 focus:not-sr-only focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
         href="#main-content"
+        onClick={() => document.getElementById("main-content")?.focus()}
       >
         Skip to content
       </a>
@@ -50,8 +52,8 @@ export function SiteShell() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700 sm:px-6 sm:py-14 lg:px-8" id="main-content" tabIndex={-1}>
-        <Outlet />
+      <main aria-labelledby="page-title" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 sm:py-14 lg:px-8" id="main-content" tabIndex={-1}>
+        {children ?? <Outlet />}
       </main>
 
       <footer className="border-t border-slate-200 bg-white">
