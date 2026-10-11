@@ -83,7 +83,7 @@ PR #129 added the explicit probe identity, its offline test, and an opt-in app-s
 
 - [Connector restart run 38065406977](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065406977) passed: systemd returned `active/running` with exit status 0, a new invocation, and `NRestarts=0` stable through the check. LAN and public acceptance passed afterward.
 - [Guarded reboot run 38065492542](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065492542) verified a fresh protected backup and a 12-table isolated restore before scheduling reboot.
-- [Post-reboot acceptance run 38065679204](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065679204) passed LAN and public acceptance with uptime `84` seconds. The node-demo runner returned online, and the public HTTPS readiness endpoint returned `200 Healthy` with TLS verification successful.
-- The dedicated LocalSingleNode runner is `node-demo-books` with its own `localsinglenode-books` label. The separate CI/LocalCluster runner is `node-main-books`; the two roles remain isolated.
+- [Post-reboot acceptance run 38065679204](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38065679204) passed LAN and public acceptance with uptime `84` seconds. The existing LocalSingleNode runner returned online, and the public HTTPS readiness endpoint returned `200 Healthy` with TLS verification successful.
+- The dedicated LocalSingleNode runner and the separate CI/LocalCluster runner retain distinct roles. Keep their registration names and labels in private configuration; verify current assignments from GitHub.
 
 No manual node-side action remains. Account IDs, tunnel IDs, tokens, node addresses and real hostnames remain in private configuration or ignored `Plans.local/` notes. The separate tracked Cloud/LocalCluster inventory-hostname cleanup remains outside this LocalSingleNode plan; neither deployment target was dispatched.
