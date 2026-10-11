@@ -20,7 +20,8 @@ import machine
 import maintenance
 import runner
 import setup_status
-from ls_settings import ROOT, TARGET, read_yaml, settings
+from ls_settings import ROOT, TARGET, read_yaml
+from test_settings_fixture import fixture_settings as settings
 
 FACTS = {"name": "node-rehearsal", "ip": "192.0.2.10", "lan_cidr": "192.0.2.0/24", "install_user": "operator"}
 
@@ -160,7 +161,7 @@ class SetupTests(unittest.TestCase):
 
 class CollisionTests(unittest.TestCase):
     def check(self, directory, scripts):
-        with patch.object(collisions, "ETC", directory / "etc"), patch.dict(os.environ, {"OPT_ROOT": str(directory / "opt")}), patch.object(collisions, "command", side_effect=scripts):
+        with patch.object(collisions, "settings", side_effect=settings), patch.object(collisions, "ETC", directory / "etc"), patch.dict(os.environ, {"OPT_ROOT": str(directory / "opt")}), patch.object(collisions, "command", side_effect=scripts):
             collisions.check("https://github.com/fixture-owner/fixture-repo")
 
     def test_empty_and_foreign_socket(self):
@@ -276,7 +277,7 @@ class RunnerRecoveryTests(unittest.TestCase):
         identity = {"agentName": "node-rehearsal-books", "gitHubUrl": "https://github.com/fixture-owner/fixture-repo"}
         (directory / '.runner').write_text(json.dumps(identity))
         result = SimpleNamespace(returncode=0 if active else 3, stdout='active' if active else 'inactive')
-        with patch.object(runner, 'native', return_value=True), patch.object(runner.os, 'geteuid', return_value=0), patch.dict(os.environ, {'SUDO_USER': 'operator'}), patch.object(runner, 'Path', return_value=directory), patch.object(runner, 'command', return_value=json.dumps(registration)), patch.object(runner.subprocess, 'run', return_value=result) as execute:
+        with patch.object(runner, 'settings', side_effect=settings), patch.object(runner, 'native', return_value=True), patch.object(runner.os, 'geteuid', return_value=0), patch.dict(os.environ, {'SUDO_USER': 'operator'}), patch.object(runner, 'Path', return_value=directory), patch.object(runner, 'command', return_value=json.dumps(registration)), patch.object(runner.subprocess, 'run', return_value=result) as execute:
             runner.install('operator', 'fixture-owner/fixture-repo', 'node-rehearsal', False)
             return execute.call_args_list
 

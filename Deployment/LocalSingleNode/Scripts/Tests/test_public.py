@@ -12,7 +12,7 @@ ROOT = LIB.parents[3]
 sys.path.insert(0, str(LIB))
 import public_config
 import public_collisions
-from ls_settings import settings
+from test_settings_fixture import fixture_settings as settings
 
 TUNNEL = "12345678-1234-1234-1234-123456789abc"
 TOKEN = base64.b64encode(json.dumps({"a": "a" * 32, "t": TUNNEL, "s": "fixture-secret"}).encode()).decode()
