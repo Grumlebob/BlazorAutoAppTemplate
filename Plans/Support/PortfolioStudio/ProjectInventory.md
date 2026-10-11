@@ -12,7 +12,7 @@ This inventory covers the six owner projects named in the template's author-book
 | Proposed order | Portfolio slug | Display name | Evidence available | Next content task |
 | --- | --- | --- | --- | --- |
 | 10 | `improveddb` | ImprovedDb | Owner motivation; prior source/public-interface review; genuine captures | Recheck factual copy, select media and prepare six sections |
-| 20 | `geckobot` | GeckoBot | Private GeckoBot selected; Python structure reviewed; earlier demo deleted with private backup | Review requirements/historical use and prepare fictional booking examples |
+| 20 | `geckobot` | GeckoBot | Private GeckoBot selected; Python structure reviewed; earlier demo deleted with private backup | Prepare source-backed fictional booking figures; omit unverified historical-use claims |
 | 30 | `traceback` | TraceBack | Owner description and local README/concept/boundary/demo documentation | Prepare a prototype case study and capture a synthetic-data workflow |
 | 40 | `kinojoin` | KinoJoin | Local UI, domain, import and calendar source | Prepare a cinema-planning case study and capture an example event |
 | 50 | `ship-inspections` | Ship Inspections | Owner-confirmed repository; local inspection/upload source and feature docs | Prepare a vessel-part/image-upload story and capture a synthetic inspection |
@@ -68,10 +68,10 @@ This explains the larger visible demo catalog. The reviewed source establishes s
 | `SRC-UNLOST` | Unlost | Owner-confirmed Dropbox **Project map** folder; `rapport.pdf`, `rapport/user/` and `rapport/images/` | Historical map/pathfinding account and genuine project figures | Selected media permissions/attribution and individual contribution; no Java-source recovery gate |
 | `SRC-GECKOBOT` | GeckoBot | Selected private [GeckoBot](https://github.com/Grumlebob/GeckoBot), renamed from mail; reviewed file trees/Python AST structure; earlier demo deleted with complete private Git backup | Outlook/COM booking-email flow, parser/UI separation and configuration functions; no execution evidence | Review requirements/actual use and prepare fictional media; omit private source/backup buttons |
 | `SRC-MINITWIT` | MiniTwit | Owner-supplied [Grumlebob/The-Pentuple-MiniTwit](https://github.com/Grumlebob/The-Pentuple-MiniTwit); local report chapters and `MiniTwitSolution/Documentation/` | Microblogging purpose, historical .NET migration, architecture and documented DevOps work | Capture selected media, confirm individual contribution and align the reviewed local/public revisions |
-| `SRC-BESTBETS` | BestBets | Owner-selected school `Exam.pdf` and `BestBets.pptx` (locations private), plus [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture), report/diagrams/prototypes | Prior repository report supports the fictitious architecture story; newly supplied PDF/deck are located but unreviewed | Review preferred PDF/deck, reconcile versions, select figures, confirm contribution and distinguish targets from results |
+| `SRC-BESTBETS` | BestBets | Owner-selected school `Exam.pdf` and `BestBets.pptx` (locations private), plus [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture), report/diagrams/prototypes | Preferred text reviewed; broker/final actor design and prototype limits reconciled | Visually select permitted figures; preserve targets/results and team attribution |
 | `SRC-GEOSPATIAL` | Geospatial research | Owner-supplied [Grumlebob/ExamGDS](https://github.com/Grumlebob/ExamGDS); local `exam.ipynb` and `New_York_Crime.pdf` | New York crime/amenity research question, documented spatial methods and data-preparation issues | Verify dataset windows/licenses, select legible figures and review conclusions and contribution |
 | `SRC-GRUMLEBOB` | Grumlebob | Owner explanation as primary source; restricted background folder recorded in ignored notes | Owner-supplied scope only; no folder contents reviewed | Approved public description, contribution and generic media; exclude private domain/context/results without inventing another use case |
-| `SRC-JOBHUNT` | JobHunt | Owner-supplied [Grumlebob/JobHunt](https://github.com/Grumlebob/JobHunt); authenticated repository metadata confirms private visibility; local `README.md`, `AGENTS.md` and `jobhunt/applications/` procedures | Administrative workflow, document organization, Notion tracking, browser-assisted preparation and user-only final submission policy | Align the owner's manual-writing boundary with current drafting instructions; verify account-creation scope, select fictional media and review final public wording |
+| `SRC-JOBHUNT` | JobHunt | Owner-supplied [Grumlebob/JobHunt](https://github.com/Grumlebob/JobHunt); authenticated repository metadata confirms private visibility; local `README.md`, `AGENTS.md` and `jobhunt/applications/` procedures | Administrative workflow, document organization, Notion tracking, browser-assisted preparation and user-only final submission policy | Use D10: acknowledge drafting assistance/personal review, omit unverified account creation, select fictional media |
 
 Keep these source IDs in private editorial fact notes so later copy changes can be traced to evidence. Public copy includes only useful source links and permitted provenance, not this preparation table or private machine paths. The owner explicitly excluded `hojelseMaps.zip`; it is not an Unlost source. Record exact local locations in ignored preparation notes when needed, rather than introducing machine-specific paths into tracked plans.
 
@@ -291,13 +291,21 @@ Prepare media from the client, report diagrams and operational docs. Treat `Perf
 
 Source: [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture). The owner describes designing architecture for fictitious scenarios with very large data volumes and bursts during events such as the World Cup.
 
-The owner additionally prioritizes the school-material `Exam.pdf` and `BestBets.pptx`. Both files were located on 2026-10-11; their content has not yet been read/rendered for this update. Record locations privately. Read these first during final content preparation, then reconcile with the repository's report, diagrams and prototypes. Do not assume `Exam.pdf` is the same document as `Deliverables/BestBets.pdf`.
+The owner additionally prioritizes the school-material `Exam.pdf` and `BestBets.pptx`. On 2026-10-11, relevant Exam text and all twenty deck slides' text were reviewed read-only. The local Exam has 104 pages, including a separate individual Zeguu reconstruction appendix; that appendix is outside the BestBets story. Exact locations remain private. Source diagrams have not been visually inspected/selected by this enhancement; figure extraction/redrawing still needs that review and attribution. Do not assume Exam is identical to `Deliverables/BestBets.pdf`.
 
 Proposed card copy: **Architecture research for a fictitious platform facing large data volumes and major sports-event traffic spikes.**
 
 ### Reviewed evidence
 
 `Deliverables/BestBets.pdf` documents a spring 2025 team architecture project whose scenario is a betting-odds aggregation platform. Its structure covers architectural drivers, quality-attribute scenarios, module/component/deployment views, design decisions and evaluation. Reviewed passages consider event brokers, actor-based processing, uneven match popularity, ordering and failure bottlenecks. `Prototyping/` contains actor/remote-request experiment artifacts. Do not treat the report's target response measures as achieved benchmarks.
+
+### Preferred Exam/deck reconciliation
+
+- Exam p.16–18 defines separate performance scenarios. P.17's surge from 1,000 to 100,000 users in ten minutes, 95% page responses within two seconds and odds updates within three seconds are **design targets**, not achieved measurements. Preserve the scenario/units if quoted in a figure; do not combine response targets from different scenarios.
+- Exam p.30–38/figures 20–23 explains the Trigger Order Broker, microkernel and bookmaker plugin actors. P.62's final evaluation explicitly narrows the earlier Global Odds Broker to a Trigger Order Broker that **does not notify the UI**. UI odds updates remain undecided. The final design uses a **load-balanced actor model**; do not publish the earlier global-broker/UI path as final architecture.
+- Deck slides 14–18 describe actor-model versus load-balancer hypotheses and qualitative observations, followed by a proposed combination. Slide16 says retries were not simulated correctly, every simulated provider had the same logic, and local versus real network behavior limits validity. No numerical throughput/latency series was established by this text review.
+- Exam p.60–62's aSQA 1–5 scores are team evaluations based on design/prototyping, not objective performance measurements. P.63 identifies unresolved DB topology and UI update design. Show architectural learning and limits instead of retroactively completing that fictitious system.
+- Exam is later evidence for the selected combined design; the deck is evidence for how the team arrived there. Review actual diagrams before choosing public figures. Some deck fixture/infrastructure text identifies private background context; exclude such references from extracted/redrawn public media. The report identifies a three-person team including Jacob; it does not establish his individual contribution to each BestBets subsystem.
 
 ### Proposed sections
 
@@ -363,17 +371,17 @@ Present a personal engineering project that reduces repetitive administration ar
 
 Proposed card copy: **Keeping job-application documents, details and tracking organized.**
 
-Proposed headline: **Administrative help. Personal applications.**
+Recommended headline: **Administrative help. Personal decisions.**
 
-Proposed opening, subject to the writing-boundary alignment below:
+Proposed opening, to check against the selected version before publication:
 
-> I built JobHunt to keep the practical work around an application organized: saving the posting, bringing together relevant documents and keeping my tracker up to date. I choose the roles I want to pursue and write the personal application myself. The workflow helps prepare the form and attachments, then leaves the final review and submission to me.
+> JobHunt organizes the practical work around an application: saving the posting, bringing together relevant documents and keeping the tracker up to date. It can assist preparation and drafting, while the applicant supplies personal motivation, reviews the application and performs final submission.
 
 The owner's phrase **“Helps with the administrative work, keeps the personal work personal”** is the editorial guiding principle. Job selection, motivation and personal writing remain explicit human responsibilities in the requested direction. Explain assisted browser/model work through the administrative task it performs, without concealing assistance where it is relevant.
 
 ### Step-by-step application flow and graphic
 
-Include the actual sequence as a prominent illustration within the JobHunt story, immediately after the introduction. Proposed figure title: **From a chosen role to a reviewed application**. Label the preparation preview as the owner's intended workflow until the writing/account-creation alignment tasks are resolved.
+Include the reviewed sequence immediately after the introduction. Figure title: **Application preparation and review**. Describe supported assistance and the owner's intended authorship boundary separately; omit unsupported account creation. The concept preview is a reference, not implementation evidence.
 
 | Step | Visible label | Responsibility | Short explanation |
 | --- | --- | --- | --- |
@@ -381,22 +389,22 @@ Include the actual sequence as a prominent illustration within the JobHunt story
 | 2 | Save the job details | Assisted | Capture the posting and verified facts, check for an existing record and preserve the source link |
 | 3 | Prepare portal access | Assisted | Inspect required fields and use the appropriate saved login; required account creation remains subject to implementation review |
 | 4 | Gather relevant documents | Assisted | Bring together the maintained CV and requested certificates/references from base documents |
-| 5 | Write the personal application | Personal, intended boundary | The owner supplies role-specific motivation and writing; reconcile current drafting instructions before presenting this as implemented behavior |
+| 5 | Write the personal application | Personal, intended boundary | The owner supplies personal motivation and reviews wording; current instructions can assist drafting |
 | 6 | Update the tracker | Assisted | Keep the same application identity and verified details in Notion; describe tracking intent separately from submission |
 | 7 | Prepare the form and attachments | Assisted | Fill supported factual fields and upload the selected, reviewed documents |
 | 8 | Review and send | Personal | The owner checks the prepared form, documents and personal message, then performs final submission |
 
 This is a simplified reading sequence, not a claim that every portal or integration follows a rigid execution order. Portal inspection starts early so document preparation uses actual requirements. Tracking can progress while another destination is blocked. Required user input pauses only the affected action. If a receipt is discussed afterward, show it as separate evidence following the owner's submission, not as a consequence of a tracker update.
 
-Graphic direction: a quiet numbered responsibility timeline using Studio typography and generous whitespace. At desktop widths, use two labeled lanes, **Personal work** and **Administrative help**, with each step placed in its responsible lane beside one neutral connector. On mobile, use a single vertical timeline with the responsibility written on every step. Keep all eight labels visible; optional selection reveals one short explanation without hiding the sequence or adding a carousel. Green indicates assisted administration; a restrained red marker identifies work intentionally kept personal. Use neutral text and explicit labels so red is not read as an error, and color never carries meaning alone. Avoid robot imagery, employer logos, simulated success metrics or a dense automation dashboard.
+Graphic direction: use Studio typography and whitespace. Desktop uses two rows of four numbered steps; mobile a vertical sequence. Every step includes its responsibility label, including possible drafting assistance. Keep all eight labels and explanations visible with an ordered-list text equivalent. Use neutral ink and one accent; no error-like red markers, robot imagery, employer logos or simulated outcomes. See VisualProduction for the final specification.
 
-Implement the eventual figure as semantic HTML/CSS with an ordered-list text equivalent, keyboard-accessible details and light/dark tokens. Provide a static readable view before JavaScript; no chart library or animation is needed. The portfolio content stores steps and responsibility labels as reviewed data. Introduce a narrowly scoped workflow block only when implementing this figure, with matching C# validation, public contract and React renderer; it must not become a general diagram/page-builder schema. An illustrative export may serve as the cover, but retain the readable workflow within the story.
+Implement with existing figure and prose blocks: a safe static diagram, a mobile variant only if needed, and a complete ordered-list explanation. No custom workflow block, widget schema, chart library or animation is required in v1. This supersedes the earlier special workflow-block suggestion and preserves the shared five-kind model.
 
 A portable interactive preparation preview is retained as [JobHuntWorkflow.html](JobHuntWorkflow.html); open it in a browser to review the two lanes and selectable step explanations. It is a design reference, not application source, and contains only illustrative copy. Preserve an approved static reference and this step specification in the future design package before implementation. The preview represents the intended flow and does not claim to show a running JobHunt interface.
 
 ### Automation boundary for the story
 
-Use a compact two-column comparison inside the continuous story. Green means suitable for administrative assistance; red means kept personal/manual. Show text labels and plain task descriptions alongside color so meaning survives dark mode and color-vision differences. Avoid adding large colored panels or a new home-page badge system.
+Use a compact comparison within the story, with explicit Personal/Assisted labels and accurate drafting-assistance wording. Use neutral ink and the shared restrained accent; no red error-like markers or large colored panels. The comparison can be ordinary prose/list content without a new block schema.
 
 | Task | Intended boundary | Evidence and wording constraint |
 | --- | --- | --- |
@@ -405,7 +413,7 @@ Use a compact two-column comparison inside the continuous story. Green means sui
 | Bringing together relevant documents | Administrative assistance | Use owner-maintained CV and base documents; select the actual files requested by the form. Document selection does not authorize inventing experience or rewriting personal facts |
 | Saving posting and application details | Administrative assistance with review | Source-linked facts and structured records support consistency. Distinguish data models from AI assistance; information extraction still needs verification against the posting/form |
 | Updating the application tracker | Administrative assistance | Notion synchronization is documented. Describe record consistency and readback; a tracker status is separate from employer receipt |
-| Writing motivation and the personal application | Personal/manual in the owner's requested direction | Current workflow/document guides also instruct assisted role-specific letter drafting. Reconcile that behavior before using the opening's manual-writing claim as public fact |
+| Writing motivation and the personal application | Personal authorship/review; assistance possible | Current guides support assisted drafting; acknowledge it and distinguish the owner's intention from an enforced restriction |
 | Filling repeated factual fields and uploading selected documents | Administrative assistance | Browser assistance prepares verified answers and relevant attachments for the chosen role. Review actual accepted files and form constraints; do not promise every portal is supported |
 | Reviewing and sending the application | Personal/manual | Current project instructions explicitly reserve final employer Send and confirmation for the user |
 
@@ -415,7 +423,7 @@ Read-only review covered the private repository's visibility and local general d
 
 The documented workflow includes deliberate posting intake, duplicate checks, organized document packages, verified facts, Notion tracking, employer-form preparation and a final handoff. Python helpers and browser assistance have different responsibilities; do not portray a single autonomous service as doing everything. The project instructions require the user to submit and distinguish tracking intent, a prepared form and actual receipt evidence.
 
-The supplied direction is stricter about letter writing than the current procedures. Record this as a concrete content-readiness task, not a reason to disguise behavior: confirm the workflow the owner will actually use, then either align JobHunt's drafting instructions in a separately authorized source change or describe any actual drafting assistance accurately. This portfolio planning task does not modify JobHunt. Avoid public “entirely manual,” “never AI-written” or equivalent claims while that difference remains unresolved. Account-creation and secret-management claims also need implementation review; “smart secrets” is not a verified security property.
+Resolved decision D10: acknowledge actual drafting assistance and personal motivation/review/final submission. The owner's stricter personal-writing direction is an intention, not enforced current behavior. This task does not modify JobHunt. Omit entirely-manual/never-AI-written, automatic account-creation and unverified credential guarantees; no source change is needed merely to make portfolio copy accurate.
 
 ### Proposed sections and media
 
@@ -437,13 +445,13 @@ Prepare all public media using fictional employers, applicant details, documents
 | ImprovedDb | Prior review; recheck at content release | Outlined | Existing captures; select/update | Personal motivation supplied; role details pending | Live site known; recheck | Pending editorial review |
 | KinoJoin | Source reviewed; runtime unverified | Outlined | Pending capture | Pending | Owner-supplied public repository; live app unknown | Pending editorial review |
 | TraceBack | Docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Research context documented; personal role pending | Pending | Pending editorial review |
-| GeckoBot | Private GeckoBot selected/tree/AST reviewed; runtime unverified | Brief | Fictional captures pending | Historical use/status pending | Active source/backup private; omit public buttons | Draft pending requirements/use review |
+| GeckoBot | Private GeckoBot selected/tree/AST reviewed; runtime unverified | Brief | Fictional captures pending | Historical use/status pending | Active source/backup private; omit public buttons | Draft pending source-aligned copy/permitted figures |
 | Ship Inspections | Source/docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Pending | Owner-supplied public repository; live app unknown | Pending editorial review |
 | Unlost | Owner-confirmed report/artifacts; Java source unavailable | Outlined | Genuine report-folder images available; select/review | Team context documented; individual contribution pending | Unknown | Pending editorial review |
 | MiniTwit | Repository/report/docs reviewed; runtime unverified | Outlined | Report/source artifacts identified; capture/select | Team context documented; individual contribution pending | Owner-supplied public repository; live app unverified | Pending editorial review |
-| BestBets | Prior report review; owner-selected Exam/deck located, not reviewed | Outlined | Preferred deck/figures pending review | Team context; individual role pending | Public repository supplied | Pending preferred-source review |
+| BestBets | Preferred Exam/deck text reviewed and reconciled | Outlined | Preferred deck/figures pending review | Team context; individual role pending | Public repository supplied | Pending visual/rights/editorial review |
 | Geospatial research | Notebook structure/report reviewed; results not reproduced | Outlined | Report/notebook figures identified; select/export | Team context documented; individual contribution pending | Owner-supplied public repository | Pending editorial review |
 | Grumlebob | Owner explanation; restricted folder present, contents unreviewed | Domain-neutral brief | Approved generic examples pending | Pending | None approved | Draft pending approved public explanation |
-| JobHunt | Private repository/general docs reviewed; runtime unverified | Outlined with eight-step flow; writing boundary needs alignment | Workflow preview prepared; fictional examples pending | Personal intent supplied; contribution/status wording pending | Private source supplied; omit inaccessible public action | Draft pending factual boundary and copy review |
+| JobHunt | Private repository/general docs reviewed; runtime unverified | Eight-step flow and copy boundary resolved | Workflow preview prepared; fictional examples pending | Personal intent supplied; contribution/status wording pending | Private source supplied; omit inaccessible public action | Draft pending figures/editorial review |
 
-For each row, turn pending work into explicit tasks in the parent plan's S0/S1/S3 packet records. Readiness must not be inferred from the presence of a folder, a cover image or a seed row. Recheck facts and links at execution time because implementation is deliberately scheduled for later.
+For each row, use its P6 packet and ImplementationCheckpoints' repeated story sequence. Unknown individual-role/count/date claims can be omitted with neutral accurate context; permissions and approved public explanation remain prerequisites where needed. Readiness must not be inferred from the presence of a folder, a cover image or a seed row. Recheck facts and links at execution time because implementation is deliberately scheduled for later.

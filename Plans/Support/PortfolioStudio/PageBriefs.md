@@ -2,6 +2,8 @@
 
 Parent: [master plan](../../PortfolioStudioImplementation.md). Technical packets: [DeliveryPhases.md](DeliveryPhases.md). Facts, exact section IDs and source limitations: [ProjectInventory.md](ProjectInventory.md).
 
+Use [VisualProduction.md](VisualProduction.md) for asset-by-asset composition, example data, captions/alt directions, mobile treatment and honest fallbacks for all eleven stories. [ExecutionDecisions.md](ExecutionDecisions.md) resolves parser/media/runtime choices and factual-copy defaults; [ImplementationCheckpoints.md](ImplementationCheckpoints.md) supplies the executable story sequence.
+
 This document supplies editorial suggestions and concrete production tasks. Suggested headlines are draft copy. Publish factual claims only after checking the source register. Preserve the selected Studio layout: one home grid, one continuous page per project, desktop section rail, mobile section menu and both themes. Do not introduce separate About/Writing pages or chapter routes.
 
 ## 1. Home — `/`
@@ -62,7 +64,7 @@ Use the exact owner motivation from the master plan. Preserve its six section ID
 
 **Reader takeaway:** a personal question led to useful browsing and a carefully explained data pipeline. **Links:** verified live ImprovedDb; public source only if confirmed. **Related:** KinoJoin, TraceBack.
 
-Publication blockers: current source/revision, conflicting award cutoff copy, dated rating/model counts, chosen media and actual contribution/context wording.
+Publication inputs: source/revision and permitted media. Omit conflicting award cutoff copy and unverified rating/model counts; use neutral project wording if personal contribution is unknown. These omissions resolve unsupported claims without preventing an accurate story.
 
 ## 4. GeckoBot — `/projects/geckobot`
 
@@ -82,7 +84,7 @@ Private `Grumlebob/GeckoBot`, renamed from mail, is the selected sole active sou
 
 **Reader takeaway:** automation of a specific recurring task. **Related:** Grumlebob, JobHunt.
 
-Publication blockers: intended source version, requirements/actual use, sending/review boundary, contribution/status and fictional media. Do not describe AI, bulk outreach or autonomous sending without evidence. Capturing media must never send real mail or modify a real calendar.
+Publication inputs: reviewed source version, accurate parser/Outlook boundary and permitted fictional media. Requirements/historical use can refine the story but are not mandatory if copy describes only verified source behavior and identifies unverified runtime/use. Omit unsupported sending/review, role/status and outcome claims. Capturing media must never send real mail or modify a real calendar.
 
 ## 5. TraceBack — `/projects/traceback`
 
@@ -196,7 +198,7 @@ Publication blockers: personal contribution, figure selection/revision, dates an
 
 Use the five inventory sections:
 
-Prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`; their private locations are in the source overview. These newly supplied files are located but unreviewed. Reconcile them with the repository's report/prototypes before selecting claims or figures.
+Prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`; their private locations are in the source overview. Their relevant text was reviewed for this enhancement. ProjectInventory records the final broker/load-balanced actor design, prototype limitations and source/version distinction. Selected diagrams still need visual inspection/reuse review before capture or faithful redraw; use VisualProduction's concrete briefs.
 
 - The fictitious scenario: state that this is a design study of odds aggregation.
 - Turning constraints into requirements: **When demand concentrates around one event.** Present one clear quality-attribute scenario.
@@ -208,7 +210,7 @@ Prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`; their pri
 
 **Reader takeaway:** architectural reasoning connects a workload to concrete choices and limits. **Links:** supplied Architecture repository. **Related:** MiniTwit, TraceBack.
 
-Publication blockers: preferred PDF/deck review, source-version agreement, selected figures, role and results/targets distinction. No claim of production betting, payments or demonstrated large-scale traffic.
+Publication inputs: visually reviewed permitted figures and source-version agreement. Use the resolved report/deck interpretation, neutral team attribution if individual role is unknown, and explicit targets-versus-results distinction. No claim of production betting, payments or demonstrated large-scale traffic.
 
 ## 11. Geospatial research — `/projects/geospatial-research`
 
@@ -254,17 +256,17 @@ Publication blockers: approved public explanation, role/status and permitted fig
 
 **Card:** Keeping job-application documents, details and tracking organized.
 
-**Standfirst suggestion:** Administrative help. Personal applications.
+**Standfirst recommendation:** Administrative help. Personal decisions.
 
-Use the owner's principle: **Helps with the administrative work, keeps the personal work personal.** The inventory records a conflict between intended manual writing and current assisted drafting instructions. Resolve that conflict before publishing the manual-writing opening as implemented fact.
+Use the owner's principle as an intended boundary: **Helps with the administrative work, keeps the personal work personal.** Current reviewed instructions can assist drafting; describe personal authorship/review and final submission without claiming all writing is manual or that this boundary is technically enforced. Do not change JobHunt code to match portfolio copy. Omit automatic account-creation claims until verified.
 
 Keep six sections: why, eight-step flow, personal/administrative boundary, organized information, application preparation and reliability/lessons. The flow figure is the distinctive centerpiece:
 
 1. Choose a role — personal.
 2. Save the job details — assisted.
-3. Prepare portal access — assisted; verify actual account-creation scope.
+3. Prepare portal access — assisted where verified; no automatic-registration claim.
 4. Gather relevant documents — assisted.
-5. Write the personal application — personal in the owner's intended direction; factual alignment required.
+5. Write the personal application — personal authorship; drafting assistance may be used in the reviewed implementation.
 6. Update the tracker — assisted.
 7. Prepare the form and attachments — assisted.
 8. Review and send — personal.
@@ -275,7 +277,7 @@ Show all eight steps in a readable horizontal/wrapped desktop composition and ve
 
 **Reader takeaway:** reliable administration supports a deliberate application and visible personal decisions. **Related:** Grumlebob, GeckoBot. Omit a source button for the inaccessible private repository.
 
-Publication blockers: writing/account-creation alignment, fictional examples, reviewed role/status. Never read/publish private applicant documents, credentials or employer submissions merely to populate this case study. A tracker state is not proof of employer receipt.
+Publication inputs: source-aligned copy and permitted fictional examples. The writing distinction is resolved above; omit unverified account creation and individual-role/status claims. Never read/publish private applicant documents, credentials or employer submissions merely to populate this case study. A tracker state is not proof of employer receipt.
 
 ## 14. Per-story publication checklist
 

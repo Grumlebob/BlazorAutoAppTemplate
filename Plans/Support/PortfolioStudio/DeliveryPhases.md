@@ -2,6 +2,8 @@
 
 Parent: [PortfolioStudioImplementation.md](../../PortfolioStudioImplementation.md). Architecture/slices: [Architecture.md](Architecture.md). State: [Progress.md](Progress.md). Content: [PageBriefs.md](PageBriefs.md) and [ProjectInventory.md](ProjectInventory.md). Node work: [NodeHandoff.md](NodeHandoff.md).
 
+Use [ExecutionDecisions.md](ExecutionDecisions.md) for resolved defaults and the proposed command/model contract, [ImplementationCheckpoints.md](ImplementationCheckpoints.md) for ordered substeps inside these packets, and [VisualProduction.md](VisualProduction.md) for concrete figure production. The packet IDs below remain the only work inventory.
+
 ## Execution rules
 
 Each packet is a small unit that another agent can resume. A phase may require several PRs; combine tightly coupled code, contract, audit, test and documentation changes. Do not combine all cleanup and product work in one PR. Start a packet only when its listed inputs exist. Record actual file names after inspecting the chosen baseline; paths below describe the intended destination, not files already created.
@@ -46,7 +48,7 @@ Inputs: current upstream React goal/profile plan, live upstream main and main CI
 - Fetch upstream and inspect the other agent's progress, open PRs and unresolved handoffs.
 - Verify merged React Router/Vite/Tailwind foundation, generated API contracts, local HTTPS development, static C# serving, image/release profile labels, CI checks, LocalSingleNode setup and controller/public runbooks.
 - Record upstream SHA, CI run URL, dependency/lockfile versions and any still-required open fixes in the ledger.
-- Verify the retained P0–P7 React foundation. The current React goal withdraws the separate demo release/deployment; do not wait for or recreate it. Record any genuine missing reusable foundation/tooling as a dependency; do not claim the withdrawn demo finished.
+- Verify retained P0–P7 foundation and live SR1–SR6 delivery. The retired repository cleanup is complete, but public React delivery remains unfinished. Prefer completed reusable delivery; classify missing merged release/setup capabilities as dependencies and remaining demo observation as independent only with evidence. Do not recreate the retired repository or claim cancelled method equals completed delivery.
 - Pin that SHA. Recheck once more before import if another upstream fix lands. Do not repeatedly chase main without a concrete needed fix.
 
 Exit: one reproducible merged baseline with successful main CI; unresolved dependencies classified as blocking or independent. Planning checkpoint SHAs are evidence of inspection, not a mandatory baseline.
@@ -163,7 +165,7 @@ Exit evidence: neither removed directory exists; no active workflow/script impor
 Inputs: P2; master sections 4–5; source register.
 
 - Create `Content/Portfolio/site.json`, per-project metadata/Markdown/media and a draft starter. Begin with ImprovedDb's actual story; other catalog entries remain draft metadata until their slice is prepared.
-- Implement C# validation/export and DTOs needed by the first story's site, summary/detail, sections, blocks, assets and published manifest. Pick one safe Markdown parser and document it. Extend contracts only for a concrete later story requirement.
+- Implement ContentTool/C# validation/export and DTOs needed by the first story's site, summary/detail, sections, blocks, assets and published manifest. Use ExecutionDecisions' Markdig, safe HTML, media-plan and CLI defaults. Extend contracts only for a concrete later story requirement.
 - Produce deterministic public-only normalized output and a content revision. No DB/Redis/network/credentials are required for export.
 - Validate unsafe HTML/links/SVG, path containment/case, missing media, duplicate IDs, internal links to drafts, dimensions, supported block kinds and payload budgets.
 - Keep provenance/review notes out of public DTOs. Draft content and media cannot ship merely because they live near published files.
@@ -250,17 +252,17 @@ Begin this packet within VS1 for home and ImprovedDb, then extend known routes/g
 - Verify useful project prose/anchors/images without JavaScript, hydration compatibility and no redundant API fetch.
 - Record cache/asset retention rules and behavior of an already-open page across releases.
 
-### P7.2 — Decide remaining runtime services
+### P7.2 — Complete the file-only runtime
 
-Default: keep inherited PostgreSQL/Redis where runtime/tooling still requires them. Content itself is file-authored.
+Final default: file-only public content, without PostgreSQL/Redis/Identity/migrations. Keep transitional dependencies until their real consumers are removed; finish this packet before final P7.4 readiness.
 
-Produce a dependency decision for each remaining DB, Redis, Identity, migration, Data Protection, SMTP/social-auth and simulator service. Remove unused account services. Either retain required DB/Redis with honest operational docs or remove them in a separate cohesive PR covering startup, Compose, workflows, release artifacts, backups, doctor, audits and tests. Do not leave dummy DB/Redis checks or claim backups protect file-only content. No unnecessary service-removal rewrite is required for v1.
+Produce a consumer inventory for DB, Redis, Identity, migration, Data Protection, SMTP/social-auth and simulator services. Remove unused services in cohesive PRs covering startup, Compose, health, workflows, release artifacts, backup/doctor/recovery, audits and tests. Explicitly support a file-only release without migration artifacts; never create a dummy empty migration bundle to satisfy an old consumer. Recover content/UI/media from reviewed Git and immutable release evidence, and retain protected app/provider configuration through its owned operations. Do not claim a database backup protects file-only content. Any newly demonstrated product requirement to retain a service needs a documented revision to D06 and matching operations; inherited checks alone are not justification.
 
 ### P7.3 — Replace sample acceptance with Portfolio acceptance
 
 Introduce the first-story profile/assertions within VS1. Expand the manifest-driven acceptance with later published slices and complete final launch checks in P7.4.
 
-- Introduce a clearly named Portfolio public acceptance profile, recommended `PortfolioPublicV1`; preserve `FrontendProfile=React`.
+- Introduce the selected `PortfolioPublicV1` acceptance profile; preserve `FrontendProfile=React`.
 - Update resolver, build/image labels, release manifest, Docker smoke, setup-state machine, deployment workflow and controller acceptance together.
 - Check site metadata, ordered summaries, a known real project and sections, matching content revision, direct/deep/fragment URLs, missing/draft routes, assets/data, former sample/account denial and security/cache headers.
 - Keep GET/HEAD acceptance read-only. Do not create accounts or use synthetic Books data to make the check pass.

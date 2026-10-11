@@ -121,7 +121,7 @@ After P7.3 implements the final acceptance profile, use the updated script with 
 pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile React -AcceptanceProfile PortfolioPublicV1 -Address <DETECTED_ADDRESS> -Port <VERIFIED_HTTP_PORT>
 ```
 
-Do not run that profile before the packet creates it. Record actual final profile name if implementation chooses another name. Never treat the inherited sample-Books check as final Portfolio acceptance.
+Do not run that profile before the packet creates it. PortfolioPublicV1 is the selected final name. Never treat the inherited sample-Books check as final Portfolio acceptance.
 
 ## 7. Public Cloudflare launch
 
