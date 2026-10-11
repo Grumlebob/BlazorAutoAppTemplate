@@ -24,7 +24,7 @@ Bootstrap installs packages, approved hostname, machine facts, Ansible, Docker/C
 
 Caddy uses the official GitHub release Debian package, with its version and architecture-specific SHA-256 checksums pinned in `Deployment/Common/ansible/roles/caddy_install/defaults/main.yml`. Update the version and checksums together through a PR to upgrade it through provisioning. Bootstrap and shared provisioning retire only the exact legacy Cloudsmith source created by this repository, preserving it as `caddy-stable.list.disabled` before apt updates. Foreign source contents or conflicting backups stop setup for operator inspection.
 
-The runner's `deploy` account has Docker group access and passwordless sudo. Both confer root-equivalent power. The install user gets no sudoers change. A fresh one-PC fork can explicitly enable `--ci-runner`, which also grants the install user Docker group access for its local gates; use a fresh group session afterwards. The template's existing CI capacity stays on its current runner.
+The runner's `deploy` account has Docker group access and passwordless sudo. Both confer root-equivalent power. The install user gets no sudoers change. A fresh one-PC fork can explicitly enable `--ci-runner`; bootstrap registers the same runner service with both LocalSingleNode and `ci-<app_name>` labels, and grants the install user Docker group access for local gates. Use a fresh group session afterwards. CI and CD share that one runner and run sequentially. An existing CI runner elsewhere is preserved unless the repository's CI runner label and expected host are deliberately changed.
 
 ## Portable settings
 

@@ -51,6 +51,34 @@ class PublicTests(unittest.TestCase):
         self.assertIsNotNone(token)
         self.assertTrue(public_config.validate("demo.example.com", TUNNEL, 8085, token, settings())["public_enabled"])
 
+    def test_shared_token_validation_checks_expected_account(self):
+        self.assertTrue(public_config.validate(
+            "demo.example.com", TUNNEL, 8085, TOKEN, settings(), expected_account_id="a" * 32
+        )["public_enabled"])
+        with self.assertRaisesRegex(ValueError, "configured tunnel"):
+            public_config.validate(
+                "demo.example.com", TUNNEL, 8085, TOKEN, settings(), expected_account_id="b" * 32
+            )
+
+    def test_public_state_must_be_a_protected_regular_object(self):
+        with tempfile.TemporaryDirectory() as directory:
+            etc = Path(directory)
+            state = etc / "books" / "public.json"
+            state.parent.mkdir()
+            with patch.object(public_collisions, "ETC", etc), \
+                    patch.object(public_collisions, "settings", return_value={"app_name": "books"}):
+                state.write_text("[]")
+                with self.assertRaisesRegex(ValueError, "unexpected format"):
+                    public_collisions.check(
+                        "https://example.test/repo", "demo.example.com", TUNNEL, 8085, "2026.10.0"
+                    )
+                state.write_text("{}")
+                state.chmod(0o666)
+                with self.assertRaisesRegex(ValueError, "protected regular file"):
+                    public_collisions.check(
+                        "https://example.test/repo", "demo.example.com", TUNNEL, 8085, "2026.10.0"
+                    )
+
     def test_missing_mismatched_or_unsafe_inputs_fail(self):
         for host, tunnel, port, token in [
             ("", TUNNEL, 8085, TOKEN), ("demo.example.com", TUNNEL, 80, TOKEN),

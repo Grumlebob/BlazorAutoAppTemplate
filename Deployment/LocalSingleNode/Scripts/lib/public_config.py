@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 from pathlib import Path
@@ -12,31 +11,37 @@ import uuid
 
 from ls_settings import settings
 
+COMMON_LIB = Path(__file__).resolve().parents[4] / "Deployment/Common/Scripts/Component/lib"
+sys.path.insert(0, str(COMMON_LIB))
+from cloudflare_tunnel import validate_connector_token
+
 PINNED_VERSION = "2026.10.0"
 PINNED_CHECKSUM = "sha256:d33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db"
 
 
-def validate(hostname, tunnel_id, port, token, config):
+def validate(hostname, tunnel_id, port, token, config, expected_account_id=None):
     if not hostname and not tunnel_id and not token:
         return {"public_enabled": False}
+    if not isinstance(hostname, str) or not isinstance(tunnel_id, str):
+        raise ValueError("Invalid public hostname or tunnel ID")
     labels = hostname.split(".")
     if len(hostname) > 253 or len(labels) < 2 or hostname != hostname.lower() or any(
         not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels
     ):
         raise ValueError("Invalid public hostname")
-    if str(uuid.UUID(tunnel_id)) != tunnel_id:
+    try:
+        valid_tunnel_id = str(uuid.UUID(tunnel_id)) == tunnel_id
+    except (ValueError, TypeError, AttributeError):
+        valid_tunnel_id = False
+    if not valid_tunnel_id:
         raise ValueError("Invalid tunnel UUID")
     if type(port) is not int or not 1024 <= port <= 65535 or port in {
         config[key] for key in ("app_port", "postgres_port", "redis_port", "lan_http_port")
     }:
         raise ValueError("Public origin port must be distinct from app, database, Redis and LAN ports")
-    if not re.fullmatch(r"[A-Za-z0-9+/=_-]{32,}", token):
-        raise ValueError("Missing or invalid connector token")
     try:
-        claims = json.loads(base64.b64decode(token + "=" * (-len(token) % 4), altchars=b"-_", validate=True))
-        if claims.get("t") != tunnel_id or not re.fullmatch(r"[0-9a-f]{32}", str(claims.get("a", ""))) or not claims.get("s"):
-            raise ValueError("Connector token does not match the configured tunnel")
-    except (ValueError, TypeError, UnicodeDecodeError):
+        validate_connector_token(token, tunnel_id, expected_account_id)
+    except ValueError:
         raise ValueError("Connector token does not match the configured tunnel") from None
     return {"public_enabled": True, "public_hostname": hostname, "public_tunnel_id": tunnel_id,
             "public_origin_port": port, "public_cloudflared_version": PINNED_VERSION,

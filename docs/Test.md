@@ -88,7 +88,9 @@ CI uses Node 24.21.0 and npm 12.2.0 for the React package, and requires all 31 c
 
 ## Local Gate
 
-Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
+Changes consisting only of `.md` files are exempt from the local build, format, test and deployment gate. Review the changed Markdown and run `git diff --check` before pushing. The exemption does not disable existing CI or branch-protection requirements. A mixed change containing code, configuration or any other non-Markdown file uses the full gate below.
+
+Run this before pushing a non-Markdown-only change. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
 
 ```bash
 git diff --check
