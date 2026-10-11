@@ -24,6 +24,6 @@ The owner authorizes implementation and required local gates/tests, normal PRs/m
 
 ## Delivery completion
 
-Keep the complete public delivery scope active across packets. Code/configuration needs the full local gate before push; build and test sequentially in each checkout. Require exact-head PR success, normal merge and green exact-main CI. Record merge/check/release/dispatch evidence in the plan or PR. Documentation-only work follows the repository Markdown rule.
+Keep the complete public delivery scope active across packets. Code/configuration needs the full local gate before push; build and test sequentially in each checkout. Require exact-head PR success, normal merge and green exact-main CI. Record merge/check/release/dispatch evidence in the plan or PR. Ordinary documentation-only work follows the current repository exception: review the complete diff, run `git diff --check`, use a PR and `[skip ci]` commits/squash title, then verify integrated `origin/main` content. Do not weaken enforced protection. Release provenance always remains exact.
 
 Finish only when all SR1-SR6 and applicable profile requirements have authoritative evidence. The completed cleanup does not complete public React delivery. Mark blocked only after the same genuine impasse repeats for three consecutive goal turns with no meaningful independent work; pause only on explicit owner request.

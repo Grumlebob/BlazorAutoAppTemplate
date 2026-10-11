@@ -47,7 +47,7 @@ The old private target-intent note was intentionally removed. Obtain required Re
 | SR5 | Owned React public setup and LocalSingleNode deployment | Single recorded authorized dispatch; running digest/profile/source match release; normal LAN/public HTTPS and public browser/denial checks pass; no accounts or anonymous writes |
 | SR6 | Persistence, operations, template walkthrough and final cleanup | Public seed survives one scoped React restart; Blazor stays healthy; backup/doctor/recovery and brief observation recorded; fresh-clone/default/React/extension/release docs verified; temporary secrets/notes/worktrees removed |
 
-SR1-SR3 may be implemented independently of missing private public-origin preferences. SR4 depends on merged green implementation, and SR5 depends on readiness plus the exact immutable React release. SR6 is required for delivery completion. Keep .NET build/test sequential in each checkout and use the repository's full local gate for code/configuration. Markdown-only packets use review and `git diff --check`, plus required PR/main CI.
+SR1-SR3 may be implemented independently of missing private public-origin preferences. SR4 depends on merged green implementation, and SR5 depends on readiness plus the exact immutable React release. SR6 is required for delivery completion. Keep .NET build/test sequential in each checkout and use the repository's full local gate for code/configuration. Ordinary documentation-only packets follow the current `AGENTS.md` exception: complete diff review, `git diff --check`, a PR, `[skip ci]` commits/squash title and verification of integrated `origin/main` content. Mixed changes retain the full code gate.
 
 ## Completion and authorization
 
