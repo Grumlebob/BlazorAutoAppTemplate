@@ -99,6 +99,7 @@ function ConvertTo-AuditSafeMessage {
     foreach ($privatePath in @($invokingRoot, $context.BaseDirectory, $runDirectory, $context.RepoRoot) | Where-Object { $_ }) {
         $safe = $safe.Replace([string]$privatePath, '[LOCAL_PATH]', [StringComparison]::OrdinalIgnoreCase)
     }
+    $safe = [regex]::Replace($safe, '(?i)\bfile:/{2,3}[A-Z]:/[^\s"<>]+', '[LOCAL_PATH]')
     $safe = [regex]::Replace($safe, '(?i)(?:[A-Z]:\\|\\\\)[^\s"<>]+', '[LOCAL_PATH]')
     $safe = [regex]::Replace($safe, '(?<!\w)/(?:home|users|mnt|tmp)/[^\s"<>]+', '[LOCAL_PATH]')
     $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '[EMAIL]')
@@ -180,6 +181,7 @@ function Assert-ArchiveSanitized {
             foreach ($privateValue in $privateValues) {
                 if ($textValue.Contains($privateValue, [StringComparison]::OrdinalIgnoreCase)) { throw "Archive hygiene check found a machine-local path in '$($file.Name)'." }
             }
+            if ($textValue -match '(?i)\bfile:/{2,3}[A-Z]:/[^\s"<>]+') { throw "Archive hygiene check found a Windows path in '$($file.Name)'." }
             if ($textValue -match '(?i)(?:[A-Z]:\\|\\\\)[^\s"<>]+') { throw "Archive hygiene check found a Windows path in '$($file.Name)'." }
             if ($textValue -match '(?<!\w)/(?:home|users|mnt|tmp)/[^\s"<>]+') { throw "Archive hygiene check found a Unix user or temporary path in '$($file.Name)'." }
             if ($textValue -match '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b') { throw "Archive hygiene check found an email address in '$($file.Name)'." }

@@ -121,25 +121,30 @@ function Get-GitValue {
     return $result.Stdout.Trim()
 }
 
+function Assert-ScannerToolVersion {
+    param([Parameter(Mandatory)][string]$Version, [Parameter(Mandatory)][string]$ToolDirectory)
+    $listing = Invoke-QualityStep -Name 'scanner-version' -Executable $Context.DotnetExecutable `
+        -Arguments @('tool', 'list', '--tool-path', $ToolDirectory, '--format', 'json') `
+        -WorkingDirectory $repoRoot -MaximumSeconds 30
+    try { $installedTools = $listing.Stdout | ConvertFrom-Json -AsHashtable }
+    catch { throw "Pinned scanner tool manifest is invalid; preserve it and inspect $ToolDirectory." }
+    $matchingTools = @($installedTools.data | Where-Object {
+        $_.packageId -eq 'dotnet-sonarscanner' -and 'dotnet-sonarscanner' -in @($_.commands)
+    })
+    if ($matchingTools.Count -ne 1) {
+        throw "Pinned scanner path does not contain exactly one expected dotnet-sonarscanner command; inspect $ToolDirectory."
+    }
+    if ([string]$matchingTools[0].version -ne $Version) {
+        throw "Pinned scanner path contains a mismatched version; expected $Version. Preserve it and inspect $ToolDirectory."
+    }
+}
+
 function Get-ScannerExecutable {
     $version = [string]$Context.ToolVersions.scanner.version
     $toolDirectory = Join-Path $Context.ToolsDirectory "dotnet-sonarscanner/$version"
     $executable = Join-Path $toolDirectory 'dotnet-sonarscanner.exe'
     if (Test-Path -LiteralPath $executable -PathType Leaf) {
-        $probe = Invoke-QualityStep -Name 'scanner-version' -Executable $Context.DotnetExecutable `
-            -Arguments @('tool', 'list', '--tool-path', $toolDirectory, '--format', 'json') `
-            -WorkingDirectory $repoRoot -MaximumSeconds 30
-        try { $installedTools = $probe.Stdout | ConvertFrom-Json -AsHashtable }
-        catch { throw "Pinned scanner tool manifest is invalid; preserve it and inspect $toolDirectory." }
-        $matchingTools = @($installedTools.data | Where-Object {
-            $_.packageId -eq 'dotnet-sonarscanner' -and 'dotnet-sonarscanner' -in @($_.commands)
-        })
-        if ($matchingTools.Count -ne 1) {
-            throw "Pinned scanner path does not contain exactly one expected dotnet-sonarscanner command; inspect $toolDirectory."
-        }
-        if ([string]$matchingTools[0].version -ne $version) {
-            throw "Pinned scanner path contains a mismatched version; expected $version. Preserve it and inspect $toolDirectory."
-        }
+        Assert-ScannerToolVersion -Version $version -ToolDirectory $toolDirectory
         return $executable
     }
     $toolDirectoryExists = Test-Path -LiteralPath $toolDirectory -PathType Container
@@ -152,16 +157,13 @@ function Get-ScannerExecutable {
         -Arguments @('tool', 'install', '--tool-path', $toolDirectory, 'dotnet-sonarscanner', '--version', $version, '--verbosity', 'minimal') `
         -WorkingDirectory $repoRoot -MaximumSeconds 900
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Pinned scanner install omitted $executable." }
-    $probe = Invoke-QualityStep -Name 'scanner-version' -Executable $executable -Arguments @('--version') `
-        -WorkingDirectory $repoRoot -MaximumSeconds 30
-    if (($probe.Stdout + $probe.Stderr) -notmatch [regex]::Escape($version)) { throw "Installed scanner did not report pinned version $version." }
+    Assert-ScannerToolVersion -Version $version -ToolDirectory $toolDirectory
     return $executable
 }
 
 function Get-QualityChildEnvironment {
-    param([Parameter(Mandatory)][string]$Profile, [switch]$React)
+    param([switch]$React)
     $environment = @{
-        FrontendProfile = $Profile
         RunSonarAnalyzers = 'false'
         RUN_E2E = '0'
         RUN_TESTCONTAINERS = '0'
@@ -217,7 +219,7 @@ function Get-QualityScannerArguments {
     param(
         [Parameter(Mandatory)][string]$Token,
         [Parameter(Mandatory)][string]$ProjectVersion,
-        [Parameter(Mandatory)][string]$ReactLcov,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$ReactLcov,
         [Parameter(Mandatory)][string]$Exclusions
     )
     $settingsPath = (Resolve-Path -LiteralPath (Join-Path $repoRoot 'Scripts/Quality/SonarQube/SonarQube.Analysis.xml')).Path
@@ -347,7 +349,7 @@ try {
     if ($FrontendProfile -eq 'React') {
         $reactCoverage = Join-Path $runDirectory 'react-coverage'
         New-Item -ItemType Directory -Force -Path $reactCoverage | Out-Null
-        $reactEnvironment = Get-QualityChildEnvironment -Profile $FrontendProfile -React
+        $reactEnvironment = Get-QualityChildEnvironment -React
         $node = [string]$Context.NodeExecutable
         $npmCli = [string]$Context.NpmCli
         $npmSteps = @(
@@ -401,7 +403,7 @@ try {
     $summary.tests.dotnet = $null
     $summary.coverage.dotnet = $null
     $scannerStateOwned = $true
-    $environment = Get-QualityChildEnvironment -Profile $FrontendProfile
+    $environment = Get-QualityChildEnvironment
     $beginArguments = Get-QualityScannerArguments -Token $analysisToken -ProjectVersion $summary.projectVersion `
         -ReactLcov $reactLcov -Exclusions $profileExclusions
     $null = Invoke-QualityStep -Name 'scanner-begin' -Executable $scanner -Arguments $beginArguments `
