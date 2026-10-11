@@ -27,8 +27,13 @@ Record only sanitized outcomes here: collision check pass/fail and category, Doc
 
 Do not create directories, change Docker/Caddy/DNS/tunnel state, install or reconfigure a runner, run deployment or restart commands, use global cleanup, or use sudo. If any check cannot run, report which access is missing. Stop after the read-only report and wait for the controller AI to sync this file before further steps.
 
-## Earlier node inventory: sanitized integration summary (2026-10-11)
+## React demo: native-node check results (2026-10-11)
 
-An earlier read-only node-session report recorded a successful eight-check doctor result. Docker API access was unavailable in that interactive session, so the exact running workload, collision inventory and backup freshness were not verified. The controller previously verified the SSH host key but authentication failed; no remote command ran. Capacity was reported, but suitability for the downstream candidate inventory remains unverified. The completed Blazor deployment's earlier public/LAN, connector restart and protected backup/restore acceptance remain historical evidence in its plan.
+- Collision check: unknown; not run because the downstream checkout and canonical repository URL were unavailable in this session.
+- Docker API: unavailable to the current interactive session. The node doctor passed 8/8 configured checks from this session, but the deployment-user Docker inspection could not be performed.
+- Existing application: unknown; live workload and readiness inspection requires Docker API access.
+- Backup freshness: unknown; current backup status could not be inspected.
+- Resource capacity: unknown for the candidate application because its inventory was unavailable.
+- Runner scope: unverified for the downstream repository. The configured node runner check passed, but repository access scope could not be verified without the downstream repository identity.
 
-The latest read-only React checks above supersede the earlier inventory request. Runner scope is still unverified and must be established before assigning downstream jobs. No node configuration, runner registration, container, volume, network, route, credential or lock was changed by the earlier inventory or this integration. Keep exact capacities and target details in private records.
+No sudo or node configuration changes were used or made. No deployment, restart, cleanup, or resource changes were performed.
