@@ -18,10 +18,18 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module -Name (Join-Path $PSScriptRoot 'SonarQuality.psm1') -Force -DisableNameChecking
 $repoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
-$chosen = @($Start, $Stop, $Status, $Logs) | Where-Object { $_ }
+$chosen = @()
+if ($Start) { $chosen += 'Start' }
+if ($Stop) { $chosen += 'Stop' }
+if ($Status) { $chosen += 'Status' }
+if ($Logs) { $chosen += 'Logs' }
 if ($chosen.Count -ne 1) { throw 'Choose exactly one action: -Start, -Stop, -Status, or -Logs.' }
 if (($Initialize -or $ApplyProfile -or $EnsureCandidate) -and -not $Start) { throw 'Provisioning switches require -Start.' }
-if (@($Initialize, $ApplyProfile, $EnsureCandidate | Where-Object { $_ }).Count -gt 1) {
+$provisioning = @()
+if ($Initialize) { $provisioning += 'Initialize' }
+if ($ApplyProfile) { $provisioning += 'ApplyProfile' }
+if ($EnsureCandidate) { $provisioning += 'EnsureCandidate' }
+if ($provisioning.Count -gt 1) {
     throw 'Use only one of -Initialize, -ApplyProfile, or -EnsureCandidate with -Start.'
 }
 if (($Stop -or $Status -or $Logs) -and ($Initialize -or $ApplyProfile -or $EnsureCandidate)) {
@@ -114,7 +122,7 @@ function Invoke-QualityDocker {
 function Invoke-QualityCompose {
     param(
         [Parameter(Mandatory)][string[]]$Arguments,
-        [Parameter(Mandatory)][string]$DatabasePassword,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$DatabasePassword,
         [string]$StepName = 'compose'
     )
     $environment = Get-QualityComposeEnvironment -DatabasePassword $DatabasePassword

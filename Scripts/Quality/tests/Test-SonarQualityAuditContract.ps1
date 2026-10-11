@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $qualityRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $audit = Join-Path $qualityRoot 'Invoke-CodeQualityAudit.ps1'
 $quick = Join-Path $qualityRoot 'Invoke-SonarAnalyzerBuild.ps1'
+$server = Join-Path $qualityRoot 'SonarQubeServer.ps1'
 
 function Assert-ThrowsWith {
     param([Parameter(Mandatory)][scriptblock]$Action, [Parameter(Mandatory)][string]$Pattern)
@@ -54,6 +55,30 @@ try {
     & $git -C $temporaryRoot add -- .
     & $git -C $temporaryRoot commit --quiet -m 'test fixture'
     if ($LASTEXITCODE -ne 0) { throw 'Could not commit the temporary Quick-driver fixture.' }
+
+    New-Item -ItemType Directory -Force -Path $privateRoot | Out-Null
+    $serverContext = [pscustomobject]@{
+        RepositoryIdentity = 'github.com/quality-test/fixture'
+        ComposeProject = 'sonarqube-quality-test-01234567'
+        ComposeNetwork = 'sonarqube-quality-test-01234567-network'
+        ComposePath = Join-Path $temporaryRoot 'docker/sonarqube/compose.yaml'
+        BaseDirectory = $privateRoot
+        SecretsDirectory = Join-Path $privateRoot 'secrets'
+        LockPath = Join-Path $privateRoot 'audit.lock'
+        IdentityHash = 'a' * 64
+        HostPort = 9299
+        BaseUrl = 'http://127.0.0.1:9299'
+        DockerExecutable = $git
+    }
+    Assert-ThrowsWith -Pattern 'Choose exactly one action' -Action {
+        & $server -Status -Stop -RepoRoot $temporaryRoot -Context $serverContext
+    }
+    Assert-ThrowsWith -Pattern 'Use only one of -Initialize' -Action {
+        & $server -Start -Initialize -ApplyProfile -RepoRoot $temporaryRoot -Context $serverContext
+    }
+    Assert-ThrowsWith -Pattern 'Docker command failed' -Action {
+        & $server -Status -RepoRoot $temporaryRoot -Context $serverContext
+    }
 
     $fakeContext = [pscustomobject]@{
         BaseDirectory = $privateRoot
