@@ -35,6 +35,15 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Relea
 
 For a publish switch check, publish both profiles sequentially to one disposable output directory. The host clears only that output's `wwwroot` before each publish and refuses to use the source `wwwroot` as the output. After the React publish, verify it has `wwwroot/index.html` and no `_framework`, `_content`, `BlazorAutoApp.Client.dll` or `.wasm` files. After switching back to Blazor, verify its framework assets return and the React `index.html` is gone. Do not use `--no-build` across a profile switch.
 
+The public/private API boundary tests verify that public catalog payloads do not vary with an authenticated principal or cookie and do not set cookies, while protected book reads and writes remain `401` with the real Identity cookie challenge, no redirect/HTML response and no database mutation. Run those integration tests under both host compositions after building each profile:
+
+```powershell
+dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=BlazorAuto
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=BlazorAuto --filter "FullyQualifiedName~GetAuthorBooksTests|FullyQualifiedName~HostingResponseBehaviourTests"
+dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=React
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter "FullyQualifiedName~GetAuthorBooksTests|FullyQualifiedName~HostingResponseBehaviourTests"
+```
+
 ## Local Gate
 
 Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
