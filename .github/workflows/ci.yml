@@ -275,6 +275,9 @@ jobs:
           RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
         run: dotnet test --configuration Release --no-build "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}" --filter "FullyQualifiedName~TestContainerLifecycleTests" --logger "trx;LogFileName=lifecycle.trx" --results-directory "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/lifecycle"
 
+      - name: React public Chromium browser regression
+        run: pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release
+
       - name: Upload .NET test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

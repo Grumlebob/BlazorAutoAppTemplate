@@ -265,15 +265,24 @@ public abstract class BlazorE2ETestBase : PageTest
 
     protected async Task AssertNoCriticalOrSeriousAxeViolationsAsync(string context, string? includeSelector = null)
     {
-        var axePath = GetRepositoryPath("BlazorAutoApp.Client", "node_modules", "axe-core", "axe.min.js");
-        Assert.True(
-            File.Exists(axePath),
-            $"axe-core script was not found at {axePath}. Run `npm --prefix BlazorAutoApp.Client ci` before axe-enabled E2E tests.");
-
         var axeLoaded = await Page.EvaluateAsync<bool>("() => Boolean(window.axe)");
         if (!axeLoaded)
         {
-            await Page.AddScriptTagAsync(new PageAddScriptTagOptions { Path = axePath });
+            var axeUrl = Environment.GetEnvironmentVariable("E2E_AXE_URL");
+            if (!string.IsNullOrWhiteSpace(axeUrl))
+            {
+                var pageOrigin = new Uri(Page.Url).GetLeftPart(UriPartial.Authority);
+                Assert.Equal(pageOrigin, new Uri(axeUrl).GetLeftPart(UriPartial.Authority));
+                await Page.AddScriptTagAsync(new PageAddScriptTagOptions { Url = axeUrl });
+            }
+            else
+            {
+                var axePath = GetRepositoryPath("BlazorAutoApp.Client", "node_modules", "axe-core", "axe.min.js");
+                Assert.True(
+                    File.Exists(axePath),
+                    $"axe-core script was not found at {axePath}. Run `npm --prefix BlazorAutoApp.Client ci` before axe-enabled E2E tests.");
+                await Page.AddScriptTagAsync(new PageAddScriptTagOptions { Path = axePath });
+            }
         }
 
         var reportJson = await Page.EvaluateAsync<string>(

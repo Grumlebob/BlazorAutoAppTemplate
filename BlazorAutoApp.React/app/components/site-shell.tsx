@@ -14,14 +14,16 @@ export function SiteShell({ children }: { children?: ReactNode }) {
 
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <Link aria-label="The Authors Bookcase home" className="flex w-fit items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-700" to="/">
+          <Link className="flex w-fit items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-700" to="/">
             <span aria-hidden="true" className="grid size-11 place-items-center rounded-xl bg-indigo-700 text-white shadow-sm shadow-indigo-950/15">
               <svg className="size-6" fill="none" viewBox="0 0 24 24">
                 <path d="M4.75 5.5c2.86-.79 5.27-.26 7.25 1.3v12c-1.98-1.56-4.39-2.09-7.25-1.3v-12Zm14.5 0c-2.86-.79-5.27-.26-7.25 1.3v12c1.98-1.56 4.39-2.09 7.25-1.3v-12Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
               </svg>
             </span>
+            {" "}
             <span className="flex flex-col">
               <span className="font-semibold tracking-tight text-slate-950">The Authors Bookcase</span>
+              {" "}
               <span className="text-xs text-slate-600">Independent books, collected.</span>
             </span>
           </Link>

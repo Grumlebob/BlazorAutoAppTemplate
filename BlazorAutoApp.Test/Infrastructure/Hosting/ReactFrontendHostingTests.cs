@@ -77,6 +77,23 @@ public sealed class ReactFrontendHostingTests
     }
 
     [Fact]
+    public async Task InlineNavigationScripts_AreAllowedByExactHashes()
+    {
+        const string shell = "<!doctype html><script>window.reactBooted = true;</script>";
+        await using var host = await ReactTestHost.CreateAsync(shell: shell);
+        using var request = CreateHtmlRequest(HttpMethod.Get, "/books");
+
+        using var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+        var scriptHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("window.reactBooted = true;")));
+        Assert.Contains($"script-src 'self' 'sha256-{scriptHash}'", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("unsafe-eval", policy, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SelectedProductionMiddleware_AddsHstsForHttpsRequests()
     {
         await using var host = await ReactTestHost.CreateAsync(
@@ -233,12 +250,13 @@ public sealed class ReactFrontendHostingTests
         public static async Task<ReactTestHost> CreateAsync(
             string environmentName = "Development",
             bool useSelectedFrontendMiddleware = false,
-            bool forceHttps = false)
+            bool forceHttps = false,
+            string? shell = null)
         {
             var rootPath = Directory.CreateTempSubdirectory("react-static-root-").FullName;
             var assetPath = Path.Combine(rootPath, "assets");
             Directory.CreateDirectory(assetPath);
-            await File.WriteAllTextAsync(Path.Combine(rootPath, "index.html"), Shell);
+            await File.WriteAllTextAsync(Path.Combine(rootPath, "index.html"), shell ?? Shell);
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app.js"), "export {};");
 
             var outsideSecretPath = Path.Combine(Path.GetDirectoryName(rootPath)!, $"{Path.GetFileName(rootPath)}-secret.txt");
@@ -267,7 +285,7 @@ public sealed class ReactFrontendHostingTests
             }
             else
             {
-                ReactFrontendHosting.UseSecurityHeaders(app);
+                ReactFrontendHosting.UseSecurityHeaders(app, fileProvider);
             }
 
             ReactFrontendHosting.UseStaticFiles(app, fileProvider);

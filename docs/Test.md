@@ -288,6 +288,27 @@ Guidelines:
 - Track every E2E-created user/book with the shared cleanup helpers so records are deleted even when a test fails midway.
 - Prefer `data-testid` for workflow controls that are hard to select reliably.
 - Keep E2E tests behind `RUN_E2E=1`.
+
+## React Public Browser Regression
+
+The React browser suites use the existing C# Playwright harness and run against a fresh React-profile host. The runner builds the React static assets, starts disposable PostgreSQL and Redis containers without named data volumes, launches the app with a temporary database, and removes its own containers and logs when finished. Browser requests are checked to remain read-only; no account fixtures or cleanup helpers run.
+
+Run the broad Chromium public flow:
+
+```powershell
+pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release
+```
+
+The required broad suite contains exactly one test. The runner fails unless it discovers and passes that test with zero skips. The CI `build-test-push` run executes this Chromium suite.
+
+Run the direct catalog/detail smoke in Firefox and WebKit before release:
+
+```powershell
+pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser firefox -Suite smoke -Configuration Release -ReuseFrontendBuild
+pwsh .\Scripts\Testing\RunReactPublicE2E.ps1 -Browser webkit -Suite smoke -Configuration Release -ReuseFrontendBuild
+```
+
+Run those smoke commands after the broad suite so they can reuse its React build. Each browser smoke suite must discover and pass exactly one test with zero skips. The test output records browser name, version, and operating system. For the strict React CSP, the runner stages axe-core as a same-origin, test-only asset and removes it after the test; it is not part of the product build. Playwright browser binaries are installed in the user cache and remain available for later runs; the test database, app process, containers, and temporary logs are cleaned up.
 - Do not make headless the default local behavior.
 
 ## E2E Helpers
