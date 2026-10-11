@@ -10,6 +10,8 @@ Each packet is a small unit that another agent can resume. A phase may require s
 
 The owner prefers vertical slice architecture and delivery. P0–P3 establish the independent product; VS1 then combines P4, P5 and first-story P7.1/P7.3 into one complete ImprovedDb reading journey. Begin API and UI against that story together, include direct readable HTML/hosting/acceptance before declaring VS1 complete, then repeat P6 per story. Phase IDs group tasks; [Architecture.md](Architecture.md) sets the product completion boundaries.
 
+The master defines [three recommended fresh-chat checkpoints](../../PortfolioStudioImplementation.md#recommended-fresh-chat-checkpoints), C1–C3. Prepare the filled Progress handoff at those verified boundaries; continue in the current chat if the owner prefers. Phase and packet boundaries alone do not require new chats.
+
 For each packet:
 
 1. Read its dependencies and the current progress ledger. Inspect clean status and ownership. Claim the packet and affected files.
@@ -158,6 +160,8 @@ Move reusable checks/helpers into `Deployment/Common` or LocalSingleNode with up
 
 Exit evidence: neither removed directory exists; no active workflow/script imports it; required CI and local gates execute from retained paths; one-node setup/public/update/backup/restore commands remain documented and tested. No live deployment is changed by this cleanup.
 
+**C1:** once all VS0 exits and required early access/CI prerequisites are verified, recommend a fresh chat for VS1 using the saved handoff.
+
 ## P4 — Implement portfolio content and replace Books
 
 ### P4.1 — Canonical authoring model and exporter
@@ -213,6 +217,8 @@ Exit: no Books UX/API/simulator in the product; generated schema and runtime dep
 Review real home/ImprovedDb at the required viewport sizes in both themes. Compare with portable Studio references. Verify keyboard navigation, deep fragment reload, final short section, long figure/code sections and 200% text zoom. Record screenshots and actual findings. Correct drift before duplicating content across projects.
 
 Exit: one complete real story, approved layout faithfully implemented and components suitable for different section counts. Finish first-story P7.1/P7.3 hosting/prerender/image acceptance before marking VS1 verified. This checkpoint is review evidence, not a requirement to stop for another style choice.
+
+**C2:** recommend a fresh chat for story production only after the whole VS1 journey, including its first-story P7 work, is verified. P5.3 alone does not trigger this handoff.
 
 ## P6 — Prepare the eleven distinct project stories
 
@@ -273,6 +279,8 @@ Introduce the first-story profile/assertions within VS1. Expand the manifest-dri
 Run current downstream local gate, applicable React/content/script checks, production image smoke, browser/accessibility/visual checks and documented loading measurements. Reproduce from a fresh checkout. Merge PRs with exact-head required CI; verify main publishing and release SHA/digest/manifest/content revision. Prepare authoring and operations commands with actual paths/options.
 
 Exit: deployable immutable Portfolio release with supported operations and no live dependency on Blazor, Books, Cloud or LocalCluster.
+
+**C3:** when this final readiness exit, VS3 and reviewed launch set are verified, recommend a fresh chat for remaining P8, public launch and recovery/full handover. Save release/authorization/remaining-catalog evidence first. Early P8 prerequisite work is not a separate reset.
 
 ## P8 — Establish the native node and controller access
 

@@ -77,6 +77,33 @@ Exact next action:
 
 Do not leave `next action: continue implementation`. Name a command from the implemented runbook or a small task/file set, such as “P3.1: inventory CI references to the old audit path and record the keep/move/delete table.” Preserve somebody else's active claim; do not infer abandonment from elapsed time alone.
 
+## Fresh-chat handoff
+
+Use the master's [C1–C3 recommendations](../../PortfolioStudioImplementation.md#recommended-fresh-chat-checkpoints). No checkpoint is ready yet. Fill this record when its verified boundary is reached; preserve earlier handoffs or link their PR descriptions. Commit stable handoff facts through the normal documentation process. Final merge/main evidence can be saved in the linked PR description without creating another evidence-only commit. Keep private facts in ignored notes and provide their location only.
+
+```text
+Checkpoint: C1 / C2 / C3; pending / ready / transferred:
+Verified slice/phase exits and public evidence links:
+Authoritative repository and handoff document revision:
+Verified base/main SHA, PR/head/merge and exact-main CI:
+Current content/release revision, image digest and workflow IDs if relevant:
+Next packet / substep / concrete first action:
+Relevant implementation paths and verified commands:
+Applicable decisions and remaining blockers/catalog:
+Open PRs/runs, active claims, dirty work and their owners:
+Private note location and whether the receiving agent can access it:
+Owner authorization scope and still-required operator action:
+Claim transfer: previous owner stopped editing / receiving owner and time:
+```
+
+Give the owner one short continuation prompt, filling every bracket from this record. Omit inapplicable fields explicitly; never invent a value. The existing detailed packet/release records hold the supporting evidence.
+
+```text
+Continue the complete Portfolio delivery plan in [authoritative repository]. Read AGENTS.md, Plans/PortfolioStudioImplementation.md, its indexed companions and Progress's latest packet/release records. Fresh-chat checkpoint [C1/C2/C3] is verified at [main SHA; evidence links], with handoff [document revision/PR]. Start [packet/substep] by [concrete action], using [actual paths/verified runbook commands]. Apply the recorded decisions and preserve vertical slice completion; this is continuation of the full P0-P10 goal.
+
+Recheck status/remotes/claims, current main CI and [open PR/run IDs or none] before claiming work. Claim transfer is [state/owner]; preserve [dirty work/other claims or none]. Release/content identity is [values or not applicable]. Outstanding stories/blockers are [IDs and next actions]. Read private notes at [location]; request the smallest missing private input if unavailable. Live operations are authorized only within [recorded scope or not yet authorized]. Do not borrow upstream React authorization, restart completed setup or redispatch a recorded run. Save exact evidence and the next checkpoint; complete only after full-plan public/recovery/catalog handover acceptance.
+```
+
 ## Project readiness ledger
 
 Each cell requires real evidence. Source preparation from the existing inventory is not publication approval or runtime verification.
@@ -152,6 +179,8 @@ Remaining operator action or limitation:
 Continue Portfolio using Plans/PortfolioStudioImplementation.md and all companions, especially Progress, ExecutionDecisions, ImplementationCheckpoints and VisualProduction. This is an independent product in Grumlebob/Portfolio from a verified merged template baseline. Another agent owns unfinished upstream React SR1–SR6 delivery; preserve its worktrees and existing Blazor deployment. Retired-repository cleanup is complete; do not recreate it. Prefer completed reusable delivery and inspect actual capability dependencies before import.
 
 Use Architecture.md's vertical slice boundaries. After platform prerequisites, finish one real ImprovedDb journey through content, C# APIs, React home/reader, prerender/hosting and acceptance before expanding the catalog. P4/P5 and first-story P7 work are one VS1 outcome. Repeat later P6 stories end to end; do not mark an API-only or UI-only checkpoint a verified product slice.
+
+If resuming a planned fresh-chat checkpoint, use its filled handoff above. Recommend only C1–C3 after their verified exits; no reset per PR/story and no automatic goal pause or completion. Recheck live evidence and record claim transfer before editing.
 
 Inspect actual repository/remotes/main CI, task ownership and dirty files. Read the ignored Plans.local/Portfolio/OperatorIntent.md if present; never commit its local paths/node facts/secrets. If still in the template, complete P0 and move implementation to the intended Portfolio checkout. After import, use the downstream ledger as authority.
 
