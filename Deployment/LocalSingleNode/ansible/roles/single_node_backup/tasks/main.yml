@@ -4,6 +4,7 @@
     name: deploy
     groups: "{{ install_group }}"
     append: true
+  when: not (backup_existing_host | default(false) | bool)
 - name: Ensure operator-readable backup directory
   ansible.builtin.file:
     path: "{{ backup_root }}"
@@ -66,6 +67,7 @@
     owner: root
     group: root
     mode: "0755"
+  when: not (backup_existing_host | default(false) | bool)
 - name: Install root-owned completion-aware reboot helper
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../Scripts/wait-for-successful-run-reboot.sh"
@@ -73,3 +75,4 @@
     owner: root
     group: root
     mode: "0755"
+  when: not (backup_existing_host | default(false) | bool)

@@ -163,7 +163,7 @@ class AppInstanceTests(unittest.TestCase):
                                               "PRIMARY_INSTANCE_ENVIRONMENT": "localsinglenode",
                                               "APP_INSTANCE_CONFIG": "private-invalid-payload"}), \
                     redirect_stdout(io.StringIO()) as output, redirect_stderr(io.StringIO()) as error:
-                self.assertEqual(instance.main(), 1)
+                self.assertEqual(instance.main([]), 1)
                 self.assertNotIn("private-invalid-payload", output.getvalue() + error.getvalue())
         self.assertEqual(list(self.directory.iterdir()), [])
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import ipaddress
 import json
 import os
@@ -108,12 +109,13 @@ def verify_owned(config: dict, source: str, etc: Path = ETC) -> None:
 
 def mask(value):
     if isinstance(value, dict):
-        for item in value.values():
-            mask(item)
+        for key, item in value.items():
+            if key not in {"schema_version", "frontend_profile", "backup_keep_days", "observability_enabled"}:
+                mask(item)
     elif isinstance(value, list):
         for item in value:
             mask(item)
-    elif isinstance(value, (str, int)) and str(value):
+    elif type(value) in (str, int) and str(value):
         escaped = str(value).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
         print(f"::add-mask::{escaped}")
 
@@ -150,9 +152,15 @@ def resolve(instance: str, payload: str, selected_profile: str, selected_accepta
     return values
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--prepare-additional", action="store_true",
+                        help="validate a new additional instance while requiring the primary app's native ownership")
+    args = parser.parse_args(argv)
     try:
         instance = os.environ.get("INPUT_APP_INSTANCE", "primary")
+        if args.prepare_additional and instance != "additional":
+            raise ValueError("existing-node preparation is only for an additional app")
         if instance == "additional":
             additional_environment = os.environ.get("ADDITIONAL_INSTANCE_ENVIRONMENT", "")
             primary_environment = os.environ.get("PRIMARY_INSTANCE_ENVIRONMENT", "") or "localsinglenode"
@@ -165,7 +173,15 @@ def main() -> int:
                          load_release_settings(ROOT / "Deployment/Common/release.yml"),
                          settings(TARGET / "inventory/group_vars/all.yml"), Path(os.environ["RUNNER_TEMP"]))
         config = json.loads(Path(values["INSTANCE_EXTRA_VARS_FILE"]).read_text(encoding="utf-8"))
-        verify_owned(config, f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}")
+        source = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+        primary = settings(TARGET / "inventory/group_vars/all.yml")
+        verify_owned(primary if args.prepare_additional else config, source)
+        if args.prepare_additional:
+            values["READINESS_CANDIDATE"] = json.dumps({
+                "expected_host": os.environ["LOCALSINGLENODE_HOST"],
+                "source_repo_url": source,
+                "settings_yaml": Path(values["LOCALSINGLENODE_SETTINGS_FILE"]).read_text(encoding="utf-8"),
+            })
         with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:
             for key, value in values.items():
                 output.write(f"{key}={value}\n")

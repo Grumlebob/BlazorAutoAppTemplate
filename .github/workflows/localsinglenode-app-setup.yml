@@ -1,0 +1,73 @@
+name: LocalSingleNode additional app setup
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: localsinglenode-app-setup
+  cancel-in-progress: false
+jobs:
+  setup:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 40
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    steps:
+      - name: Verify the intended native node
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          ADDITIONAL_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *",localsinglenode,"* ]]
+          test -n "$ADDITIONAL_ENVIRONMENT"
+          [[ "${ADDITIONAL_ENVIRONMENT,,}" != "${PRIMARY_ENVIRONMENT,,}" ]]
+          test -n "$LOCALSINGLENODE_HOST"
+          echo "::add-mask::$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          test "$(id -un)" = deploy
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Require successful exact-source main CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$GITHUB_SHA" --json > "$RUNNER_TEMP/app-setup-ci.json"
+      - name: Resolve protected additional application
+        env:
+          INPUT_APP_INSTANCE: additional
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py --prepare-additional
+      - name: Activate existing validated Ansible generation
+        run: |
+          set -euo pipefail
+          bash Deployment/Common/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-playbook"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+      - name: Prepare owned app after fresh readiness under the shared lock
+        run: |
+          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            bash Deployment/LocalSingleNode/Scripts/prepare-additional-app.sh
+      - name: Remove temporary app configuration
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json" \
+            "$RUNNER_TEMP/machine.yml" "$RUNNER_TEMP/hosts.yml" "$RUNNER_TEMP/app-setup-ci.json"
