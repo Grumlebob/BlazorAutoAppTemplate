@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Links, Meta, Scripts, ScrollRestoration } from "react-router";
 import stylesheet from "./app.css?url";
+import { SiteShell } from "./components/site-shell";
 import { queryClient } from "./api/query-client";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -25,7 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <SiteShell />
     </QueryClientProvider>
   );
 }
