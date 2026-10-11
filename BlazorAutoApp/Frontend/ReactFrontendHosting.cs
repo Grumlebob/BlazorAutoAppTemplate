@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Net.Http.Headers;
 
@@ -12,6 +15,7 @@ namespace BlazorAutoApp.Frontend;
 
 internal static class ReactFrontendHosting
 {
+    private const string SpaFallbackFileName = "__spa-fallback.html";
     private static readonly Regex InlineScriptPattern = new(
         "<script\\b(?<attributes>[^>]*)>(?<body>.*?)</script\\s*>",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
@@ -24,6 +28,17 @@ internal static class ReactFrontendHosting
 
     internal const string ContentSecurityPolicy =
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
+
+    public static void AddResponseCompression(IServiceCollection services)
+    {
+        services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes
+                .Concat(["text/javascript"])
+                .ToArray();
+        });
+    }
 
     public static void UseSecurityHeaders(IApplicationBuilder app, IFileProvider? fileProvider = null)
     {
@@ -52,22 +67,30 @@ internal static class ReactFrontendHosting
             return ContentSecurityPolicy;
         }
 
-        var shell = fileProvider.GetFileInfo("index.html");
-        if (!shell.Exists || shell.IsDirectory)
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var fileName in new[] { "index.html", SpaFallbackFileName })
         {
-            return ContentSecurityPolicy;
+            var shell = fileProvider.GetFileInfo(fileName);
+            if (!shell.Exists || shell.IsDirectory)
+            {
+                continue;
+            }
+
+            using var stream = shell.CreateReadStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            var html = reader.ReadToEnd();
+            foreach (Match match in InlineScriptPattern.Matches(html))
+            {
+                if (ScriptSourcePattern.IsMatch(match.Groups["attributes"].Value))
+                {
+                    continue;
+                }
+
+                hashes.Add(Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(match.Groups["body"].Value))));
+            }
         }
 
-        using var stream = shell.CreateReadStream();
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        var html = reader.ReadToEnd();
-        var hashes = InlineScriptPattern.Matches(html)
-            .Cast<Match>()
-            .Where(match => !ScriptSourcePattern.IsMatch(match.Groups["attributes"].Value))
-            .Select(match => Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(match.Groups["body"].Value))))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (hashes.Length == 0)
+        if (hashes.Count == 0)
         {
             return ContentSecurityPolicy;
         }
@@ -81,6 +104,7 @@ internal static class ReactFrontendHosting
 
     public static void UseStaticFiles(IApplicationBuilder app, IFileProvider fileProvider)
     {
+        app.UseResponseCompression();
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
         app.UseStaticFiles(new StaticFileOptions
         {
@@ -155,7 +179,14 @@ internal static class ReactFrontendHosting
             return;
         }
 
-        var shell = fileProvider.GetFileInfo("index.html");
+        var isRootNavigation = string.IsNullOrEmpty(context.Request.Path.Value)
+            || string.Equals(context.Request.Path.Value, "/", StringComparison.Ordinal);
+        var shell = fileProvider.GetFileInfo(isRootNavigation ? "index.html" : SpaFallbackFileName);
+        if (!shell.Exists || shell.IsDirectory)
+        {
+            shell = fileProvider.GetFileInfo("index.html");
+        }
+
         if (!shell.Exists || shell.IsDirectory)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;

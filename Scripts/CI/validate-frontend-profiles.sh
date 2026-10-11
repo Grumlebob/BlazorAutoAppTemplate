@@ -35,9 +35,9 @@ for profile in BlazorAuto React; do
     # These tests assert Blazor Auto assets and render modes; React has its own
     # host, public route, and browser coverage.
     test_arguments+=(--filter 'FrontendProfile!=BlazorAuto')
-    expected_passed=202
+    expected_passed=203
   else
-    expected_passed=210
+    expected_passed=211
   fi
 
   dotnet "${test_arguments[@]}"
