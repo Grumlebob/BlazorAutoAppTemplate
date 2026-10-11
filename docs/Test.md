@@ -51,6 +51,15 @@ dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=Reac
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter "FullyQualifiedName~ReactFrontendHostingTests|FullyQualifiedName~FrontendCompositionTests"
 ```
 
+## OpenAPI Metadata
+
+`OpenApiMetadataTests` requests a document from a metadata-only host built from the real book endpoint mappings. It verifies DTO names and nullability, public/private status codes, and the existing Identity cookie security scheme without registering database, Redis, Identity or email services. Build-time extraction remains disabled during ordinary builds; run it explicitly to verify the `GetDocument.Insider` entry path and inspect `BlazorAutoApp/obj/BlazorAutoApp.json`:
+
+```powershell
+dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --filter FullyQualifiedName~OpenApiMetadataTests
+dotnet build .\BlazorAutoApp\BlazorAutoApp.csproj --configuration Release -p:FrontendProfile=React -p:OpenApiGenerateDocumentsOnBuild=true
+```
+
 ## Local Gate
 
 Run this before every push. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.

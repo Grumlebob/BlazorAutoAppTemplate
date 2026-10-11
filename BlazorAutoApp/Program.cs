@@ -1,10 +1,20 @@
 using BlazorAutoApp.Frontend;
+using BlazorAutoApp.Frontend.OpenApi;
 using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Features.Books;
 using BlazorAutoApp.Features.Books.AuthorBookcase.Seed;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+if (OpenApiMetadataHosting.IsOpenApiGenerationProcess())
+{
+    var metadataBuilder = OpenApiMetadataHosting.CreateBuilder();
+    var metadataApp = metadataBuilder.Build();
+    OpenApiMetadataHosting.MapEndpoints(metadataApp);
+    await metadataApp.RunAsync();
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
