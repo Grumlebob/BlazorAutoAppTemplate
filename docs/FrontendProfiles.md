@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds opt-in, metadata-only OpenAPI extraction; later packets add generated TypeScript, the built React bundle, profile-aware validation and release metadata. Do not treat this design guide as proof those later features already exist.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P7.1 still needs to stage and serve that build from C#; later packets add profile-aware release validation and deployment provenance.
 
 ## Selecting a profile
 
@@ -72,7 +72,7 @@ The final validation contract must exercise both profiles from clean output. PR 
 
 ## Initial toolchain pins
 
-These exact stable versions were checked on 2026-10-10 against official release/support pages and npm registry metadata. Use exact versions in the eventual package manifest and lockfile. Recheck before P4/P5 package installation if implementation starts after an upstream release; update this table and record compatibility evidence in that packet. Node is a build and development tool only.
+These exact stable versions were checked on 2026-10-11 against official release/support pages and npm registry metadata. Use exact versions in the package manifest and lockfile. Node is a build and development tool only.
 
 | Tool | Initial exact version | Compatibility decision |
 | --- | --- | --- |
@@ -80,6 +80,7 @@ These exact stable versions were checked on 2026-10-10 against official release/
 | npm | `12.2.0` | Exact package-manager version; its Node engine range includes Node 24.21.0. |
 | React / React DOM | `19.3.0` | Matching stable releases. |
 | React Router packages | `react-router`, `@react-router/dev`, `@react-router/node` `8.4.0` | Framework Mode and SPA build. Keep the package versions aligned. `@react-router/node` is a build dependency; do not run a Node production server. |
+| SPA user-agent helper | `isbot` `5.2.2` | Direct exact dependency required by React Router's type-generation and prerender tooling. |
 | Vite | `8.3.4` | Current supported Vite minor; React Router 8 supports Vite 8. |
 | Tailwind CSS | `tailwindcss`, `@tailwindcss/vite` `4.3.3` | Match the existing repository's Tailwind 4.3.3 line. React CSS remains separate from Blazor output. |
 | TanStack Query | `@tanstack/react-query` `5.104.1` | Stable React Query package; supports React 19. |
@@ -91,6 +92,35 @@ These exact stable versions were checked on 2026-10-10 against official release/
 | Lint | `eslint` `10.12.0`; `@eslint/js` `10.0.1`; `typescript-eslint` `8.71.1`; `eslint-plugin-react-hooks` `7.1.1`; `eslint-plugin-react-refresh` `0.5.7` | Peer ranges cover ESLint 10 and TypeScript 5.9.3. |
 
 Selected React Router 8 and Vite 8 releases support one another. OpenAPI generator compatibility keeps TypeScript on 5.x even though TypeScript 7.0.2 is also stable. Node 24.21.0 meets the selected Router, Vitest, jsdom and npm minimums. Use the pinned Node 24 toolchain for React work, and do not change a developer's global installation as part of the profile implementation.
+
+## React local development
+
+Install dependencies and run the React checks from `BlazorAutoApp.React/` with the pinned Node/npm versions:
+
+```powershell
+npm ci
+npm run api:check
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+For live development, make compatible local PostgreSQL and Redis services available as described in [HowToRunLocally](HowToRunLocally.md#run-without-docker). Then start the React-profile C# API and Vite in separate terminals:
+
+```powershell
+npm run dev:api
+```
+
+```powershell
+npm run dev
+```
+
+Open `https://localhost:5173`. The Vite server serves the app over HTTPS and proxies `/api` to `https://localhost:7186`. The dev script checks for a trusted ASP.NET Core HTTPS certificate, exports a password-protected PFX to a temporary directory, reads it into memory, and removes the directory before Vite starts. It does not change certificate trust. If no trusted certificate exists, run `dotnet dev-certs https --trust` yourself, then retry. Node uses the operating system's trusted certificates for the local HTTPS proxy. Neither dev command requires a built React bundle in the ASP.NET web root.
+
+If the C# API uses another HTTPS origin, set `REACT_API_ORIGIN` to that origin in both terminals before starting the API and Vite.
+
+`npm run build` creates the static client in `build/client`; ASP.NET Core still owns production hosting. The package ignores that output and React Router's generated route types.
 
 Primary references: [Node 24.21.0 LTS](https://nodejs.org/en/blog/release/v24.21.0), [React 19.3](https://react.dev/blog/2026/09/09/react-19-3), [React Router v8 release contract](https://reactrouter.com/start/start/changelog), [React Router SPA mode](https://reactrouter.com/how-to/spa), [Vite supported releases](https://vite.dev/releases), [Tailwind CSS v4.3](https://tailwindcss.com/blog/tailwindcss-v4-3). Package engine and peer ranges were checked from npm registry metadata on the review date.
 

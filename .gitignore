@@ -35,6 +35,9 @@ artifacts/
 node_modules/
 **/node_modules/
 npm-debug.log*
+/BlazorAutoApp.React/build/
+/BlazorAutoApp.React/.react-router/
+/BlazorAutoApp.React/coverage/
 
 # Test and coverage output
 TestResults/
