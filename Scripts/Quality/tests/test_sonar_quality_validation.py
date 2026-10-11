@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from Scripts.Quality.normalize_lcov_paths import normalize
-from Scripts.Quality.validate_vitest_results import validate, validate_uncovered_source
+from Scripts.Quality.validate_vitest_results import validate, validate_react_source_coverage
 
 
 class VitestValidationTests(unittest.TestCase):
@@ -33,18 +33,64 @@ class VitestValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "passing React tests"):
             validate(result, 31, 0)
 
-    def test_requires_an_uncovered_real_source_file(self) -> None:
+    def test_validates_all_react_sources_when_none_is_fully_uncovered(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / "BlazorAutoApp.React" / "app" / "routes.ts"
+            react_root = root / "BlazorAutoApp.React"
+            first = react_root / "app" / "routes.ts"
+            second = react_root / "app" / "components" / "Card.tsx"
+            first.parent.mkdir(parents=True)
+            second.parent.mkdir(parents=True)
+            first.write_text("export {}\n", encoding="utf-8")
+            second.write_text("export {}\n", encoding="utf-8")
+            summary = root / "coverage-summary.json"
+            summary.write_text(
+                json.dumps(
+                    {
+                        "app/routes.ts": {"lines": {"total": 3, "covered": 2}},
+                        "BlazorAutoApp.React/app/components/Card.tsx": {"lines": {"total": 2, "covered": 1}},
+                        "total": {"lines": {"total": 5, "covered": 3}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                validate_react_source_coverage(summary, react_root),
+                {"fileCount": 2, "coveredLines": 3, "totalLines": 5, "linePercentage": 60.0},
+            )
+
+    def test_coverage_requires_every_react_application_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            react_root = root / "BlazorAutoApp.React"
+            first = react_root / "app" / "routes.ts"
+            second = react_root / "app" / "components" / "Card.tsx"
+            first.parent.mkdir(parents=True)
+            second.parent.mkdir(parents=True)
+            first.write_text("export {}\n", encoding="utf-8")
+            second.write_text("export {}\n", encoding="utf-8")
+            summary = root / "coverage-summary.json"
+            summary.write_text(
+                json.dumps({"app/routes.ts": {"lines": {"total": 3, "covered": 1}}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "omits React application source"):
+                validate_react_source_coverage(summary, react_root)
+
+    def test_coverage_requires_at_least_one_covered_react_line(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            react_root = root / "BlazorAutoApp.React"
+            source = react_root / "app" / "routes.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export {}\n", encoding="utf-8")
             summary = root / "coverage-summary.json"
             summary.write_text(
-                json.dumps({str(source): {"lines": {"total": 3, "covered": 0}}, "total": {}}),
+                json.dumps({"app/routes.ts": {"lines": {"total": 3, "covered": 0}}}),
                 encoding="utf-8",
             )
-            self.assertEqual(validate_uncovered_source(summary, source.parents[1]), "app/routes.ts")
+            with self.assertRaisesRegex(ValueError, "no covered React application lines"):
+                validate_react_source_coverage(summary, react_root)
 
 
 class LcovNormalizationTests(unittest.TestCase):

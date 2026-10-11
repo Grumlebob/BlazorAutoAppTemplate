@@ -67,6 +67,26 @@ class DotnetCoverageValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not resolve"):
             validate_reports(self.tests, self.repo, "BlazorAuto")
 
+    def test_ignores_nonphysical_generated_source_under_obj(self) -> None:
+        report = self.write_report("BlazorAutoApp.Client/Book.cs")
+        generated = self.repo / "BlazorAutoApp.Test/obj/Release/net10.0/GeneratedSupport.generated.cs"
+        contents = report.read_text(encoding="utf-8")
+        contents = contents.replace(
+            '<range source_id="1" start_line="1" end_line="1" covered="yes" />',
+            '<range source_id="1" start_line="1" end_line="1" covered="yes" />'
+            '<range source_id="2" start_line="1" end_line="1" covered="no" />',
+        )
+        contents = contents.replace(
+            "</source_files>",
+            f'<source_file id="2" path="{generated.as_posix()}" /></source_files>',
+        )
+        report.write_text(contents, encoding="utf-8")
+
+        result = validate_reports(self.tests, self.repo, "BlazorAuto")
+
+        self.assertEqual(result["sourceFileCount"], 1)
+        self.assertEqual(result["coveredProductionSources"], ["BlazorAutoApp.Client/Book.cs"])
+
     def test_rejects_zero_production_coverage(self) -> None:
         self.write_report("BlazorAutoApp.Client/Book.cs", covered=0)
         with self.assertRaisesRegex(ValueError, "no covered production"):

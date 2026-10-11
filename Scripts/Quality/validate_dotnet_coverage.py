@@ -31,6 +31,15 @@ def normalized_source(value: str, repo_root: Path) -> tuple[str, bool]:
     return relative, resolved.is_file()
 
 
+def is_generated_source(value: str) -> bool:
+    source = value.strip().replace("\\", "/").casefold()
+    parts = source.split("/")
+    name = parts[-1]
+    return any(part in {"bin", "obj"} for part in parts) or name.endswith(
+        (".g.cs", ".generated.cs", ".designer.cs")
+    )
+
+
 def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> dict[str, Any]:
     reports = sorted(path for path in tests_directory.glob("*/*.xml") if path.is_file())
     if not reports:
@@ -67,12 +76,16 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
 
             sources_element = module.find("source_files")
             source_map: dict[str, str] = {}
+            ignored_source_ids: set[str] = set()
             if sources_element is not None:
                 for source_file in sources_element.findall("source_file"):
                     source_id = source_file.get("id")
                     source_path = source_file.get("path")
                     if source_id is None or source_path is None:
                         raise ValueError(f"Coverage source mapping is incomplete in {report.name}.")
+                    if is_generated_source(source_path):
+                        ignored_source_ids.add(source_id)
+                        continue
                     relative, exists = normalized_source(source_path, repo_root)
                     if not exists:
                         raise ValueError(f"Coverage source does not resolve to a repository file: {relative}")
@@ -88,6 +101,8 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
                     continue
                 for line_range in ranges.findall("range"):
                     source_id = line_range.get("source_id")
+                    if source_id in ignored_source_ids:
+                        continue
                     if source_id not in source_map:
                         raise ValueError(f"Coverage range references an unknown source id in {report.name}.")
                     if line_range.get("covered", "").casefold() == "yes":
