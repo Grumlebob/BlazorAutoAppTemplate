@@ -9,11 +9,15 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | --- | --- |
 | This master plan | Product scope, approved Studio design, content/API architecture and final acceptance |
 | [Architecture.md](Support/PortfolioStudio/Architecture.md) | Feature boundaries, end-to-end vertical slices, first-story implementation sequence and slice acceptance |
+| [ExecutionDecisions.md](Support/PortfolioStudio/ExecutionDecisions.md) | Resolved technical defaults, content/compiler contract, adversarial failure review and genuine external inputs |
+| [ImplementationCheckpoints.md](Support/PortfolioStudio/ImplementationCheckpoints.md) | Small ordered steps inside every technical packet and the repeatable story slice |
 | [DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) | Ordered phases, small executable packets, dependency gates, checks and removal inventories |
 | [Progress.md](Support/PortfolioStudio/Progress.md) | Current task, packet ledger, blockers, decision records and resume prompt |
 | [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, eleven project story treatments, illustration briefs and publication checklist |
+| [VisualProduction.md](Support/PortfolioStudio/VisualProduction.md) | Prioritized figure specifications for all eleven projects, example labels, captions, mobile composition and honest fallbacks |
 | [ProjectInventory.md](Support/PortfolioStudio/ProjectInventory.md) | Existing source evidence, detailed section IDs, provenance and factual limitations |
 | [NodeHandoff.md](Support/PortfolioStudio/NodeHandoff.md) | Controller/node responsibilities, first bootstrap, SSH pairing, public launch and simple operator handoffs |
+| [PortfolioStudioDeliveryGoal.md](PortfolioStudioDeliveryGoal.md) | Prompt for later full-plan goal execution, capped at 3,500 characters |
 
 Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.md`. It records the supplied local checkout locations, fresh Linux Mint node, reserved address and node-name clarification. Copy it privately to the future Portfolio checkout. Tracked plans remain portable. The main PC is a development/controller machine; it must never be bootstrapped as the deployment node.
 
@@ -21,13 +25,13 @@ Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.m
 
 Build Jacob Grum's public portfolio from the approved Studio mockup. Home presents projects. Each project opens a continuous, illustrated story with navigation between its sections.
 
-This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md) and [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) record the reusable public React foundation and its current owner scope. Another agent owns that work and cleanup. Do not add portfolio requirements to its current packets, modify its worktrees, or treat the template's existing deployment as the portfolio deployment.
+This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md), [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) and [ReactFrontendSingleRepository.md](ReactFrontendSingleRepository.md) record the reusable React foundation and active SR1–SR6 public delivery. Another agent owns that work. Do not add portfolio requirements to its current packets, modify its worktrees, or treat the template's existing deployment as the portfolio deployment.
 
 The present request expands the plan; it does not execute the product migration, bootstrap a node or dispatch a deployment. A future instruction to execute this plan authorizes its ordinary repository work. Before live bootstrap or deployment, record the operator's applicable instruction and the exact target/release in the progress ledger. Do not borrow the other React agent's deployment authorization.
 
 Initial planning checkpoint: upstream `main` was `99c319fc38b3b443cd7115093a5c614c1f9de7e3`, with successful [main CI run 38146167014](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38146167014). The requested local Portfolio checkout did not exist at that inspection. A later readiness review on 2026-10-11 inspected upstream `310dca9610419523c9f07412ed8ea6c0cb665ef4`, with successful [main CI run 38153407171](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38153407171); Portfolio still advertised no Git refs. These are inspection checkpoints, not a mandatory seed SHA.
 
-The current React goal retains P0–P7's reusable implementation and controller SSH, but withdraws its separate demo repository/release/deployment. Do not wait for that cancelled demo or recreate its resources. Its cleanup remains another agent's work. P0.1 must verify the actual merged foundation and reusable runbooks needed by Portfolio; Portfolio still has its own node, runner and public-release gates. Planning, source briefs and private operator preparation can proceed immediately.
+The current React goal retains P0–P7's reusable implementation and verified controller SSH. Retired separate-repository cleanup is complete; public React delivery remains unfinished through SR1–SR6 using the template's existing repository/node/runner. Do not recreate the retired repository or treat cancellation of that method as completion of public delivery. Prefer a completed reusable delivery baseline. P0.1 verifies the actual merged capabilities needed by Portfolio and classifies remaining upstream work as a true dependency or independent observation. Portfolio still has its own fresh-node, runner and public-release gates. Planning, source briefs and private operator preparation proceed independently now.
 
 ### Implementation readiness
 
@@ -35,13 +39,13 @@ The plan is ready to begin P0. It defines eleven phases, 27 numbered technical p
 
 | Area | Defined contract | Remaining execution work |
 | --- | --- | --- |
-| Architecture | React/TypeScript frontend, C# host/API/exporter, Git-authored content, generated API types, one public content revision | Verify pinned upstream versions and actual module paths in P0; choose the Markdown parser in P4.1 |
+| Architecture | React/TypeScript frontend, C# host/API/exporter, Git-authored content, generated API types, one public content revision; Markdig/compiler and build-media defaults selected | Verify pinned upstream versions and actual paths in P0; implement ExecutionDecisions' command/model contract in VS1 |
 | Product slices | Platform prerequisites, complete ImprovedDb journey, one reviewed story at a time, runtime alignment, public launch, recovery | VS1 combines P4/P5 with first-story P7 rendering/acceptance; finish content/API/React/direct HTML together |
-| Design/content | Approved Studio layout, shared route/block model, eleven distinct page briefs, media and publication rules | Preserve portable references, review preferred reports, confirm individual roles/status and approve prose/media |
+| Design/content | Approved Studio layout, shared route/block model, eleven detailed figure briefs, media/publication rules and preferred BestBets text evidence | Preserve references, produce/review figures, attribute known context and omit unsupported personal-role claims |
 | Operations | Portfolio app/image identity, scoped resources, native actor handoffs, SSH, LocalSingleNode/Cloudflare and recovery | Establish native identity/access and CI capacity; authorize the specific live bootstrap/deployment when applicable |
 | Acceptance | Content validation, direct-route statuses, draft exclusion, both themes/mobile/accessibility, exact-head CI and public acceptance | Implement and record actual evidence; planning is not a passed runtime check |
 
-The launch recommendation is four reviewed stories, followed by remaining independent story packets. Missing GeckoBot media, Grumlebob's approved explanation or other late story inputs do not block the renderer or ready stories. DB/Redis retention/removal remains a deliberate P7.2 dependency decision. These are bounded packet decisions and content inputs, not reasons to redesign the overall architecture.
+The launch recommendation is four reviewed stories, followed by remaining independent story packets. Missing GeckoBot media, Grumlebob's approved explanation or other late story inputs do not block the renderer or ready stories. Final runtime is file-only; P7.2 removes inherited DB/Redis/migration/account dependencies coherently before release readiness. Routine decisions and their failure checks are resolved in ExecutionDecisions; genuine source permissions, private host access and operator authorization remain explicit external inputs.
 
 ### Recommended decisions
 
@@ -59,7 +63,7 @@ The launch recommendation is four reviewed stories, followed by remaining indepe
 | Product identity | `Portfolio`, `Portfolio.sln`, `Portfolio.React`, `Portfolio.Core`, `Portfolio.Test`; lowercase deployment slug `portfolio` | Remove operational reliance on the template name |
 | Deployment | LocalSingleNode only, with retained `Deployment/Common` support | One native Linux node and app-owned Cloudflare publication |
 | Sample removal | Replace Books and remove Blazor UI/profile support, accounts and unused sample-domain code | Deliver a public portfolio with one frontend and one product domain |
-| Backing services | Retain inherited PostgreSQL/Redis initially; decide removal through an explicit later packet | Avoid coupling frontend removal to a speculative operations rewrite |
+| Backing services | Retain only during transition; remove unused PostgreSQL/Redis/Identity/migrations in P7.2 before final readiness | Immutable file content needs no DB/cache; preserve coherent startup/release/operations while removing inherited consumers |
 
 Use the template's existing Router/Vite integration; do not create a second Vite application alongside it. Tailwind's official [Vite integration](https://tailwindcss.com/docs/installation/using-vite) fits this setup. Inherit compatible versions from the delivered lockfile and review upgrades separately.
 
@@ -70,7 +74,7 @@ ASP.NET Core remains the runtime authority. Git is the authoring source for edit
 Before implementation:
 
 1. Read the master plan, companions, applicable repository rules, `docs/Test.md`, `docs/FrontendProfiles.md`, fork guide and LocalSingleNode runbooks. Inspect Git status, task ownership, worktrees and live PR/check evidence.
-2. Recheck the other agent's React delivery. Select a merged commit with green main CI containing the required React foundation, typed contracts, development commands, C# production hosting and reusable deployment tooling. Record any unfinished reusable dependency. Missing required infrastructure blocks seeding; the withdrawn separate-demo acceptance is not a Portfolio dependency. Do not copy unmerged work or alter the other agent's plan/worktrees.
+2. Recheck the other agent's unfinished SR1–SR6 React delivery. Prefer a completed reusable baseline; select a merged commit with green main CI containing the required React foundation, typed contracts, development commands, C# production hosting and reusable release/setup tooling. Record a capability/dependency table. Missing required infrastructure blocks its dependent packet; remaining observation on the template's public demo can be independent if the needed reusable code is verified. Do not copy unmerged work or alter the other agent's plan/worktrees.
 3. Reinspect the supplied Portfolio repository before seeding. If it is still empty, disable inherited Actions during initial import and use a plain clone/import of the verified template commit with retained history. Apply the small Portfolio app/image/React seed configuration and inherited local gate described in P0.2 before the initial push or native bootstrap. Preserve pristine upstream provenance separately; point `origin` at Portfolio and `upstream` at the template. If it now contains work, preserve it and reconcile through a branch/PR. Never force-push or replace it.
 4. Create the sibling Portfolio checkout from the private intent note. Record independent app/image/release identity and `React` selection. Use the inherited bootstrap path for runner capacity if no runner can execute PR checks; do not get stuck waiting for CI on an unbootstrapped fresh node.
 5. Rename projects and namespaces deliberately, remove Blazor and unused targets through separate verified packets, then replace the Books domain. All product changes occur in Portfolio. Keep the template multi-profile/multi-target and its existing Blazor deployment untouched.
@@ -78,7 +82,7 @@ Before implementation:
 
 Planning and content preparation can proceed before the upstream gate. Product implementation begins once its dependencies are merged. Upstream fixes discovered later belong in separate template PRs and must be consumed through a verified merge.
 
-Blazor, Books, Cloud and LocalCluster removal are required phases of this plan. Keep PostgreSQL/Redis and their backup/doctor requirements until P7 explicitly retains or removes each service. Retain `Deployment/Common`, Cloudflare support, release provenance, locks, Caddy and LocalSingleNode acceptance. Some currently shared CI/audit/smoke helpers live under LocalCluster; move and retarget them before deleting that folder. Removing a target is complete only when runtime, CI, tests, scripts, runbooks and `AGENTS.md` agree.
+Blazor, Books, Cloud and LocalCluster removal are required phases. Keep transitional PostgreSQL/Redis requirements until P7.2 completes their coherent removal for the file-only product. Retain `Deployment/Common`, Cloudflare support, release provenance, locks, Caddy and LocalSingleNode acceptance. Some shared CI/audit/smoke helpers live under LocalCluster; move and retarget them before deleting that folder. Removal is complete only when runtime, CI, tests, scripts, runbooks and `AGENTS.md` agree.
 
 ## 3. Approved Studio design contract
 
@@ -163,7 +167,7 @@ Research notes describe seven possible rating signals, valid-value normalization
 - **BestBets:** prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`, with private locations recorded in the source note. Reconcile those materials with the [Architecture repository](https://github.com/Grumlebob/Architecture), existing report, diagrams and prototypes. Explain architecture for the fictitious high-data-volume scenario and sports-event bursts such as the World Cup. Separate quality-attribute targets, design decisions and actual prototype evidence. The newly supplied PDF/deck have been located, not content-reviewed.
 - **Geospatial research:** use the owner-supplied [ExamGDS repository](https://github.com/Grumlebob/ExamGDS) for the New York crime/amenities research story. Reviewed notebook structure/report support data preparation, maps and spatial-analysis sections. Select genuine figures with data attribution, explain limitations and avoid causal conclusions from association.
 - **Grumlebob:** use the owner's explanation as the primary editorial source. A restricted local background folder is now recorded privately; inspecting or publishing its contents is not required. Prepare an accurate, domain-neutral story about approved automation, analysis, bookkeeping and billing. Exclude private domain context, identifying artifacts, sensitive workflows and results from prose, figures, links and metadata. Do not invent a different real use case to replace excluded context. Obtain the approved public explanation before publishing.
-- **JobHunt:** use the owner-supplied private source repository recorded in the companion inventory. Frame the story around keeping job-application documents, details and tracking organized. The owner's desired boundary keeps role selection and personal writing manual, while administrative assistance handles records, relevant documents, Notion and form/upload preparation. Current source procedures also allow assisted letter drafting; resolve that difference before claiming writing is entirely manual. Preserve the documented user-only final submission. Use fictional media and omit an inaccessible public source action.
+- **JobHunt:** use the private source recorded in the inventory. Frame the story around documents, details, tracking, personal authorship/review and user-only final submission. Current procedures allow drafting assistance; acknowledge it instead of claiming all writing is manual. Omit unverified automatic account creation. Use fictional media and no inaccessible public source action.
 
 The [companion inventory](Support/PortfolioStudio/ProjectInventory.md) provides proposed summaries, stable section IDs, media requests, evidence and limitations for all eleven projects. It also compares the six public author-book project titles with the ten book-cover demos. The portfolio's eleven entries comprise those six owner projects plus five explicitly supplied additions; the cover demo names do not establish more owner projects.
 
@@ -177,7 +181,7 @@ Do not infer employers, clients, dates, project roles, frameworks, public reposi
 4. Prepare MiniTwit from the reviewed application/report/docs and BestBets first from the owner-selected Exam PDF and presentation, reconciled with report/prototype evidence. Keep historical operation, hypothetical requirements and measured evidence distinct.
 5. Prepare Geospatial research from its notebook/report, with a few legible attributed maps and plots, method explanations and limitations.
 6. Review GeckoBot's selected source/requirements and actual historical use. Obtain Grumlebob's approved public explanation and permitted generic figures; restricted source inspection is optional. These remaining content inputs do not block the other stories.
-7. Prepare JobHunt's administrative-work story and compact personal/assisted-task comparison using fictional examples. Reconcile its writing boundary and verify account-creation/credential claims before final public wording. Do not modify its private workflow as part of portfolio planning.
+7. Prepare JobHunt's administrative-work story and personal/assisted-task comparison using fictional examples and D10's resolved writing distinction. Omit unverified account-creation/security guarantees. Do not modify its private workflow.
 8. Review each project's role/context, facts, media and links independently. An incomplete project stays a draft while ready projects proceed.
 
 For each story, record fact notes using the companion register's source IDs. Each numerical claim, historical date, implementation statement or outcome needs an evidence reference. Proposed personal motivation and lessons require owner review. Keep an explicit list of open questions instead of silently converting them into public copy.
@@ -265,7 +269,7 @@ Example authoring shape, illustrating a draft KinoJoin section rather than files
 }
 ```
 
-The exporter resolves image dimensions/variants and content revision; authors do not invent those fields. The final model may use the delivered template's naming conventions, but retain these responsibilities. The public DTO contains rendered/normalized blocks and public asset URLs, not `source` file paths, publication-review notes or internal authoring paths.
+The C# compiler plans published media and verifies generated dimensions/variants/hashes before exporting the content revision; authors do not invent those fields. Implement the command, safe-prose and public-output contract in [ExecutionDecisions.md](Support/PortfolioStudio/ExecutionDecisions.md). The public DTO contains rendered/normalized blocks and public asset URLs, not `source` file paths, publication-review notes or internal authoring paths.
 
 Validation includes case-sensitive path checks so Windows authoring produces a valid Linux build; relative path containment; unique IDs; at least one section for a published story; supported URL schemes; escaped code; image existence/format checks; and bounded content. Raw HTML, scripts, event handlers and unsafe SVG/link content must not pass through to the reader. Validate internal links after excluding drafts so a published page cannot point at an unpublished destination.
 
@@ -402,11 +406,11 @@ Required implementation evidence covers:
 - Production image inspection: C# runtime, no Node/Blazor runtime payload, Portfolio image identity, matching content/release revision and scoped update/rollback.
 - LocalSingleNode audit, native identity, runner capacity, LAN/public acceptance, connector health, backup/doctor and independent controller checks.
 
-The final acceptance profile must be Portfolio-specific. The inherited `ReactPublicV1` profile checks sample Books data and is useful only before product replacement. Update the profile resolver, image labels, manifest, CI smoke, node setup and `Scripts/Test-DeployedSite.ps1` together. Do not leave production acceptance asking for Books or silently weaken it to an HTTP 200 check.
+The final acceptance profile is `PortfolioPublicV1`. The inherited `ReactPublicV1` profile checks sample Books data and is useful only before product replacement. Update the profile resolver, image labels, manifest, CI smoke, node setup and `Scripts/Test-DeployedSite.ps1` together. Do not leave production acceptance asking for Books or silently weaken it to an HTTP 200 check.
 
 ## 9. Content editing and final completion
 
-Document how to add a project without editing the layout: create metadata/Markdown, add licensed reviewed media, validate, preview, publish through a PR and rebuild the immutable release. Include a small draft starter and instructions for stable IDs, safe blocks, dimensions, provenance, related links and public/draft separation. Once implemented, record real export/build/preview commands; do not invent executable commands in advance.
+Document how to add a project without editing the layout: create metadata/Markdown, add licensed reviewed media, validate, preview, publish through a PR and rebuild the immutable release. Include a small draft starter and instructions for stable IDs, safe blocks, dimensions, provenance, related links and public/draft separation. Implement the proposed command contract in ExecutionDecisions first, then record actual help/build/preview evidence; proposed commands are not already executable.
 
 Known decisions are Portfolio identity, destination repository, React/C# architecture, LocalSingleNode target and intended public URL. Remaining input concerns actual node identity/privileged bootstrap, protected Cloudflare authentication, verified project contributions/media and the factual gaps in the inventory. Ask for each only when its dependent packet needs it. Use the node handoff's one-action format whenever the controller cannot proceed.
 
