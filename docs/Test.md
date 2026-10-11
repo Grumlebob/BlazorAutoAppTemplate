@@ -53,11 +53,17 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Relea
 
 ## OpenAPI Metadata
 
-`OpenApiMetadataTests` requests a document from a metadata-only host built from the real book endpoint mappings. It verifies DTO names and nullability, public/private status codes, and the existing Identity cookie security scheme without registering database, Redis, Identity or email services. Build-time extraction remains disabled during ordinary builds; run it explicitly to verify the `GetDocument.Insider` entry path and inspect `BlazorAutoApp/obj/BlazorAutoApp.json`:
+`OpenApiMetadataTests` requests a document from a metadata-only host built from the real book endpoint mappings. It verifies DTO names and nullability, public/private status codes, and the existing Identity cookie security scheme without registering database, Redis, Identity or email services. Build-time extraction remains disabled during ordinary builds. The React package's `api:generate` and `api:check` scripts invoke that metadata-only path with fresh temporary .NET artifacts; the check compares the committed schema and declarations without rewriting them. From `BlazorAutoApp.React/`, verify the lockfile install and current contract with:
+
+```text
+npm ci
+npm run api:check
+```
+
+To deliberately update the committed outputs after reviewing a backend contract change, run `npm run api:generate`. The focused server metadata test remains:
 
 ```powershell
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --filter FullyQualifiedName~OpenApiMetadataTests
-dotnet build .\BlazorAutoApp\BlazorAutoApp.csproj --configuration Release -p:FrontendProfile=React -p:OpenApiGenerateDocumentsOnBuild=true
 ```
 
 ## Local Gate
