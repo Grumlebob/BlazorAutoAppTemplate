@@ -2195,6 +2195,10 @@ require_contains(".github/workflows/cd-localsinglenode.yml", '-e @"$PUBLIC_EXTRA
 require_contains(".github/workflows/cd-localsinglenode.yml", 'rm -f -- "$PUBLIC_EXTRA_VARS_FILE"', "temporary connector credential cleanup")
 require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'Tunnel name exists without recorded ownership', "foreign tunnel refusal")
 require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'replacement is refused', "foreign DNS refusal")
+require_contains("Deployment/Common/Scripts/Component/lib/cloudflare_tunnel.py", 'current_result.get("config") is None', "unconfigured owned tunnel response handling")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_new_tunnel_null_configuration_is_initialized_once', "new tunnel null configuration regression")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_owned_null_configuration_read_only_check_never_mutates', "unconfigured tunnel read-only regression")
+require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_malformed_owned_configuration_is_refused', "malformed tunnel configuration refusal regression")
 
 
 if failures:

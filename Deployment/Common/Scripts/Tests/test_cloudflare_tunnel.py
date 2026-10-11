@@ -88,6 +88,33 @@ class TunnelTests(unittest.TestCase):
         self.assertEqual([], self.api.calls)
         self.assertFalse(self.state.exists())
 
+    def test_new_tunnel_null_configuration_is_initialized_once(self):
+        self.api.config = None
+        result = self.apply()
+        self.assertEqual(TUNNEL, result["tunnel_id"])
+        self.assertEqual(3, len(self.api.calls))
+        self.assertEqual(1, len(self.api.tunnels))
+        self.provisioner().reconcile()
+        self.apply()
+        self.assertEqual(3, len(self.api.calls))
+
+    def test_owned_null_configuration_read_only_check_never_mutates(self):
+        self.apply()
+        self.api.config = None
+        count = len(self.api.calls)
+        with self.assertRaisesRegex(ValueError, "ingress differs"):
+            self.provisioner().reconcile()
+        self.assertEqual(count, len(self.api.calls))
+
+    def test_malformed_owned_configuration_is_refused(self):
+        self.apply()
+        count = len(self.api.calls)
+        for invalid in ([], "invalid", False, 0):
+            self.api.config = invalid
+            with self.subTest(config=invalid), self.assertRaisesRegex(ValueError, "Unexpected Cloudflare tunnel configuration"):
+                self.apply()
+            self.assertEqual(count, len(self.api.calls))
+
     def test_refuse_foreign_tunnel_name(self):
         self.api.tunnels = [{"name": CONFIG["tunnel_name"], "id": TUNNEL}]
         with self.assertRaisesRegex(ValueError, "recorded ownership"):

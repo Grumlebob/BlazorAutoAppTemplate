@@ -245,8 +245,11 @@ class Provisioner:
         current_result = self.api.get(tunnel_base + "/" + tunnel_id + "/configurations", allow_missing=True)
         if current_result is None:
             current = {}
-        elif isinstance(current_result, dict) and isinstance(current_result.get("config", {}), dict):
-            current = dict(current_result.get("config", {}))
+        elif isinstance(current_result, dict) and current_result.get("config") is None:
+            # A newly created remotely managed tunnel can have no configuration yet.
+            current = {}
+        elif isinstance(current_result, dict) and isinstance(current_result.get("config"), dict):
+            current = dict(current_result["config"])
         else:
             raise ValueError("Unexpected Cloudflare tunnel configuration response")
         ingress = current.get("ingress", [])
