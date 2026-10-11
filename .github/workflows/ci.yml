@@ -358,9 +358,10 @@ jobs:
         run: npm run lint
 
       - name: Test React frontend
+        id: react_unit
         working-directory: BlazorAutoApp.React
         run: |
-          npm test -- --reporter=json --outputFile="$RUNNER_TEMP/react-vitest-results.json"
+          npm test -- --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/react-vitest-results.json"
           node - "$RUNNER_TEMP/react-vitest-results.json" <<'NODE'
           const report = JSON.parse(require("node:fs").readFileSync(process.argv[2], "utf8"));
           const expectedTestCount = 31;
@@ -380,6 +381,15 @@ jobs:
             console.log(`React unit tests: ${report.numPassedTests} passed, no skips.`);
           }
           NODE
+
+      - name: Upload React unit-test report
+        if: ${{ always() && steps.react_unit.outcome != 'skipped' && steps.react_unit.outcome != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: react-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/react-vitest-results.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build React frontend
         working-directory: BlazorAutoApp.React
