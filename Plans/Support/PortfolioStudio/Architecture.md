@@ -53,7 +53,7 @@ Keep endpoint/handler/validation/mapping/checks next to their use case where the
 
 `ProjectStories/GetProject` and the React reader serve every project by validated slug/metadata. Individual stories are content slices, not eleven copied backend modules or twelve special-case React pages. A new content block or interaction belongs to the story slice that first needs it; extract shared rendering after its behavior is defined.
 
-Shared responsibilities stay narrow: immutable bundle loading/validation, generated transport/contracts, theme/shell primitives and generic deployment infrastructure. Implement `Portfolio.ContentTool` referencing shared C# contracts/compilation in `Portfolio.Core/Content`, using ExecutionDecisions' proposed CLI contract. It runs without DB/Redis/credentials and produces the same deterministic representation consumed by API and prerender. Shared code must not call feature modules to reconstruct a second content model. Sharp is a build-only raster preprocessor driven by the C# published-media plan.
+Shared responsibilities stay narrow: immutable bundle loading/validation, generated transport/contracts, theme/shell primitives and generic deployment infrastructure. Implement `Portfolio.ContentTool` referencing compilation in `Portfolio.Core/Content/Compilation` and the single public DTO set in `Portfolio.Core/Features/Portfolio/Contracts`, using ExecutionDecisions' proposed CLI contract. It runs without DB/Redis/credentials and produces the same deterministic representation consumed by API and prerender. Shared code must not call feature modules to reconstruct a second content model. Sharp is a build-only raster preprocessor driven by the C# published-media plan.
 
 ## Cross-boundary contract
 
