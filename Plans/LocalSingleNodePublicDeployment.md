@@ -54,7 +54,7 @@ For eight independent site clones, one dedicated deployment runner per site host
 
 ## Tracked diagnostic hygiene
 
-The current change moves exact node diagnostics to ignored `Plans.local/` notes and replaces live machine identities, addresses, controller paths and external domains in tracked history and setup docs with generic examples. `debug.md` remains a sanitized handoff for the node agent. Published history is unchanged. A separate inventory/configuration follow-up is still needed: the existing Cloud/LocalCluster production inventories and simulation target profile contain live public hostnames in tracked runtime files. Move those values to validated repository/private settings without dispatching either deployment; that change is outside this LocalSingleNode repair.
+The current change moves exact node diagnostics to ignored `Plans.local/` notes and replaces live machine identities, addresses, controller paths and external domains in tracked history and setup docs with generic examples. The temporary node handoff has been retired; retain sanitized operational evidence in this plan or the relevant PR. Published history is unchanged. A separate inventory/configuration follow-up is still needed: the existing Cloud/LocalCluster production inventories and simulation target profile contain live public hostnames in tracked runtime files. Move those values to validated repository/private settings without dispatching either deployment; that change is outside this LocalSingleNode repair.
 
 ## Follow-up diagnosis and resolution (2026-10-10)
 

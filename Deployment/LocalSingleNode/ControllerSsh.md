@@ -47,9 +47,9 @@ Report only `controller key published`, `node authorization complete`, `controll
 
 Prefer this verified SSH connection for authorized node inspection and repository work from the main PC. SSH access does not grant approval for deployments, shared-service changes or privileged commands. Continue to use the deployment runbooks and existing operator authorization. The original install user retains its existing privileges; this handoff grants no root or Docker permissions.
 
-Record the controller name, alias and pairing status in an ignored private note. Both controller and node agents may update sanitized requests/results in `debug.md` through normal documentation PRs. Preserve each other's entries and sync before writing. Once SSH works, the controller can perform most checks directly; use the node-side agent only for a remaining local-access or operator requirement.
+Record the controller name, alias and pairing status in an ignored private note. Keep sanitized requests/results in the relevant retained plan or PR and sync before writing. Once SSH works, the controller can perform most checks directly; use the node-side agent only for a remaining local-access or operator requirement.
 
-After fixes and coordination are complete, remove `debug.md` and obsolete temporary handoff files through the normal PR process. Keep reusable setup commands, runbooks and required sanitized evidence. Do not remove private keys or trust records that provide the working persistent connection.
+Remove obsolete temporary handoff files after coordination is complete. Keep reusable setup commands, runbooks and required sanitized evidence. Do not remove private keys or trust records that provide the working persistent connection.
 
 After a LAN address change, update native machine facts through the existing node process, repeat `authorize`, then repeat `configure`. The pinned host key must remain identical. A DHCP reservation makes address changes less likely. For a replaced node or intentional host-key rotation, verify the new public key through the native session before deliberately replacing the dedicated local trust record. Never disable strict checking or delete unrelated known-host entries to bypass a mismatch.
 
