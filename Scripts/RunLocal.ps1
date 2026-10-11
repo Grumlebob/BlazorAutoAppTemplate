@@ -21,6 +21,8 @@ $previousObservabilityEndpoint = $env:OBSERVABILITY_OTLP_ENDPOINT
 $previousObservabilityProtocol = $env:OBSERVABILITY_OTLP_PROTOCOL
 $previousObservabilitySampleRatio = $env:OBSERVABILITY_TRACE_SAMPLE_RATIO
 $previousObservabilityDeploymentTarget = $env:OBSERVABILITY_DEPLOYMENT_TARGET
+$previousFrontendProfileOverride = $env:FRONTEND_PROFILE_OVERRIDE
+$previousFrontendDockerTarget = $env:FRONTEND_DOCKER_TARGET
 
 function Wait-Docker {
   param([int]$TimeoutSeconds = 90)
@@ -175,6 +177,29 @@ try {
     throw "Local setup failed."
   }
 
+  $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+  $pythonPrefix = @()
+  if ($null -eq $pythonCommand) {
+    $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
+    $pythonPrefix = @('-3')
+  }
+  if ($null -eq $pythonCommand) {
+    throw "Python 3 is required to resolve the persisted frontend profile."
+  }
+  $profileOutput = & $pythonCommand.Source @pythonPrefix './Scripts/Frontend/resolve_frontend_profile.py'
+  if ($LASTEXITCODE -ne 0) {
+    throw "Frontend profile resolution failed."
+  }
+  $frontendProfile = ($profileOutput | Out-String).Trim()
+  switch ($frontendProfile) {
+    'BlazorAuto' { $frontendDockerTarget = 'final-blazor' }
+    'React' { $frontendDockerTarget = 'final-react' }
+    default { throw "Frontend profile resolver returned an unsupported value." }
+  }
+  $env:FRONTEND_PROFILE_OVERRIDE = $frontendProfile
+  $env:FRONTEND_DOCKER_TARGET = $frontendDockerTarget
+  Write-Host "Building the persisted frontend profile: $frontendProfile ($frontendDockerTarget)"
+
   $envValues = Read-DotEnv -Path $envPath
   $appUrl = $envValues['App__Url']
   if ([string]::IsNullOrWhiteSpace($appUrl)) {
@@ -326,5 +351,17 @@ finally {
   $env:OBSERVABILITY_OTLP_PROTOCOL = $previousObservabilityProtocol
   $env:OBSERVABILITY_TRACE_SAMPLE_RATIO = $previousObservabilitySampleRatio
   $env:OBSERVABILITY_DEPLOYMENT_TARGET = $previousObservabilityDeploymentTarget
+  if ($null -ne $previousFrontendProfileOverride) {
+    $env:FRONTEND_PROFILE_OVERRIDE = $previousFrontendProfileOverride
+  }
+  else {
+    Remove-Item Env:FRONTEND_PROFILE_OVERRIDE -ErrorAction SilentlyContinue
+  }
+  if ($null -ne $previousFrontendDockerTarget) {
+    $env:FRONTEND_DOCKER_TARGET = $previousFrontendDockerTarget
+  }
+  else {
+    Remove-Item Env:FRONTEND_DOCKER_TARGET -ErrorAction SilentlyContinue
+  }
   Pop-Location
 }

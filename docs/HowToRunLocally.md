@@ -139,7 +139,7 @@ Read-only simulation is the default. Authenticated writes require `-AllowWrite`,
 Manual equivalent:
 
 ```powershell
-docker compose up -d --build web
+.\Scripts\RunLocal.ps1 -NoBrowser
 ```
 
 Open:
@@ -163,7 +163,7 @@ Local User login seed:
 
 The User account is created after EF migrations run in `Development`, and in the local Docker stack because root `docker-compose.yml` explicitly sets `LocalAccounts__Enabled: "true"`. Startup does not create an Admin account, and this template does not provide an Admin provisioning workflow. The `Admin` role remains available for accounts provisioned separately. Deployment compose files set local seeding to `false`. Startup checks the legacy Admin in every environment and also checks the published User in Docker when local seeding is disabled. Matching published passwords are locked; accounts with changed passwords are preserved. If startup cannot verify or lock a published default account, it fails rather than serving with a possibly usable credential. Locking rotates the account's security stamp; existing sessions expire when Identity next validates that stamp. The local User seed writes its password hash directly so this local-only password works without weakening normal Identity password rules for registration and password reset flows.
 
-If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `docker compose up -d --build`. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
+If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `.\Scripts\RunLocal.ps1 -NoBrowser`. The wrapper resolves `frontend-profile.txt` and selects the matching Docker target. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
 
 Redis Insight can connect to:
 
@@ -186,8 +186,7 @@ The `./data/storage:/app/Storage` mount is local runtime storage for fallback Da
 The Docker profile applies EF migrations on startup. If you reset the local database, recreate the stack with volumes removed:
 
 ```powershell
-docker compose down --volumes --remove-orphans
-docker compose up -d --build web
+.\Scripts\RunLocal.ps1 -ResetDatabase -NoBrowser
 ```
 
 ## Local Docker Storage Maintenance

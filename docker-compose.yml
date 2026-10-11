@@ -24,6 +24,9 @@ services:
     build:
       context: .
       dockerfile: BlazorAutoApp/Dockerfile
+      target: ${FRONTEND_DOCKER_TARGET:-final-blazor}
+      args:
+        FRONTEND_PROFILE_OVERRIDE: ${FRONTEND_PROFILE_OVERRIDE:-}
     hostname: ${APP_NODE_NAME:-local-web}
     logging: *local-logging
     env_file:

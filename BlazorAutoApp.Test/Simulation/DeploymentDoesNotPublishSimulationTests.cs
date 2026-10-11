@@ -11,8 +11,11 @@ public sealed class DeploymentDoesNotPublishSimulationTests
         var dockerfile = File.ReadAllText(Path.Combine(root, "BlazorAutoApp", "Dockerfile"));
 
         Assert.DoesNotContain("BlazorAutoApp.Simulation", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("FROM source AS publish-blazor", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("FROM source AS publish-react", dockerfile, StringComparison.Ordinal);
+        Assert.Equal(
+            2,
+            dockerfile.Split("dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]

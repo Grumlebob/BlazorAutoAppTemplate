@@ -1,15 +1,22 @@
 # syntax=docker/dockerfile:1.24
 
+FROM node:24.21.0-bookworm-slim AS react-dependencies
+WORKDIR /src/BlazorAutoApp.React
+COPY BlazorAutoApp.React/package.json BlazorAutoApp.React/package-lock.json BlazorAutoApp.React/.npmrc ./
+RUN npm install --global npm@12.2.0 && npm ci
+
+FROM react-dependencies AS react-assets
+COPY BlazorAutoApp.React/ ./
+RUN npm run build && test -s build/client/index.html
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 RUN mkdir -p /app/Storage && chown -R app:app /app/Storage
 EXPOSE 8080
 EXPOSE 7186
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS source
 WORKDIR /src
-
-# Copy project files first for better layer caching
 COPY global.json ./
 COPY Directory.Build.props ./
 COPY Directory.Build.targets ./
@@ -18,39 +25,37 @@ COPY frontend-profile.txt ./
 COPY BlazorAutoApp/BlazorAutoApp.csproj BlazorAutoApp/
 COPY BlazorAutoApp.Client/BlazorAutoApp.Client.csproj BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/BlazorAutoApp.Core.csproj BlazorAutoApp.Core/
-
-ARG FRONTEND_PROFILE_OVERRIDE
-
-# Restore only the web app graph to avoid pulling test projects
-RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
-      dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
-    else \
-      dotnet restore ./BlazorAutoApp/BlazorAutoApp.csproj; \
-    fi
-
-# Copy the full sources
 COPY BlazorAutoApp/ BlazorAutoApp/
 COPY BlazorAutoApp.Client/ BlazorAutoApp.Client/
 COPY BlazorAutoApp.Core/ BlazorAutoApp.Core/
 
-RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
-      dotnet build ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/build --no-restore "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
-    else \
-      dotnet build ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/build --no-restore; \
-    fi
-
-FROM build AS publish
+FROM source AS publish-blazor
 ARG FRONTEND_PROFILE_OVERRIDE
-RUN if [ -n "$FRONTEND_PROFILE_OVERRIDE" ]; then \
-      dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore "-p:FrontendProfile=$FRONTEND_PROFILE_OVERRIDE"; \
-    else \
-      dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore; \
-    fi
+RUN set -eu; \
+    profile="${FRONTEND_PROFILE_OVERRIDE:-$(cat frontend-profile.txt)}"; \
+    test "$profile" = "BlazorAuto" || { echo "final-blazor requires FRONTEND_PROFILE_OVERRIDE=BlazorAuto (received '$profile')" >&2; exit 2; }; \
+    dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false "-p:FrontendProfile=$profile"
 
-FROM base AS final
+FROM source AS publish-react
+ARG FRONTEND_PROFILE_OVERRIDE
+COPY --from=react-assets /src/BlazorAutoApp.React/build/client/ /tmp/react-client/
+RUN set -eu; \
+    profile="${FRONTEND_PROFILE_OVERRIDE:-$(cat frontend-profile.txt)}"; \
+    test "$profile" = "React" || { echo "final-react requires FRONTEND_PROFILE_OVERRIDE=React (received '$profile')" >&2; exit 2; }; \
+    test -s /tmp/react-client/index.html || { echo "React static build is missing index.html" >&2; exit 2; }; \
+    rm -rf ./BlazorAutoApp/Frontend/React/wwwroot; \
+    mkdir -p ./BlazorAutoApp/Frontend/React/wwwroot; \
+    cp -a /tmp/react-client/. ./BlazorAutoApp/Frontend/React/wwwroot/; \
+    dotnet publish ./BlazorAutoApp/BlazorAutoApp.csproj -c Release -o /app/publish /p:UseAppHost=false "-p:FrontendProfile=$profile"
+
+FROM base AS final-blazor
 WORKDIR /app
-COPY --from=publish --chown=app:app /app/publish .
+COPY --from=publish-blazor --chown=app:app /app/publish .
 USER app
+ENTRYPOINT ["dotnet", "BlazorAutoApp.dll"]
 
-# Kestrel endpoints and certificate are configured via appsettings.Docker.json
+FROM base AS final-react
+WORKDIR /app
+COPY --from=publish-react --chown=app:app /app/publish .
+USER app
 ENTRYPOINT ["dotnet", "BlazorAutoApp.dll"]

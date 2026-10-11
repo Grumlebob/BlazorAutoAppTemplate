@@ -327,8 +327,14 @@ jobs:
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
         run: |
+          case "${RESOLVED_FRONTEND_PROFILE}" in
+            BlazorAuto) docker_target=final-blazor ;;
+            React) docker_target=final-react ;;
+            *) echo "Unsupported frontend profile: ${RESOLVED_FRONTEND_PROFILE}" >&2; exit 2 ;;
+          esac
           docker build \
             --pull \
+            --target "${docker_target}" \
             --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
@@ -343,6 +349,7 @@ jobs:
         id: ci_smoke
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         env:
+          FRONTEND_PROFILE: ${{ steps.frontend_profile.outputs.profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 
@@ -522,8 +529,14 @@ jobs:
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
+          case "${RESOLVED_FRONTEND_PROFILE}" in
+            BlazorAuto) docker_target=final-blazor ;;
+            React) docker_target=final-react ;;
+            *) echo "Unsupported frontend profile: ${RESOLVED_FRONTEND_PROFILE}" >&2; exit 2 ;;
+          esac
           docker build \
             --pull \
+            --target "${docker_target}" \
             --build-arg "FRONTEND_PROFILE_OVERRIDE=${RESOLVED_FRONTEND_PROFILE}" \
             --label "localcluster.ci.repository=${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
@@ -537,6 +550,7 @@ jobs:
       - name: Docker smoke and browser smoke
         id: ci_smoke
         env:
+          FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 

@@ -18,6 +18,9 @@ internal static class ReactFrontendHosting
     private static readonly Regex ScriptSourcePattern = new(
         "\\bsrc\\s*=",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex FingerprintedAssetPattern = new(
+        "-[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9]{1,10}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     internal const string ContentSecurityPolicy =
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
@@ -33,6 +36,10 @@ internal static class ReactFrontendHosting
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
             headers["Permissions-Policy"] = "local-network-access=()";
+            if (context.Request.Path.StartsWithSegments("/api/books", StringComparison.OrdinalIgnoreCase))
+            {
+                headers[HeaderNames.CacheControl] = "private, no-store";
+            }
 
             await next();
         });
@@ -75,7 +82,17 @@ internal static class ReactFrontendHosting
     public static void UseStaticFiles(IApplicationBuilder app, IFileProvider fileProvider)
     {
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = fileProvider });
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = fileProvider });
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = fileProvider,
+            OnPrepareResponse = context =>
+            {
+                var path = context.Context.Request.Path.Value ?? string.Empty;
+                context.Context.Response.Headers[HeaderNames.CacheControl] = FingerprintedAssetPattern.IsMatch(path)
+                    ? "public,max-age=31536000,immutable"
+                    : "no-cache";
+            }
+        });
     }
 
     public static void MapNavigationFallback(IEndpointRouteBuilder routes, IFileProvider fileProvider)

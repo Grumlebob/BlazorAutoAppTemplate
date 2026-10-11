@@ -26,6 +26,7 @@ public sealed class ReactFrontendHostingTests
 
         Assert.Equal(HttpStatusCode.OK, rootResponse.StatusCode);
         Assert.Equal(ReactTestHost.Shell, await rootResponse.Content.ReadAsStringAsync());
+        Assert.True(rootResponse.Headers.CacheControl?.NoCache);
 
         using var get = CreateHtmlRequest(HttpMethod.Get, "/books/author/example");
         using var getResponse = await host.Client.SendAsync(get);
@@ -51,6 +52,15 @@ public sealed class ReactFrontendHostingTests
 
         Assert.Equal(HttpStatusCode.OK, assetResponse.StatusCode);
         Assert.Equal("export {};", await assetResponse.Content.ReadAsStringAsync());
+        Assert.True(assetResponse.Headers.CacheControl?.NoCache);
+
+        using var fingerprintedResponse = await host.Client.GetAsync("/assets/app-a1b2c3d4.js");
+        Assert.Equal(HttpStatusCode.OK, fingerprintedResponse.StatusCode);
+        var fingerprintedCache = fingerprintedResponse.Headers.CacheControl;
+        Assert.NotNull(fingerprintedCache);
+        Assert.True(fingerprintedCache!.Public);
+        Assert.Equal(TimeSpan.FromDays(365), fingerprintedCache.MaxAge);
+        Assert.Contains("immutable", fingerprintedCache.ToString(), StringComparison.OrdinalIgnoreCase);
 
         using var missingResponse = await host.Client.GetAsync("/assets/missing.js");
 
@@ -74,6 +84,11 @@ public sealed class ReactFrontendHostingTests
         using var reservedResponse = await host.Client.SendAsync(reservedRequest);
         Assert.Equal(HttpStatusCode.NotFound, reservedResponse.StatusCode);
         AssertSecurityHeaders(reservedResponse);
+
+        using var privateApiResponse = await host.Client.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.NotFound, privateApiResponse.StatusCode);
+        Assert.True(privateApiResponse.Headers.CacheControl?.Private);
+        Assert.True(privateApiResponse.Headers.CacheControl?.NoStore);
     }
 
     [Fact]
@@ -258,6 +273,7 @@ public sealed class ReactFrontendHostingTests
             Directory.CreateDirectory(assetPath);
             await File.WriteAllTextAsync(Path.Combine(rootPath, "index.html"), shell ?? Shell);
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app.js"), "export {};");
+            await File.WriteAllTextAsync(Path.Combine(assetPath, "app-a1b2c3d4.js"), "export {}; ");
 
             var outsideSecretPath = Path.Combine(Path.GetDirectoryName(rootPath)!, $"{Path.GetFileName(rootPath)}-secret.txt");
             await File.WriteAllTextAsync(outsideSecretPath, Secret);

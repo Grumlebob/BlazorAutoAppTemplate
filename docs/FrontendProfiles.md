@@ -2,7 +2,7 @@
 
 ## Status
 
-This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P5.2 adds the typed read-only public API transport, normalized errors and one bounded QueryClient. P5.3 adds the public landing page, catalog and author-book details. P6.1 adds route-aware focus and page titles, safe route-error UI, keyboard skip-link focus and reduced-motion support. P6.2 still adds browser-level React regression in the existing C# Playwright harness. P7.1 stages and serves the build from C#; later packets add profile-aware release validation and deployment provenance.
+This guide defines the approved public React v1 profile and its build contract. P1.1 adds fail-closed profile selection. P1.2 splits the selected frontend composition and shared Identity backend. P1.3 isolates host inputs and adds physical static-file hosting with safe SPA navigation. P3.1 keeps React account-free and adds its response security policy. P4.1 adds metadata-only OpenAPI extraction; P4.2 adds the React package, lockfile, schema and generated types. P5.1 adds the Router SPA scaffold, local development and static client build. P5.2 adds the typed read-only public API transport, normalized errors and one bounded QueryClient. P5.3 adds the public landing page, catalog and author-book details. P6.1 adds route-aware focus and page titles, safe route-error UI, keyboard skip-link focus and reduced-motion support. P6.2 adds browser-level React regression in the existing C# Playwright harness. P7.1 builds profile-specific final images, stages selected assets, applies cache policy and keeps Node out of runtime; later packets add release metadata and deployment provenance.
 
 ## Selecting a profile
 
@@ -14,14 +14,14 @@ The shared orchestration resolver trims and validates the file, then prints one 
 python3 Scripts/Frontend/resolve_frontend_profile.py
 ```
 
-Use `python3 Scripts/Frontend/resolve_frontend_profile.py --override React` only for temporary validation. It does not change the tracked file. Pass its canonical output to Docker as `FRONTEND_PROFILE_OVERRIDE`; the Dockerfile applies that same value to restore, build and publish. Without an override, Docker reads the copied tracked file.
+Use `python3 Scripts/Frontend/resolve_frontend_profile.py --override React` only for temporary validation. It does not change the tracked file. The Dockerfile exposes `final-blazor` and `final-react` targets and rejects a profile/target mismatch. The React target builds with Node 24.21.0 and npm 12.2.0, stages the generated `build/client` files into the selected static root, and publishes them with C#. Node and npm are absent from both final images. `Scripts/RunLocal.ps1` resolves the tracked profile once and passes the matching target and value to Compose.
 
 ```bash
 validation_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --override React)"
-docker build --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
+docker build --target final-react --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
 ```
 
-CI resolves the tracked file once and passes the validated output to MSBuild and Docker. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services or compile Blazor components. P1.3 serves a selected physical web root and routes only safe HTML navigation to its shell; the production React bundle arrives in a later packet.
+CI resolves the tracked file once and passes the validated output to MSBuild and the matching Docker target. A `BlazorAuto` validation uses `--target final-blazor`; a `React` validation uses `--target final-react`. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services or compile Blazor components. P1.3 serves a selected physical web root and routes only safe HTML navigation to its shell.
 
 A downstream React product selects `React` in its own tracked `frontend-profile.txt` after the React composition packets are merged. The upstream template and existing Blazor demo remain on Blazor Auto.
 
@@ -37,7 +37,7 @@ Reserve `/Account`, `/account`, `/api/auth` and provider callback paths case-ins
 
 React responses carry a restrictive Content Security Policy (`default-src 'self'`, no inline/eval scripts, no framing, and self-hosted assets), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy: local-network-access=()`. Production uses ASP.NET Core HSTS and HTTPS redirection. Blazor keeps its existing middleware and header behavior. React startup still runs shared migrations and public author-book seeding but skips local/demo account seeding; it does not delete existing Identity rows or remove Identity storage.
 
-In React production, the selected static root is the host's published `wwwroot`. Development defaults to `BlazorAutoApp/Frontend/React/wwwroot`; `Frontend:React:StaticRoot` may point to another repository-contained generated directory. Static files use ordinary ASP.NET Core static-file middleware. The navigation fallback serves `index.html` only for GET or HEAD requests that accept `text/html`; missing assets, API/health/account/provider/framework paths, non-HTML requests and unsafe methods remain `404`. HEAD returns shell headers without a body. Each frontend publish clears only the destination `wwwroot` before copying that profile's files, preventing a profile switch from retaining the other frontend's assets; publishing directly over the source `wwwroot` is rejected.
+In React production, the selected static root is the host's published `wwwroot`. Development defaults to `BlazorAutoApp/Frontend/React/wwwroot`; `Frontend:React:StaticRoot` may point to another repository-contained generated directory. Static files use ordinary ASP.NET Core static-file middleware. The navigation fallback serves `index.html` only for GET or HEAD requests that accept `text/html`; missing assets, API/health/account/provider/framework paths, non-HTML requests and unsafe methods remain `404`. HEAD returns shell headers without a body. The shell and un-fingerprinted assets revalidate; fingerprinted assets use a one-year immutable cache. Protected `/api/books` responses use `private, no-store`. Each frontend publish clears only the destination `wwwroot` before copying that profile's files, preventing a profile switch from retaining the other frontend's assets; publishing directly over the source `wwwroot` is rejected.
 
 ## Current repository entry points
 

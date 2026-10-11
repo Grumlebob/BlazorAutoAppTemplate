@@ -51,6 +51,8 @@ dotnet build .\BlazorAutoApp.sln --configuration Release -p:FrontendProfile=Reac
 dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --configuration Release --no-build -p:FrontendProfile=React --filter "FullyQualifiedName~ReactFrontendHostingTests|FullyQualifiedName~FrontendCompositionTests"
 ```
 
+The hosting tests also verify that the shell and ordinary assets revalidate, fingerprinted assets are immutable, and protected book API responses use `private, no-store`. Docker builds React through the `final-react` target and keeps Node out of the runtime image; `final-blazor` does not run npm. `Scripts/RunLocal.ps1` resolves the tracked profile and selects the matching Compose target. CI image smoke covers selected assets, Node absence, React public/deep-link/HEAD/404 behavior and private API denial without creating React accounts.
+
 ## OpenAPI Metadata
 
 `OpenApiMetadataTests` requests a document from a metadata-only host built from the real book endpoint mappings. It verifies DTO names and nullability, public/private status codes, and the existing Identity cookie security scheme without registering database, Redis, Identity or email services. Build-time extraction remains disabled during ordinary builds. The React package's `api:generate` and `api:check` scripts invoke that metadata-only path with fresh temporary .NET artifacts; the check compares the committed schema and declarations without rewriting them. From `BlazorAutoApp.React/`, verify the lockfile install and current contract with:
@@ -191,7 +193,7 @@ Playwright E2E tests are intentionally headed by default. The browser opens visi
 Start or rebuild the app stack:
 
 ```powershell
-docker compose up -d --build web
+.\Scripts\RunLocal.ps1 -NoBrowser
 ```
 
 Confirm the app is reachable:
