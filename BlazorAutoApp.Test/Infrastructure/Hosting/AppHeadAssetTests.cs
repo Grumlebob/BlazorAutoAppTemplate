@@ -10,6 +10,7 @@ using Xunit;
 namespace BlazorAutoApp.Test.Infrastructure.Hosting;
 
 [Collection(TestCollectionNames.Integration)]
+[Trait("FrontendProfile", "BlazorAuto")]
 public sealed class AppHeadAssetTests(WebAppFactory factory)
 {
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];

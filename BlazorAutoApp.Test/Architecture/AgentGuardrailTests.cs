@@ -29,16 +29,18 @@ public sealed class AgentGuardrailTests
     }
 
     [Fact]
-    public void DotnetBuildAndTest_AreNotInSameWorkflowStep()
+    public void DotnetBuildAndTest_AreSequentialInsideBothProfileGate()
     {
         var workflow = ReadRepoFile(".github", "workflows", "ci.yml");
-        var buildStep = GetNamedWorkflowStep(workflow, "Build");
-        var testStep = GetNamedWorkflowStep(workflow, "Test");
+        var profileGateStep = GetNamedWorkflowStep(workflow, "Build and test both frontend profiles");
+        var profileGate = ReadRepoFile("Scripts", "CI", "validate-frontend-profiles.sh");
 
-        Assert.Contains("dotnet build --configuration Release --no-restore", buildStep, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet test", buildStep, StringComparison.Ordinal);
-        Assert.Contains("dotnet test --configuration Release --no-build", testStep, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet build", testStep, StringComparison.Ordinal);
+        Assert.Contains("bash Scripts/CI/validate-frontend-profiles.sh", profileGateStep, StringComparison.Ordinal);
+        Assert.Contains("for profile in BlazorAuto React; do", profileGate, StringComparison.Ordinal);
+        var buildCommand = profileGate.IndexOf("dotnet build", StringComparison.Ordinal);
+        var testCommand = profileGate.IndexOf("dotnet \"${test_arguments[@]}\"", StringComparison.Ordinal);
+        Assert.True(buildCommand >= 0 && testCommand > buildCommand,
+            "Each profile build must finish before the helper starts its test command.");
     }
 
     [Fact]
