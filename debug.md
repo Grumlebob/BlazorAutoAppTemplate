@@ -36,3 +36,17 @@ The existing application's containers, storage, networks, backups, and ingress c
 Operator direction: one runner per computer is acceptable even when that computer hosts multiple apps. One runner service is active and the node doctor passes its configured runner check. Before assigning another repository's jobs to it, the controller should verify that its GitHub registration scope covers that repository. Keep each app's workflow routing and deployment resources isolated; add another runner service only if the required GitHub scope cannot support the shared node runner.
 
 Main-PC follow-up: use the capacity figures for a modest demo plan and verify its resource limits against the app's needs; correct the SSH login account/key authorization only if remote shell access is required; confirm the runner scope for the new repository; and provision separate app data, backup, and ingress resources. An authorized operator can repeat the read-only Docker and backup inventory under the node's deployment context if exact live resource counts or backup freshness are needed. No node configuration or deployment resources were changed for this inventory.
+
+## Next native-node checks (read-only; 2026-10-11)
+
+The downstream React config branch has candidate LocalSingleNode resource settings that have not been checked against the node. In the native node session, sync the existing downstream React demo checkout to `feat/react-demo-config` and inspect that branch's inventory. Do not copy its candidate values or target identifiers into this upstream coordination file.
+
+Before any setup, run the existing collision check from that checkout, without `--bootstrap`:
+
+```bash
+python3 Deployment/LocalSingleNode/Scripts/lib/collisions.py --source-repo-url '<canonical downstream repository URL>'
+```
+
+Then run the existing LocalSingleNode doctor in JSON mode as the deployment user with working Docker API access, inspect current Docker published ports/networks and running workloads, and check the existing app's readiness and backup status. Run the repository's runner-capacity check as a report-only check if the native checkout has it. Record only sanitized outcomes here: collision check pass/fail and category, Docker API available/unavailable, existing app healthy/unhealthy, backup freshness known/unknown/stale, and whether capacity can support a separate repository runner plus the app. Do not include hostnames, addresses, repository names, credentials, environment contents, user data, container/volume IDs or full machine paths.
+
+Do not create directories, alter Docker/Caddy/DNS/tunnel state, install a runner, run deployment/restart commands, use global cleanup, or use sudo. If any check cannot run in the native session, say which access is missing. If all checks pass, report the single operator action required by the current LocalSingleNode runner runbook, if any; wait for the operator/AI to sync this file before proceeding.
