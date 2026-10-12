@@ -8,7 +8,7 @@ Audits run only when a developer invokes them. They do not run from builds, CI, 
 
 Full mode requires Windows, PowerShell 7, Docker Desktop using Linux containers, Git, the .NET SDK, Python, and the pinned Node/npm runtime when React is included. It uses a private, repository-identity-scoped Community Build stack at loopback port 9200 by default. If that first port is occupied during first setup, it chooses an available port from 9200–9299 and stores the choice in the private settings file. It never stops another port owner. Database history lives in this repository's named Docker volumes and survives a normal stop.
 
-Quick mode uses the opt-in `SonarAnalyzer.CSharp` build analyzer. It needs no SonarQube server and accepts dirty source because it does not upload analysis. It always restores the normal selected-profile NuGet graph before returning.
+Quick mode uses the opt-in `SonarAnalyzer.CSharp` build analyzer. It needs no SonarQube server or Node/npm runtime and accepts dirty source because it does not upload analysis. It always restores the normal selected-profile NuGet graph before returning.
 
 Full mode fetches `origin/main` and analyzes that exact fetched commit by default. It runs each requested profile in its own detached worktree. `-Candidate` instead requires a clean, committed checkout and writes to SHA-specific candidate projects. Candidate reports never count as trusted baselines. Both modes process `BlazorAuto` and `React` sequentially by default.
 

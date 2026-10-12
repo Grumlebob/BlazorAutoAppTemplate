@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
@@ -57,6 +58,33 @@ class IncompleteDataError(RuntimeError):
     """Raised when an API result cannot be proven complete."""
 
 
+@dataclass(frozen=True)
+class ReportRequest:
+    project: str
+    repo_root: str
+    sha: str
+    churn_days: int
+    repository_identity: str
+    frontend_profile: str
+    analysis_id: str
+    project_version: str
+    settings_digest: str
+    settings_snapshot: dict[str, Any]
+    server_version: str
+    run_evidence: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ReportCompleteness:
+    complete: bool
+    core_metrics: dict[str, Any]
+    missing_core_metrics: list[str]
+    scope_evidence: dict[str, Any]
+    file_list_complete: bool
+    warnings: list[str]
+    path_alignment_warning: str | None
+
+
 class SonarClient:
     """Thin read-only HTTP client. All requests go through fetch_json, which tests replace."""
 
@@ -96,23 +124,29 @@ def paginate(client: Any, path: str, params: dict[str, Any], item_key: str) -> t
         data = client.fetch_json(path, {**params, "ps": PAGE_SIZE, "p": page})
         batch = data.get(item_key) or []
         items.extend(batch)
-        for rule in data.get("rules") or []:
-            rule_names[rule["key"]] = rule.get("name", "")
-        paging = data.get("paging")
-        if not isinstance(paging, dict) or not isinstance(paging.get("total"), int):
-            raise IncompleteDataError(f"{path} omitted a valid paging.total field.")
-        total = paging["total"]
-        if expected_total is None:
-            expected_total = total
-        elif total != expected_total:
-            raise IncompleteDataError(f"{path} changed its reported total during pagination.")
-        if not batch and len(items) < total:
-            raise IncompleteDataError(f"{path} returned an empty page before all {total} items were retrieved.")
-        if len(items) >= total:
-            if len(items) != total:
-                raise IncompleteDataError(f"{path} returned more items than its reported total.")
+        _collect_rule_names(rule_names, data)
+        total = require_total(data, path)
+        expected_total = _validate_page_progress(path, batch, len(items), expected_total, total)
+        if len(items) == expected_total:
             return items, rule_names
         page += 1
+
+
+def _collect_rule_names(rule_names: dict[str, str], page: dict[str, Any]) -> None:
+    for rule in page.get("rules") or []:
+        rule_names[rule["key"]] = rule.get("name", "")
+
+
+def _validate_page_progress(
+    path: str, batch: list[dict], retrieved: int, expected_total: int | None, total: int
+) -> int:
+    if expected_total is not None and total != expected_total:
+        raise IncompleteDataError(f"{path} changed its reported total during pagination.")
+    if not batch and retrieved < total:
+        raise IncompleteDataError(f"{path} returned an empty page before all {total} items were retrieved.")
+    if retrieved > total:
+        raise IncompleteDataError(f"{path} returned more items than its reported total.")
+    return total
 
 
 def normalize_issue(issue: dict[str, Any], project: str) -> dict[str, Any]:
@@ -162,7 +196,7 @@ def sanitize_text(value: Any, secrets: Iterable[str] = ()) -> str:
     text = str(value or "")
     for secret in sorted((value for value in secrets if value), key=len, reverse=True):
         text = text.replace(secret, "[REDACTED]")
-    text = re.sub(r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=_-]{12,}", "[REDACTED]", text)
+    text = re.sub(r"(?i)\b(?:bearer|basic)\s+[a-z0-9+/=_-]{12,}", "[REDACTED]", text)
     text = re.sub(r"(?i)(?:[A-Z]:\\|/Users/|/home/|/root/)[^\s'\"]+", "<local-path>", text)
     text = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[email]", text, flags=re.I)
     return text
@@ -179,59 +213,102 @@ def fetch_issues(client: Any, project: str, extra: dict[str, Any]) -> tuple[list
 
     issues: dict[str, dict] = {}
     rule_names: dict[str, str] = {}
-
-    def merge(batch: list[dict], names: dict[str, str]) -> None:
-        for issue in batch:
-            issues.setdefault(issue["key"], issue)
-        rule_names.update(names)
-
     for quality in SOFTWARE_QUALITIES:
-        quality_params = {**base, "impactSoftwareQualities": quality}
-        quality_first = client.fetch_json(path, {**quality_params, "ps": 1, "p": 1})
-        quality_total = require_total(quality_first, path)
-        if quality_total <= ISSUE_CAP:
-            merge(*paginate(client, path, quality_params, "issues"))
-            continue
-        facets = client.fetch_json(path, {**quality_params, "ps": 1, "p": 1, "facets": "rules"})
-        rule_keys = [value["val"] for facet in facets.get("facets", []) if facet.get("property") == "rules"
-                     for value in facet.get("values", []) if value.get("count", 0) > 0]
-        rule_facet_total = sum(
-            int(value.get("count", 0)) for facet in facets.get("facets", []) if facet.get("property") == "rules"
-            for value in facet.get("values", [])
-        )
-        if not rule_keys or rule_facet_total != quality_total:
-            raise IncompleteDataError(f"The {quality} issue-rule facet omitted results ({rule_facet_total}/{quality_total}).")
-        for rule_key in rule_keys:
-            rule_params = {**quality_params, "rules": rule_key}
-            rule_total = require_total(client.fetch_json(path, {**rule_params, "ps": 1, "p": 1}), path)
-            if rule_total <= ISSUE_CAP:
-                merge(*paginate(client, path, rule_params, "issues"))
-                continue
-            files, _ = paginate(client, "api/measures/component_tree", {
-                "component": project, "qualifiers": "FIL", "strategy": "leaves", "metricKeys": "ncloc",
-            }, "components")
-            found_for_rule = 0
-            for component in files:
-                component_key = component.get("key")
-                if not component_key:
-                    continue
-                file_params = {**rule_params, "components": component_key}
-                file_total = require_total(client.fetch_json(path, {**file_params, "ps": 1, "p": 1}), path)
-                if not file_total:
-                    continue
-                if file_total > ISSUE_CAP:
-                    raise IncompleteDataError(f"A single file/rule issue partition exceeds {ISSUE_CAP} results.")
-                merge(*paginate(client, path, file_params, "issues"))
-                found_for_rule += file_total
-            if found_for_rule != rule_total:
-                raise IncompleteDataError(f"Rule '{rule_key}' file partitions omitted results ({found_for_rule}/{rule_total}).")
+        batch, names = _fetch_quality_issues(client, project, base, quality)
+        _merge_issue_results(issues, rule_names, batch, names)
     return list(issues.values()), rule_names
+
+
+def _fetch_quality_issues(
+    client: Any, project: str, base: dict[str, Any], quality: str
+) -> tuple[list[dict], dict[str, str]]:
+    path = "api/issues/search"
+    params = {**base, "impactSoftwareQualities": quality}
+    total = require_total(client.fetch_json(path, {**params, "ps": 1, "p": 1}), path)
+    if total <= ISSUE_CAP:
+        return paginate(client, path, params, "issues")
+
+    rule_keys, facet_total = _issue_rule_facets(client, path, params)
+    if not rule_keys or facet_total != total:
+        raise IncompleteDataError(f"The {quality} issue-rule facet omitted results ({facet_total}/{total}).")
+
+    issues: list[dict] = []
+    rule_names: dict[str, str] = {}
+    for rule_key in rule_keys:
+        batch, names = _fetch_rule_issues(client, project, params, rule_key)
+        issues.extend(batch)
+        rule_names.update(names)
+    return issues, rule_names
+
+
+def _issue_rule_facets(
+    client: Any, path: str, params: dict[str, Any]
+) -> tuple[list[str], int]:
+    facets = client.fetch_json(path, {**params, "ps": 1, "p": 1, "facets": "rules"})
+    rule_keys: list[str] = []
+    count = 0
+    for facet in facets.get("facets", []):
+        if facet.get("property") != "rules":
+            continue
+        for value in facet.get("values", []):
+            value_count = int(value.get("count", 0))
+            count += value_count
+            if value_count > 0:
+                rule_keys.append(value["val"])
+    return rule_keys, count
+
+
+def _fetch_rule_issues(
+    client: Any, project: str, quality_params: dict[str, Any], rule_key: str
+) -> tuple[list[dict], dict[str, str]]:
+    path = "api/issues/search"
+    params = {**quality_params, "rules": rule_key}
+    total = require_total(client.fetch_json(path, {**params, "ps": 1, "p": 1}), path)
+    if total <= ISSUE_CAP:
+        return paginate(client, path, params, "issues")
+    return _fetch_file_partitioned_rule(client, project, params, rule_key, total)
+
+
+def _fetch_file_partitioned_rule(
+    client: Any, project: str, rule_params: dict[str, Any], rule_key: str, rule_total: int
+) -> tuple[list[dict], dict[str, str]]:
+    files, _ = paginate(client, "api/measures/component_tree", {
+        "component": project, "qualifiers": "FIL", "strategy": "leaves", "metricKeys": "ncloc",
+    }, "components")
+    issues: list[dict] = []
+    rule_names: dict[str, str] = {}
+    found = 0
+    for component in files:
+        component_key = component.get("key")
+        if not component_key:
+            continue
+        params = {**rule_params, "components": component_key}
+        file_total = require_total(client.fetch_json("api/issues/search", {**params, "ps": 1, "p": 1}), "api/issues/search")
+        if file_total > ISSUE_CAP:
+            raise IncompleteDataError(f"A single file/rule issue partition exceeds {ISSUE_CAP} results.")
+        if file_total == 0:
+            continue
+        batch, names = paginate(client, "api/issues/search", params, "issues")
+        issues.extend(batch)
+        rule_names.update(names)
+        found += file_total
+    if found != rule_total:
+        raise IncompleteDataError(f"Rule '{rule_key}' file partitions omitted results ({found}/{rule_total}).")
+    return issues, rule_names
+
+
+def _merge_issue_results(
+    issues: dict[str, dict], rule_names: dict[str, str], batch: list[dict], names: dict[str, str]
+) -> None:
+    for issue in batch:
+        issues.setdefault(issue["key"], issue)
+    rule_names.update(names)
 
 
 def require_total(document: dict[str, Any], path: str) -> int:
     paging = document.get("paging")
     total = paging.get("total") if isinstance(paging, dict) else None
-    if not isinstance(total, int) or total < 0:
+    if type(total) is not int or total < 0:
         raise IncompleteDataError(f"{path} omitted a valid paging.total field.")
     return total
 
@@ -399,22 +476,33 @@ def suggested_effort(value: Any) -> str:
         return "review"
     amount = int(match.group(1))
     unit = match.group(2)
-    minutes = amount if unit in {"min", "m"} else amount * (60 if unit == "h" else 480)
-    return "small" if minutes <= 120 else "medium" if minutes <= 480 else "large"
+    if unit in {"min", "m"}:
+        minutes = amount
+    elif unit == "h":
+        minutes = amount * 60
+    else:
+        minutes = amount * 480
+    if minutes <= 120:
+        return "small"
+    if minutes <= 480:
+        return "medium"
+    return "large"
 
 
-def alignment_warning(paths: Iterable[str], path_exists: Callable[[str], bool]) -> str | None:
+def _check_path_alignment(
+    paths: Iterable[str], path_exists: Callable[[str], bool]
+) -> tuple[list[str], str | None]:
     paths = list(paths)
     if not paths:
-        return None
+        return [], None
     missing = [path for path in paths if not path_exists(path)]
     ratio = (len(paths) - len(missing)) / len(paths)
     if ratio >= ALIGNMENT_THRESHOLD:
-        return None
+        return missing, None
     examples = ", ".join(missing[:5])
     message = f"Only {ratio:.0%} of component paths exist under the source root. Missing examples: {examples}"
     print(f"warning: {message}", file=sys.stderr)
-    return message
+    return missing, message
 
 
 def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, Any]:
@@ -428,10 +516,10 @@ def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, 
             "handwrittenCss": "BlazorAutoApp.Client/Styles/input.css",
         }
         evidence = {name: bool(path and path in paths) for name, path in expected.items()}
-        excludedUnexpected = sorted(path for path in paths if path.startswith("BlazorAutoApp.React/"))
-        evidence["reactImplementationExcluded"] = not excludedUnexpected
+        unexpected_excluded_paths = sorted(path for path in paths if path.startswith("BlazorAutoApp.React/"))
+        evidence["reactImplementationExcluded"] = not unexpected_excluded_paths
         evidence["details"] = {name: path or None for name, path in expected.items()}
-        evidence["unexpectedReactFiles"] = excludedUnexpected[:10]
+        evidence["unexpectedReactFiles"] = unexpected_excluded_paths[:10]
         return evidence
 
     catalog = "BlazorAutoApp.React/app/features/books/catalog-page.tsx"
@@ -448,116 +536,135 @@ def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, 
     }
     evidence = {name: path in paths for name, path in expected.items()}
     evidence["testedApiModuleHasCoverage"] = covered_api_client
-    excludedUnexpected = sorted(path for path in paths if path.startswith("BlazorAutoApp.Client/") or
-                                (path.startswith("BlazorAutoApp/") and path.lower().endswith((".razor", ".razor.js"))))
-    evidence["blazorImplementationExcluded"] = not excludedUnexpected
-    evidence["details"] = {name: path for name, path in expected.items()}
+    unexpected_excluded_paths = sorted(path for path in paths if path.startswith("BlazorAutoApp.Client/") or
+                                       (path.startswith("BlazorAutoApp/") and path.lower().endswith((".razor", ".razor.js"))))
+    evidence["blazorImplementationExcluded"] = not unexpected_excluded_paths
+    evidence["details"] = dict(expected)
     evidence["apiModuleCoverage"] = coverage_value
-    evidence["unexpectedBlazorFiles"] = excludedUnexpected[:10]
+    evidence["unexpectedBlazorFiles"] = unexpected_excluded_paths[:10]
     return evidence
 
 
-def build_report(
-    client: Any,
-    project: str,
-    repo_root: str,
-    sha: str,
-    churn_days: int,
-    git_log_text: str,
-    path_exists: Callable[[str], bool] | None = None,
-    *,
-    repository_identity: str,
-    frontend_profile: str,
-    analysis_id: str,
-    project_version: str,
-    settings_digest: str,
-    settings_snapshot: dict[str, Any],
-    server_version: str,
-    run_evidence: dict[str, Any],
-) -> dict[str, Any]:
-    if path_exists is None:
-        path_exists = lambda path: os.path.exists(os.path.join(repo_root, path))  # noqa: E731
-
-    before = fetch_analysis(client, project, analysis_id)
-    if before.get("revision") != sha or before.get("version") != project_version:
-        raise IncompleteDataError("The latest server analysis revision/version does not match this immutable run.")
-    measures, new_measures = fetch_measures(client, project)
-    gate = client.fetch_json("api/qualitygates/project_status", {"analysisId": analysis_id})
-    raw_issues, rule_names = fetch_issues(client, project, {})
-    raw_new, new_rule_names = fetch_issues(client, project, {"inNewCodePeriod": "true"})
-    rule_names.update(new_rule_names)
-    issues = [normalize_issue(issue, project) for issue in raw_issues]
-    new_issues = [normalize_issue(issue, project) for issue in raw_new]
-    if len({issue["key"] for issue in issues}) != len(issues):
-        raise IncompleteDataError("Issue pagination produced duplicate issue keys after deduplication.")
-    hotspots = fetch_hotspots(client, project)
-
-    tree, _ = paginate(client, "api/measures/component_tree", {
-        "component": project, "qualifiers": "FIL", "strategy": "leaves", "metricKeys": ",".join(FILE_METRICS),
-    }, "components")
-    if not tree:
-        raise IncompleteDataError("SonarQube returned no indexed files for the project.")
-    churn = churn_counts(git_log_text)
-    normalized_tree = [{**component, "path": normalize_component_path(component.get("path", ""), project)} for component in tree]
-    tree_paths = [component["path"] for component in normalized_tree]
-    warning = alignment_warning(tree_paths, path_exists)
-    missing_paths = [path for path in tree_paths if not path_exists(path)]
-    scope = build_scope_evidence(frontend_profile, normalized_tree)
-    core_metrics = {name: measures.get(name) for name in ("ncloc", "coverage", "lines_to_cover", "uncovered_lines", "duplicated_lines_density", "cognitive_complexity")}
-    missing_core_metrics = [name for name in ("ncloc", "coverage", "lines_to_cover", "duplicated_lines_density", "cognitive_complexity")
-                            if core_metrics.get(name) is None]
-    scope_failures = [name for name, value in scope.items() if isinstance(value, bool) and not value]
+def _evaluate_report_completeness(
+    request: ReportRequest,
+    measures: dict[str, Any],
+    tree: list[dict[str, Any]],
+    hotspots: dict[str, Any],
+    gate: dict[str, Any],
+    path_exists: Callable[[str], bool],
+) -> ReportCompleteness:
+    paths = [component["path"] for component in tree]
+    missing_paths, path_alignment_warning = _check_path_alignment(paths, path_exists)
+    scope_evidence = build_scope_evidence(request.frontend_profile, tree)
+    core_metrics = {
+        name: measures.get(name)
+        for name in ("ncloc", "coverage", "lines_to_cover", "uncovered_lines", "duplicated_lines_density", "cognitive_complexity")
+    }
+    missing_core_metrics = [
+        name for name in ("ncloc", "coverage", "lines_to_cover", "duplicated_lines_density", "cognitive_complexity")
+        if core_metrics[name] is None
+    ]
+    scope_failures = [name for name, value in scope_evidence.items() if isinstance(value, bool) and not value]
+    evidence_valid, evidence_warnings = validate_run_evidence(request.frontend_profile, request.run_evidence)
+    gate_status = (gate.get("projectStatus") or {}).get("status")
     warnings = [hotspots["warning"]] if hotspots.get("warning") else []
-    if warning:
-        warnings.append(warning)
+    if path_alignment_warning:
+        warnings.append(path_alignment_warning)
     if missing_paths:
         warnings.append(f"{len(missing_paths)} indexed component paths do not resolve under the audit source tree.")
     if missing_core_metrics:
         warnings.append(f"Core project measures are missing: {', '.join(missing_core_metrics)}.")
     if scope_failures:
         warnings.append(f"Profile scope evidence is incomplete: {', '.join(scope_failures)}.")
-    evidence_valid, evidence_warnings = validate_run_evidence(frontend_profile, run_evidence)
     warnings.extend(evidence_warnings)
-    after = fetch_analysis(client, project, analysis_id)
+    if gate_status is None:
+        warnings.append("No quality-gate status was returned for this exact analysis.")
+    complete = (
+        not missing_paths
+        and not missing_core_metrics
+        and not scope_failures
+        and hotspots.get("complete", False)
+        and gate_status is not None
+        and evidence_valid
+    )
+    return ReportCompleteness(
+        complete=complete,
+        core_metrics=core_metrics,
+        missing_core_metrics=missing_core_metrics,
+        scope_evidence=scope_evidence,
+        file_list_complete=not missing_paths,
+        warnings=warnings,
+        path_alignment_warning=path_alignment_warning,
+    )
+
+
+def build_report(
+    client: Any,
+    request: ReportRequest,
+    git_log_text: str,
+    path_exists: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
+    if path_exists is None:
+        path_exists = lambda path: os.path.exists(os.path.join(request.repo_root, path))  # noqa: E731
+
+    before = fetch_analysis(client, request.project, request.analysis_id)
+    if before.get("revision") != request.sha or before.get("version") != request.project_version:
+        raise IncompleteDataError("The latest server analysis revision/version does not match this immutable run.")
+    measures, new_measures = fetch_measures(client, request.project)
+    gate = client.fetch_json("api/qualitygates/project_status", {"analysisId": request.analysis_id})
+    raw_issues, rule_names = fetch_issues(client, request.project, {})
+    raw_new, new_rule_names = fetch_issues(client, request.project, {"inNewCodePeriod": "true"})
+    rule_names.update(new_rule_names)
+    issues = [normalize_issue(issue, request.project) for issue in raw_issues]
+    new_issues = [normalize_issue(issue, request.project) for issue in raw_new]
+    if len({issue["key"] for issue in issues}) != len(issues):
+        raise IncompleteDataError("Issue pagination produced duplicate issue keys after deduplication.")
+    hotspots = fetch_hotspots(client, request.project)
+
+    tree, _ = paginate(client, "api/measures/component_tree", {
+        "component": request.project, "qualifiers": "FIL", "strategy": "leaves", "metricKeys": ",".join(FILE_METRICS),
+    }, "components")
+    if not tree:
+        raise IncompleteDataError("SonarQube returned no indexed files for the project.")
+    churn = churn_counts(git_log_text)
+    normalized_tree = [{**component, "path": normalize_component_path(component.get("path", ""), request.project)} for component in tree]
+    completeness = _evaluate_report_completeness(request, measures, normalized_tree, hotspots, gate, path_exists)
+    after = fetch_analysis(client, request.project, request.analysis_id)
     if after != before:
         raise IncompleteDataError("The project analysis changed during report export; no report was attributed to this run.")
-    gate_status = gate.get("projectStatus", {}).get("status")
-    gate_complete = gate_status is not None
-    if not gate_complete:
-        warnings.append("No quality-gate status was returned for this exact analysis.")
-    complete = not missing_paths and not missing_core_metrics and not scope_failures and hotspots.get("complete", False) and gate_complete and evidence_valid
+    gate_status = (gate.get("projectStatus") or {}).get("status")
 
     for issue in issues + new_issues:
         issue["suggestedEffort"] = suggested_effort(issue.get("effort"))
 
     report: dict[str, Any] = {
         "schema": SCHEMA,
-        "complete": complete,
+        "complete": completeness.complete,
         "generatedUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "repositoryIdentity": repository_identity,
-        "frontendProfile": frontend_profile,
-        "projectKey": project,
-        "analysisId": analysis_id,
-        "sha": sha,
-        "project": project,
-        "projectVersion": project_version,
-        "serverVersion": server_version,
-        "settingsDigest": settings_digest,
-        "settings": settings_snapshot,
-        "runEvidence": run_evidence,
-        "churnDays": churn_days,
+        "repositoryIdentity": request.repository_identity,
+        "frontendProfile": request.frontend_profile,
+        "projectKey": request.project,
+        "analysisId": request.analysis_id,
+        "sha": request.sha,
+        "project": request.project,
+        "projectVersion": request.project_version,
+        "serverVersion": request.server_version,
+        "settingsDigest": request.settings_digest,
+        "settings": request.settings_snapshot,
+        "runEvidence": request.run_evidence,
+        "churnDays": request.churn_days,
         "analysis": before,
-        "qualityGate": {"status": gate_status, "analysisId": analysis_id, "informational": True},
+        "qualityGate": {"status": gate_status, "analysisId": request.analysis_id, "informational": True},
         "measures": measures,
         "newCodeMeasures": new_measures,
-        "coreMeasureCompleteness": {"values": core_metrics, "missing": missing_core_metrics},
-        "scopeEvidence": scope,
+        "coreMeasureCompleteness": {"values": completeness.core_metrics, "missing": completeness.missing_core_metrics},
+        "scopeEvidence": completeness.scope_evidence,
         "dataCompleteness": {
             "issues": "complete",
             "newCodeIssues": "complete",
-            "fileList": "complete" if not missing_paths else "incomplete",
+            "fileList": "complete" if completeness.file_list_complete else "incomplete",
             "hotspots": hotspots["status"],
-            "warnings": warnings,
+            "warnings": completeness.warnings,
         },
         "issues": issues,
         "newCodeIssues": new_issues,
@@ -565,35 +672,62 @@ def build_report(
         "files": build_files(normalized_tree, issues, churn),
         "rules": build_rules(issues, rule_names),
     }
-    if warning:
-        report["pathAlignmentWarning"] = warning
+    if completeness.path_alignment_warning:
+        report["pathAlignmentWarning"] = completeness.path_alignment_warning
     return report
+
+
+def _has_test_counts(value: Any, passed: int, skipped: int) -> bool:
+    return (
+        isinstance(value, dict)
+        and type(value.get("passed")) is int
+        and type(value.get("failed")) is int
+        and type(value.get("skipped")) is int
+        and value["passed"] == passed
+        and value["failed"] == 0
+        and value["skipped"] == skipped
+    )
+
+
+def _frontend_evidence_valid(profile: str, tests: dict[str, Any]) -> bool:
+    if profile == "React":
+        return _has_test_counts(tests.get("frontendTests"), 31, 0)
+    return tests.get("frontendTests") == {"status": "not-applicable"}
+
+
+def _coverage_evidence_valid(profile: str, evidence: dict[str, Any]) -> bool:
+    coverage = evidence.get("coverage")
+    if not isinstance(coverage, dict):
+        return False
+    dotnet = coverage.get("dotnet")
+    if not isinstance(dotnet, dict) or dotnet.get("valid") is not True:
+        return False
+    direct_reports = dotnet.get("directReportCount")
+    if type(direct_reports) is not int or direct_reports <= 0:
+        return False
+    return profile != "React" or coverage.get("reactLcov") == "validated"
 
 
 def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool, list[str]]:
     warnings: list[str] = []
     if not isinstance(evidence, dict):
         return False, ["Run evidence is missing or invalid."]
-    tests = evidence.get("tests") or {}
-    dotnet = tests.get("dotnet") or {}
+    if profile not in {"BlazorAuto", "React"}:
+        return False, [f"Unsupported frontend profile: {profile}."]
+    tests = evidence.get("tests")
+    if not isinstance(tests, dict):
+        tests = {}
     expected_passed = 211 if profile == "BlazorAuto" else 203
-    valid_dotnet = dotnet.get("passed") == expected_passed and dotnet.get("failed") == 0 and dotnet.get("skipped") == 13
+    valid_dotnet = _has_test_counts(tests.get("dotnet"), expected_passed, 13)
     if not valid_dotnet:
         warnings.append("The approved .NET suite result counts are missing or invalid.")
-    if profile == "React":
-        frontend = tests.get("frontendTests") or {}
-        valid_frontend = frontend.get("passed") == 31 and frontend.get("failed") == 0 and frontend.get("skipped") == 0
-        if not valid_frontend:
+    valid_frontend = _frontend_evidence_valid(profile, tests)
+    if not valid_frontend:
+        if profile == "React":
             warnings.append("The approved React unit-test result counts are missing or invalid.")
-    else:
-        valid_frontend = tests.get("frontendTests") == {"status": "not-applicable"}
-        if not valid_frontend:
+        else:
             warnings.append("BlazorAuto run evidence must mark React unit tests as not applicable.")
-    coverage = evidence.get("coverage") or {}
-    dotnet_coverage = coverage.get("dotnet") or {}
-    valid_coverage = dotnet_coverage.get("valid") is True and dotnet_coverage.get("directReportCount", 0) > 0
-    if profile == "React":
-        valid_coverage = valid_coverage and coverage.get("reactLcov") == "validated"
+    valid_coverage = _coverage_evidence_valid(profile, evidence)
     if not valid_coverage:
         warnings.append("Required production coverage evidence is missing or invalid.")
     return valid_dotnet and valid_frontend and valid_coverage, warnings
@@ -601,6 +735,10 @@ def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool,
 
 def _md_cell(text: Any) -> str:
     return str(text if text is not None else "").replace("|", "\\|").replace("\n", " ")
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 def _location(issue: dict[str, Any]) -> str:
@@ -632,24 +770,20 @@ def _main_impact(issues: list[dict[str, Any]]) -> str:
     return pairs.most_common(1)[0][0] if pairs else "n/a"
 
 
-def render_markdown(report: dict[str, Any], top_rules: int = 30, top_files: int = 40) -> str:
+def _render_report_overview(report: dict[str, Any]) -> list[str]:
     measures = report["measures"]
     new_measures = report["newCodeMeasures"]
     issues = report["issues"]
     analysis = report["analysis"]
     gate = report["qualityGate"]
-    evidence = report.get("runEvidence", {})
+    evidence = _mapping(report.get("runEvidence"))
     lines: list[str] = []
-
-    def add(*items: str) -> None:
-        lines.extend(items)
-
     languages = measures.get("ncloc_language_distribution") or ""
     language_text = ", ".join(part.replace("=", " ") for part in languages.split(";") if part) or "n/a"
     quality_counts = {q: sum(1 for i in issues if q in qualities_of(i)) for q in SOFTWARE_QUALITIES}
     coverage = measures.get("coverage")
     coverage_denominator = measures.get("lines_to_cover")
-    add(
+    lines.extend((
         f"# SonarQube report: {report['projectKey']}",
         "",
         f"- Repository: `{report['repositoryIdentity']}`; profile: **{report['frontendProfile']}**",
@@ -667,57 +801,70 @@ def render_markdown(report: dict[str, Any], top_rules: int = 30, top_files: int 
         f"(total {len(issues)})",
         f"- New issues since the previous version: {new_measures.get('new_violations') or 'n/a'} "
         f"(new-code issue list: {len(report['newCodeIssues'])})",
-    )
+    ))
     if report.get("pathAlignmentWarning"):
-        add(f"- Warning: {report['pathAlignmentWarning']}")
+        lines.append(f"- Warning: {report['pathAlignmentWarning']}")
 
-    test_counts = evidence.get("tests", {})
-    coverage_evidence = evidence.get("coverage", {})
-    dotnet_tests = test_counts.get("dotnet") or {}
-    frontend_tests = test_counts.get("frontendTests") or {}
-    add(
+    test_counts = _mapping(evidence.get("tests"))
+    coverage_evidence = _mapping(evidence.get("coverage"))
+    dotnet_tests = _mapping(test_counts.get("dotnet"))
+    frontend_tests = _mapping(test_counts.get("frontendTests"))
+    dotnet_coverage = _mapping(coverage_evidence.get("dotnet"))
+    hotspot_data = _mapping(report.get("hotspots"))
+    lines.extend((
         "",
         "## Run evidence",
         "",
         f"- .NET tests: {dotnet_tests.get('passed', 'n/a')} passed, {dotnet_tests.get('skipped', 'n/a')} expected skips; TRX `{dotnet_tests.get('result', 'n/a')}`.",
         f"- React tests: {frontend_tests.get('passed', 'n/a')} passed, {frontend_tests.get('skipped', 'n/a')} skipped; {coverage_evidence.get('reactLcov', 'not applicable')}.",
-        f"- .NET coverage: {'validated' if (coverage_evidence.get('dotnet') or {}).get('valid') else 'incomplete'}; production files with hits: {len((coverage_evidence.get('dotnet') or {}).get('coveredProductionSources', []))}.",
-        f"- Indexed files: {len(report['files'])}; open issues: {len(issues)}; security hotspots: {len((report['hotspots'] or {}).get('items', []))} ({(report['hotspots'] or {}).get('status', 'unavailable')}).",
-    )
-    for warning in report.get("dataCompleteness", {}).get("warnings", []):
-        add(f"- Warning: {_md_cell(warning)}")
+        f"- .NET coverage: {'validated' if dotnet_coverage.get('valid') else 'incomplete'}; production files with hits: {len(dotnet_coverage.get('coveredProductionSources', []))}.",
+        f"- Indexed files: {len(report['files'])}; open issues: {len(issues)}; security hotspots: {len(hotspot_data.get('items', []))} ({hotspot_data.get('status', 'unavailable')}).",
+    ))
+    for warning in _mapping(report.get("dataCompleteness")).get("warnings", []):
+        lines.append(f"- Warning: {_md_cell(warning)}")
 
-    add("", "## Profile scope evidence", "", "| Check | Result |", "|---|---|")
+    lines.extend(("", "## Profile scope evidence", "", "| Check | Result |", "|---|---|"))
     for name, value in report.get("scopeEvidence", {}).items():
         if isinstance(value, bool):
-            add(f"| {name} | {'present' if value else 'missing'} |")
+            lines.append(f"| {name} | {'present' if value else 'missing'} |")
+    return lines
 
-    hotspot_items = (report.get("hotspots") or {}).get("items", [])
-    add("", f"## Security hotspots requiring review ({len(hotspot_items)})", "")
+
+def _render_hotspots(report: dict[str, Any]) -> list[str]:
+    hotspot_data = _mapping(report.get("hotspots"))
+    hotspot_items = hotspot_data.get("items", [])
+    lines = ["", f"## Security hotspots requiring review ({len(hotspot_items)})", ""]
     if hotspot_items:
         for hotspot in hotspot_items[:50]:
-            add(f"- `{hotspot.get('key')}` `{hotspot.get('rule')}` `{hotspot.get('path')}:{hotspot.get('line')}`: "
-                f"{_md_cell(hotspot.get('message'))} (status: {hotspot.get('status') or 'unknown'})")
+            lines.append(f"- `{hotspot.get('key')}` `{hotspot.get('rule')}` `{hotspot.get('path')}:{hotspot.get('line')}`: "
+                         f"{_md_cell(hotspot.get('message'))} (status: {hotspot.get('status') or 'unknown'})")
         if len(hotspot_items) > 50:
-            add(f"- ... {len(hotspot_items) - 50} more in report.json")
-    elif (report.get("hotspots") or {}).get("status") == "supported-empty":
-        add("The API returned zero open hotspots.")
+            lines.append(f"- ... {len(hotspot_items) - 50} more in report.json")
+    elif hotspot_data.get("status") == "supported-empty":
+        lines.append("The API returned zero open hotspots.")
     else:
-        add(f"No hotspot list was returned; capability status: `{(report.get('hotspots') or {}).get('status', 'unavailable')}`.")
+        status = hotspot_data.get("status", "unavailable")
+        lines.append(f"No hotspot list was returned; capability status: `{status}`.")
+    return lines
 
+
+def _render_security_issues(issues: list[dict[str, Any]]) -> list[str]:
     security = [i for i in issues if _is_security_or_blocker(i)]
-    add("", f"## Security and blocker issues ({len(security)})", "")
+    lines = ["", f"## Security and blocker issues ({len(security)})", ""]
     if security:
-        add("| Issue | Rule | Location | Effort | Message |", "|---|---|---|---|---|")
-        add(*(f"| `{i['key']}` | `{i['rule']}` | `{_location(i)}` | {i.get('suggestedEffort')} | {_md_cell(i['message'])} |"
-              for i in security[:50]))
+        lines.extend(("| Issue | Rule | Location | Effort | Message |", "|---|---|---|---|---|"))
+        lines.extend(f"| `{i['key']}` | `{i['rule']}` | `{_location(i)}` | {i.get('suggestedEffort')} | {_md_cell(i['message'])} |"
+                     for i in security[:50])
         if len(security) > 50:
-            add(f"- ... {len(security) - 50} more in report.json")
+            lines.append(f"- ... {len(security) - 50} more in report.json")
     else:
-        add("None.")
+        lines.append("None.")
+    return lines
 
+
+def _render_reliability_issues(issues: list[dict[str, Any]]) -> list[str]:
     reliability = [i for i in issues if _is_reliability_medium_plus(i)]
-    add("", f"## Reliability issues, MEDIUM and above ({len(reliability)})", "")
+    lines = ["", f"## Reliability issues, MEDIUM and above ({len(reliability)})", ""]
     grouped: dict[str, list[dict]] = defaultdict(list)
     for issue in reliability:
         grouped[issue["rule"]].append(issue)
@@ -729,46 +876,69 @@ def render_markdown(report: dict[str, Any], top_rules: int = 30, top_files: int 
         block.append("")
         # Keep one line in reserve for the truncation marker so the section stays within 200 lines.
         if reliability_lines + len(block) + 1 > 200:
-            add("- ... more in report.json")
+            lines.append("- ... more in report.json")
             break
-        add(*block)
+        lines.extend(block)
         reliability_lines += len(block)
+    return lines
 
-    new_issues = report["newCodeIssues"]
-    add(f"## New since the previous analysis ({len(new_issues)})", "")
+
+def _render_new_issues(new_issues: list[dict[str, Any]]) -> list[str]:
+    lines = [f"## New since the previous analysis ({len(new_issues)})", ""]
     for issue in new_issues[:50]:
-        add(f"- `{issue['key']}` `{issue['rule']}` `{_location(issue)}` ({issue.get('suggestedEffort')}): {_md_cell(issue['message'])}")
+        lines.append(f"- `{issue['key']}` `{issue['rule']}` `{_location(issue)}` ({issue.get('suggestedEffort')}): {_md_cell(issue['message'])}")
     if len(new_issues) > 50:
-        add(f"- ... {len(new_issues) - 50} more in report.json")
+        lines.append(f"- ... {len(new_issues) - 50} more in report.json")
+    return lines
 
-    add("", f"## Top {top_rules} rules", "", "| # | Rule | Name | Count | Main impact | Example |", "|---:|---|---|---:|---|---|")
+
+def _render_rules(report: dict[str, Any], top_rules: int) -> list[str]:
+    issues = report["issues"]
+    lines = ["", f"## Top {top_rules} rules", "", "| # | Rule | Name | Count | Main impact | Example |", "|---:|---|---|---:|---|---|"]
     for index, rule in enumerate(report["rules"][:top_rules], start=1):
         example = rule["examples"][0] if rule["examples"] else None
         where = f"`{example['issueKey']}` `{example['path']}:{example['line']}`" if example and example.get("line") is not None else ""
         main = _main_impact([i for i in issues if i["rule"] == rule["key"]])
-        add(f"| {index} | `{rule['key']}` | {_md_cell(rule['name'])} | {rule['count']} | {main} | {where} |")
+        lines.append(f"| {index} | `{rule['key']}` | {_md_cell(rule['name'])} | {rule['count']} | {main} | {where} |")
+    return lines
 
-    add("", f"## Risk-ranked files (top {top_files})", "",
-        "| # | File | Risk | ncloc | Cognitive | Coverage | Commits | Rel/Sec | Other |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---:|")
+
+def _render_risk_files(report: dict[str, Any], top_files: int) -> list[str]:
+    lines = ["", f"## Risk-ranked files (top {top_files})", "",
+             "| # | File | Risk | ncloc | Cognitive | Coverage | Commits | Rel/Sec | Other |",
+             "|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
     for index, file_entry in enumerate(report["files"][:top_files], start=1):
         metrics = file_entry["metrics"]
         coverage_text = f"{metrics['coverage']} %" if metrics.get("coverage") is not None else "n/a*"
-        add(f"| {index} | `{file_entry['path']}` | {file_entry['risk']} | {metrics.get('ncloc', 'n/a')} | "
-            f"{metrics.get('cognitive_complexity', 'n/a')} | {coverage_text} | {file_entry['commits']} | "
-            f"{file_entry['relsec']} | {file_entry['other']} |")
+        lines.append(f"| {index} | `{file_entry['path']}` | {file_entry['risk']} | {metrics.get('ncloc', 'n/a')} | "
+                     f"{metrics.get('cognitive_complexity', 'n/a')} | {coverage_text} | {file_entry['commits']} | "
+                     f"{file_entry['relsec']} | {file_entry['other']} |")
+    return lines
 
+
+def _render_duplication(report: dict[str, Any]) -> list[str]:
     duplicated = sorted(
         (f for f in report["files"] if f["metrics"].get("duplicated_lines")),
         key=lambda f: (-int(f["metrics"]["duplicated_lines"]), f["path"]),
     )[:15]
-    add("", "## Duplication (top 15 files by duplicated lines)", "", "| File | Duplicated lines | Density |", "|---|---:|---:|")
+    lines = ["", "## Duplication (top 15 files by duplicated lines)", "", "| File | Duplicated lines | Density |", "|---|---:|---:|"]
     for file_entry in duplicated:
-        add(f"| `{file_entry['path']}` | {file_entry['metrics']['duplicated_lines']} | "
-            f"{file_entry['metrics'].get('duplicated_lines_density', 'n/a')} % |")
+        lines.append(f"| `{file_entry['path']}` | {file_entry['metrics']['duplicated_lines']} | "
+                     f"{file_entry['metrics'].get('duplicated_lines_density', 'n/a')} % |")
+    lines.extend(("", "*Coverage marked `n/a*` uses a 0.5 uncovered fallback for risk ranking only; its measured coverage stays null.*",
+                  "", "## How to use this report", "", FIXED_HOW_TO_USE))
+    return lines
 
-    add("", "*Coverage marked `n/a*` uses a 0.5 uncovered fallback for risk ranking only; its measured coverage stays null.*",
-        "", "## How to use this report", "", FIXED_HOW_TO_USE)
+
+def render_markdown(report: dict[str, Any], top_rules: int = 30, top_files: int = 40) -> str:
+    lines = _render_report_overview(report)
+    lines.extend(_render_hotspots(report))
+    lines.extend(_render_security_issues(report["issues"]))
+    lines.extend(_render_reliability_issues(report["issues"]))
+    lines.extend(_render_new_issues(report["newCodeIssues"]))
+    lines.extend(_render_rules(report, top_rules))
+    lines.extend(_render_risk_files(report, top_files))
+    lines.extend(_render_duplication(report))
     return "\n".join(lines) + "\n"
 
 
@@ -811,8 +981,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--settings-digest must be a SHA-256 hex digest.")
         client = SonarClient(args.base_url, token)
         git_log_text = run_git_log(args.repo_root, args.churn_days)
-        report = build_report(
-            client, args.project, args.repo_root, args.sha, args.churn_days, git_log_text,
+        request = ReportRequest(
+            project=args.project,
+            repo_root=args.repo_root,
+            sha=args.sha,
+            churn_days=args.churn_days,
             repository_identity=args.repository_identity,
             frontend_profile=args.frontend_profile,
             analysis_id=args.analysis_id,
@@ -821,6 +994,9 @@ def main(argv: list[str] | None = None) -> int:
             settings_snapshot=settings_snapshot,
             server_version=args.server_version,
             run_evidence=run_evidence,
+        )
+        report = build_report(
+            client, request, git_log_text,
         )
 
         report = sanitize_document(report, {token})
@@ -835,7 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Complete: {str(report['complete']).lower()}; issues: {len(report['issues'])} open, "
               f"{len(report['newCodeIssues'])} new code; files ranked: {len(report['files'])}")
         return 0 if report["complete"] else 1
-    except (HTTPError, URLError, OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, RuntimeError) as error:
         print(f"Sonar report export failed: {sanitize_text(error, {token})}", file=sys.stderr)
         return 1
 

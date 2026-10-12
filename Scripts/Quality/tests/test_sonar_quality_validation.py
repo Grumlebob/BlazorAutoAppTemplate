@@ -33,6 +33,22 @@ class VitestValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "passing React tests"):
             validate(result, 31, 0)
 
+    def test_rejects_boolean_test_counts(self) -> None:
+        result = {
+            "success": True,
+            "numTotalTests": 1,
+            "numPassedTests": True,
+            "numFailedTests": 0,
+            "numPendingTests": 0,
+            "numTodoTests": 0,
+        }
+        with self.assertRaisesRegex(ValueError, "valid test-count fields"):
+            validate(result, 1, 0)
+
+    def test_rejects_non_object_test_report(self) -> None:
+        with self.assertRaisesRegex(ValueError, "JSON object"):
+            validate([], 31, 0)
+
     def test_validates_all_react_sources_when_none_is_fully_uncovered(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -90,6 +106,21 @@ class VitestValidationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "no covered React application lines"):
+                validate_react_source_coverage(summary, react_root)
+
+    def test_coverage_rejects_boolean_line_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            react_root = root / "BlazorAutoApp.React"
+            source = react_root / "app" / "routes.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text("export {}\n", encoding="utf-8")
+            summary = root / "coverage-summary.json"
+            summary.write_text(
+                json.dumps({"app/routes.ts": {"lines": {"total": 1, "covered": True}}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "invalid line counts"):
                 validate_react_source_coverage(summary, react_root)
 
 

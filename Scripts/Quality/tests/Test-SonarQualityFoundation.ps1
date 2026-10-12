@@ -93,12 +93,17 @@ try {
 }
 finally { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
 
-$context = Get-QualityContext -RepoRoot $repoRoot -RequireReactToolchain
+$contextWithoutReact = Get-QualityContext -RepoRoot $repoRoot
+Assert-Equal $contextWithoutReact.NodeExecutable $null 'default context does not resolve Node'
+Assert-Equal $contextWithoutReact.NpmCli $null 'default context does not resolve npm'
+
+$context = $contextWithoutReact
 Assert-Equal $context.RepositoryIdentity 'github.com/grumlebob/blazorautoapptemplate' 'resolved repository identity'
 Assert-Equal $context.HostPort 9200 'default host port selection'
-Assert-Equal $context.NodeVersion '24.21.0' 'resolved Node version'
-Assert-Equal $context.NpmVersion '12.2.0' 'resolved npm version'
-$npm = Invoke-QualityProcess -FilePath $context.NodeExecutable -ArgumentList @($context.NpmCli, '--version') -WorkingDirectory $repoRoot -TimeoutSeconds 15
+$nodeRuntime = Get-QualityNodeRuntime -ToolVersions $context.ToolVersions -ConfiguredDirectory $context.NodeToolchainDirectory
+Assert-Equal $nodeRuntime.NodeVersion '24.21.0' 'resolved Node version'
+Assert-Equal $nodeRuntime.NpmVersion '12.2.0' 'resolved npm version'
+$npm = Invoke-QualityProcess -FilePath $nodeRuntime.NodeExecutable -ArgumentList @($nodeRuntime.NpmCli, '--version') -WorkingDirectory $repoRoot -TimeoutSeconds 15
 Assert-Equal $npm.ExitCode 0 'pinned npm child exit code'
 Assert-Equal $npm.Stdout.Trim() '12.2.0' 'pinned npm child version'
 

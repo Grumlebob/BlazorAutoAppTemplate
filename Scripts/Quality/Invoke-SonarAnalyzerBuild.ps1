@@ -15,7 +15,7 @@ $repoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $standalone = $null -eq $Context
 $profiles = if ($FrontendProfile -eq 'Both') { @('BlazorAuto', 'React') } else { @($FrontendProfile) }
 if (-not $Context) {
-    $Context = Get-QualityContext -RepoRoot $repoRoot -RequireReactToolchain:($profiles -contains 'React')
+    $Context = Get-QualityContext -RepoRoot $repoRoot
 }
 if (Test-Path -LiteralPath (Join-Path $repoRoot '.sonarqube')) {
     throw 'An existing .sonarqube directory makes scanner ownership unclear. Preserve it and inspect it before running Quick mode.'

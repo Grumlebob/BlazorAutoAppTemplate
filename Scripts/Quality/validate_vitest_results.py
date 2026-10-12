@@ -11,6 +11,8 @@ from typing import Any
 
 
 def validate(document: dict[str, Any], expected_passed: int, expected_skipped: int) -> dict[str, int]:
+    if not isinstance(document, dict):
+        raise ValueError("Vitest JSON report must be a JSON object.")
     fields = {
         "total": document.get("numTotalTests"),
         "passed": document.get("numPassedTests"),
@@ -18,7 +20,7 @@ def validate(document: dict[str, Any], expected_passed: int, expected_skipped: i
         "pending": document.get("numPendingTests"),
         "todo": document.get("numTodoTests"),
     }
-    if any(not isinstance(value, int) or value < 0 for value in fields.values()):
+    if any(type(value) is not int or value < 0 for value in fields.values()):
         raise ValueError("Vitest JSON report is missing valid test-count fields.")
     if document.get("success") is not True:
         raise ValueError("Vitest JSON report does not mark the suite successful.")
@@ -37,50 +39,24 @@ def validate(document: dict[str, Any], expected_passed: int, expected_skipped: i
 
 
 def validate_react_source_coverage(path: Path, react_root: Path) -> dict[str, int | float]:
-    document = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(document, dict):
-        raise ValueError("Coverage summary must be a JSON object.")
+    document = _read_coverage_document(path)
     root = react_root.resolve()
     files: dict[str, dict[str, int]] = {}
     for source, summary in document.items():
         if source == "total" or not isinstance(summary, dict):
             continue
-        candidate = Path(source)
-        if not candidate.is_absolute():
-            normalized = source.replace("\\", "/")
-            if normalized.startswith("BlazorAutoApp.React/"):
-                candidate = react_root.parent / normalized
-            else:
-                candidate = react_root / normalized
-        resolved = candidate.resolve()
-        try:
-            relative = resolved.relative_to(root).as_posix()
-        except ValueError:
+        resolved = _resolve_coverage_source(source, react_root)
+        relative = _react_source_relative_path(resolved, root)
+        if relative is None:
             continue
-        if (
-            not relative.startswith("app/")
-            or relative.startswith("app/test/")
-            or relative.startswith("app/api/generated/")
-            or relative.endswith((".test.ts", ".test.tsx", ".d.ts", ".typecheck.ts"))
-        ):
+        if not _is_covered_application_source(relative):
             continue
         if resolved.suffix not in {".ts", ".tsx"} or not resolved.is_file():
             raise ValueError(f"Coverage source does not resolve to a React application file: {relative}")
-        lines = summary.get("lines") or {}
-        total = lines.get("total")
-        covered = lines.get("covered")
-        if not isinstance(total, int) or not isinstance(covered, int) or total < 0 or covered < 0 or covered > total:
-            raise ValueError(f"Coverage summary has invalid line counts for React source: {relative}")
+        total, covered = _react_line_counts(summary, relative)
         files[relative] = {"total": total, "covered": covered}
 
-    expected_files = {
-        source.relative_to(root).as_posix()
-        for source in (root / "app").rglob("*")
-        if source.is_file()
-        and source.suffix in {".ts", ".tsx"}
-        and not source.relative_to(root).as_posix().startswith(("app/test/", "app/api/generated/"))
-        and not source.name.endswith((".test.ts", ".test.tsx", ".d.ts", ".typecheck.ts"))
-    }
+    expected_files = _react_application_sources(root)
     missing = sorted(expected_files - files.keys())
     if missing:
         raise ValueError(f"Coverage summary omits React application source: {missing[0]}")
@@ -97,6 +73,57 @@ def validate_react_source_coverage(path: Path, react_root: Path) -> dict[str, in
         "totalLines": total_lines,
         "linePercentage": round(covered_lines * 100 / total_lines, 2),
     }
+
+
+def _read_coverage_document(path: Path) -> dict[str, Any]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise ValueError("Coverage summary must be a JSON object.")
+    return document
+
+
+def _resolve_coverage_source(source: str, react_root: Path) -> Path:
+    candidate = Path(source)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    normalized = source.replace("\\", "/")
+    base = react_root.parent if normalized.startswith("BlazorAutoApp.React/") else react_root
+    return (base / normalized).resolve()
+
+
+def _react_source_relative_path(resolved: Path, root: Path) -> str | None:
+    try:
+        return resolved.relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+
+def _is_covered_application_source(relative: str) -> bool:
+    return (
+        relative.startswith("app/")
+        and not relative.startswith(("app/test/", "app/api/generated/"))
+        and not relative.endswith((".test.ts", ".test.tsx", ".d.ts", ".typecheck.ts"))
+    )
+
+
+def _react_line_counts(summary: dict[str, Any], relative: str) -> tuple[int, int]:
+    lines = summary.get("lines") or {}
+    total = lines.get("total") if isinstance(lines, dict) else None
+    covered = lines.get("covered") if isinstance(lines, dict) else None
+    if type(total) is not int or type(covered) is not int or total < 0 or covered < 0 or covered > total:
+        raise ValueError(f"Coverage summary has invalid line counts for React source: {relative}")
+    return total, covered
+
+
+def _react_application_sources(root: Path) -> set[str]:
+    sources: set[str] = set()
+    for source in (root / "app").rglob("*"):
+        if not source.is_file() or source.suffix not in {".ts", ".tsx"}:
+            continue
+        relative = source.relative_to(root).as_posix()
+        if _is_covered_application_source(relative):
+            sources.add(relative)
+    return sources
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -118,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
             summary["coverage"] = validate_react_source_coverage(args.coverage_summary, args.react_root)
         print(json.dumps(summary, sort_keys=True))
         return 0
-    except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+    except (OSError, TypeError, ValueError) as error:
         print(f"Invalid Vitest result: {error}", file=sys.stderr)
         return 2
 

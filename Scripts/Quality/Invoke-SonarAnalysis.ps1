@@ -296,7 +296,7 @@ try {
     if ($ProjectKey -ne $expectedProjectKey) { throw 'Project key does not match the repository identity, profile, and candidate SHA.' }
     if ($env:RunSonarAnalyzers -eq 'true') { throw 'RunSonarAnalyzers=true is active. Clear it before a Full audit.' }
     if ($FrontendProfile -eq 'React' -and (-not $Context.NodeExecutable -or -not $Context.NpmCli)) {
-        throw 'React audit requires the exact pinned Node/npm toolchain resolved by the invoking checkout.'
+        throw 'React audit requires the exact pinned Node/npm toolchain resolved from the selected audit source.'
     }
     if (Test-Path -LiteralPath $scannerStatePath) {
         throw 'An existing .sonarqube directory makes scanner ownership unclear. Preserve it and inspect it before running Full mode.'
@@ -446,7 +446,7 @@ try {
 
     $coverageValidator = Join-Path $PSScriptRoot 'validate_dotnet_coverage.py'
     $coverageJson = Join-Path $runDirectory 'tests/coverage-validation.json'
-    $coverageResult = Invoke-QualityStep -Name 'validate-dotnet-coverage' -Executable $Context.PythonExecutable `
+    $null = Invoke-QualityStep -Name 'validate-dotnet-coverage' -Executable $Context.PythonExecutable `
         -Arguments @($coverageValidator, '--tests-directory', $testsDirectory, '--repo-root', $repoRoot,
             '--frontend-profile', $FrontendProfile, '--output-json', $coverageJson) `
         -WorkingDirectory $repoRoot -MaximumSeconds 60

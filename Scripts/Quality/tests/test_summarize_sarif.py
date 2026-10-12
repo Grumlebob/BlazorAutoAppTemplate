@@ -99,6 +99,16 @@ class ReadFindingsTests(unittest.TestCase):
         self.assertEqual(descriptions["CA1822"], "Mark members as static")
         self.assertEqual(descriptions["S108"], "Nested blocks of code should not be left empty")
 
+    def test_first_rule_description_wins_across_sarif_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for name, description in (("A.sarif", "first"), ("B.sarif", "second")):
+                document = {"runs": [{"tool": {"driver": {"rules": [
+                    {"id": "S1234", "shortDescription": {"text": description}},
+                ]}}, "results": []}]}
+                Path(directory, name).write_text(json.dumps(document), encoding="utf-8")
+            _, descriptions = read_findings(directory, FAKE_ROOT)
+        self.assertEqual(descriptions["S1234"], "first")
+
 
 class SummaryOutputTests(unittest.TestCase):
     def test_empty_directory_exits_with_two(self) -> None:

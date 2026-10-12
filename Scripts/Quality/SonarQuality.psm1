@@ -228,7 +228,7 @@ function Get-QualityNodeRuntime {
                     $npmVersion = $npmOut.GetAwaiter().GetResult().Trim()
                     $null = $npmErr.GetAwaiter().GetResult()
                     if ($npmProcess.ExitCode -eq 0 -and $npmVersion -eq [string]$ToolVersions.node.npmVersion) {
-                        return [pscustomobject]@{ NodeExecutable = [IO.Path]::GetFullPath($node); NpmCli = [IO.Path]::GetFullPath($npmCli); Directory = $nodeDirectory; NodeVersion = $actual; NpmVersion = $npmVersion }
+                        return [pscustomobject]@{ NodeExecutable = [IO.Path]::GetFullPath($node); NpmCli = [IO.Path]::GetFullPath($npmCli); NodeVersion = $actual; NpmVersion = $npmVersion }
                     }
                 }
                 finally { $npmProcess.Dispose() }
@@ -276,8 +276,7 @@ function Get-QualityContext {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [string]$SettingsPath,
-        [switch]$RequireReactToolchain
+        [string]$SettingsPath
     )
 
     $repo = (Resolve-Path -LiteralPath $RepoRoot).Path
@@ -328,7 +327,6 @@ function Get-QualityContext {
 
     $versions = Get-QualityToolVersions -RepoRoot $repo
     $python = Get-QualityPythonExecutable -ConfiguredExecutable $settingValues.pythonExecutable
-    $node = if ($RequireReactToolchain) { Get-QualityNodeRuntime -ToolVersions $versions -ConfiguredDirectory $settingValues.nodeToolchainDirectory } else { $null }
     $dotnetCommand = Get-Command dotnet.exe, dotnet -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     $gitCommand = Get-Command git.exe, git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $dotnetCommand -or -not $dotnetCommand.Source) { throw '.NET SDK executable was not found.' }
@@ -367,10 +365,11 @@ function Get-QualityContext {
         GitExecutable = [IO.Path]::GetFullPath($gitCommand.Source)
         DockerExecutable = if ($dockerCommand -and $dockerCommand.Source) { [IO.Path]::GetFullPath($dockerCommand.Source) } else { $null }
         PythonExecutable = $python
-        NodeExecutable = if ($node) { $node.NodeExecutable } else { $null }
-        NpmCli = if ($node) { $node.NpmCli } else { $null }
-        NodeVersion = if ($node) { $node.NodeVersion } else { $null }
-        NpmVersion = if ($node) { $node.NpmVersion } else { $null }
+        NodeToolchainDirectory = $settingValues.nodeToolchainDirectory
+        NodeExecutable = $null
+        NpmCli = $null
+        NodeVersion = $null
+        NpmVersion = $null
         SettingsSnapshot = $effectiveJson
         SettingsDigest = $settingsDigest
         PrivateSettings = $privateSettings

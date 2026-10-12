@@ -87,6 +87,23 @@ def standard_routes(hotspots=None, analyses=None, tree=None) -> dict:
     }
 
 
+def report_request(profile: str, run_evidence: dict) -> sr.ReportRequest:
+    return sr.ReportRequest(
+        project=PROJECT,
+        repo_root=REPO_ROOT,
+        sha=SHA,
+        churn_days=180,
+        repository_identity=IDENTITY,
+        frontend_profile=profile,
+        analysis_id=ANALYSIS_ID,
+        project_version=PROJECT_VERSION,
+        settings_digest=SETTINGS_DIGEST,
+        settings_snapshot={"hostPort": 9200},
+        server_version="26.9.0.129388",
+        run_evidence=run_evidence,
+    )
+
+
 def build_standard_report(routes: dict | None = None, path_exists=None, profile: str = "BlazorAuto") -> dict:
     run_evidence = RUN_EVIDENCE
     if profile == "React":
@@ -97,11 +114,8 @@ def build_standard_report(routes: dict | None = None, path_exists=None, profile:
                                                                         "coveredProductionSources": [GEOMETRY]}},
         }
     return sr.build_report(
-        FakeClient(routes or standard_routes()), PROJECT, REPO_ROOT, SHA, 180, CHURN_TEXT,
-        path_exists=path_exists or (lambda path: True), repository_identity=IDENTITY,
-        frontend_profile=profile, analysis_id=ANALYSIS_ID, project_version=PROJECT_VERSION,
-        settings_digest=SETTINGS_DIGEST, settings_snapshot={"hostPort": 9200},
-        server_version="26.9.0.129388", run_evidence=run_evidence,
+        FakeClient(routes or standard_routes()), report_request(profile, run_evidence), CHURN_TEXT,
+        path_exists=path_exists or (lambda path: True),
     )
 
 
@@ -136,7 +150,6 @@ class RiskAndClassificationTests(unittest.TestCase):
         self.assertEqual(core["other"], 0)
 
     def test_missing_file_coverage_stays_null_and_marks_risk_fallback(self) -> None:
-        report = build_standard_report()
         python_file = {"path": "Scripts/Quality/example.py", "measures": [
             {"metric": "cognitive_complexity", "value": "16"}]}
         built = sr.build_files([python_file], [], sr.Counter())
@@ -227,10 +240,8 @@ class ReportCompletenessTests(unittest.TestCase):
     def test_report_binds_schema_run_scope_gate_and_metadata_to_exact_analysis(self) -> None:
         client = FakeClient(standard_routes())
         report = sr.build_report(
-            client, PROJECT, REPO_ROOT, SHA, 180, CHURN_TEXT, path_exists=lambda path: True,
-            repository_identity=IDENTITY, frontend_profile="BlazorAuto", analysis_id=ANALYSIS_ID,
-            project_version=PROJECT_VERSION, settings_digest=SETTINGS_DIGEST,
-            settings_snapshot={"hostPort": 9200}, server_version="26.9.0.129388", run_evidence=RUN_EVIDENCE,
+            client, report_request("BlazorAuto", RUN_EVIDENCE), CHURN_TEXT,
+            path_exists=lambda path: True,
         )
         self.assertTrue(report["complete"])
         self.assertEqual(report["schema"], "blazorautoapp.sonar-report/1")
@@ -251,8 +262,9 @@ class ReportCompletenessTests(unittest.TestCase):
             changed = json.loads(json.dumps(ANALYSES))
             changed["analyses"][0]["revision"] = "0" * 40
             return changed
+        routes = standard_routes(analyses=analyses)
         with self.assertRaisesRegex(sr.IncompleteDataError, "analysis changed"):
-            build_standard_report(standard_routes(analyses=analyses))
+            build_standard_report(routes)
 
     def test_report_incomplete_when_path_or_profile_evidence_is_missing(self) -> None:
         report = build_standard_report(path_exists=lambda path: path != GEOMETRY)
@@ -279,6 +291,22 @@ class ReportCompletenessTests(unittest.TestCase):
         self.assertTrue(report["scopeEvidence"]["testedApiModuleHasCoverage"])
         self.assertTrue(report["scopeEvidence"]["blazorImplementationExcluded"])
 
+    def test_run_evidence_rejects_boolean_test_counts(self) -> None:
+        evidence = json.loads(json.dumps(RUN_EVIDENCE))
+        evidence["tests"]["dotnet"]["passed"] = True
+        valid, warnings = sr.validate_run_evidence("BlazorAuto", evidence)
+        self.assertFalse(valid)
+        self.assertIn("The approved .NET suite result counts are missing or invalid.", warnings)
+
+    def test_invalid_nested_run_evidence_still_renders_incomplete_report(self) -> None:
+        evidence = {"tests": None, "coverage": "invalid"}
+        report = sr.build_report(
+            FakeClient(standard_routes()), report_request("BlazorAuto", evidence), CHURN_TEXT,
+            path_exists=lambda path: True,
+        )
+        self.assertFalse(report["complete"])
+        self.assertIn("n/a passed", sr.render_markdown(report))
+
 
 class HotspotAndSanitizationTests(unittest.TestCase):
     def test_hotspot_capability_states_are_not_conflated(self) -> None:
@@ -291,8 +319,9 @@ class HotspotAndSanitizationTests(unittest.TestCase):
         self.assertFalse(forbidden["complete"])
         self.assertEqual(unavailable["status"], "unreachable")
         self.assertFalse(unavailable["complete"])
+        busy_client = FakeClient({"api/hotspots/search": HTTPError("http://x", 503, "Busy", None, None)})
         with self.assertRaises(HTTPError):
-            sr.fetch_hotspots(FakeClient({"api/hotspots/search": HTTPError("http://x", 503, "Busy", None, None)}), PROJECT)
+            sr.fetch_hotspots(busy_client, PROJECT)
 
     def test_authors_paths_and_token_sentinels_are_sanitized(self) -> None:
         issue = sr.normalize_issue({**ISSUES[0], "message": r"At C:\Users\private\secret.cs contact me@example.invalid token sentinel-value"}, PROJECT)

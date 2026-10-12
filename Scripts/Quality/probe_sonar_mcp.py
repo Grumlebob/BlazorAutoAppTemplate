@@ -210,7 +210,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+def _probe_command(args: argparse.Namespace) -> list[str]:
     if not 1 <= args.timeout_seconds <= 300:
         raise ProbeError("Timeout must be between 1 and 300 seconds.")
     launcher = args.launcher.resolve(strict=True)
@@ -219,7 +219,6 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     powershell = shutil.which("pwsh")
     if not powershell:
         raise ProbeError("PowerShell 7 (pwsh) was not found.")
-
     command = [
         powershell,
         "-NoProfile",
@@ -232,18 +231,14 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     ]
     if args.settings_path:
         command.extend(["-SettingsPath", str(args.settings_path.resolve())])
+    return command
 
-    docker = shutil.which("docker")
-    if not docker:
-        raise ProbeError("Docker CLI was not found for private probe cleanup.")
-    probe_container = new_probe_container_name()
+
+def _start_probe_process(command: list[str], probe_container: str) -> subprocess.Popen:
     process_env = os.environ.copy()
     process_env["SONAR_QUALITY_MCP_PROBE_CONTAINER"] = probe_container
-
-    started = time.monotonic()
-    deadline = started + args.timeout_seconds
     creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-    process = subprocess.Popen(
+    return subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -256,88 +251,115 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         creationflags=creation_flags,
         start_new_session=os.name != "nt",
     )
+
+
+def _drain_stderr(process: subprocess.Popen, lines: list[str]) -> None:
+    assert process.stderr is not None
+    for line in process.stderr:
+        if len(lines) < 200:
+            lines.append(line.rstrip())
+
+
+def _call_read_only_tools(client: StdioMcpClient, project_key: str) -> tuple[str, set[str], list[str]]:
+    initialized = client.request(
+        "initialize",
+        {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "blazorautoapp-sonar-probe", "version": "1.0"},
+        },
+    )
+    protocol_version = initialized.get("protocolVersion")
+    if not isinstance(protocol_version, str) or not protocol_version:
+        raise ProbeError("MCP initialize did not negotiate a protocol version.")
+    client.notify("notifications/initialized")
+
+    tools = client.tools()
+    names = {tool.get("name") for tool in tools if isinstance(tool.get("name"), str)}
+    missing = sorted(REQUIRED_TOOLS - names)
+    forbidden = sorted(FORBIDDEN_TOOLS & names)
+    if missing:
+        raise ProbeError(f"MCP server omitted required read tools: {', '.join(missing)}")
+    if forbidden:
+        raise ProbeError(f"Read-only MCP server exposed mutation tools: {', '.join(forbidden)}")
+
+    by_name = {tool["name"]: tool for tool in tools if isinstance(tool.get("name"), str)}
+    completed_calls: list[str] = []
+    for name in sorted(REQUIRED_TOOLS):
+        schema = by_name[name].get("inputSchema", {})
+        client.call_tool(name, build_tool_arguments(name, schema, project_key))
+        completed_calls.append(name)
+    return protocol_version, names, completed_calls
+
+
+def _cleanup_probe_process(
+    process: subprocess.Popen,
+    client: StdioMcpClient,
+    stderr_reader: threading.Thread,
+    docker: str,
+    probe_container: str,
+    succeeded: bool,
+) -> None:
+    if process.poll() is None:
+        if process.stdin and not process.stdin.closed:
+            process.stdin.close()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            terminate_process_tree(process)
+    stderr_reader.join(timeout=3)
+    client.reader.join(timeout=3)
+    if process.stdout:
+        process.stdout.close()
+    if process.stderr:
+        process.stderr.close()
+    if succeeded:
+        return
+    try:
+        cleanup = subprocess.run(
+            probe_container_cleanup_command(docker, probe_container),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if cleanup.returncode == 0 or re.search(r"No such (object|container)", cleanup.stderr, flags=re.IGNORECASE):
+            return
+        details = cleanup.stderr.strip().replace("\r", " ")[:500]
+        print(f"MCP probe container cleanup failed: {details}", file=sys.stderr)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"MCP probe container cleanup failed: {exc}", file=sys.stderr)
+
+
+def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+    command = _probe_command(args)
+    docker = shutil.which("docker")
+    if not docker:
+        raise ProbeError("Docker CLI was not found for private probe cleanup.")
+    probe_container = new_probe_container_name()
+    started = time.monotonic()
+    deadline = started + args.timeout_seconds
+    process = _start_probe_process(command, probe_container)
     stderr_lines: list[str] = []
-
-    def drain_stderr() -> None:
-        assert process.stderr is not None
-        for line in process.stderr:
-            if len(stderr_lines) < 200:
-                stderr_lines.append(line.rstrip())
-
-    stderr_reader = threading.Thread(target=drain_stderr, daemon=True)
+    stderr_reader = threading.Thread(target=_drain_stderr, args=(process, stderr_lines), daemon=True)
     stderr_reader.start()
     client = StdioMcpClient(process, deadline)
-    names: set[str] = set()
-    completed_calls: list[str] = []
-    probe_succeeded = False
+    succeeded = False
     try:
-        initialized = client.request(
-            "initialize",
-            {
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "blazorautoapp-sonar-probe", "version": "1.0"},
-            },
-        )
-        protocol_version = initialized.get("protocolVersion")
-        if not isinstance(protocol_version, str) or not protocol_version:
-            raise ProbeError("MCP initialize did not negotiate a protocol version.")
-        client.notify("notifications/initialized")
-
-        tools = client.tools()
-        names = {tool.get("name") for tool in tools if isinstance(tool.get("name"), str)}
-        missing = sorted(REQUIRED_TOOLS - names)
-        forbidden = sorted(FORBIDDEN_TOOLS & names)
-        if missing:
-            raise ProbeError(f"MCP server omitted required read tools: {', '.join(missing)}")
-        if forbidden:
-            raise ProbeError(f"Read-only MCP server exposed mutation tools: {', '.join(forbidden)}")
-
-        by_name = {tool["name"]: tool for tool in tools if isinstance(tool.get("name"), str)}
-        for name in sorted(REQUIRED_TOOLS):
-            schema = by_name[name].get("inputSchema", {})
-            arguments = build_tool_arguments(name, schema, args.project_key)
-            client.call_tool(name, arguments)
-            completed_calls.append(name)
-
+        protocol_version, names, completed_calls = _call_read_only_tools(client, args.project_key)
         if process.stdin:
             process.stdin.close()
         remaining = max(0.0, deadline - time.monotonic())
         process.wait(timeout=remaining)
+        stderr_reader.join(timeout=3)
         if process.returncode != 0:
             diagnostics = " ".join(stderr_lines)[-1200:]
             raise ProbeError(f"MCP launcher exited {process.returncode}: {diagnostics}")
-        probe_succeeded = True
+        succeeded = True
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ProbeError(f"MCP process failed: {exc}") from exc
     finally:
-        if process.poll() is None:
-            if process.stdin and not process.stdin.closed:
-                process.stdin.close()
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                terminate_process_tree(process)
-        if process.stdout:
-            process.stdout.close()
-        if process.stderr:
-            process.stderr.close()
-        if not probe_succeeded:
-            try:
-                cleanup = subprocess.run(
-                    probe_container_cleanup_command(docker, probe_container),
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                )
-                if cleanup.returncode != 0 and not re.search(
-                    r"No such (object|container)", cleanup.stderr, flags=re.IGNORECASE
-                ):
-                    details = cleanup.stderr.strip().replace("\r", " ")[:500]
-                    print(f"MCP probe container cleanup failed: {details}", file=sys.stderr)
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                print(f"MCP probe container cleanup failed: {exc}", file=sys.stderr)
+        _cleanup_probe_process(process, client, stderr_reader, docker, probe_container, succeeded)
 
     return {
         "profile": args.profile,
