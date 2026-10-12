@@ -385,6 +385,8 @@ Run an authenticated local home-page report with the seeded Docker/Development u
 
 For production, omit `-IgnoreCertificateErrors` and point `-BaseUrl` at the deployed domain.
 
+To audit a disposable local fixture through its loopback request proxy, pass `-BrowserProxy http://127.0.0.1:<port>`. The browser sends requests through that HTTP proxy, including requests to loopback; the proxy must enforce the fixture's public-route allowlist. The script rejects non-loopback proxies and proxy credentials. Relative report roots remain repository-relative; an absolute `-OutputRoot` writes to that exact directory.
+
 If a Cloudflare-proxied production run reports deprecated APIs from `/cdn-cgi/challenge-platform/scripts/jsd/main.js`, that is Cloudflare JavaScript Detections/Bot Fight Mode injecting a challenge script into the HTML. Confirm by running a one-off Lighthouse comparison with `--blocked-url-patterns='*/cdn-cgi/challenge-platform/*'`; fixing that score requires a Cloudflare zone setting, not an app code change.
 
 When testing a local `dotnet run` app on `http://127.0.0.1:5099`, start that app with higher local-only rate limits so headed desktop and mobile runs do not trip the template limiter:

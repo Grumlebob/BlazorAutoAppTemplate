@@ -8,14 +8,19 @@ param(
   [switch]$AuthenticatedLocalUser,
   [string]$Email = "user@user.com",
   [string]$Password = "User123",
-  [string]$OutputRoot = "TestResults/Lighthouse"
+  [string]$OutputRoot = "TestResults/Lighthouse",
+  [string]$BrowserProxy
 )
 
 $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
 $clientRoot = Join-Path $repoRoot "BlazorAutoApp.Client"
-$outputRootPath = Join-Path $repoRoot $OutputRoot
+$outputRootPath = if ([IO.Path]::IsPathRooted($OutputRoot)) {
+  [IO.Path]::GetFullPath($OutputRoot)
+} else {
+  [IO.Path]::GetFullPath((Join-Path $repoRoot $OutputRoot))
+}
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runDirectory = Join-Path $outputRootPath "$Label-$timestamp"
 $nodeCommand = "node"
@@ -143,6 +148,24 @@ foreach ($path in $Paths) {
 
     if ($IgnoreCertificateErrors) {
       $arguments += "--chrome-flags=--ignore-certificate-errors"
+    }
+
+    if ($BrowserProxy) {
+      try {
+        $proxyUri = [Uri]$BrowserProxy
+      }
+      catch {
+        throw "The audit browser proxy must be an HTTP loopback fixture proxy."
+      }
+
+      if (-not $proxyUri.IsAbsoluteUri -or $proxyUri.Scheme -ne "http" -or
+          $proxyUri.Host -ne "127.0.0.1" -or $proxyUri.IsDefaultPort -or
+          -not [string]::IsNullOrEmpty($proxyUri.UserInfo) -or
+          $proxyUri.AbsolutePath -ne "/" -or $proxyUri.Query -or $proxyUri.Fragment) {
+        throw "The audit browser proxy must be an HTTP loopback fixture proxy."
+      }
+
+      $arguments += "--chrome-flags=--proxy-server=$BrowserProxy --proxy-bypass-list=<-loopback>"
     }
 
     if ($extraHeadersPath) {
