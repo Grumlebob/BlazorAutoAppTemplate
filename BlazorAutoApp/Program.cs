@@ -69,5 +69,3 @@ app.MapAppHealthChecks();
 app.MapBooksFeature();
 
 app.Run();
-
-public partial class Program;
