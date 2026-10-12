@@ -1257,7 +1257,7 @@ Safe to rerun: yes.
 Success: acceptance check ok.
 ```
 
-This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, app-specific DB/Redis host ports, local Caddy health for `public_hostname`, the `caddy` and `cloudflared` services, and the backup directory state. `verify-deployment.sh` remains as a compatibility wrapper around this command.
+This checks the public health endpoint, app-node health, app-node compose state, DB/Redis compose state, app-specific DB/Redis host ports, local Caddy health for `public_hostname`, the `caddy` and `cloudflared` services, and the backup directory state.
 
 Checkpoint:
 

@@ -193,7 +193,6 @@ required_files = [
     "Deployment/LocalCluster/Scripts/validate-side-by-side.sh",
     "Deployment/LocalCluster/Scripts/verify-bootstrap.sh",
     "Deployment/LocalCluster/Scripts/verify-backup.sh",
-    "Deployment/LocalCluster/Scripts/verify-deployment.sh",
     "Deployment/Common/Scripts/with-deploy-lock.sh",
     "Deployment/Common/Scripts/release-deploy-lock.sh",
     "Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh",
@@ -1626,7 +1625,7 @@ for path, checks in {
         ("sport = :${POSTGRES_PORT}", "PostgreSQL port check"),
         ("sport = :${REDIS_PORT}", "Redis port check"),
         ("backup directory", "backup directory check"),
-        ("acceptance check ok", "clear success line"),
+        ('echo "acceptance check ok"', "canonical command success line"),
     ],
     "Deployment/LocalCluster/Scripts/report-nodes.sh": [
         ("os=", "OS report"),
@@ -1800,16 +1799,6 @@ for needle, why in [
 ]:
     if needle not in verify_bootstrap:
         fail(f"Deployment/LocalCluster/Scripts/verify-bootstrap.sh: missing {why}")
-
-verify_deployment = read("Deployment/LocalCluster/Scripts/verify-deployment.sh")
-for needle, why in [
-    ("acceptance-check.sh", "acceptance check wrapper"),
-    ("deployment verification ok", "clear success line"),
-]:
-    if needle not in verify_deployment:
-        fail(f"Deployment/LocalCluster/Scripts/verify-deployment.sh: missing {why}")
-if "http://localhost" in verify_deployment:
-    fail("Deployment/LocalCluster/Scripts/verify-deployment.sh: use 127.0.0.1 instead of localhost for local health checks")
 
 runner_setup = read("Deployment/LocalCluster/Scripts/install-github-runner.sh")
 for needle, why in [
