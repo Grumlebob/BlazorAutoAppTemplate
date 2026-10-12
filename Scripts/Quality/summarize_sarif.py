@@ -85,34 +85,63 @@ def describe(rule: dict[str, Any]) -> str:
     return (rule.get("fullDescription") or {}).get("text", "")
 
 
+def _finding_key(finding: Finding) -> tuple[str, str, int, str]:
+    return finding.rule, finding.path, finding.line, finding.message
+
+
+def _finding_from_result(result: dict[str, Any], sarif_name: str, repo_root: str) -> Finding | None:
+    if result.get("suppressions"):
+        return None
+    locations = result.get("locations") or [{}]
+    physical = locations[0].get("physicalLocation") or {}
+    uri = (physical.get("artifactLocation") or {}).get("uri", "")
+    path = to_repo_relative(uri, repo_root)
+    line = int((physical.get("region") or {}).get("startLine", 0))
+    return Finding(
+        result.get("ruleId", ""),
+        path,
+        line,
+        (result.get("message") or {}).get("text", ""),
+        scope_of(path, sarif_name),
+        sarif_name[: -len(".sarif")],
+    )
+
+
+def _findings_from_run(run: dict[str, Any], sarif_name: str, repo_root: str) -> list[Finding]:
+    findings = []
+    for result in run.get("results", []):
+        finding = _finding_from_result(result, sarif_name, repo_root)
+        if finding is not None:
+            findings.append(finding)
+    return findings
+
+
+def _descriptions_from_run(run: dict[str, Any]) -> dict[str, str]:
+    driver = (run.get("tool") or {}).get("driver") or {}
+    return {
+        rule.get("id", ""): describe(rule)
+        for rule in driver.get("rules", [])
+        if rule.get("id", "")
+    }
+
+
 def read_findings(sarif_dir: str, repo_root: str) -> tuple[list[Finding], dict[str, str]]:
     seen: set[tuple[str, str, int, str]] = set()
     findings: list[Finding] = []
     descriptions: dict[str, str] = {}
     for sarif_path in sorted(glob.glob(os.path.join(sarif_dir, "*.sarif"))):
         sarif_name = os.path.basename(sarif_path)
-        project = sarif_name[: -len(".sarif")]
         with open(sarif_path, encoding="utf-8-sig") as handle:
             document = json.load(handle)
         for run in document.get("runs", []):
-            driver = (run.get("tool") or {}).get("driver") or {}
-            for rule in driver.get("rules", []):
-                descriptions.setdefault(rule.get("id", ""), describe(rule))
-            for result in run.get("results", []):
-                if result.get("suppressions"):
-                    continue
-                locations = result.get("locations") or [{}]
-                physical = locations[0].get("physicalLocation") or {}
-                uri = (physical.get("artifactLocation") or {}).get("uri", "")
-                path = to_repo_relative(uri, repo_root)
-                line = int((physical.get("region") or {}).get("startLine", 0))
-                rule_id = result.get("ruleId", "")
-                message = (result.get("message") or {}).get("text", "")
-                key = (rule_id, path, line, message)
+            for rule_id, description in _descriptions_from_run(run).items():
+                descriptions.setdefault(rule_id, description)
+            for finding in _findings_from_run(run, sarif_name, repo_root):
+                key = _finding_key(finding)
                 if key in seen:
                     continue
                 seen.add(key)
-                findings.append(Finding(rule_id, path, line, message, scope_of(path, sarif_name), project))
+                findings.append(finding)
     findings.sort(key=lambda f: (f.path, f.line, f.rule))
     return findings, descriptions
 
@@ -274,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         findings, descriptions = read_findings(args.sarif_dir, args.repo_root)
-    except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+    except (OSError, TypeError, ValueError) as error:
         print(f"Could not read SARIF findings: {error}", file=sys.stderr)
         return 2
     summary = build_summary(

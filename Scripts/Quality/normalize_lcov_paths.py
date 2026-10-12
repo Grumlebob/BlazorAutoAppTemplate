@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         args.output.write_text(content, encoding="utf-8", newline="\n")
         print(f"Normalized {sum(line.startswith('SF:') for line in content.splitlines())} LCOV source paths.")
         return 0
-    except (OSError, UnicodeError, ValueError) as error:
+    except (OSError, ValueError) as error:
         print(f"Invalid LCOV report: {error}", file=sys.stderr)
         return 2
 

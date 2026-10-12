@@ -42,7 +42,7 @@ def is_ignored_source(value: str) -> bool:
     )
 
 
-def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> dict[str, Any]:
+def _coverage_reports(tests_directory: Path) -> list[Path]:
     reports = sorted(path for path in tests_directory.glob("*/*.xml") if path.is_file())
     if not reports:
         raise ValueError("No direct GUID-child Microsoft coverage XML report was produced.")
@@ -51,67 +51,108 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
             uuid.UUID(report.parent.name)
         except ValueError as error:
             raise ValueError(f"Coverage report is not in a GUID child directory: {report.name}") from error
+    return reports
 
+
+def _modules_from_report(report: Path) -> list[ET.Element]:
+    try:
+        root = ET.parse(report).getroot()
+    except (OSError, ET.ParseError) as error:
+        raise ValueError(f"Cannot parse coverage XML: {report.name}") from error
+    if root.tag.rsplit("}", 1)[-1] != "results":
+        raise ValueError(f"Unexpected coverage XML root in {report.name}.")
+    modules = root.find("modules")
+    found = modules.findall("module") if modules is not None else []
+    if not found:
+        raise ValueError(f"Coverage XML has no module data: {report.name}.")
+    return found
+
+
+def _module_line_counts(module: ET.Element, report_name: str) -> tuple[str, int, int]:
+    name = module.get("name") or ""
+    if not name:
+        raise ValueError(f"Coverage module has no assembly name in {report_name}.")
+    covered = _integer(module.get("lines_covered"), "lines_covered", report_name)
+    missed = _integer(module.get("lines_not_covered"), "lines_not_covered", report_name)
+    return name, covered, missed
+
+
+def _source_mapping(
+    module: ET.Element, repo_root: Path, report_name: str
+) -> tuple[dict[str, str], set[str], int]:
+    source_map: dict[str, str] = {}
+    ignored_source_ids: set[str] = set()
+    source_count = 0
+    sources = module.find("source_files")
+    if sources is None:
+        return source_map, ignored_source_ids, source_count
+
+    for source_file in sources.findall("source_file"):
+        source_id = source_file.get("id")
+        source_path = source_file.get("path")
+        if source_id is None or source_path is None:
+            raise ValueError(f"Coverage source mapping is incomplete in {report_name}.")
+        if is_ignored_source(source_path):
+            ignored_source_ids.add(source_id)
+            continue
+        relative, exists = normalized_source(source_path, repo_root)
+        if not exists:
+            raise ValueError(f"Coverage source does not resolve to a repository file: {relative}")
+        source_count += 1
+        source_map[source_id] = relative
+    return source_map, ignored_source_ids, source_count
+
+
+def _covered_sources(
+    module: ET.Element, source_map: dict[str, str], ignored_source_ids: set[str], report_name: str
+) -> set[str]:
+    covered: set[str] = set()
+    functions = module.find("functions")
+    if functions is None:
+        return covered
+
+    for function in functions.findall("function"):
+        ranges = function.find("ranges")
+        if ranges is None:
+            continue
+        for line_range in ranges.findall("range"):
+            source_id = line_range.get("source_id")
+            if source_id in ignored_source_ids:
+                continue
+            if source_id not in source_map:
+                raise ValueError(f"Coverage range references an unknown source id in {report_name}.")
+            if line_range.get("covered", "").casefold() == "yes":
+                covered.add(source_map[source_id])
+    return covered
+
+
+def _production_modules(modules_by_name: dict[str, dict[str, int]]) -> dict[str, dict[str, int]]:
+    return {
+        name: counts
+        for name, counts in modules_by_name.items()
+        if not name.casefold().endswith(".test.dll")
+    }
+
+
+def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> dict[str, Any]:
+    if profile not in {"BlazorAuto", "React"}:
+        raise ValueError(f"Unsupported frontend profile: {profile}")
+
+    reports = _coverage_reports(tests_directory)
     modules_by_name: dict[str, dict[str, int]] = {}
     covered_sources: set[str] = set()
     source_count = 0
     for report in reports:
-        try:
-            root = ET.parse(report).getroot()
-        except (OSError, ET.ParseError) as error:
-            raise ValueError(f"Cannot parse coverage XML: {report.name}") from error
-        if root.tag.rsplit("}", 1)[-1] != "results":
-            raise ValueError(f"Unexpected coverage XML root in {report.name}.")
-        modules = root.find("modules")
-        if modules is None or not list(modules.findall("module")):
-            raise ValueError(f"Coverage XML has no module data: {report.name}.")
-
-        for module in modules.findall("module"):
-            name = module.get("name") or ""
-            if not name:
-                raise ValueError(f"Coverage module has no assembly name in {report.name}.")
-            covered = _integer(module.get("lines_covered"), "lines_covered", report.name)
-            missed = _integer(module.get("lines_not_covered"), "lines_not_covered", report.name)
+        for module in _modules_from_report(report):
+            name, covered, missed = _module_line_counts(module, report.name)
             record = modules_by_name.setdefault(name, {"coveredLines": 0, "uncoveredLines": 0})
             record["coveredLines"] += covered
             record["uncoveredLines"] += missed
+            source_map, ignored_ids, count = _source_mapping(module, repo_root, report.name)
+            source_count += count
+            covered_sources.update(_covered_sources(module, source_map, ignored_ids, report.name))
 
-            sources_element = module.find("source_files")
-            source_map: dict[str, str] = {}
-            ignored_source_ids: set[str] = set()
-            if sources_element is not None:
-                for source_file in sources_element.findall("source_file"):
-                    source_id = source_file.get("id")
-                    source_path = source_file.get("path")
-                    if source_id is None or source_path is None:
-                        raise ValueError(f"Coverage source mapping is incomplete in {report.name}.")
-                    if is_ignored_source(source_path):
-                        ignored_source_ids.add(source_id)
-                        continue
-                    relative, exists = normalized_source(source_path, repo_root)
-                    if not exists:
-                        raise ValueError(f"Coverage source does not resolve to a repository file: {relative}")
-                    source_count += 1
-                    source_map[source_id] = relative
-
-            functions = module.find("functions")
-            if functions is None:
-                continue
-            for function in functions.findall("function"):
-                ranges = function.find("ranges")
-                if ranges is None:
-                    continue
-                for line_range in ranges.findall("range"):
-                    source_id = line_range.get("source_id")
-                    if source_id in ignored_source_ids:
-                        continue
-                    if source_id not in source_map:
-                        raise ValueError(f"Coverage range references an unknown source id in {report.name}.")
-                    if line_range.get("covered", "").casefold() == "yes":
-                        covered_sources.add(source_map[source_id])
-
-    test_assemblies = {name for name in modules_by_name if name.casefold().endswith(".test.dll")}
-    production = {name: counts for name, counts in modules_by_name.items() if name not in test_assemblies}
+    production = _production_modules(modules_by_name)
     if not production:
         raise ValueError("Coverage report contains no production assemblies.")
     if not any(counts["coveredLines"] > 0 for counts in production.values()):
@@ -121,7 +162,6 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
     expected_sources = sorted(source for source in covered_sources if source.startswith(expected_root))
     if not expected_sources:
         raise ValueError(f"Coverage contains no covered source in the {profile} production composition.")
-
     return {
         "valid": True,
         "reportCount": len(reports),

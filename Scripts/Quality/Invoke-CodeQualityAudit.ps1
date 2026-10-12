@@ -21,8 +21,7 @@ $modulePath = Join-Path $PSScriptRoot 'SonarQuality.psm1'
 Import-Module -Name $modulePath -Force -DisableNameChecking
 $invokingRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $profiles = if ($FrontendProfile -eq 'Both') { @('BlazorAuto', 'React') } else { @($FrontendProfile) }
-$context = Get-QualityContext -RepoRoot $invokingRoot -SettingsPath $SettingsPath `
-    -RequireReactToolchain:($profiles -contains 'React')
+$context = Get-QualityContext -RepoRoot $invokingRoot -SettingsPath $SettingsPath
 
 if ($Mode -eq 'Quick') {
     $quickScript = Join-Path $PSScriptRoot 'Invoke-SonarAnalyzerBuild.ps1'
@@ -387,11 +386,7 @@ try {
     $context.ToolVersions = Get-QualityToolVersions -RepoRoot $sourceRoot
     $batch.toolVersions = $context.ToolVersions
     if ($profiles -contains 'React') {
-        $nodeSettings = $null
-        if (Test-Path -LiteralPath $context.LocalSettingsPath -PathType Leaf) {
-            $nodeSettings = (Get-QualitySettingsDocument -Path $context.LocalSettingsPath).nodeToolchainDirectory
-        }
-        $nodeRuntime = Get-QualityNodeRuntime -ToolVersions $context.ToolVersions -ConfiguredDirectory $nodeSettings
+        $nodeRuntime = Get-QualityNodeRuntime -ToolVersions $context.ToolVersions -ConfiguredDirectory $context.NodeToolchainDirectory
         $context.NodeExecutable = $nodeRuntime.NodeExecutable
         $context.NpmCli = $nodeRuntime.NpmCli
         $context.NodeVersion = $nodeRuntime.NodeVersion
