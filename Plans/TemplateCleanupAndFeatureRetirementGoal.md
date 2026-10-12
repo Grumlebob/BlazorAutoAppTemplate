@@ -7,7 +7,7 @@ Paste below to start the goal. This entire file is under 3,500 characters.
 
 Decisions are settled: retire design demos; retain all three authorized legacy Books redirects; retain full Identity, including passkeys, external/Google login, 2FA, recovery, email and personal-data flows. Preserve both frontend profiles, all deployment targets, PostgreSQL/Redis/Data Protection, simulation and observability. Apply section 10 without reopening preference questions.
 
-Fetch origin/main; inspect dirty state, worktrees and PRs. Use an isolated checkout if needed; preserve others' work and downstream plans. Recheck consumers and stale facts; do not repeat verified upstream changes.
+Fetch origin/main; inspect dirty state, worktrees and PRs. Remove clean stale worktrees only after verifying merged or preserved commits; keep dirty/in-progress work. Use an isolated checkout if needed. Recheck consumers/facts; do not repeat verified upstream changes.
 
 Execute bounded packets. Remove proven dead inputs/code/assets, simplify redundant branches/helper returns, correct seed docs, strengthen Redis fallback assertions and share pure deployment validators. Review remaining areas and close every candidate with evidence. Preserve discovery/binding, intentional endpoint duplication, frontend hook symmetry, migrations, security, cancellation and caching. Warnings or low coverage are not deletion proof.
 
