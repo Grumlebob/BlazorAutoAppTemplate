@@ -76,7 +76,7 @@ public sealed class VisualSnapshotE2ETests : BlazorE2ETestBase
                 .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
             await CaptureAsync("account-manage");
 
-            await GoToAsync("/books/99999999");
+            await GoToAsync("/books?bookId=99999999&bookMode=view");
             await Expect(Page.GetByText("Book not found.")).ToBeVisibleAsync();
             await CaptureAsync("not-found");
         });

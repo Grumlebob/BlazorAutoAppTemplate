@@ -201,7 +201,7 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await ReloadAndWaitForBooksDocumentAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });
 
-            await GoToAsync("/books/99999999");
+            await GoToAsync("/books?bookId=99999999&bookMode=view");
             await Expect(Page.GetByText("Book not found.")).ToBeVisibleAsync();
         });
     }
