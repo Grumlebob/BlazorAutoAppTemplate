@@ -1,4 +1,17 @@
 {
+  "qlty": {
+    "version": "0.653.0",
+    "archives": {
+      "Windows-x86_64": {
+        "url": "https://github.com/qltysh/qlty/releases/download/v0.653.0/qlty-x86_64-pc-windows-msvc.zip",
+        "sha256": "c0f1a5df83a05c1e5c8e7d0c4b492522465b58bf48742aeebef3dc5b2bb9f72f"
+      },
+      "Linux-x86_64": {
+        "url": "https://github.com/qltysh/qlty/releases/download/v0.653.0/qlty-x86_64-unknown-linux-gnu.tar.xz",
+        "sha256": "4836a710b7a3ba67d729121ba48fdfc4e183f414b88488c1bc598247974e39a6"
+      }
+    }
+  },
   "trivy": {
     "version": "0.75.0",
     "image": "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
