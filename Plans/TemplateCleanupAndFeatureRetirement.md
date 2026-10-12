@@ -2,13 +2,13 @@
 
 ## Status and purpose
 
-Status: **planned; implementation has not started**. Repository reconnaissance and the planning audits below are complete. Feature retirement decisions remain open in section 10. Those decisions block only their own packets, not the behavior-preserving cleanup.
+Status: **ready for execution; implementation has not started**. Repository reconnaissance, planning audits and a second execution review are complete. The owner resolved all three feature decisions on 2026-10-12. Section 10 records those decisions and the accepted technical defaults. No preference question blocks execution.
 
 Create a smaller, easier-to-maintain template by removing proven unused code, unused parameters, obsolete configuration and abandoned assets; simplifying unnecessary branches; and retiring explicitly selected old features as complete vertical changes. Preserve the supported template capabilities unless a recorded owner decision changes them.
 
 This document is an execution runbook for an agent with no previous conversation context. Execute one packet at a time, record evidence, and stop a packet when its proof or checks fail. Do not treat a search result, analyzer warning, low coverage, or lack of recent traffic as permission to delete a feature.
 
-The present request authorizes research and creation of this plan. It does not authorize executing the cleanup, changing a live host, provisioning a node, or dispatching a deployment. A later instruction to execute this plan authorizes its ordinary repository changes, subject to unresolved feature decisions and the repository rules.
+The present request authorizes reviewing this plan and writing its goal prompt, not running the cleanup now. Invoking [TemplateCleanupAndFeatureRetirementGoal.md](TemplateCleanupAndFeatureRetirementGoal.md) authorizes the ordinary repository implementation, required tests, PRs and normal merges described here. It does not authorize changing a live host, provisioning a node or dispatching a deployment. Follow the repository rules throughout execution.
 
 ## 1. Sources of truth and boundaries
 
@@ -77,10 +77,10 @@ Line numbers below refer to the research checkpoint. Find symbols again after re
 | C-02 | `BookPageView.razor:152`: `DeleteControlX` returns `372` on both sides of a condition. | Proven redundant branch. Replace it with the same constant result, preserving SVG placement. Packet P05. |
 | C-03 | `BooksEndpoints.cs:209`: `WithAuthorizationResponses` returns a builder ignored by its current callers (`S3241`). | Narrow helper candidate. Inspect every call before changing its return type; preserve all endpoint metadata and authorization. Packet P06. |
 | C-04 | `FrontendComposition.React.cs` accepts `configuration` but does not use it; `FrontendComposition.BlazorAuto.cs` needs the same argument. The Blazor static-files hook is intentionally empty. | Shared compile-time composition contract, not automatic dead code. Keep paired signatures unless a complete, simpler replacement is demonstrated. Packet P07. |
-| C-05 | `BookSideView.ForcedOpen` is implemented, but inspected shelf callers do not set it. Demos pass `ForcedOpen` directly through `BookDesignDemoCover` to `BookCoverRenderer`. | Unused option candidate, not an unused implementation. Search all consumers before removing only the outer option. Packet P04. |
+| C-05 | `BookSideView.ForcedOpen` is implemented, but shelf callers do not set it. Demos pass `ForcedOpen` through `BookDesignDemoCover` to `BookCoverRenderer`. | Remove the unused outer option in P04; remove the renderer's demo-only forced-state option and branches in P13 after deleting its demo consumer. Preserve normal hover/focus motion. |
 | C-06 | Root `grumlebet_gb_clean_smooth_v2.svg` is 144,015 bytes. Tracked text search found no filename reference; Git history records a logo commit. It is outside both frontend asset roots. | Likely abandoned source artifact. Check build inputs, documentation and planning references before removal; if still a deliberate design reference, retain and describe it. Packet P09. |
-| C-07 | `/books/design-demos` and `/books/design-demos/{DesignId}` have live route components, navigation links and HEAD mappings. | Active feature, not dead code. Owner decision required to retire it. Keep shared cover rendering and designs. Packet P13. |
-| C-08 | `Routes/Create.razor`, `Details.razor`, `Edit.razor` redirect old URLs into the modal query flow. `BooksE2ETests` still visits `/books/99999999`. | Live compatibility behavior. Decide retention or retirement before removal. Packet P14. |
+| C-07 | `/books/design-demos` and `/books/design-demos/{DesignId}` have route components, navigation links, HEAD mappings, simulation scenarios and browser/render-mode tests. | Owner approved retirement. Remove the complete feature and its consumers atomically in P13; preserve normal bookcase artwork. |
+| C-08 | `Routes/Create.razor`, `Details.razor`, `Edit.razor` redirect old URLs into the modal query flow. `BooksE2ETests` still visits `/books/99999999`. | Owner accepted retaining the redirects. Verify their mappings in P14; do not delete the compatibility routes. |
 | C-09 | README describes `Books:SeedLocalDefaults`; source reads `AuthorBooks:SeedAtStartup` with a default of `true` in `AuthorBookSeedExtensions`. | Confirmed documentation drift. Correct docs to actual behavior; changing seed defaults is a separate product change. Packet P10. |
 | C-10 | React's `isbot` has no app import, but `FrontendProfiles.md` documents its React Router type-generation/prerender tooling role. | Retain unless framework-tool execution proves it unnecessary. App-import search alone is insufficient. Packet P08. |
 | C-11 | Quick `S1144` flags `Login.InputModel.Passkey` and nested `AppOpenTelemetryOptions` setters. Those models are form/configuration-bound. | False-positive risk. Preserve setters and prove binding behavior; do not remove them to reduce warnings. Packets P03/P12. |
@@ -89,6 +89,27 @@ Line numbers below refer to the research checkpoint. Find symbols again after re
 | C-14 | Qlty settings duplication at `cloud_settings.py:154–168` and `deploy_settings.py:150–164`; matching validator entry-point setup. Existing backlog Q-007. | Candidate for narrow shared validation functions, with target-specific contracts preserved. Packet P18. |
 | C-15 | `audit_deployment.py` leads Qlty's complexity ranking. The collision preflight, release validators and simulation options also rank highly. | Complexity is not proof of dead checks. Split only where equivalent rejection behavior can be demonstrated. Packets P17–P20. |
 | C-16 | `RedisConfigurationTests.Production_AllowsMissingRedis_WhenFallbackIsExplicitlyAllowed` only accesses `factory.Services`. Existing Q-006 requests actual fallback assertions. | Improve the existing meaningful test before touching Redis registration. Packet P15. |
+| C-17 | `ScenarioCatalog.BuildReadOnly()` targets the two demo routes; `ScenarioContext.NextDesignId()` duplicates ten client design identifiers. | P13 must remove both scenarios and the now-unused selector/identifier list in the retirement PR. Otherwise simulation reports unexpected 404s after retirement. |
+| C-18 | `BookCoverDesignDefinition` mixes rendering geometry with `DemoTitle*`, demo colors and descriptive metadata. Its normal renderer reads `Kind` and `Plate`; geometry tests also use `Id` and `Label`. | In P13 remove only demo-owned fields and their ten constructor argument sets after rechecking consumers. Preserve `Kind`, `Id`, `Label`, `Plate`, catalog ordering and artwork. |
+
+### 2.4 Execution review and resolved failure modes
+
+The second review followed each packet as an executor with no conversation memory and searched the consumers of the accepted retirement. It found these practical gaps:
+
+| Problem in the initial plan | Resolution now required |
+| --- | --- |
+| Demo retirement omitted simulation and Razor imports. | P13 names both scenarios, `NextDesignId`, both imports files and the exact four demo files. Remove them in the same PR as the routes. |
+| Existing Books E2E journeys use demos as navigation detours. | P13 replaces those detours with retained account-page navigation; preserve CRUD and navigation coverage rather than deleting the whole tests. |
+| Positive static-render tests would request deleted routes. | Replace the three demo theory rows with retained static account routes, preserving the assertions and documenting any actual discovered-count delta. |
+| Removing pages alone leaves demo-only rendering options and catalog data. | P13 removes proven orphaned fields/types/options after the pages, then rebuilds CSS and checks normal artwork. |
+| P21 updated strict test counts only after earlier PRs could already fail. | Section 4.2 requires every test-changing PR to update all count consumers immediately. P21 performs the final consistency audit. |
+| A blanket retired-route 404 would contradict React's SPA fallback. | Blazor GET/HEAD return 404 for retired demo routes. React keeps its documented HTML-shell fallback and client not-found behavior; do not redesign SPA HTTP statuses. |
+| Identity and compatibility packets still offered rejected alternatives. | P12 and P14 now verify retention only. Full Identity and all three compatibility redirects stay. |
+| Simulation TLS and Caddy ownership verification left design choices unresolved. | P16 defines the accepted explicit local TLS exception. P20 preserves the Caddy package checksum policy; replacing its verification mechanism remains a separate Q-002 project, not a cleanup blocker. |
+| Large audit/parser cleanup could become a generic rewrite. | Use the substeps and bounded extraction rules below. Preserve intentional endpoint duplication and frontend hook symmetry by default. |
+| A broad inventory could become endless or rubber-stamped. | Classify all tracked areas, inspect each candidate's consumers and assign dispositions. Required known changes cannot be dismissed as no-op without proof they already landed upstream. |
+
+Further read-only preflight on 2026-10-12 confirmed the local Linux Docker engine responds, .NET 10.0.303, Node 24.21.0, npm 12.2.0 and Python 3.13.7 are available, and PowerShell 7/Bash/Git/GitHub CLI resolve. No PR was open at that checkpoint. This is tool availability, not a completed local gate or proof that every optional Linux lint package is installed. Do not persist machine-specific executable paths or assume the same tools exist in another clone.
 
 ## 3. Rules for proving a removal
 
@@ -103,7 +124,7 @@ Before deleting or narrowing any symbol, file, configuration key or dependency, 
 
 Use `git grep` or `rg` restricted to tracked source areas. A filename can be generated, a class can be reached through its extension methods, and a setting may come only from environment variables. Zero text matches is a candidate, not a proof.
 
-Use these dispositions in the execution ledger: **remove**, **simplify**, **retain with reason**, **needs owner decision**, or **separate defect**. Every reviewed candidate gets one. A packet is complete when its disposition is justified and verified, even if retaining the code is the correct result.
+Use these dispositions in the execution ledger: **remove**, **simplify**, **retain with reason**, or **separate defect outside this cleanup**. Every reviewed candidate gets one. Resolve an unproven new breaking removal by retaining the external contract and recording the missing proof, not by creating another preference question. A packet is complete when its disposition is justified and verified, even if retaining the code is the correct result. A required known outcome can be retained only when fresh evidence disproves the original premise or proves it already landed; include that evidence.
 
 Never remove migrations or the model snapshot because they have no normal callers. Never remove `CancellationToken`, route/form/query parameters, serialized fields or configuration setters merely because a lexical analyzer misses their consumers. Never make private APIs public or remove Redis/security checks to simplify a profile.
 
@@ -115,7 +136,7 @@ Never remove migrations or the model snapshot because they have no normal caller
 2. Preserve unrelated dirty work. Use a clean, separate worktree when necessary; do not stash, reset or overwrite another person's files. Observe applicable worktree task-binding rules.
 3. Check active PRs and retained React/Portfolio/quality plan status before claiming files. Coordinate overlapping work by rebasing or deferring the overlapping packet, not by overwriting it.
 4. Create a cleanup branch from current `origin/main`. Record its input SHA and claimed paths in section 9.
-5. Choose the earliest uncompleted packet whose dependencies and decisions are satisfied. Do not execute decision-dependent retirements by guessing an answer.
+5. Choose the earliest uncompleted packet whose dependencies are satisfied. Section 10 already supplies the decisions; do not ask the same preference questions again.
 6. Read the packet's named files completely before changing them. Revalidate research candidates against the current source.
 
 ### 4.2 One packet's completion cycle
@@ -123,6 +144,8 @@ Never remove migrations or the model snapshot because they have no normal caller
 For each packet: establish the before behavior, make the smallest coherent change, update directly affected tests/docs/generated outputs, run focused checks, review the full diff, then run the required local gate before pushing. Stage explicit paths. Create a PR with the concrete behavior and validation results.
 
 Code/configuration PRs require green `build-test-push` on the **exact PR head** before merging. After merge, fetch the integrated commit and require green **exact-main CI** for that commit before marking the code packet complete. Do not substitute another commit's green run. Record the merge commit, check URLs and dispositions in section 9 or the linked PR description.
+
+If a packet adds, removes or replaces tests, update strict expectations **in that same PR before running its full gate**. Count discovered cases, including each theory row, not just test methods. At the inspected source, the count consumers include `Scripts/CI/validate-frontend-profiles.sh`, `.github/workflows/ci.yml`, `Scripts/Quality/Invoke-SonarAnalysis.ps1`, `Scripts/Quality/sonar_report.py`, `Scripts/Quality/validate_vitest_results.py`, their relevant fixtures/tests and `docs/Test.md`. Inspect profile traits: a Blazor-only theory delta must not lower the React expected count. Explain old/new passed/skipped totals. Preserve the 13 opt-in skips unless an approved test change genuinely affects them. Existing historical baseline examples need not be rewritten as current measurements. P21 verifies this work; it is not the first opportunity to do it.
 
 Ordinary Markdown-only PRs use the repository documentation exception: complete diff review, `git diff --check`, `[skip ci]` in the documentation commit and squash title, a PR, then fetched integrated-content verification on `origin/main`. Do not wait for CI or run builds for a purely documentation change. A PR that deletes an SVG or HTML file is not documentation-only, even if the file is unused.
 
@@ -137,29 +160,37 @@ Suggested waves:
 | A | P00–P03 | Establish scope, baseline and removal proof. |
 | B | P04–P07 | Small, behavior-preserving client/server cleanup. Prefer separate client and backend PRs. |
 | C | P08–P11 | Dependencies, assets, configuration/docs and lifecycle review. Split non-Markdown work from independent docs. |
-| D | P12–P14 | Selected feature retirements, each in its own PR after its decision. Skip retirements explicitly rejected by the owner. |
+| D | P12–P14 | Verify full Identity and legacy redirects; retire design demos as one complete feature PR. |
 | E | P15–P17 | Cache/hosting and simulation cleanup with focused risk tests. |
 | F | P18–P21 | Deployment helpers, audit structure and CI/tooling. Keep shared-validator and audit changes separate. |
 | G | P22–P24 | Documentation closure, re-audit and integrated verification. |
 
 Do not combine all waves into one large PR. A packet with no justified changes needs only an evidence-backed retention entry, not an empty PR. Do not make extraction/refactoring a condition of completion when duplication is clearer than a generic abstraction.
 
+Known required outcomes are C-01/C-02 cleanup, C-03 helper simplification when still unconsumed, C-09 documentation correction, complete C-07/C-17/C-18 demo retirement, Q-006 fallback assertions, P16's defined TLS policy and P18's shared pure validators. If an outcome is already integrated upstream, verify it and record the commit instead of repeating it. Inventory/refactor packets may conclude retention, but cannot be used to skip these outcomes silently.
+
+### 4.4 Dependency order and bounded substeps
+
+The executable order is P00, P01, P02, P03, P04, P05, P06, P07, P08, P09, P10, P11, P12, P13, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24. This order satisfies the named dependencies. Do not make a later closure packet a prerequisite for an earlier change. In particular, P13 owns demo-specific style cleanup, P16 may update parser plumbing before P17 decomposes it, and every packet owns its own test-count/audit-rule updates.
+
+For P02, produce separate inventory sections for host/Core, Blazor/Razor, React, simulation, deployment/scripts, CI/quality tooling, assets/configuration and tests/docs. For P11, separate load/disposal review from save/delete review. For P17, separate CLI input mapping, pure parsing, safety validation and report-consumer review. For P20, extract one existing rule family at a time and run its positive/negative fixtures before the next family. A substep may be committed locally, but do not push/merge an intermediate state that breaks consumers or the gate. The atomic P13 substeps are specified in its packet.
+
 ## 5. Ordered implementation packets
 
-### P00 — Resolve the scope contract
+### P00 — Apply the resolved scope contract
 
 Dependencies: none. Inputs: sections 1, 2 and 10; current requirements and active plans.
 
-1. Confirm the default support matrix in section 1 against the latest repository.
-2. Record owner answers for design demos, compatibility URLs and optional Identity features. Use a separate decision entry for each feature.
-3. Mark unapproved retirements blocked; continue behavior-preserving packets.
+1. Verify the support matrix in section 1 against the latest repository without changing its accepted policy.
+2. Apply the recorded owner decisions: retire design demos, retain all three legacy redirects, and retain full Identity. Do not ask for confirmation again.
+3. Apply section 10's technical defaults. If source contradicts a research detail, correct that detail and continue within the same accepted scope. Keep an unproven new breaking removal rather than inventing a preference blocker.
 4. Identify shared files owned by active React delivery or Portfolio planning. Avoid importing downstream product removals into the template.
 
-Verification and exit: every potentially breaking removal has a recorded decision, and all other behavior remains covered by the default contract. Do not mark an unanswered decision as approval.
+Verification and exit: accepted decisions are reflected in the inventory; no preference question remains. Required cleanup outcomes and retained capabilities are explicit.
 
 ### P01 — Capture a trustworthy execution baseline
 
-Dependencies: P00 for scope; unanswered retirement questions do not block this packet. Inputs: `docs/Test.md`, `.github/workflows/ci.yml`, profile gate and current package/configuration files.
+Dependencies: P00. Inputs: `docs/Test.md`, `.github/workflows/ci.yml`, profile gate and current package/configuration files.
 
 1. Record current `origin/main`, selected profile, clean/dirty status and available local tools without printing secrets.
 2. Run the existing complete local gate from `docs/Test.md` and React package checks. Keep restore/build/test sequential across profiles in this checkout.
@@ -178,7 +209,7 @@ Dependencies: P01. Inputs: tracked files, current routes, DI composition, projec
 4. Inventory direct NuGet/npm packages and framework tooling; configuration keys and environment aliases; script/workflow entry points; CSS selectors and JS modules; public DTO fields and EF entities.
 5. Refresh Qlty and Quick analyzer reports only if the source changed materially since the recorded research. Deduplicate shared findings and review test findings separately.
 
-Verification and exit: every source area is classified. Unproven candidates remain retained or explicitly pending. The inventory does not label ignored `Plans.local`, `node_modules`, test output or build artifacts as tracked dead code.
+Verification and exit: every source area is classified. Unproven candidates are retained with reasons, not left indefinitely pending. The inventory does not label ignored `Plans.local`, `node_modules`, test output or build artifacts as tracked dead code.
 
 ### P03 — Remove proven C# leftovers and reject false positives
 
@@ -197,7 +228,7 @@ Dependencies: P03. Inputs: `BookSideView.razor`, `BookcaseShelf.razor`, cover co
 
 1. Reconfirm that `BookSideView.Url` is not read by markup, code, a partial file or a derived component.
 2. Remove only that `[Parameter]` property and both `Url="@book.Url"` assignments in `BookcaseShelf`. Preserve `BookcaseBook.Url`, API URL fields, URL validation and links in book details.
-3. Search all `BookSideView` usages for `ForcedOpen`. If no supported consumer sets it and no extension contract requires it, remove the unused outer option and its forwarding attribute. Preserve `BookCoverRenderer.ForcedOpen` and demo consumers if demos are retained.
+3. Search all `BookSideView` usages for `ForcedOpen`. Remove the unused outer option and its forwarding attribute when the current callers still leave it unset. Keep `BookCoverRenderer.ForcedOpen` until P13 removes its remaining demo consumer in the complete retirement PR.
 4. Review other component inputs, injected services and callbacks using the same proof. Do not remove values used by binding, events, accessibility text, prerender state or routing.
 5. Rebuild Tailwind after Razor changes as required by `AGENTS.md`; commit generated CSS if it changes.
 
@@ -219,7 +250,7 @@ Verification and exit: geometry tests and targeted Books browser states pass at 
 Dependencies: P03. Inputs: both Books endpoint files, Core request/response types, metadata tests and feature API tests.
 
 1. Inspect every `WithAuthorizationResponses` caller. If its return is always ignored, change the private helper to `void` with the same three builder calls. Otherwise retain the fluent return and record the consumer.
-2. Review duplicated update/delete outcome code. Extract only if the result is shorter and preserves typed results, operation names and independent endpoint metadata; leaving clear duplication is acceptable.
+2. Retain the separate update/delete typed handlers and their clear operation-specific outcome blocks. Do not introduce a generic endpoint wrapper to satisfy Qlty. Remove an independently proven redundant local/helper if one exists.
 3. Preserve route/body ID mismatch rejection, ownership filtering, 401/403/404/429 behavior, validation payloads, `private, no-store`, telemetry and cancellation propagation.
 4. Do not merge public author-book contracts with authenticated user-book contracts or rename serialized fields as cleanup.
 
@@ -230,7 +261,7 @@ Verification and exit: feature API tests, `EndpointSurfaceTests`, `OpenApiMetada
 Dependencies: P06. Inputs: both `FrontendComposition` implementations, `Program.cs`, host project conditions and hosting tests.
 
 1. Document the shared method signatures compiled under each profile. The React configuration argument and Blazor empty static-files hook are currently deliberate symmetry.
-2. Retain that symmetry unless an alternative actually reduces total code and conditional complexity. Do not remove an argument in one implementation and leave the shared call broken.
+2. Retain the paired signatures and the intentionally empty Blazor static-files hook. Do not add conditional calls or dummy configuration reads to eliminate a warning.
 3. Review unused hosting options against all configuration sources and tests. Keep catch-all route values used by framework route selection even when no handler reads their name.
 4. Preserve profile-specific authentication/UI registration, middleware ordering, error handling, GET/HEAD behavior, response headers and publish-output cleanup.
 
@@ -250,9 +281,9 @@ Verification and exit: lockfile installs, API check, typecheck, lint, all React 
 
 ### P09 — Remove abandoned assets and stale styles
 
-Dependencies: P02/P04/P08. Inputs: root SVG, frontend asset roots, `app.css`, `input.css`, JS modules and asset tests. Leave demo-only styles until P13 decides the demo policy; remove those styles within that retirement packet.
+Dependencies: P02/P04/P08. Inputs: root SVG, frontend asset roots, `app.css`, `input.css`, JS modules and asset tests. Leave demo-only styles until P13 removes their live consumers; remove those styles within that retirement packet.
 
-1. Confirm whether the root logo SVG is a required source/design reference by checking tracked plans, history and build inputs. Delete it only if classified abandoned; otherwise place its purpose in the inventory. Do not copy arbitrary private artwork into the repository.
+1. Recheck the root logo SVG against tracked plans, history and build inputs. The accepted default is to delete this unused root artifact when no required current consumer exists; Git history preserves the old artwork. If new source proves a deliberate reference, retain it with the exact consumer in the inventory rather than asking a cosmetic preference question.
 2. Build a selector-to-consumer inventory. Include dynamic class strings, account pages, reconnect UI, SVG hover/focus states, reduced motion and generated CSS input.
 3. Remove proven unused rules in small groups. Remove collocated JS only when every importer and supported route has gone.
 4. Regenerate `tailwind.css` through the Client package; never edit generated output directly. Keep the favicon and framework/module asset paths unless consumers are deliberately changed.
@@ -282,39 +313,48 @@ Dependencies: P04/P05; read existing Q-004 before changing modal behavior. Input
 
 Verification and exit: existing route-state tests and focused lifecycle coverage pass; relevant real-browser modal journeys pass under SSR/hydration and interactive navigation. No duplicate requests, stale modal content or disposal errors are introduced.
 
-### P12 — Apply the selected Identity feature policy
+### P12 — Preserve and verify full Identity
 
-Dependencies: recorded Identity decision in P00; P11; Q-003 for retained account-management coverage. Inputs: account pages/shared components/endpoint helpers, registration, Google configuration, Core/private APIs and Identity E2E.
+Dependencies: P00/P11. Inputs: account pages/shared components/endpoint helpers, registration, Google configuration, Core/private APIs and Identity E2E. Q-003 is background coverage evidence, not a prerequisite to finish unchanged account pages.
 
-1. Enumerate all account routes and helper endpoints, including passkeys, Google/external login, 2FA, recovery, email confirmation/reset and personal-data export/deletion. Record which remain supported.
-2. If the full template Identity surface is retained, remove only proven scaffolding leftovers and stale text. Missing provider credentials, a no-op email sender or low coverage do not prove the associated pages dead.
-3. If features are retired, remove each selected feature's pages, menu/login links, endpoint mappings, model helpers, JS, configuration examples, direct packages and tests coherently. Recheck retained features' dependencies before deleting shared token providers or sender services.
-4. Preserve login/register/logout, ownership enforcement, antiforgery, cookie challenges, security-stamp revalidation and retained data management. Preserve Identity tables and existing migrations even for React.
-5. Ensure removed routes reject requests without a misleading UI or still-active POST endpoint. Define whether they return 404 or another explicitly agreed response before implementation.
+1. Inventory account routes/helpers, including passkeys, Google/external login, 2FA, recovery, email confirmation/reset and personal-data export/deletion. Mark all retained.
+2. Remove only proven scaffolding leftovers and stale text. Missing provider credentials, a no-op email sender or low coverage do not prove associated pages dead. Preserve form/configuration setters and browser JS.
+3. Preserve login/register/logout, ownership enforcement, antiforgery, API cookie challenges, security-stamp revalidation, data management, token providers, Identity tables and migrations, including in the React backend.
+4. Run the existing Identity journey and focused affected tests. Add binding/security regression coverage only if a cleanup actually changes those paths; broad Q-003 account coverage remains separately scoped.
 
-Verification and exit: retained Identity browser journeys and API-denial tests pass; removed routes and helper endpoints have appropriate negative coverage. Use framework-supported virtual authenticators or fakes where possible. Real hardware, email accounts and OAuth credentials are not assumed manual prerequisites for repository cleanup.
+Verification and exit: retained routes, services and required dependencies remain present; existing account/API-denial behavior passes. Use existing fakes or virtual authenticators for a changed path. No real OAuth account, email provider or passkey hardware is required just to retain the scaffold.
 
-### P13 — Retain or retire public design demos
+### P13 — Retire public design demos as one complete feature
 
-Dependencies: recorded demo decision in P00; P09. Inputs: `Features/Books/DesignDemos`, nav menu, HEAD mappings, styles, docs and browser selectors.
+Dependencies: P00/P09/P12. Inputs: the exact paths below, normal cover consumers, `RenderModeHtmlTests`, `BooksE2ETests`, `HeadRequestTests`, simulation contracts and strict test-count consumers. Complete substeps P13.1–P13.8 before pushing this feature PR.
 
-1. If retained, record that the routes are live review tooling; trim only proven unused code within them.
-2. If retired, delete the two route components and demo-only catalog/cover wrapper after checking their consumers. Remove desktop/mobile menu links and both HEAD mappings from `HeadRequestExtensions`.
-3. Preserve `BookCoverDesignCatalog`, `BookCoverRenderer`, `BookCoverArtwork`, `BookCoverPageTabs`, geometry, themes and designs used by normal shelves. Retiring the review pages must not remove normal book artwork.
-4. Remove only demo-specific styles, tests and documentation. Rebuild Tailwind. Replace checks that required the pages with checks for their agreed retired response where that contract matters.
+**P13.1 — Freeze the before/after contract.** Blazor `/books/design-demos` and `/books/design-demos/cloth-hardback`, with or without `?open=true`, return 404 for GET and HEAD after retirement; HEAD has no body. Links and successful simulation traffic to them disappear. React continues its existing account-free SPA contract: unknown HTML navigation can receive its HTTP 200 shell and client not-found UI; non-HTML/unsafe navigation keeps its existing rejection. Do not add a global React 404 rule for this cleanup.
 
-Verification and exit: no live navigation or HEAD route advertises a retired page; normal bookcase designs still render; asset/geometry tests and relevant browser checks pass. Direct requests to both retired route patterns behave as agreed.
+**P13.2 — Remove route/UI consumers.** Delete these four files under `BlazorAutoApp.Client/Features/Books/DesignDemos/`: `BookDesignDemos.razor`, `BookDesignDemoDetails.razor`, `BookDesignDemoCover.razor`, `BookDesignDemoCatalog.cs`. Remove desktop/mobile links and their selectors from `Features/AppShell/Layout/NavMenu.razor`. Remove the demo namespace import from the actual owning `_Imports.razor` file(s), checking both Client root and `Features/Books/_Imports.razor`. Remove the two demo `MapHead` entries in `BlazorAutoApp/Infrastructure/Hosting/HeadRequestExtensions.cs`.
 
-### P14 — Retain or retire old Books URLs
+**P13.3 — Remove dependent operator traffic.** In `BlazorAutoApp.Simulation/Scenarios/ScenarioCatalog.cs`, remove the `design-demos` and `design-demo-detail` scenarios. In `Scenarios/Scenario.cs`, remove the now-unused `ScenarioContext.NextDesignId()` and its duplicated design-ID list. Keep remaining weights and RPS/write safety budgets; normal weighted selection already handles a smaller catalog. Preserve historical report reading and document that new runs no longer emit the two scenario names. Add a focused catalog regression asserting no generated successful page scenario targets the retired prefix; update test counts immediately.
 
-Dependencies: recorded compatibility decision in P00; P11. Inputs: `Routes/Create.razor`, `Details.razor`, `Edit.razor`, modal URLs, `BooksE2ETests` and route docs.
+**P13.4 — Remove orphaned demo metadata.** Recheck every property consumer of `BookCoverDesignDefinition`. Remove `DemoTitleLines`, `DemoTitleY`, `DemoTitleDy`, `DemoTitleFontSize`, `DemoTitleFill`, `Note`, `CoverColors`, `PageColors` and `LineStroke` when their only consumers were demos. Remove their named arguments from all ten catalog entries. Delete `BookCoverDesignColors` if it then has no consumers. Preserve `Kind`, `Id`, `Label`, `Plate`, all ten artwork designs, enum values, plate data and catalog order; order affects deterministic design selection. Do not change normal `BookCoverTheme` values.
 
-1. If retained, keep the small authorized redirect components and verify their query mapping. Their only purpose is compatibility, which is still a purpose.
-2. If retired, decide the response for `/books/create`, `/books/{id:int}` and `/books/{id:int}/edit` before deleting the components. If the decision is 404, delete all three, remove old links and verify unknown paths reach the normal not-found handling.
-3. Update the invalid-book test that currently visits `/books/99999999` to exercise the canonical modal URL when testing missing book behavior. Keep a separate legacy-route assertion if retirement behavior is a contract.
-4. Preserve `/`, `/books`, `/books/author/{seedKey}` and `bookId`/`bookMode` modal query semantics. Private REST routes remain unchanged.
+**P13.5 — Remove orphaned rendering knobs.** After deleting the demo wrapper and P04's outer option, remove `BookCoverRenderer.ForcedOpen` and collapse `PagesClass`/`CoverClass` to their current false-branch strings. Preserve hover, keyboard focus, focus-within and reduced-motion classes exactly. `TitleDy` is only customized by demos at the inspected source: if still true, replace its unused configurable parameter with the existing `1.2em` default in the renderer. Do not remove title layout inputs used by normal books.
 
-Verification and exit: route-state and Books E2E tests cover direct navigation, back/forward, unauthorized access and missing IDs. Legacy requests follow the recorded policy instead of accidentally invoking SPA/Blazor fallbacks.
+**P13.6 — Preserve meaningful test journeys.** In `RenderModeHtmlTests`, replace the two demo rows in `StaticAndAccountPages_DoNotLoadInteractiveBlazorRuntime` with `/Account/Register` and `/Account/ForgotPassword`, retaining `/Account/Login`. Replace the demo row in `PublicPages_DoNotReferenceRemovedScopedCssBundle` with `/books`, retaining `/`. This preserves five positive theory cases for supported pages. Add four Blazor-only GET/HEAD retired-route cases, reusing the host fixture and preserving React's profile exclusion. In `BooksE2ETests.Books_CanCreateViewEditCancelAndNavigateBack`, replace the anonymous demo detour with a retained `/Account/Login` round trip. In `SeededUser_BookcaseCrudSurvivesRefreshAndNavigation`, use authenticated `/Account/Manage` and return through existing home/interactivity helpers. Preserve all CRUD, refresh, missing-book and navigation assertions; do not delete these complete tests. Verify desktop/mobile nav has no demo links using the relevant existing browser journeys.
+
+**P13.7 — Reconcile styles/docs/counts.** Remove only CSS rendered solely by the retired UI, regenerate `BlazorAutoApp/wwwroot/tailwind.css`, and remove the deleted namespace/type references. Replace the demo path in `docs/Test.md`'s Lighthouse example with `/books`; review other current docs/commands for active demo instructions. Preserve historical execution evidence in old plans, adding a superseded note only where needed. Apply section 4.2's same-PR count updates: the retained theory rows and existing E2E methods preserve their counts, the four new retired-route cases apply only to Blazor, and any new simulation test normally applies to both profiles. Measure final totals rather than hard-coding a guessed delta.
+
+**P13.8 — Verify and integrate the complete retirement.** Search tracked production/current test/docs paths for `BookDesignDemo`, `NextDesignId`, `DemoTitle`, `design-demo-link`, `design-demo-menu-link` and the retired URL prefix. Remaining URL references are allowed only in negative tests, the current retirement record or historical evidence. Run geometry/shelf, affected render/HEAD, simulation, both profile and targeted Books browser checks, plus the full local gate. Verify Blazor GET/HEAD 404 responses and React's unchanged navigation contract. Review normal shelf screenshots at narrow/wide widths before merging.
+
+Verification and exit: routes, links, HEAD aliases, demo traffic, imports, metadata and forced-open-only branches are all removed in one green exact-head PR, followed by green exact-main CI. Normal art, hover/focus motion, account flows and legacy redirects remain functional.
+
+### P14 — Verify retained old Books URLs
+
+Dependencies: P00/P11/P13. Inputs: `Routes/Create.razor`, `Details.razor`, `Edit.razor`, modal route state, `BooksE2ETests` and route docs.
+
+1. Preserve all three authorized compatibility components and their `[Authorize]` attributes. Verify the mappings: `/books/create` to `/books?bookMode=create`; `/books/{id:int}` to `/books?bookId={id}&bookMode=view`; `/books/{id:int}/edit` to `/books?bookId={id}&bookMode=edit`, with invariant-culture IDs and history replacement.
+2. Keep the existing invalid-book visit to `/books/99999999` because it now intentionally protects compatibility and missing-book behavior. Add canonical modal assertions only when needed; do not replace the compatibility test accidentally.
+3. Verify direct authenticated navigation, unauthorized access, back/forward and the selected book ID. Preserve `/`, `/books`, author routes, public/private API separation and existing query semantics.
+
+Verification and exit: redirects are retained and behavior-tested; no legacy component is classified dead merely because its only operation is redirecting.
 
 ### P15 — Clean cache and hosting internals behind stronger assertions
 
@@ -334,8 +374,10 @@ Dependencies: P02/P15; read Q-001. Inputs: `Http/HttpClientFactory.cs`, `Running
 1. Trace both HTTP handler construction paths, cookie ownership, disposal, redirect behavior, target discovery and TLS policy.
 2. Consolidate duplicate handler construction only while preserving existing target/auth behavior. Share a small factory, not a broad new transport abstraction.
 3. Keep all deployed-target certificate validation and credential redaction. Do not silently broaden the localhost exception.
-4. Q-001's switch from silent bypass to explicit local opt-in is a behavioral fix. If included, describe that change separately, choose the exact option/warning contract, update wrappers/help and add tests showing invalid TLS fails by default, opt-in is loopback-only, and both call paths honor it. Otherwise retain the current policy with the Q-001 follow-up recorded.
-5. Preserve synthetic cleanup, cookie isolation, write authorization, timeout/cancellation and simulator exclusion from app publishing.
+4. Implement the accepted Q-001 policy as a separately described simulation change: default certificate validation on every HTTP/browser path; explicit CLI `--allow-insecure-localhost` and wrapper `-AllowInsecureLocalhost`; no implicit environment opt-in. Reject the flag unless the target is `local`, the base scheme is HTTPS and the host is exactly `localhost`, `127.0.0.1` or `::1`. The flag does not satisfy deployed/write gates. Emit one clear startup warning without credentials or cookies. Keep normal local HTTP and trusted HTTPS working without the flag.
+5. Thread the policy through `SimulationOptions`, `AuthBootstrapOptions`, `ScenarioRunner` discovery, `HttpScenarioClient`, `AuthenticatedBooksClient`, `BrowserAuthBootstrap` and its authenticated HTTP probe. Share a small policy predicate and handler factory rather than duplicating localhost decisions. For handler certificate callbacks, test the actual request URI, including redirects; a loopback base URI must never disable certificate validation for a remote redirect. For Playwright, `IgnoreHTTPSErrors` is permitted only in the explicit local context; prevent off-origin requests/navigation while that context bypass is active so the option cannot bless a remote certificate. Default browser behavior remains unchanged. Update simulator help, wrapper help and local examples together.
+6. Add meaningful policy/parser/handler/browser-option tests: default invalid TLS rejected; explicit loopback allowed; deployed/custom remote rejected; actual remote redirect never bypassed; cookies, cancellation and valid local traffic preserved. Prefer isolated loopback/fake-handler tests; do not ask for live provider credentials or disable validation globally to run smoke.
+7. Preserve synthetic cleanup, cookie isolation, write authorization, timeout/cancellation and simulator exclusion from app publishing. Update strict test counts in this PR, not P21.
 
 Verification and exit: simulation auth/contract tests and focused handler-policy tests pass. Run local read-only smoke and `-AuthCheck` on a disposable supported local target if available. Authenticated writes or remote traffic need their own existing explicit gates; neither is required merely to remove duplicated handler setup.
 
@@ -359,6 +401,14 @@ Dependencies: P02/P10; existing Q-007. Inputs: LocalCluster `deploy_settings.py`
 3. Compare old/new accepted settings, defaults and error conditions. Share entry-point setup only when import/execution paths remain reliable from arbitrary working directories.
 4. Preserve local `machines.yml`/inventory-driven values and per-fork settings. Never replace target rules with values from this machine or installation.
 
+Execute the extraction in these bounded substeps, keeping one coherent validator PR:
+
+- **P18.1:** Capture the two validators' existing outputs for shared valid/invalid inputs. Include blank optional values, boundary ports 1023/1024/65535/65536, non-digits, reused app/observability ports, accepted/rejected retention suffixes, malformed DNS and target-specific path examples. Compare error ordering and text as well as pass/fail.
+- **P18.2:** Add a small pure module at `Deployment/Common/Scripts/Component/lib/settings_validation.py`. Begin with the identical observability port loop and retention syntax predicates. Pass key/value and existing port ownership state explicitly; do not import target settings, read files, access environment variables or initialize CLI state inside the shared module.
+- **P18.3:** Call the shared functions from both owners at the original validation positions. Preserve their key lists, blank-value policy, seen-port mutation/order and target-specific messages. Port collisions must still include app ports and earlier observability ports, not just a new local set.
+- **P18.4:** Extend to DNS/path primitives only where their accepted syntax is actually equivalent. Keep differing example/error strings in each owner. Leave Cloud network/address rules and schema key enforcement untouched. Retain duplicated CLI entry-point setup by default unless its extraction demonstrably removes more code than import plumbing adds.
+- **P18.5:** Exercise both CLIs from the repository root and an unrelated temporary working directory using absolute source/fixture paths. Add isolated module/parity tests and run the settings, render and deployment gates. If an audit inspects an inline implementation, replace that assertion with the shared-call/new behavior contract in this same PR.
+
 Verification and exit: Common/Cloud/LocalCluster settings and script tests, template rendering, YAML lint and deployment audit pass. Include paired equivalence cases and target-specific rejection cases. No live host is touched.
 
 ### P19 — Review wrappers and abandoned deployment helpers
@@ -374,12 +424,12 @@ Verification and exit: all affected script suites and ShellCheck pass; documente
 
 ### P20 — Make deployment audit and collision logic easier to review
 
-Dependencies: P18/P19; read Q-002/Q-005 for collision work. Inputs: `audit_deployment.py`, LocalSingleNode collision modules, audit contract tests and synthetic deployment fixtures.
+Dependencies: P18/P19. Inputs: `audit_deployment.py`, LocalSingleNode collision modules, audit contract tests and synthetic deployment fixtures. Read Q-002/Q-005 as context; replacing the packaged-Caddyfile verification mechanism is outside this cleanup and does not block structural review.
 
 1. Inventory current audit rules by behavior. Identify duplicate mechanics separately from distinct safety assertions.
 2. Split only coherent checks into functions/modules, with explicit inputs and descriptive errors. Preserve every existing rejection and target-specific path.
-3. When behavior has intentionally changed in an earlier packet, replace the old audit rule with the new rule in that same behavioral change; never delete a failing check merely to pass.
-4. Before touching collision/preflight detection, settle Q-002's packaged-Caddyfile verification basis. An MD5 package metadata check must not become an unconditional allow or a naive different-hash comparison against incompatible metadata.
+3. Verify that earlier packets already updated any audit contract they intentionally changed. Replace an obsolete rule with the new behavior check immediately when discovered, with negative evidence; never delete a failing check merely to pass. Future behavioral changes still own their audit update in their own PR.
+4. Preserve the current packaged-Caddyfile comparison policy during decomposition. Its digest must remain compatible with dpkg's conffile metadata; do not replace MD5 with an incompatible SHA comparison, auto-download a package or alter host adoption. Q-002's stronger package-verification design remains explicitly separate. If preserving the predicate prevents a useful collision extraction, retain that predicate and close only the structural review with a reason. Do not claim Q-002 complete.
 5. Add meaningful negative fixtures for modified foreign Caddy config, port conflicts, invalid release settings and the safety contracts touched. Avoid tests that only mirror helper names or file layout.
 
 Verification and exit: unchanged valid fixtures pass; altered unsafe fixtures still fail for the intended reason. Run deployment audit, collision tests, quality audit-contract tests and relevant template/script checks. Complexity metrics may improve, but behavioral parity is the acceptance condition.
@@ -390,7 +440,7 @@ Dependencies: prior code packets integrated. Inputs: `.github`, profile/result v
 
 1. Review jobs, inputs, artifacts, environment settings and helper scripts against all workflow/manual/operator callers. Optional or manually dispatched tooling is not dead solely because it rarely runs.
 2. Remove genuinely superseded paths with their documentation/tests. Preserve exact release SHA/run/attempt provenance, separate PR validation/main publishing and frontend image smoke.
-3. For intentionally added/removed tests, enumerate the actual test cases before changing strict count expectations. Update `validate-frontend-profiles.sh`, result-validator fixtures, React workflow count checks, `validate_vitest_results.py` if affected, Full Sonar count validation and `docs/Test.md` wherever those expectations live. Search for the old counts; explain the delta in the PR.
+3. Audit the same-PR count updates already required by section 4.2. Search actual expectations in the profile gate, CI, `Invoke-SonarAnalysis.ps1`, `sonar_report.py`, `validate_vitest_results.py`, relevant fixtures and `docs/Test.md`. Compare discovered cases, profile traits and TRX results. Repair inconsistent current expectations; preserve honest historical baseline measurements. This packet must not be the first count update after P13/P16 add tests.
 4. Preserve opt-in E2E/lifecycle semantics and investigate every extra skip. Keep normal build/test sequential in a checkout.
 5. Update architecture tests only when their contract deliberately changes. Never remove a guardrail because cleanup violates it.
 
@@ -398,7 +448,7 @@ Verification and exit: workflow/result-validator tests, lifecycle checks, ShellC
 
 ### P22 — Reconcile operational docs and retained plans
 
-Dependencies: all intended behavioral changes decided/integrated. Inputs: README, docs, deployment guides, existing plans and their support files.
+Dependencies: all intended code changes integrated. Inputs: README, docs, deployment guides, existing plans and their support files.
 
 1. Remove references to retired routes/options/commands and add current replacements where applicable. Align README's profile description with the supported reality.
 2. Keep one canonical testing guide; repair links and old commands instead of copying another full gate into multiple guides.
@@ -422,7 +472,7 @@ Verification and exit: every candidate has a final disposition; no high-risk unr
 
 ### P24 — Verify integrated completion and publish the handoff
 
-Dependencies: all selected packets complete or explicitly retained/skipped; decision-dependent features resolved or explicitly excluded from the authorized execution scope.
+Dependencies: every packet complete with an evidence-backed disposition, all required known changes integrated, and retained features verified. No pending preference decision remains.
 
 1. Fetch `origin/main` and verify every cleanup merge is present. Record the final integrated code SHA and its green exact-main `build-test-push` run.
 2. Confirm both profile gates, appropriate React checks, publish switching, deployment audits/script suites and affected browser journeys passed for the final code. Reuse trustworthy final checks rather than rerunning unchanged suites repeatedly.
@@ -435,6 +485,8 @@ Verification and exit: the owner can resume from this ledger without reconstruct
 ## 6. Acceptance matrix
 
 Use existing suites first. Add focused tests only for meaningful changed risk, not every deleted line.
+
+Run Books/Identity/render-mode browser journeys against a disposable **BlazorAuto** app and React public journeys against a **React** app. Explicitly restore/build the matching profile before `--no-build` tests; the preceding two-profile gate ends with React binaries. Do not point the complete `Category=E2E` suite at React and then weaken failing account tests. Use the test guide's profile/category filters, opt-in variables and data cleanup. After sequential profile experiments, restore/build the tracked selected profile when its normal local workflow is needed. Keep local test targets distinct from live deployments.
 
 | Changed area | Required focused evidence, in addition to the full gate |
 | --- | --- |
@@ -454,7 +506,7 @@ Use existing suites first. Add focused tests only for meaningful changed risk, n
 
 **No certain manual machine action is currently required to create this plan or start behavior-preserving repository cleanup.** GitHub authentication was available during research and the Quick/native audits ran successfully. No new credentials, paid tools, hardware or node bootstrap is part of the plan.
 
-The unresolved product decisions in section 10 require the owner's judgment. They are not manual setup chores. Keep their packets pending while independent cleanup proceeds.
+The owner supplied the product decisions and accepted intelligent implementation recommendations. Section 10 closes them. Do not reopen those decisions, convert an intentionally retained feature into a blocker, or ask the owner to choose routine names, helper boundaries or test arrangements.
 
 Do not invent blockers such as asking the owner to run commands the agent can safely run, delete build folders, configure a new analyzer, authenticate an optional provider, or provision a deployment host. If execution reveals a real access/environment failure, record the failed action and exact missing capability, try the supported safe alternative, and ask for only the remaining human-only step. None has been established by this research.
 
@@ -516,18 +568,20 @@ git diff -- BlazorAutoApp/wwwroot/tailwind.css
 
 ## 9. Execution ledger
 
-Only preparation rows are complete. Add one row per packet/PR. Include enough detail to resume: exact input SHA, claimed paths, reviewed candidates, final disposition, local checks, exact-head PR checks, integrated SHA/main checks, and next action. Link detailed evidence from the row rather than pasting logs.
+Preparation and decision rows are complete; implementation rows are pending. Add one row per packet/PR. Include enough detail to resume: exact input SHA, claimed paths, reviewed candidates, final disposition, local checks, exact-head PR checks, integrated SHA/main checks, and next action. Link detailed evidence from the row rather than pasting logs.
 
 | Item | Status | Evidence / next action |
 | --- | --- | --- |
 | Repository reconnaissance | Complete | Clean source checkpoint `de90f08d962d4789f4e55e19ddd15aed780b0882`; tracked inventory and named candidates in section 2. |
 | Qlty preparation | Complete | Qlty 0.653.0, completed; 125 locations/five duplication groups. Review, do not automatically fix. |
 | Quick preparation | Complete | Both analyzer builds succeeded with analyzer 10.35.0.4138; normal selected-profile restore succeeded. No tests or deployment acceptance claimed. |
-| Plan integration | Pending | Record documentation PR, integrated SHA and fetched-content verification here or in its PR description. |
-| P00 | Pending | Record demo, compatibility and Identity decisions. |
+| Initial plan integration | Complete | [PR #186](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/186), integrated `9bf5d49ba2e1af61c5fcd85708047943e029a074`; fetched plan matched the reviewed head. |
+| Execution review and goal | Prepared | Decisions closed, retirement consumers rechecked, same-PR count rules corrected and goal prompt added. Record this revision's integrated SHA/content verification in its PR description. |
+| Owner decisions | Complete | 2026-10-12: remove design demos, take the recommendation to keep legacy redirects, retain Identity as part of the template. |
+| P00 | Pending verification | Apply the resolved contract to fresh source; no owner question required. |
 | P01–P03 | Pending | Establish fresh baseline and complete disposition inventory. |
 | P04–P11 | Pending | Execute small behavior-preserving cleanup PRs. |
-| P12–P14 | Decision-dependent | Retire only selected features; record retention when declined. |
+| P12–P14 | Pending | Verify full Identity, atomically retire design demos, verify retained redirects. |
 | P15–P21 | Pending | Execute bounded hosting/simulation/deployment/tooling packets with focused checks. |
 | P22–P24 | Pending | Reconcile docs, close findings and verify integrated completion. |
 
@@ -556,10 +610,20 @@ Integrated SHA and exact-main check (or docs-only content verification):
 Remaining issue / next packet:
 ```
 
-## 10. Important open decisions
+## 10. Resolved decisions and accepted defaults
 
-1. **Design demos:** Should `/books/design-demos` and its detail pages remain a public template feature? Recommendation: retire the public review pages if they were only design exploration; retain the normal bookcase artwork and cover catalog. Until answered, keep the live pages.
-2. **Old Books URLs:** Should `/books/create`, `/books/{id}` and `/books/{id}/edit` keep redirecting into the modal flow, or may they be retired to the normal 404 behavior? Recommendation: keep the small redirects unless breaking old links is acceptable. Until answered, preserve them.
-3. **Identity breadth:** Should the template keep its full account-management scaffold, or become a narrower template with selected optional flows removed? Name any flows to retire, such as passkeys, Google/external login, 2FA or email confirmation/reset. Recommendation: preserve the current Identity surface during the first cleanup wave; make an explicitly selected reduction a separate PR. Until answered, remove only proven leftovers, not working account features.
+The owner resolved the feature questions on **2026-10-12** and requested intelligent recommendations so the goal can run directly. Apply this contract without another preference round:
 
-No answer is needed to begin the proven dead-input, redundant-branch, configuration-documentation and inventory work after implementation is authorized. Both frontend profiles, all deployment targets, simulation and observability remain supported defaults rather than speculative retirement candidates.
+| Decision | Accepted policy and reason |
+| --- | --- |
+| D-01: design demos | Retire both public demo routes, menus, HEAD aliases, traffic scenarios and demo-only scaffolding. Keep every normal cover design and bookcase interaction. Blazor returns 404; React's existing SPA fallback is unchanged. |
+| D-02: legacy URLs | Retain all three authorized Books redirect components and verify their exact mappings. Small compatibility shims still serve old links. |
+| D-03: Identity | Retain the complete template account surface, including passkeys, external/Google login, 2FA, recovery, confirmation/reset and personal-data management. Retain its storage, dependencies and binding setters. |
+| D-04: template capabilities | Retain both frontend profiles, all three deployment targets, PostgreSQL/Redis/Data Protection, simulation, observability and existing quality tools. Optional does not mean obsolete. |
+| D-05: warning-driven abstractions | Retain separate typed endpoint handlers, frontend hook symmetry, assembly markers and discovery/configuration contracts. Simplify actual redundancies; do not invent generic wrappers, dummy reads or analyzer suppressions. |
+| D-06: orphaned root artwork | Delete the unused root logo artifact if fresh consumer checks still show no required role. Retain only on concrete contrary evidence; Git history preserves the removed artifact. No cosmetic question is needed. |
+| D-07: simulation TLS | Accept Q-001's explicit loopback-only opt-in, using the exact CLI/wrapper contract and HTTP/browser restrictions in P16. Prefer normal certificate validation; all other simulation gates remain required. |
+| D-08: quality backlog boundaries | Complete overlapping Q-001, Q-006 and Q-007 work and Q-008 parser cleanup where justified. Q-004 supplies focused tests before changed modal behavior. Broad unchanged Identity coverage Q-003 and replacement of Caddy's verification mechanism Q-002 remain separate work, explicitly outside this cleanup's completion criteria. Structural collision review may proceed while preserving the current verification policy. |
+| D-09: history and testing | Preserve active/historical plans, EF migrations and strict gates. Change test-count consumers in the same PR as their test changes. Use local/disposable fixtures; no live deployment is needed. |
+
+There are **no open preference questions or established human-only blockers**. If fresh evidence disproves a source detail, correct the detail and follow the accepted policy. For a new unproven breaking removal, retain the current external behavior and record why. Escalate only a proven external hard stop after safe alternatives and independent work are exhausted; do not stop because routine implementation judgment is needed.
