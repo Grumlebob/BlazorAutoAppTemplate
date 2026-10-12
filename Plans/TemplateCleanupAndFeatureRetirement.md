@@ -2,13 +2,13 @@
 
 ## Status and purpose
 
-Status: **ready for execution; implementation has not started**. Repository reconnaissance, planning audits and a second execution review are complete. The owner resolved all three feature decisions on 2026-10-12. Section 10 records those decisions and the accepted technical defaults. No preference question blocks execution.
+Status: **in progress**. Repository reconnaissance, planning audits, execution review, baseline validation and complete source inventory are complete. The owner resolved all three feature decisions on 2026-10-12. Section 10 records those decisions and accepted technical defaults. No preference question blocks execution.
 
 Create a smaller, easier-to-maintain template by removing proven unused code, unused parameters, obsolete configuration and abandoned assets; simplifying unnecessary branches; and retiring explicitly selected old features as complete vertical changes. Preserve the supported template capabilities unless a recorded owner decision changes them.
 
 This document is an execution runbook for an agent with no previous conversation context. Execute one packet at a time, record evidence, and stop a packet when its proof or checks fail. Do not treat a search result, analyzer warning, low coverage, or lack of recent traffic as permission to delete a feature.
 
-The present request authorizes reviewing this plan and writing its goal prompt, not running the cleanup now. Invoking [TemplateCleanupAndFeatureRetirementGoal.md](TemplateCleanupAndFeatureRetirementGoal.md) authorizes the ordinary repository implementation, required tests, PRs and normal merges described here. It does not authorize changing a live host, provisioning a node or dispatching a deployment. Follow the repository rules throughout execution.
+The active goal [TemplateCleanupAndFeatureRetirementGoal.md](TemplateCleanupAndFeatureRetirementGoal.md) authorizes the ordinary repository implementation, required tests, PRs and normal merges described here. It does not authorize changing a live host, provisioning a node or dispatching a deployment. Follow the repository rules throughout execution.
 
 ## 1. Sources of truth and boundaries
 
@@ -479,6 +479,7 @@ Dependencies: every packet complete with an evidence-backed disposition, all req
 3. Review the full baseline-to-final diff for unrelated changes, secret material, dropped safety rules, stale route links, uncommitted generated CSS/schema and test-count discrepancies.
 4. Record retained features, deliberate retirements, total candidate dispositions, merge commits, checks and remaining separate defects. Do not report deployment validation or a live rollout unless actually authorized and performed.
 5. Integrate the final Markdown completion record through the docs-only workflow. Its `[skip ci]` commit need not have a CI run; verify its content on `origin/main` and cite the green final code commit separately.
+6. Re-inventory registered worktrees. Remove clean stale checkouts only after verifying their work is merged or their committed refs are preserved; retain dirty or active checkouts. Remove generated untracked artifacts only after verifying their exact paths and contents. Prune stale worktree metadata, then record removed checkouts, preserved branches and the final inventory without machine-specific paths.
 
 Verification and exit: the owner can resume from this ledger without reconstructing conversation history. Mark this cleanup complete only after integrated verification, not after a local build or PR creation.
 
@@ -578,8 +579,11 @@ Preparation and decision rows are complete; implementation rows are pending. Add
 | Initial plan integration | Complete | [PR #186](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/186), integrated `9bf5d49ba2e1af61c5fcd85708047943e029a074`; fetched plan matched the reviewed head. |
 | Execution review and goal | Prepared | Decisions closed, retirement consumers rechecked, same-PR count rules corrected and goal prompt added. Record this revision's integrated SHA/content verification in its PR description. |
 | Owner decisions | Complete | 2026-10-12: remove design demos, take the recommendation to keep legacy redirects, retain Identity as part of the template. |
-| P00 | Pending verification | Apply the resolved contract to fresh source; no owner question required. |
-| P01–P03 | Pending | Establish fresh baseline and complete disposition inventory. |
+| Worktree cleanup | Initial pass complete; final recheck pending | 2026-10-12: removed 13 stale checkouts from this repository; the 10 deleted local branches matched merged PRs #135, #154, #159, #162, #164, #167, #171, #172, #185 and integrated PR #153. Preserved the dirty React P3 worktree and the unmerged `coord/node-inventory-handoff` branch/ref. Current list has this cleanup checkout and P3 only; repeat at P24. |
+| P00 | Complete | At `origin/main` `fdd36a2e`, changes since the research source `de90f08d` are the plan and goal Markdown only. Rechecked the supported BlazorAuto/React profiles, account-free React/full retained Identity requirement, security/cache/test constraints and open PR state; no scope choice reopened. Preserved the active modified P3 handoff worktree. |
+| P01 | Complete | Baseline source `fdd36a2e0691fd0e25186a8e8b8912ebcf5cadfa`; selected profile BlazorAuto. Full gate passed: profile suites 211/13 and 203/13, lifecycle 3/0, profile Python 32/32, React 31/0 plus API/typecheck/lint/build, format, common/cloud/observability/deployment/rendered-template, yamllint, ShellCheck and actionlint. Gate ran in WSL Ubuntu 24.04 native storage after old root-owned ignored DrvFs build outputs blocked the initial mounted-checkout attempt; final selected-profile Windows restore/build passed. |
+| P02 | Complete | Inventory source `fdd36a2e0691fd0e25186a8e8b8912ebcf5cadfa`, 864 tracked paths. All paths classified by subsystem/kind; routes, redirects, HEAD/API routes, packages, configuration aliases, scripts/workflows, authored CSS/JS, DTOs and EF declarations indexed. Candidate register C-01–C-18 has explicit dispositions and owning packets. Ignored detail: `Plans.local/TemplateCleanup/Run-20261012/`. |
+| P03 | Pending | Remove only proven C# leftovers and reject false positives. |
 | P04–P11 | Pending | Execute small behavior-preserving cleanup PRs. |
 | P12–P14 | Pending | Verify full Identity, atomically retire design demos, verify retained redirects. |
 | P15–P21 | Pending | Execute bounded hosting/simulation/deployment/tooling packets with focused checks. |
