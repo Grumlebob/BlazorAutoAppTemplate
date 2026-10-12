@@ -118,24 +118,6 @@ This starts Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy with short
 
 For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuide.md`.
 
-Generate safe synthetic traffic for dashboards:
-
-```powershell
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
-.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
-```
-
-Run a strict evidence matrix and summarize reports:
-
-```powershell
-.\Scripts\RunSimulationMatrix.ps1 -All
-.\Scripts\AnalyzeSimulationReports.ps1 -Latest 15
-```
-
-Read-only simulation is the default. Authenticated writes require `-AllowWrite`, use real login cookies, and clean up V2 synthetic books by default. The simulator is the `BlazorAutoApp.Simulation` operator tool; it is built and tested by CI, but it is not deployed with the app. It paces `/api/*` and authenticated write requests below the app's rate limits, so normal smoke and demo runs should report `unexpected 429: 0`. Reports are written under `artifacts/simulation`.
-
 Manual equivalent:
 
 ```powershell

@@ -38,7 +38,6 @@ First actions:
    - docs/HowToRunLocally.md
    - docs/Test.md
    - docs/ObservabilityGuide.md
-   - docs/SimulationGuide.md
    - Deployment/LocalCluster/HowToDeployLocalCluster.md
    - Deployment/Common/release.yml
    - Deployment/LocalCluster/inventory/prod/group_vars/all.yml
@@ -68,7 +67,6 @@ Target architecture reminders:
 - BlazorAutoApp/Features/{Feature}: server services, Minimal API endpoints, persistence mapping, dependency injection, telemetry.
 - BlazorAutoApp.Client/Features/{Feature}: Interactive Auto client service, routable components under Routes, shared UI/state.
 - BlazorAutoApp.Test/Features/{Feature}: integration, API, client-state, architecture, and E2E tests.
-- BlazorAutoApp.Simulation: synthetic traffic only for workflows that matter to demos/observability.
 - Deployment/Common and Deployment/LocalCluster: deployment settings only when the migration changes runtime configuration or infrastructure.
 
 The generated Plans/MigrateProjectPlan.md must have this structure:
@@ -89,7 +87,7 @@ The generated Plans/MigrateProjectPlan.md must have this structure:
 
 ## 3. Current Target Repo Shape
 - Summarize the target app architecture and rules that affect migration.
-- Summarize CI/CD, LocalCluster, testing, observability, and simulation surfaces that must stay working. CI publishes the image, the migration bundle and a release-manifest.json from main; CD deploys only commits whose manifest validates, so every phase must keep main CI green.
+- Summarize CI/CD, LocalCluster, testing and observability surfaces that must stay working. CI publishes the image, the migration bundle and a release-manifest.json from main; CD deploys only commits whose manifest validates, so every phase must keep main CI green.
 - Mention that the target is Interactive Auto and explain the practical implications for prerendering, hydration, Core contracts, and client services.
 
 ## 4. Old ImprovedDb Inventory
@@ -167,7 +165,6 @@ For each phase, include:
 - Auth/authorization rules.
 - Cache/Redis needs.
 - Observability/logging needs.
-- Simulation needs.
 - Tests to add.
 - Local verification commands.
 - E2E/deployed verification when relevant.
@@ -197,7 +194,6 @@ Map test types to migration phases:
 - Architecture tests that must continue to pass.
 - Playwright E2E for important browser workflows.
 - Lighthouse/performance only where relevant.
-- Simulation after feature workflows are stable.
 
 Include exact commands:
 - dotnet restore
@@ -205,19 +201,16 @@ Include exact commands:
 - dotnet test
 - E2E command when needed
 - Scripts/RunLocal.ps1
-- Scripts/RunSimulation.ps1 or Scripts/RunSimulationMatrix.ps1 when relevant
 
-## 11. Observability And Simulation Plan
+## 11. Observability Plan
 State when to update:
 - Structured logs.
 - Metrics/traces.
 - Dashboards.
 - Alerts/runbooks.
-- BlazorAutoApp.Simulation.
 - docs/ObservabilityGuide.md.
-- docs/SimulationGuide.md.
 
-Avoid adding observability work to every feature by default. Add it when it answers an operator or demo question.
+Avoid adding observability work to every feature by default. Add it when it answers an operator question. This template has no standalone synthetic-traffic generator; use normal app workflows and tests for telemetry evidence.
 
 ## 12. Deployment Plan
 State the deploy rhythm:

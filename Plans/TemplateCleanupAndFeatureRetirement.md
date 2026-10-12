@@ -379,7 +379,7 @@ Dependencies: P02/P15. Inputs: `BlazorAutoApp.Simulation`, simulator tests and p
 5. Update every strict .NET test-count consumer in this PR: `docs/Test.md`, `Scripts/CI/validate-frontend-profiles.sh`, `Scripts/Quality/Invoke-SonarAnalysis.ps1`, `Scripts/Quality/sonar_report.py` and its count fixtures. Derive exact profile totals from the full test run; preserve 13 expected opt-in skips and profile-specific exclusions.
 6. Run focused solution restore/build/test after removing project references, then the full local gate. Keep `dotnet build` and `dotnet test` sequential. Check that removal does not alter deployment manifests or app image contents unexpectedly.
 
-Verification and exit: solution contains no simulator project; all remaining code/configuration builds cleanly; exact profile counts match executed tests; full local gate and exact-head/exact-main checks pass. No live synthetic traffic or deployment is needed. P17 handles user-facing docs and simulator-specific backlog history.
+Verification and exit: solution contains no simulator project; all remaining code/configuration builds cleanly; exact profile counts match executed tests; full local gate and exact-head/exact-main checks pass. No live synthetic traffic or deployment is needed. Complete P17's docs/backlog cleanup in the same feature-retirement PR so merged code has no broken simulator guidance.
 
 ### P17 — Remove simulator guidance and close superseded findings
 
@@ -390,7 +390,7 @@ Dependencies: P16. Inputs: README and active docs, `Plans/CodeQualityImprovement
 3. Mark Q-001 and Q-008 superseded because P16 removed their only target. Mark simulator-only analyzer observations as historical. Preserve `Plans/ImprovedSimulation.md` as a completed historical record; do not rewrite its old execution log.
 4. Search active source, workflows and current docs for runnable simulator paths, flags, project names and artifacts. Exclude preserved historical plan records from stale-reference cleanup. Add no test whose purpose is to prove removed simulator or routes stay absent.
 
-Verification and exit: active documentation has no broken simulator commands or promises; application observability guidance remains accurate. Review the complete docs-only diff, run `git diff --check`, use `[skip ci]`, merge by PR, fetch and verify the content on `origin/main`.
+Verification and exit: active documentation has no broken simulator commands or promises; application observability guidance remains accurate. Include this packet in P16's mixed code/docs PR, run the full code gate on the combined diff, and verify exact-head and exact-main CI. No separate docs-only PR is needed because the docs describe the same removed feature.
 
 ### P18 — Share narrow deployment settings validators
 
