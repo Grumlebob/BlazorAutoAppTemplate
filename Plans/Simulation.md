@@ -6,6 +6,8 @@ V2 authenticated simulation plan: `Plans/SimulationV2Authenticated.md`.
 
 Last updated: 2026-05-30.
 
+Historical-plan note (2026-10-12): the public `/books/design-demos` routes described in this plan were retired under [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md). Existing route examples below document the original simulator design; current simulation runs do not generate demo-route traffic.
+
 Accepted recommendation: build an in-repo .NET console tool at `Tools/TrafficSimulation` as the primary traffic simulator. Use HTTP-level traffic for volume, and add a small optional Playwright browser sampler only for realistic user journeys that need a real browser.
 
 This document is intended to be detailed enough that another agent can implement the simulator without re-deciding the architecture.

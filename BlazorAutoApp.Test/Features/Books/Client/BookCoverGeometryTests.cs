@@ -15,15 +15,30 @@ public sealed class BookCoverGeometryTests
     }
 
     [Fact]
-    public void Catalog_UsesUniqueDesignIds()
+    public void Catalog_UsesStableDesignOrderAndUniqueIds()
     {
         var ids = BookCoverDesignCatalog.All.Select(design => design.Id).ToArray();
 
+        Assert.Equal(
+            new[]
+            {
+                "cloth-hardback",
+                "decorative-hardcover",
+                "field-notebook",
+                "prism-atlas",
+                "droplet-monograph",
+                "transit-map-folio",
+                "compass-fieldbook",
+                "atlas-pinboard",
+                "seismograph-log",
+                "alpine-trail-guide"
+            },
+            ids);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     [Fact]
-    public void Catalog_DoesNotExposePerDesignShellPaths()
+    public void Catalog_DoesNotExposeDemoMetadataOrPerDesignShellPaths()
     {
         var propertyNames = typeof(BookCoverDesignDefinition)
             .GetProperties()
@@ -32,6 +47,15 @@ public sealed class BookCoverGeometryTests
 
         Assert.DoesNotContain("CoverPath", propertyNames);
         Assert.DoesNotContain("PagePath", propertyNames);
+        Assert.DoesNotContain("DemoTitleLines", propertyNames);
+        Assert.DoesNotContain("DemoTitleY", propertyNames);
+        Assert.DoesNotContain("DemoTitleDy", propertyNames);
+        Assert.DoesNotContain("DemoTitleFontSize", propertyNames);
+        Assert.DoesNotContain("DemoTitleFill", propertyNames);
+        Assert.DoesNotContain("Note", propertyNames);
+        Assert.DoesNotContain("CoverColors", propertyNames);
+        Assert.DoesNotContain("PageColors", propertyNames);
+        Assert.DoesNotContain("LineStroke", propertyNames);
     }
 
     [Fact]

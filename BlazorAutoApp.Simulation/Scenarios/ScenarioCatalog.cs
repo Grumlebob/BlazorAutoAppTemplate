@@ -12,8 +12,6 @@ internal static class ScenarioCatalog
             new("home", ScenarioCategory.Page, 15, _ => "/", IsSuccess),
             new("books-page", ScenarioCategory.Page, 10, _ => "/books", IsSuccess),
             new("author-page", ScenarioCategory.Page, 15, ctx => $"/books/author/{ctx.NextAuthorSeedKey()}", IsSuccess),
-            new("design-demos", ScenarioCategory.Page, 6, _ => "/books/design-demos", IsSuccess),
-            new("design-demo-detail", ScenarioCategory.Page, 4, ctx => $"/books/design-demos/{ctx.NextDesignId()}", IsSuccess),
             new("login-page", ScenarioCategory.Page, 5, _ => "/Account/Login", IsSuccess),
             new("register-page", ScenarioCategory.Page, 5, _ => "/Account/Register", IsSuccess),
             new("expected-page-not-found", ScenarioCategory.Page, 5, _ => "/simulation-not-found", IsExpectedNotFound),
