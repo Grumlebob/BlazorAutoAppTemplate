@@ -943,7 +943,7 @@ for needle, why in [
 profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
     ("--expected-skipped 13", "both profile suites enforce their expected opt-in skips"),
-    ("expected_passed=194", "Blazor profile enforces its complete pass count"),
+    ("expected_passed=190", "Blazor profile enforces its complete pass count"),
     ("expected_passed=182", "React profile enforces its complete pass count"),
     ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
 ]:

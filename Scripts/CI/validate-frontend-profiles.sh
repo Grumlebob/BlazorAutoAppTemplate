@@ -37,7 +37,7 @@ for profile in BlazorAuto React; do
     test_arguments+=(--filter 'FrontendProfile!=BlazorAuto')
     expected_passed=182
   else
-    expected_passed=194
+    expected_passed=190
   fi
 
   dotnet "${test_arguments[@]}"

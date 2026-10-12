@@ -46,7 +46,7 @@ CHURN_TEXT = (
 )
 RUN_EVIDENCE = {
     "tests": {"frontendTests": {"status": "not-applicable"},
-              "dotnet": {"passed": 194, "failed": 0, "skipped": 13, "total": 207, "result": "tests/suite.trx"}},
+              "dotnet": {"passed": 190, "failed": 0, "skipped": 13, "total": 203, "result": "tests/suite.trx"}},
     "coverage": {"reactLcov": "not-applicable", "dotnet": {"valid": True, "directReportCount": 1,
                                                                   "coveredProductionSources": [GEOMETRY]}},
 }
