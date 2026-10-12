@@ -38,16 +38,16 @@ Maintain one active VS1 outcome covering P4/P5/P6.1/P7.1/P7.3. Suggested cohesiv
 ### A. Real story and compiler — P4.1 + initial P6.1
 
 1. Locate the selected ImprovedDb revision/captures, keep the approved motivation, verify actual ratings/import behavior, and omit unresolved counts/cutoff statements. Use neutral contribution wording until personal role is evidenced.
-2. Add site and ImprovedDb metadata with six stable section IDs; add draft starter entries separately. Select cover/credit/score figures and their provenance. Add only block kinds used by this story.
+2. Add site and ImprovedDb metadata with six stable editorial section IDs and source-supported technology IDs. Create the canonical registry; synthesize Techs and published-only TechnologyCatalog. Add draft starters separately. Select figures/provenance and only needed block kinds.
 3. Create ContentTool and shared C# contracts/compilation. Implement validate/media-plan/media/export command contracts, diagnostics and published-only output. Wire build order before any Vite public copy.
 4. Verify identical repeated exports, draft/private sentinel exclusion, unsafe prose/media/path rejection, image hashes and payload budgets. Record actual commands, model fields and content revision.
 
-Checkpoint output: a reviewed first-story bundle that can feed both API and build, without DB/Redis/credentials. Next: B, not all eleven content records.
+Checkpoint output: a reviewed first-story bundle that can feed both API and build, without DB/Redis/credentials. Next: B, not all twelve content records.
 
 ### B. Read API and home/reader together — P4.2 + P5.1/P5.2
 
-1. Load the exported immutable bundle in the C# host. Add the three read features and status/ETag metadata; regenerate TypeScript through actual inherited tooling.
-2. Replace the relevant Books consumers with one home catalog and one story reader. Use the approved shell/tokens/fonts, native links, six continuous sections and shared block renderer.
+1. Load the exported immutable bundle in the C# host. Add the four read features and status/ETag metadata; regenerate TypeScript through actual inherited tooling.
+2. Replace the relevant Books consumers with home, Technologies and the story reader with generated Techs. Use the approved shell/tokens/fonts, native links, six editorial sections plus Techs, and the shared block renderer.
 3. During the development increment, use generated transport/Query with cancellation and permanent-error policy. Add actual loading/empty/error behavior without delaying readable content after prerender.
 4. Implement section/menu focus and tracking, theme bootstrap/persistence and figure sizing. Verify the journey at one narrow and one wide viewport early; save final visual evidence later.
 
@@ -63,7 +63,7 @@ Checkpoint output: no sample product, safe removed routes and a buildable graph.
 
 ### D. Direct HTML and acceptance — P7.1/P7.3 + P5.3
 
-1. Wire offline loaders to the exact bundle and explicit published paths. Build `/` plus `/projects/improveddb`; inventory generated HTML/navigation data/asset layout and route discovery behavior.
+1. Wire offline loaders to the exact bundle and explicit published paths. Build `/`, `/technologies` and `/projects/improveddb`; inventory generated HTML/navigation data/asset layout and route discovery behavior.
 2. Add exact C# routing and true 404 document/status policy, canonical redirects, reserved paths and revision compatibility. Remove generic shell fallback for unknown production requests.
 3. Implement `PortfolioPublicV1` consistently in profile resolver, labels, manifests, setup/workflows, image smoke and deployed-site script. Check real story sections/assets and matching revision, not Books seeds.
 4. Add title/description/canonical/social/sitemap/robots output. Verify useful HTML with JavaScript disabled and no duplicate initial API reads. Add approved responsive media/font handling.
@@ -73,18 +73,18 @@ Checkpoint output: complete VS1 only after merged-green code and the production 
 
 **C2 fresh-chat recommendation:** now save the actual compiler/build/hosting commands, shared renderer/model paths and verified visual/revision evidence. Recommend a new chat for repeatable story delivery; normally start P6.2. Do not trigger C2 after A, B or C alone.
 
-## 4. Repeatable story checkpoints — P6.1–P6.12 / VS2
+## 4. Repeatable story checkpoints — P6.1–P6.13 / VS2
 
-For P6.2–P6.11, use the respective inventory sections and [VisualProduction.md](VisualProduction.md). P6.1's initial review happens within VS1. Every story follows the same sequence:
+For P6.2–P6.11 and P6.13, use the respective inventory sections and [VisualProduction.md](VisualProduction.md). P6.1's initial review happens within VS1. Every story follows the same sequence:
 
 1. **Source:** pin code/report revision and publication context. Separate code, report, media and owner explanation. Do not execute source software merely to establish facts.
-2. **Copy:** write a short introduction, stable H2 sections, one grounded design explanation and limitations. Preserve the required section IDs. Omit unverified role/count/date claims; record omissions.
+2. **Copy:** write a short introduction, stable H2 sections, one grounded design explanation and limitations. Verify technology IDs against source; reserve `techs` for the generated section. Omit unverified role/count/date claims. Attribute Grumlebob's supplied profit/capacity statements to the owner.
 3. **Figures:** produce cover and primary explanation, then only useful supporting evidence. Record rights/provenance/caption/alt/crop. Use synthetic fixtures or honest explanatory fallbacks; no private data.
-4. **Integration:** mark published only after review; compile/export; verify catalog/detail, direct HTML, navigation data, social/sitemap and related links. Extend a generic block renderer only for the concrete story need.
+4. **Integration:** publish only after review; compile/export; verify catalog/detail, Techs/Technologies entries and links, direct HTML, navigation data, social/sitemap and related links. Extend generic rendering only for a concrete story need.
 5. **Checks:** content/privacy/links + relevant API/hosting/browser/image acceptance. A non-Markdown content/media change follows the applicable implementation gate, even if no C# file changed.
 6. **Handoff:** record source/content revision, changed boundaries, PR/head/merge/main evidence and exact next story. If genuinely blocked, leave draft and choose an independent story.
 
-P6.12: inspect the full catalog/order, each public card/detail pair, related-link graph, figure legibility and launch readiness. Record four-story launch separately from all eleven dispositions. Each deferred entry needs explicit owner instruction/reason; the executor cannot reduce scope alone.
+P6.13 adds Template; P6.12 retains the catalog-review ID. Inspect full catalog/order, card/detail pairs, Techs and deduplicated Technologies, related links, figures and launch readiness. Record four-story launch separately from twelve dispositions. Every deferral needs owner instruction/reason.
 
 ## 5. Runtime, public launch and handover — VS3–VS5
 

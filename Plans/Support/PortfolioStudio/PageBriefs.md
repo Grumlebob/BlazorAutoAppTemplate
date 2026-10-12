@@ -2,7 +2,7 @@
 
 Parent: [master plan](../../PortfolioStudioImplementation.md). Technical packets: [DeliveryPhases.md](DeliveryPhases.md). Facts, exact section IDs and source limitations: [ProjectInventory.md](ProjectInventory.md).
 
-Use [VisualProduction.md](VisualProduction.md) for asset-by-asset composition, example data, captions/alt directions, mobile treatment and honest fallbacks for all eleven stories. [ExecutionDecisions.md](ExecutionDecisions.md) resolves parser/media/runtime choices and factual-copy defaults; [ImplementationCheckpoints.md](ImplementationCheckpoints.md) supplies the executable story sequence.
+Use [VisualProduction.md](VisualProduction.md) for asset-by-asset composition, example data, captions/alt directions, mobile treatment and honest fallbacks for all twelve stories. [ExecutionDecisions.md](ExecutionDecisions.md) resolves parser/media/runtime choices and factual-copy defaults; [ImplementationCheckpoints.md](ImplementationCheckpoints.md) supplies the executable story sequence.
 
 This document supplies editorial suggestions and concrete production tasks. Suggested headlines are draft copy. Publish factual claims only after checking the source register. Preserve the selected Studio layout: one home grid, one continuous page per project, desktop section rail, mobile section menu and both themes. Do not introduce separate About/Writing pages or chapter routes.
 
@@ -14,9 +14,9 @@ This document supplies editorial suggestions and concrete production tasks. Sugg
 
 Review this copy with the owner's actual contributions before publishing. Keep it to two or three quiet lines. The grid follows directly; no large biography panel, technology logo wall or animated hero is needed.
 
-- Header: `Jacob Grum` linked home; accessible theme button on the right.
+- Header: `Jacob Grum` linked home; **Technologies** linked to `/technologies`; accessible theme button on the right. Both controls remain usable on mobile.
 - Cards: 16:10 starting cover ratio, project name, one clear sentence and optionally one or two meaningful descriptors. Adjust crop per asset; preserve technical figure legibility inside stories.
-- Order: ImprovedDb, GeckoBot, TraceBack, KinoJoin, Ship Inspections, Unlost, MiniTwit, BestBets, Geospatial research, Grumlebob, JobHunt. Hide drafts while preserving the relative order of published entries.
+- Order: ImprovedDb, GeckoBot, TraceBack, KinoJoin, Ship Inspections, Unlost, MiniTwit, BestBets, Geospatial research, Grumlebob, JobHunt, Template. Hide drafts while preserving the relative order of published entries.
 - Layout: two columns on comfortable desktop widths, one on mobile. Odd final entries retain the normal card width. Support different catalog sizes without filler cards or pagination.
 - Footer: a small verified GitHub link and any owner-supplied contact action. Do not infer an email address, current job title or availability for work.
 - First-load media: load only current card variants; do not fetch every story's screenshots or prose. Preserve intrinsic image dimensions and a quiet background before load.
@@ -26,6 +26,8 @@ Initial launch can contain four fully reviewed stories. A larger backlog stays i
 ## 2. Shared project-page treatment
 
 Show project name as H1, a concise editorial standfirst, a readable cover and verified actions. Optional context/role/status text belongs near the introduction only when established. Use clear headings rather than a row of technology badges.
+
+Include generated H2 **Techs**, ID `techs`, after the introduction and before editorial sections. Its linked list comes from source-supported `technologyIds` in the shared registry and appears in desktop/mobile section navigation. The master defines canonical IDs, categories and publication filtering. Do not maintain a second technology list in prose.
 
 Each main section should answer a question, show evidence and explain a decision. A useful working target is 80–180 words per ordinary section, with longer technical sections where warranted. Do not pad a project to a common word count or section count. Alternate prose and useful figures naturally; no image after every paragraph by rule.
 
@@ -155,7 +157,7 @@ Publication blockers: actual runtime/media evidence, source/document upload-limi
 
 **Standfirst suggestion:** Building a map of Denmark, then finding a useful route through it.
 
-Use existing genuine report artifacts. Preserve inventory IDs; do not make recovering the Java source a prerequisite.
+Use the recovered [Unlost source](https://github.com/Grumlebob/Unlost) alongside genuine report artifacts. Preserve inventory IDs and reconcile dated report/code evidence; source import does not verify runtime behavior.
 
 - Building a map application: establish the 2022 team-project context and verified personal role.
 - From map data to the screen: show genuine map UI/OSM structure.
@@ -234,23 +236,24 @@ Publication blockers: reviewed source/result period, dataset/map attribution, co
 
 ## 12. Grumlebob — `/projects/grumlebob`
 
-**Card suggestion:** Personal tools for automation, analysis, bookkeeping and billing.
+**Card suggestion:** Automation of free online offers for passive income.
 
-**Standfirst suggestion:** A collection of tools built around recurring tasks and useful questions.
+**Standfirst suggestion:** Grumlebob automates free online offers to generate money passively. The owner reports approximately DKK 500,000 profit in one year.
 
-The owner's explanation is the primary source. A restricted local folder is recorded privately; its contents are not approved publication material and need not be inspected. Obtain the approved public description before publishing. Keep one entry with distinct sections unless the owner chooses otherwise:
+The owner's 2026-10-12 explanation supplies the public scope and result. A restricted local folder remains private and need not be inspected. Keep one entry with distinct sections:
 
 - Automating recurring work: explain whether these are one system or separate tools.
 - Automation using AHK and Python: explain approved technical decisions and controls through a generic diagram.
 - Analysis: explain approved methods/lessons using an accurately labelled generic or fictional example.
 - Bookkeeping and automated billing: follow fictional records to a reviewed example bill; describe only implemented controls.
 - Design and lessons: explain verified failure/maintenance boundaries and owner reflections.
+- Results and member capacity: attribute approximately DKK 500,000 profit in one year and membership at capacity because of concern about being caught to the owner. Do not invent a calendar year, member count or financial chart.
 
 **Cover:** an approved generic workflow illustration. **Supporting figures:** a newly prepared technical diagram and fictional bookkeeping/billing example where supported by the approved explanation. Source excerpts or actual artifacts require specific publication approval.
 
 **Reader takeaway:** practical scripts solve specific recurring tasks. **Related:** GeckoBot, JobHunt.
 
-Publication blockers: approved public explanation, role/status and permitted figures. Exclude private domain context, sensitive workflows/data/results and identifying source artifacts from prose, images, filenames, alt text, captions, social previews and links. Do not invent another real use case to replace excluded context. Do not infer a repository, integrations, payment collection, ML or outcomes. Media preparation must not execute real automation or send invoices.
+Remaining review: role/status, final copy and permitted figures. The expressly supplied public facts override the earlier blanket exclusion for those statements. Protect remaining identities, providers, accounts, operational details and background artifacts across public surfaces. Do not infer a repository, integrations, payment collection, ML or additional outcomes. Media preparation must not execute real automation or send invoices.
 
 ## 13. JobHunt — `/projects/jobhunt`
 
@@ -279,7 +282,31 @@ Show all eight steps in a readable horizontal/wrapped desktop composition and ve
 
 Publication inputs: source-aligned copy and permitted fictional examples. The writing distinction is resolved above; omit unverified account creation and individual-role/status claims. Never read/publish private applicant documents, credentials or employer submissions merely to populate this case study. A tracker state is not proof of employer receipt.
 
-## 14. Per-story publication checklist
+## 14. Template — `/projects/template`
+
+**Card suggestion:** A reusable application template with two frontend choices, three deployment choices and integrated quality tooling.
+
+**Standfirst suggestion:** A shared C# foundation with Blazor or React, several deployment targets, and checks spanning quality, security and performance.
+
+- A reusable foundation: explain the shared host and configurable profiles from pinned source.
+- Two frontend choices: **Blazor** and **React**.
+- Three deployment choices: **Cloud**, **LocalCluster** and **LocalSingleNode**.
+- Quality and security tooling: **Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io and scc**. Explain each tool's purpose using source evidence; configuration is not an achieved score or passed scan.
+- Tradeoffs and lessons: explain profile maintenance and reusable checks using actual evidence.
+
+**Cover:** a restrained foundation diagram. **Supporting figures:** two frontend choices, three deployment choices and a short tool-to-purpose overview. Use genuine dated reports only if results are supported. **Related:** MiniTwit, Ship Inspections. **Public action:** the template repository.
+
+Template is now included by owner request. Its choice catalog does not expand Portfolio's React/LocalSingleNode runtime.
+
+## 15. Technologies — `/technologies`
+
+**Heading:** Technologies. **Supporting copy:** Technologies used across the published projects, grouped by their main role.
+
+Use the common registry and compiler-derived TechnologyCatalog. Start with Languages, Frontend & UI, Backend, Data & research, DevOps & deployment, and Quality & security. Give each technology one entry in one primary category, a brief description, stable `tech-{id}` anchor and links to the published projects using it. Exclude draft-only/unreferenced technologies and empty categories. Use quiet text and spacing; no repeated badges, ratings or second handwritten inventory.
+
+Share header/theme/focus/mobile behavior with home and stories. Check direct HTML without JavaScript, project Techs anchor links and Back/Forward. Publication/technology changes update both surfaces in one release.
+
+## 16. Per-story publication checklist
 
 - [ ] Reviewed source revision/date and factual notes are recorded privately/editorially.
 - [ ] Headline/summary explains the actual project without invented impact or biography.

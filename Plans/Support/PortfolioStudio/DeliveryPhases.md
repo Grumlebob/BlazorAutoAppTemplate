@@ -32,7 +32,7 @@ Markdown-only packets require Markdown review and `git diff --check`; inherited 
 | P2 | P1 | React-only frontend/C# host; Blazor UI/profile removed |
 | P3 | P2 | LocalSingleNode-only deployment with preserved shared gates |
 | P4 | P2; merge after P3; co-developed with P5 | VS1's first-story content/export/API and Books-domain replacement |
-| P5 | Incremental P4 contracts; co-developed with P4 | VS1's approved Studio home and ImprovedDb reader |
+| P5 | Incremental P4 contracts; co-developed with P4 | VS1's Studio home, Technologies page and ImprovedDb reader with Techs |
 | P6 | VS1 verified; source preparation may begin earlier | Repeatable full story slices and reviewed launch set |
 | P7 | P7.1/P7.3 begin within VS1; final P7.4 requires reviewed launch set | Per-slice prerender/acceptance, runtime alignment and final release readiness |
 | P8 | P0 identity; latest P3/P7 for installation/deploy | Native node, runner, LAN readiness and controller SSH |
@@ -169,7 +169,7 @@ Exit evidence: neither removed directory exists; no active workflow/script impor
 Inputs: P2; master sections 4–5; source register.
 
 - Create `Content/Portfolio/site.json`, per-project metadata/Markdown/media and a draft starter. Begin with ImprovedDb's actual story; other catalog entries remain draft metadata until their slice is prepared.
-- Implement ContentTool/C# validation/export and DTOs needed by the first story's site, summary/detail, sections, blocks, assets and published manifest. Use ExecutionDecisions' Markdig, safe HTML, media-plan and CLI defaults. Extend contracts only for a concrete later story requirement.
+- Implement ContentTool/C# validation/export and DTOs for site, summary/detail, sections, blocks, assets, technology registry/catalog and published manifest. Validate source-supported `technologyIds`, synthesize Techs and derive the categorized overview from published projects only. Use ExecutionDecisions' Markdig, safe HTML, media-plan and CLI defaults.
 - Produce deterministic public-only normalized output and a content revision. No DB/Redis/network/credentials are required for export.
 - Validate unsafe HTML/links/SVG, path containment/case, missing media, duplicate IDs, internal links to drafts, dimensions, supported block kinds and payload budgets.
 - Keep provenance/review notes out of public DTOs. Draft content and media cannot ship merely because they live near published files.
@@ -178,7 +178,7 @@ Exit: deterministic export, invalid fixtures rejected, first-story content suppo
 
 ### P4.2 — Public API and generated client
 
-- Add `/api/portfolio/site`, `/api/portfolio/projects`, `/api/portfolio/projects/{slug}` with public read-only contracts, bounded payloads, ETags and 404 Problem Details.
+- Add `/api/portfolio/site`, `/api/portfolio/projects`, `/api/portfolio/projects/{slug}` and `/api/portfolio/technologies` with public read-only contracts, bounded payloads, ETags and 404 Problem Details. TechnologyCatalog shares the immutable content revision.
 - Generate/check OpenAPI and TypeScript through inherited tooling; replace Books query keys/transport/hooks with Portfolio ones.
 - Use the same exported bundle for runtime reads and later prerender. Include its schema/revision in compatibility checks.
 - Retain loading/empty/offline/throttled/server-error UX and cancellation; permanent 404s do not retry.
@@ -200,7 +200,7 @@ Exit: no Books UX/API/simulator in the product; generated schema and runtime dep
 
 ### P5.1 — Home and visual system
 
-- Implement header (`Jacob Grum` and theme switch), `Selected work.`, supporting copy and image-led project grid.
+- Implement header (`Jacob Grum`, Technologies link and theme switch), `Selected work.`, supporting copy and image-led project grid. Implement `/technologies` as a brief categorized, deduplicated overview with stable anchors and published project links.
 - Implement shared tokens/fonts, focus/skip link, one/two-column responsive layout, odd final-card behavior and system/user theme precedence before first paint.
 - Read catalog metadata, do not encode project-name conditionals. Cards are real links without nested interactive elements.
 - Preserve useful empty/error states and image aspect ratios. Add verified footer links only when available; omit unverified contact details.
@@ -214,13 +214,13 @@ Exit: no Books UX/API/simulator in the product; generated schema and runtime dep
 
 ### P5.3 — Visual checkpoint
 
-Review real home/ImprovedDb at the required viewport sizes in both themes. Compare with portable Studio references. Verify keyboard navigation, deep fragment reload, final short section, long figure/code sections and 200% text zoom. Record screenshots and actual findings. Correct drift before duplicating content across projects.
+Review real home/Technologies/ImprovedDb at the required viewport sizes in both themes. Compare with portable Studio references. Verify keyboard navigation, deep fragment reload, final short section, long figure/code sections and 200% text zoom. Record screenshots and actual findings. Correct drift before duplicating content across projects.
 
 Exit: one complete real story, approved layout faithfully implemented and components suitable for different section counts. Finish first-story P7.1/P7.3 hosting/prerender/image acceptance before marking VS1 verified. This checkpoint is review evidence, not a requirement to stop for another style choice.
 
 **C2:** recommend a fresh chat for story production only after the whole VS1 journey, including its first-story P7 work, is verified. P5.3 alone does not trigger this handoff.
 
-## P6 — Prepare the eleven distinct project stories
+## P6 — Prepare the twelve distinct project stories
 
 Use the detailed [page briefs](PageBriefs.md). Each story is a resumable vertical content slice; keep a per-project source/media/publication row in Progress. Its exit includes actual export/API/catalog/detail/prerender/metadata/media and applicable checks together, not merely a Markdown draft. Introduce needed contract/renderer behavior in that same story slice. P6.1's initial publication requirements are part of VS1.
 
@@ -229,19 +229,22 @@ Use the detailed [page briefs](PageBriefs.md). Each story is a resumable vertica
 | P6.1 | ImprovedDb | Final sourced ratings/data/statistics/ML explanation, selected real captures, six-section story |
 | P6.2 | KinoJoin | Synthetic cinema-event journey, preference/result capture and domain/calendar diagram |
 | P6.3 | TraceBack | Research-prototype workflow, synthetic run context and references/snapshots boundary figure |
-| P6.4 | Unlost | Historical report-backed map/search/pathfinding story and genuine figures; no Java-source recovery gate |
+| P6.4 | Unlost | Recovered Java source reconciled with historical map/search/pathfinding report and genuine figures; no runtime claim from import alone |
 | P6.5 | Ship Inspections | Synthetic vessel/part/image journey, real upload states and sourced TUS flow |
 | P6.6 | MiniTwit | Historical evolution/DevOps narrative with architecture, delivery and useful operational figure |
 | P6.7 | BestBets | Owner-selected Exam PDF/deck reviewed against repository evidence; architecture views and targets-versus-results figure |
 | P6.8 | Geospatial research | Attributed genuine maps/plots, data/methods and findings with limitations |
 | P6.9 | GeckoBot | Selected private GeckoBot source/requirements and historical-use review; fictional Outlook booking/email examples and accurate UI/parser story; deleted demo retained only in private backup |
-| P6.10 | Grumlebob | Owner-approved domain-neutral explanation and permitted generic figures; restricted background contents/context excluded |
+| P6.10 | Grumlebob | Free online offers/passive income; owner-reported DKK 500,000 profit in one year and member capacity due to concern about being caught; generic figures, private details excluded |
 | P6.11 | JobHunt | Eight-step responsibility figure, factual writing boundary and fictional administrative examples |
-| P6.12 | Catalog review | Stable order, all ready stories complete, no dangling public cards/links, launch set recorded |
+| P6.13 | Template | Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io, scc; Blazor/React and Cloud/LocalCluster/LocalSingleNode choices, supported by pinned source |
+| P6.12 | Catalog review | Stable order, twelve story dispositions, Techs/Technologies consistency, no dangling public cards/links, launch set recorded |
 
-For every story, confirm source revision, individual role, status/context, safe media rights, meaningful caption/alt text, valid outbound links and accurate limitations. A header suggestion is editorial copy, never a source for a factual claim. Related links point only to published stories.
+P6.12 retains its existing ID. P6.13 adds Template; final catalog review follows every story's recorded disposition.
 
-For Grumlebob, the owner's approved explanation is the primary source; restricted code inspection is not an exit gate. Validate that all public output, including filenames/alt text/social metadata, respects the private scope recorded in the source note. Do not fabricate a substitute real use case. For GeckoBot, private source access does not authorize publishing real employee/customer/email/calendar data or a private repository button.
+For every story, confirm source revision, technology references, individual role, status/context, safe media rights, meaningful caption/alt text, valid outbound links and accurate limitations. Update Techs and Technologies together. A header suggestion is editorial copy, never a source for a factual claim. Related links point only to published stories.
+
+For Grumlebob, the owner's 2026-10-12 public facts are the primary source; attribute profit/capacity statements and protect remaining restricted context. Restricted code inspection is not an exit gate. Do not fabricate another use case. For GeckoBot, private source access does not authorize publishing real employee/customer/email/calendar data or a private repository button.
 
 Recommended first launch set: ImprovedDb, KinoJoin, TraceBack, Unlost. Do not publish incomplete cards to meet a count. Continue later packets independently. Owner-approved deferrals must be recorded before full-plan completion.
 
@@ -249,7 +252,7 @@ Recommended first launch set: ImprovedDb, KinoJoin, TraceBack, Unlost. Do not pu
 
 ### P7.1 — Prerender and exact C# hosting
 
-Begin this packet within VS1 for home and ImprovedDb, then extend known routes/generated output in each P6 story slice. It is not deferred until all stories are written.
+Begin this packet within VS1 for home, Technologies and ImprovedDb, then extend known routes/generated output in each P6 story slice. It is not deferred until all stories are written.
 
 - Use the pinned Router version's supported prerendering with `ssr:false`, explicit published routes and snapshot loaders. Verify version-specific APIs rather than upgrading to match current examples.
 - Build content first, then contracts/frontend, then package the exact bundle and generated HTML/navigation data in the C# image. Production has no Node process.
@@ -335,7 +338,7 @@ Verify persistence across one scoped app restart. Retain runner/connector/health
 
 ### P10.2 — Repeatable authoring and full backlog
 
-Write fresh-clone/local-run/content-add/build/release/update/backup/restore instructions using implemented commands. Complete remaining P6 stories or obtain explicit owner deferrals. Recheck all public links, captions, factual dates and contribution statements. Record launch set separately from the eleven-project disposition.
+Write fresh-clone/local-run/content-add/build/release/update/backup/restore instructions using implemented commands. Complete remaining P6 stories or obtain explicit owner deferrals. Recheck all public links, captions, factual dates and contribution statements. Record launch set separately from the twelve-project disposition.
 
 ### P10.3 — Close the delivery
 
