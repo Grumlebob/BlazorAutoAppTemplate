@@ -149,7 +149,7 @@
         ? 314
         : string.IsNullOrWhiteSpace(EditHref) ? 430 : 372;
 
-    private int DeleteControlX => string.IsNullOrWhiteSpace(EditHref) ? 372 : 372;
+    private const int DeleteControlX = 372;
 
     private int TitleLineY(int index) => TitleStartY + (index * TitleLineSpacing);
 
@@ -188,7 +188,7 @@
         <path d="M23 27v7M27 27v7" stroke="#b91c1c" stroke-width="1.8" stroke-linecap="round" />
     </g>;
 
-    private RenderFragment PencilIcon() => @<g transform="translate(430 74)" aria-hidden="true">
+    private static RenderFragment PencilIcon() => @<g transform="translate(430 74)" aria-hidden="true">
         <rect x="0" y="0" width="50" height="50" rx="16" fill="none" stroke="#d7c3a1" stroke-width="2" />
         <path d="M31 9l10 10-4 4-10-10z" fill="#fda4af" />
         <path d="M27 13l10 10-3 3-10-10z" fill="#94a3b8" />
