@@ -55,7 +55,7 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 - Verification: P20 adds direct port-range boundary cases and rejection fixtures for Compose port/subnet conflicts, foreign Caddy sites and unrecognized Caddyfile digests. Existing ownership, runtime-network, listener, release-contract and deployment-audit checks pass.
 - Effort: large; behavior spans shared-host and privileged setup boundaries.
 - Dependencies: none.
-- Decision: fix after the MD5 verification basis in Q-002 is settled.
+- Decision: structural decomposition complete in P20; Q-002 remains a separate design review for the MD5 verification basis.
 - Acceptance: all existing fail-closed cases remain covered, and each check has a direct test and a narrow responsibility.
 
 ### Q-006 — Make the Redis fallback test assert the behavior it names
@@ -67,7 +67,8 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 - Verification: run the focused Redis configuration tests and both profile test suites.
 - Effort: small.
 - Dependencies: none.
-- Decision: fix.
+- Disposition: P15 proves in-memory cache reads/writes, absence of Redis connection/health-check registrations in fallback, and the existing required-Redis failure. Focused tests and both profiles passed; no production fallback behavior changed.
+- Decision: complete in P15.
 - Acceptance: tests assert both fallback registration and required-Redis failure, without requiring a live Redis service.
 
 ### Q-007 — Share common LocalCluster and Cloud settings validation
@@ -79,7 +80,8 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 - Verification: add parity cases for shared inputs and target-specific cases, then run common, Cloud, LocalCluster, and deployment audit suites.
 - Effort: medium; shared validators affect multiple deployment surfaces.
 - Dependencies: none.
-- Decision: fix.
+- Disposition: P18 extracted pure shared validators and paired parity/CLI fixtures. It preserves target-specific schemas, defaults, error order/text, and Cloud-only address checks. The full deployment/settings/render gate passed.
+- Decision: complete in P18.
 - Acceptance: shared rules have one implementation, target-specific validation remains explicit, and both settings contracts produce equivalent results for equivalent input.
 
 ### Q-008 — Superseded: simulator retired
@@ -95,6 +97,7 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 | `python:S5332` at `Deployment/LocalSingleNode/Scripts/lib/collisions.py:85` (keys `439e80ec-6d02-4fda-b363-3879b4e68a8b` / `5bb47505-d963-4089-b136-65c7b77d5cdb`) | The `http://` literal is matched inside Caddy configuration text to detect a port-80 collision; this code does not issue an HTTP request. Reviewed noise; keep the static collision check. |
 | `csharpsquid:S2068` on `User123` and `postgres` defaults (for example `7a82f2b5-f3eb-47a3-8811-cb53cbb32f21`, `8414802e-46f7-4940-9ca0-fab2d83c054f`, `6cc2cb39-bcb1-4397-82ee-0b7406a8ae68`, `85c584f0-a498-4a73-ac6d-2d91a009efd0`) | These historical findings pointed to local/demo credentials and sample connection strings. The simulator defaults were removed with P16; Docker local account seeding is controlled by `LocalAccounts:Enabled`, `.env.example` documents local PostgreSQL defaults, and deployment compositions inject connection strings from protected settings. No report finding identified a live secret. Keep production secrets injected. |
 | `csharpsquid:S2245` at the retired simulator ScenarioRunner.cs:29` (keys `5e42d43c-bc21-4706-8e18-ac320bf64c56` / `5fbb4709-60cd-4a38-ae00-4de542e24da4`) | Historical finding only. P16 removed the deterministic synthetic scenario selector with the standalone simulator; no cryptographic use was involved. |
+| csharpsquid:S6966 at BlazorAutoApp/Program.cs:71 | The analyzer prefers awaiting app.RunAsync. Keep the conventional synchronous ASP.NET Core host lifetime call in this cleanup; it is not dead code or a new regression. Revisit only with a dedicated async startup/lifetime change. |
 | `javascript:S8786` at `BlazorAutoApp.React/scripts/openapi-contract.mjs:41` (key `34d0470d-6ef0-42d6-9b23-f7bd1fb49fa4`) | The expression `\n*` normalizes trailing line feeds in generated text; it is a single-character repetition rather than a nested or ambiguous backtracking pattern. Reviewed noise; no performance defect was observed. |
 
 The SonarQube quality gate remains informational. Implement these items only through separately authorized, tested changes; do not suppress rules or exclude source just to reduce counts.
