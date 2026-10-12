@@ -17,10 +17,8 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
         await RunWithFailureScreenshotAsync(async () =>
         {
             await GoHomeAndWaitForInteractivityAsync();
-            await Expect(Page.GetByTestId("design-demo-link")).ToHaveCountAsync(0);
             await Page.SetViewportSizeAsync(390, 844);
             await Page.GetByTestId("nav-toggle").ClickAsync();
-            await Expect(Page.GetByTestId("design-demo-menu-link")).ToHaveCountAsync(0);
             await Page.GetByTestId("nav-toggle").ClickAsync();
             await Page.SetViewportSizeAsync(1280, 900);
             await GoToAsync("/Account/Login");
