@@ -45,13 +45,14 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 - Decision: fix in a future application-quality wave.
 - Acceptance: high-risk modal transitions have behavior-focused tests and the component's measured coverage improves without excluding production lines.
 
-### Q-005 — Split the LocalSingleNode collision preflight into reviewable checks
+### Q-005 — Complete: split the LocalSingleNode collision preflight into reviewable checks
 
 - Evidence: `python:S3776` keys `3496b328-0b1d-43af-8ecc-4490ed4d07b6` (BlazorAuto) and `1da6b910-3731-4c5a-89e0-4234d6b7264e` (React) at `Deployment/LocalSingleNode/Scripts/lib/collisions.py:28`; the function's cognitive complexity is 131 against the rule's 15 guideline. Related findings in the same function cover the Caddy checksum and static Caddy text scan.
 - Why it matters: the function combines ownership markers, symlink and directory checks, Caddy configuration, Compose port/subnet inspection, and Docker resources. This is fail-closed setup logic, so reviewers need to see each invariant clearly.
 - Proposed change: extract small read-only checks for owned paths, Caddy state, Compose bindings/networks, and existing Docker resources. Keep the public `check` entry point and return or raise the same actionable failures.
 - Behavior to preserve: no unowned host path, listener, network, Caddy site, or resource is adopted; no mutation occurs during the preflight.
-- Verification: retain the existing collision tests, add table-driven boundary cases for each extracted check, run LocalSingleNode unit tests and the repository deployment audit.
+- Disposition: P20 keeps the public `check()` entry point and first-failure errors, and separates owned-path checks, Compose port/subnet checks, Caddy-site checks, runtime network and owned-container checks, and listener checks into narrow helpers. It preserves the current MD5 comparison against dpkg conffile metadata; Q-002 stays a separate design review.
+- Verification: P20 adds direct port-range boundary cases and rejection fixtures for Compose port/subnet conflicts, foreign Caddy sites and unrecognized Caddyfile digests. Existing ownership, runtime-network, listener, release-contract and deployment-audit checks pass.
 - Effort: large; behavior spans shared-host and privileged setup boundaries.
 - Dependencies: none.
 - Decision: fix after the MD5 verification basis in Q-002 is settled.
