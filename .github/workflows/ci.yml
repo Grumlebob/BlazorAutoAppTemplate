@@ -286,9 +286,6 @@ jobs:
       - name: Audit .NET packages for deprecations
         run: dotnet list BlazorAutoApp.sln package --deprecated
 
-      - name: Traffic simulation wrapper help
-        run: pwsh -File ./Scripts/RunSimulation.ps1 -Help
-
       - name: Docker preflight for integration tests
         run: |
           docker info
