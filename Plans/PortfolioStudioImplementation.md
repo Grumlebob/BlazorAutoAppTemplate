@@ -1,7 +1,7 @@
 # Portfolio Studio delivery master plan
 
 Status: planning prepared; Studio design approved; Portfolio implementation not started.
-Last reviewed: 2026-10-11.
+Last reviewed: 2026-10-12.
 
 This is a multi-day delivery plan for an independent **Portfolio** product. Different agents should complete small, recorded packets without reconstructing earlier decisions. The destination is [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio), seeded from [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). The intended public product URL is **https://portfolio.jacobgrum.com/**, delivered through **LocalSingleNode and its Cloudflare Tunnel extension**. Configure this URL through product/deployment settings; do not embed it in components or scripts.
 
@@ -13,8 +13,8 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | [ImplementationCheckpoints.md](Support/PortfolioStudio/ImplementationCheckpoints.md) | Small ordered steps inside every technical packet and the repeatable story slice |
 | [DeliveryPhases.md](Support/PortfolioStudio/DeliveryPhases.md) | Ordered phases, small executable packets, dependency gates, checks and removal inventories |
 | [Progress.md](Support/PortfolioStudio/Progress.md) | Current task, packet ledger, blockers, decision records and resume prompt |
-| [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, eleven project story treatments, illustration briefs and publication checklist |
-| [VisualProduction.md](Support/PortfolioStudio/VisualProduction.md) | Prioritized figure specifications for all eleven projects, example labels, captions, mobile composition and honest fallbacks |
+| [PageBriefs.md](Support/PortfolioStudio/PageBriefs.md) | Home copy, twelve project story treatments, illustration briefs and publication checklist |
+| [VisualProduction.md](Support/PortfolioStudio/VisualProduction.md) | Prioritized figure specifications for all twelve projects, example labels, captions, mobile composition and honest fallbacks |
 | [ProjectInventory.md](Support/PortfolioStudio/ProjectInventory.md) | Existing source evidence, detailed section IDs, provenance and factual limitations |
 | [NodeHandoff.md](Support/PortfolioStudio/NodeHandoff.md) | Controller/node responsibilities, first bootstrap, SSH pairing, public launch and simple operator handoffs |
 | [PortfolioStudioDeliveryGoal.md](PortfolioStudioDeliveryGoal.md) | Prompt for later full-plan goal execution, capped at 3,500 characters |
@@ -23,7 +23,9 @@ Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.m
 
 ## 1. Purpose and relationship to the React delivery
 
-Build Jacob Grum's public portfolio from the approved Studio mockup. Home presents projects. Each project opens a continuous, illustrated story with navigation between its sections.
+Build Jacob Grum's public portfolio from the approved Studio mockup. Home presents projects. Each project opens a continuous, illustrated story with navigation between its sections, including a **Techs** heading. A top-level **Technologies** link opens a brief categorized overview of the technologies used across published projects, without duplicates.
+
+Owner refinement on 2026-10-12 adds Template as the twelfth project, superseding its earlier catalog exclusion. Grumlebob's approved scope now includes automating free online offers to generate money passively, approximately **DKK 500,000 profit in one year**, and membership at capacity because of concern about being caught. These are owner-reported statements, not independently audited results. The recovered Unlost Java source is now an additional source alongside the historical report and figures.
 
 This is a downstream product plan. [ReactFrontendProfile.md](ReactFrontendProfile.md), [ReactFrontendDeliveryGoal.md](ReactFrontendDeliveryGoal.md) and [ReactFrontendSingleRepository.md](ReactFrontendSingleRepository.md) record the reusable React foundation and active SR1–SR6 public delivery. Another agent owns that work. Do not add portfolio requirements to its current packets, modify its worktrees, or treat the template's existing deployment as the portfolio deployment.
 
@@ -35,17 +37,17 @@ The current React goal retains P0–P7's reusable implementation and verified co
 
 ### Implementation readiness
 
-The plan is ready to begin P0. It defines eleven phases, 27 numbered technical packets and twelve P6 content/catalog packets, grouped into [vertical delivery slices](Support/PortfolioStudio/Architecture.md). A packet can span several small PRs; the ledger records exact inputs, claimed files, checks, merge evidence and next action. None of these Portfolio implementation packets has been executed by this planning task.
+The plan is ready to begin P0. It defines eleven phases, 27 numbered technical packets and thirteen P6 content/catalog packets, grouped into [vertical delivery slices](Support/PortfolioStudio/Architecture.md). A packet can span several small PRs; the ledger records exact inputs, claimed files, checks, merge evidence and next action. None of these Portfolio implementation packets has been executed by this planning task.
 
 | Area | Defined contract | Remaining execution work |
 | --- | --- | --- |
 | Architecture | React/TypeScript frontend, C# host/API/exporter, Git-authored content, generated API types, one public content revision; Markdig/compiler and build-media defaults selected | Verify pinned upstream versions and actual paths in P0; implement ExecutionDecisions' command/model contract in VS1 |
 | Product slices | Platform prerequisites, complete ImprovedDb journey, one reviewed story at a time, runtime alignment, public launch, recovery | VS1 combines P4/P5 with first-story P7 rendering/acceptance; finish content/API/React/direct HTML together |
-| Design/content | Approved Studio layout, shared route/block model, eleven detailed figure briefs, media/publication rules and preferred BestBets text evidence | Preserve references, produce/review figures, attribute known context and omit unsupported personal-role claims |
+| Design/content | Approved Studio layout, shared route/block model, twelve detailed figure briefs, media/publication rules and preferred BestBets text evidence | Preserve references, produce/review figures, attribute known context and omit unsupported personal-role claims |
 | Operations | Portfolio app/image identity, scoped resources, native actor handoffs, SSH, LocalSingleNode/Cloudflare and recovery | Establish native identity/access and CI capacity; authorize the specific live bootstrap/deployment when applicable |
 | Acceptance | Content validation, direct-route statuses, draft exclusion, both themes/mobile/accessibility, exact-head CI and public acceptance | Implement and record actual evidence; planning is not a passed runtime check |
 
-The launch recommendation is four reviewed stories, followed by remaining independent story packets. Missing GeckoBot media, Grumlebob's approved explanation or other late story inputs do not block the renderer or ready stories. Final runtime is file-only; P7.2 removes inherited DB/Redis/migration/account dependencies coherently before release readiness. Routine decisions and their failure checks are resolved in ExecutionDecisions; genuine source permissions, private host access and operator authorization remain explicit external inputs.
+The launch recommendation is four reviewed stories, followed by remaining independent story packets. Missing GeckoBot media, Grumlebob's permitted figures or other late story inputs do not block the renderer or ready stories. Final runtime is file-only; P7.2 removes inherited DB/Redis/migration/account dependencies coherently before release readiness. Routine decisions and their failure checks are resolved in ExecutionDecisions; genuine source permissions, private host access and operator authorization remain explicit external inputs.
 
 ### Recommended decisions
 
@@ -53,7 +55,7 @@ The launch recommendation is four reviewed stories, followed by remaining indepe
 | --- | --- | --- |
 | UI | React + TypeScript + Vite, using the delivered template's pinned versions | Reuse its build, development, error handling and deployment integration |
 | Routes | React Router Framework Mode | Route modules, layouts, navigation, route types and a path to static prerendering |
-| Rendering | SPA as a development increment; prerender home/ImprovedDb before VS1 completes, then each published story | Every verified product slice has readable direct HTML and metadata |
+| Rendering | SPA as a development increment; prerender home/Technologies/ImprovedDb before VS1 completes, then each published story | Every verified product slice has readable direct HTML and metadata |
 | API state | TanStack Query and the template's shared QueryClient | API caching, cancellation, retries and request states without another server-state store |
 | Styling | Tailwind CSS with a small local component set and shared theme tokens | Preserve Studio consistently without imposing a large component library |
 | Backend | ASP.NET Core, serving frontend assets and same-origin APIs | Retain validation, public content contracts and hosting in C# |
@@ -92,17 +94,18 @@ This section supersedes earlier mockup directions and the initial investigation'
 
 - `/` is the Work project grid. There is no separate landing page before it.
 - The header has **Jacob Grum** on the left, linking to `/`.
-- The right side has a light/dark mode button. It does not display a Work navigation label.
+- The right side has a **Technologies** link to `/technologies` and a light/dark mode button. Keep both accessible on mobile. It does not display a Work navigation label.
 - Writing and About are absent as separate pages and navigation destinations.
 - Retain the approved home heading, **Selected work.**, and concise supporting copy. Final supporting copy is editorial content, not hard-coded component text.
 - Show image-led project cards in two columns at comfortable desktop widths and one column on narrow screens. Preserve the quiet, open layout, restrained typography and whitespace.
-- The planned catalog includes eleven actual projects: ImprovedDb, GeckoBot, TraceBack, KinoJoin, Ship Inspections, Unlost, MiniTwit, BestBets, Geospatial research, Grumlebob and JobHunt. Use the companion inventory's proposed order and a project manifest, rather than conditional markup for each project. Public visibility depends on reviewed content readiness. The application template supplies the technical foundation and is excluded from the showcased catalog, as requested by the owner.
+- The planned catalog includes twelve projects: ImprovedDb, GeckoBot, TraceBack, KinoJoin, Ship Inspections, Unlost, MiniTwit, BestBets, Geospatial research, Grumlebob, JobHunt and Template. Use the companion inventory's proposed order and a project manifest, rather than conditional markup for each project. Public visibility depends on reviewed content readiness. Template is a case study of the reusable foundation, distinct from Portfolio's own React-only, LocalSingleNode-only runtime.
 - Cards use real links with meaningful titles. Keep tags and metadata sparse. No dense dashboard panels, prominent technology badge walls or new category controls are required.
-- The eleven-project backlog occupies six desktop rows when all stories are published, with one card on the final row. Smaller launch sets can also end with a single card. Do not add a fictitious card or stretch the last project to fill space. The same layout must support one, four, seven, ten, eleven and twelve entries without changing its markup or adding pagination/filtering for this small catalog.
+- The twelve-project backlog occupies six desktop rows when all stories are published. Smaller launch sets can end with a single card. Do not add a fictitious card or stretch the last project to fill space. The same layout must support one, four, seven, ten, eleven and twelve entries without changing its markup or adding pagination/filtering for this small catalog.
 
 ### Project reading layout
 
 - Each project has a title, short introduction, suitable cover image and verified external links when available.
+- Every published project has an H2 **Techs** section with stable ID `techs`, included in desktop/mobile section navigation. Generate its concise technology list from validated project technology IDs; each item links to its entry on `/technologies`. Place it after the introduction and before the editorial story sections. Do not duplicate a handwritten list in Markdown.
 - The project story is one continuous page. Every main section appears in document order and remains visible while scrolling.
 - At desktop width, place a sticky section navigation on the left beside the reading column. It must not become an overview grid above the story that delays reading.
 - Navigation links jump to section headings. The active section follows the reader's scroll position.
@@ -162,27 +165,28 @@ Research notes describe seven possible rating signals, valid-value normalization
 - **TraceBack:** describe the documented research prototype, explicit experiment/pipeline structure, data locations, saved run manifests, snapshots and recreation of saved context. Capture a synthetic workflow and preserve its reproducibility boundaries. Do not claim full pipeline execution or guaranteed identical results.
 - **KinoJoin:** use the owner-supplied [KinoJoin repository](https://github.com/Grumlebob/KinoJoin). Its inspected source supports cinema/showtime filtering, creating and sharing an event, participant preferences, results, host confirmation and calendar actions. Prepare a project-specific story, not a copy of ImprovedDb's headings.
 - **Ship Inspections:** use the owner-supplied [BlazorTusReliableUpload repository](https://github.com/Grumlebob/BlazorTusReliableUpload). Its inspected source contains vessel-part navigation, condition forms, attached images and resumable upload handling. Present the local/sample status accurately; do not infer production operation, compliance or working AI inference from the UI.
-- **Unlost:** the owner confirms the Dropbox **Project map** folder as the source for this historical Java map project. Use its `rapport.pdf` and genuine UI/algorithm images for OSM rendering, address search, spatial structures, Dijkstra/A* routing and project lessons. The Java application source was not located; at the owner's instruction, continue with these artifacts. `hojelseMaps.zip` belongs to someone else and is excluded.
+- **Unlost:** use the recovered [Grumlebob/Unlost source](https://github.com/Grumlebob/Unlost) alongside the confirmed Dropbox **Project map** report and genuine figures. The recovered files contain Java/JavaFX, FXML, Gradle, JUnit and JaCoCo configuration; pin the imported revision and compare code against the dated report before final implementation claims. Recovery is not runtime verification. Large downloadable OSM extracts and generated map caches remain outside Git; retain the historical test fixture needed by existing tests. `hojelseMaps.zip` belongs to someone else and is excluded.
 - **MiniTwit:** use the owner-supplied [The-Pentuple-MiniTwit repository](https://github.com/Grumlebob/The-Pentuple-MiniTwit), displaying the name **MiniTwit**. Reviewed report/docs support a historical microblogging project, migration to .NET, client/API separation and DevOps work. Prepare timeline, architecture and observability figures; do not assume old deployment addresses still host the app.
 - **BestBets:** prioritize the owner's school-material `Exam.pdf` and `BestBets.pptx`, with private locations recorded in the source note. Reconcile those materials with the [Architecture repository](https://github.com/Grumlebob/Architecture), existing report, diagrams and prototypes. Explain architecture for the fictitious high-data-volume scenario and sports-event bursts such as the World Cup. Separate quality-attribute targets, design decisions and actual prototype evidence. The newly supplied PDF/deck have been located, not content-reviewed.
 - **Geospatial research:** use the owner-supplied [ExamGDS repository](https://github.com/Grumlebob/ExamGDS) for the New York crime/amenities research story. Reviewed notebook structure/report support data preparation, maps and spatial-analysis sections. Select genuine figures with data attribution, explain limitations and avoid causal conclusions from association.
-- **Grumlebob:** use the owner's explanation as the primary editorial source. A restricted local background folder is now recorded privately; inspecting or publishing its contents is not required. Prepare an accurate, domain-neutral story about approved automation, analysis, bookkeeping and billing. Exclude private domain context, identifying artifacts, sensitive workflows and results from prose, figures, links and metadata. Do not invent a different real use case to replace excluded context. Obtain the approved public explanation before publishing.
+- **Grumlebob:** use the owner's 2026-10-12 explanation: automation of free online offers to generate money passively, approximately DKK 500,000 profit in one year, and membership at capacity because of concern about being caught. Attribute the result and capacity explanation to the owner; do not invent a calendar year, member count, providers, eligibility rules, integrations or a guarantee of future returns. Retain the established AHK/Python, analysis, bookkeeping and billing context where accurate. Restricted background files, identities, accounts and operational details remain private; their inspection is unnecessary. The expressly supplied public facts supersede the earlier blanket exclusion of domain context/results only for these statements.
+- **Template:** add `/projects/template` for [BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). Cover Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io and scc; explain what each contributes. Show two frontend choices, **Blazor and React**, and three deployment choices, **Cloud, LocalCluster and LocalSingleNode**. Verify the selected source revision and distinguish available tooling/configuration from executed checks or achieved scores. Portfolio's own runtime still selects React and LocalSingleNode.
 - **JobHunt:** use the private source recorded in the inventory. Frame the story around documents, details, tracking, personal authorship/review and user-only final submission. Current procedures allow drafting assistance; acknowledge it instead of claiming all writing is manual. Omit unverified automatic account creation. Use fictional media and no inaccessible public source action.
 
-The [companion inventory](Support/PortfolioStudio/ProjectInventory.md) provides proposed summaries, stable section IDs, media requests, evidence and limitations for all eleven projects. It also compares the six public author-book project titles with the ten book-cover demos. The portfolio's eleven entries comprise those six owner projects plus five explicitly supplied additions; the cover demo names do not establish more owner projects.
+The [companion inventory](Support/PortfolioStudio/ProjectInventory.md) provides proposed summaries, stable section IDs, media requests, evidence and limitations for all twelve projects. It also compares the six public author-book project titles with the ten book-cover demos. The portfolio's twelve entries comprise those six owner projects plus six explicitly supplied additions; the cover demo names do not establish more owner projects.
 
-Do not infer employers, clients, dates, project roles, frameworks, public repository links, usage numbers or outcomes. Use facts established by the provided sources and distinguish team-project context from individual contribution. Keep unsupported case-study material as local drafts. Before public launch, each visible card needs reviewed copy and a meaningful destination; omit incomplete projects rather than publishing placeholder stories. All eleven candidates remain in the preparation backlog even if the launch set is smaller.
+Do not infer employers, clients, dates, project roles, frameworks, public repository links, usage numbers or outcomes. Use facts established by the provided sources and distinguish team-project context from individual contribution. Keep unsupported case-study material as local drafts. Before public launch, each visible card needs reviewed copy and a meaningful destination; omit incomplete projects rather than publishing placeholder stories. All twelve candidates remain in the preparation backlog even if the launch set is smaller.
 
 ### Content preparation and review sequence
 
 1. Recheck ImprovedDb and prepare its complete six-section story as the first implementation slice.
 2. Prepare KinoJoin and TraceBack next. Their different workflows exercise shared components, code/examples, screenshots and diagrams without repeating the same story structure.
-3. Prepare Ship Inspections from its actual forms/upload source and capture a fictional inspection. Prepare Unlost from its confirmed historical report and existing screenshots; source recovery is not required.
+3. Prepare Ship Inspections from its actual forms/upload source and capture a fictional inspection. Prepare Unlost from its recovered Java source, confirmed historical report and existing screenshots; reconcile their dated evidence without requiring an application rebuild.
 4. Prepare MiniTwit from the reviewed application/report/docs and BestBets first from the owner-selected Exam PDF and presentation, reconciled with report/prototype evidence. Keep historical operation, hypothetical requirements and measured evidence distinct.
 5. Prepare Geospatial research from its notebook/report, with a few legible attributed maps and plots, method explanations and limitations.
-6. Review GeckoBot's selected source/requirements and actual historical use. Obtain Grumlebob's approved public explanation and permitted generic figures; restricted source inspection is optional. These remaining content inputs do not block the other stories.
+6. Review GeckoBot's selected source/requirements and actual historical use. Use Grumlebob's supplied public facts with owner attribution and prepare permitted generic figures; restricted source inspection is optional. These remaining media inputs do not block the other stories.
 7. Prepare JobHunt's administrative-work story and personal/assisted-task comparison using fictional examples and D10's resolved writing distinction. Omit unverified account-creation/security guarantees. Do not modify its private workflow.
-8. Review each project's role/context, facts, media and links independently. An incomplete project stays a draft while ready projects proceed.
+8. Prepare Template's tooling and frontend/deployment choices from pinned source evidence. Review each project's role/context, Techs, facts, media and links independently. An incomplete project stays a draft while ready projects proceed.
 
 For each story, record fact notes using the companion register's source IDs. Each numerical claim, historical date, implementation statement or outcome needs an evidence reference. Proposed personal motivation and lessons require owner review. Keep an explicit list of open questions instead of silently converting them into public copy.
 
@@ -197,6 +201,7 @@ Recommended source layout in the downstream repository:
 ```text
 Content/Portfolio/
   site.json
+  technologies.json
   projects/
     improveddb/
       project.json
@@ -218,9 +223,20 @@ Content/Portfolio/
     geospatial-research/
     grumlebob/
     jobhunt/
+    template/
 ```
 
-`project.json` holds typed metadata and ordered section descriptors. Each descriptor supplies an explicit stable ID, heading, Markdown file and optional structured media blocks. Writing prose should not require editing JSX. Avoid arbitrary executable MDX, raw React components in content, and a general page-builder schema.
+`project.json` holds typed metadata, a `technologyIds` array and ordered editorial section descriptors. Each descriptor supplies an explicit stable ID, heading, Markdown file and optional structured media blocks. Writing prose should not require editing JSX. Avoid arbitrary executable MDX, raw React components in content, and a general page-builder schema.
+
+### Technology registry and overview
+
+`technologies.json` is the single authoring registry for technology IDs, canonical display names, one primary category and a brief factual description. Begin with **Languages**, **Frontend & UI**, **Backend**, **Data & research**, **DevOps & deployment**, and **Quality & security**. Technology/category IDs are stable lowercase identifiers; category order is explicit. Validate canonical names and aliases case-insensitively, and reject ambiguous aliases. Place each technology in one category only; do not repeat Python or Docker under several headings. Example canonical labels include C#, React and ASP.NET Core. Normalize spelling aliases to an existing ID; distinct products such as .NET and ASP.NET Core remain distinct when both are relevant. Do not infer a stack from Portfolio's own dependencies.
+
+Every published project references at least one source-supported technology ID. Private fact notes record the supporting file/revision or owner statement. Reject unknown IDs, duplicate registry IDs/names, duplicate project references, invalid categories and a handwritten section using reserved ID `techs`. The compiler synthesizes the `techs` ProjectSection using the existing safe prose/list renderer; the block union remains unchanged. ProjectDetail also exposes typed technology references for consumers.
+
+The compiler derives TechnologyCatalog from **published projects only**, deduplicates by canonical ID, and excludes unreferenced/draft-only registry entries and empty categories. Each entry has a short description and links to the published projects using it. Sort categories by explicit order and entries by canonical name with ID as tie-breaker. No skills ratings, years of experience, technology logo wall or manual second inventory is needed. For the template tooling, use registry labels **Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io, scc**.
+
+`/technologies` has one H1 **Technologies**, categorized H2s and stable `tech-{id}` anchors for entries. Project Techs links resolve to those anchors. It shares the shell, themes, mobile reflow, native links and accessibility rules. Build its HTML, API data and sitemap entry from the same immutable revision as home/stories; it must be readable without JavaScript. Publishing, unpublishing or changing a project's technologies updates both surfaces together. Include case/alias deduplication and draft-only technology exclusion in implementation acceptance.
 
 The C# content path validates the source and produces a deterministic, public-only bundle. Use a maintained Markdown parser with raw HTML disabled and an allowlisted rendering policy. Normalize content into the agreed public DTOs once; use the same compiled representation for API responses and prerendering. Decide the specific parser/library during the first content slice and record the choice, rather than maintaining two independent Markdown implementations.
 
@@ -279,14 +295,15 @@ An update to a published slug or section ID needs a deliberate compatibility dec
 
 - `SiteContent`: name, home heading/summary and verified global links.
 - `ProjectSummary`: stable slug, title, summary, cover, optional sparse tags and display order.
-- `ProjectDetail`: summary metadata, verified external links, ordered sections and optional editorial dates only when known.
+- `ProjectDetail`: summary metadata, typed technology references, verified external links, ordered sections including generated Techs, and optional editorial dates only when known.
+- `TechnologyCatalog`: ordered nonempty categories containing unique published technology entries, brief descriptions, stable IDs and the published projects using each entry.
 - `ProjectSection`: stable ID, title and ordered supported content blocks. The sidebar derives from this list.
 - `ImageAsset`: public URL, intrinsic width/height, responsive variants, alt text or explicit decorative status, optional caption and provenance.
 - `PublishedContentManifest`: schema version, deterministic content revision, published slugs and generated asset references.
 
 The catalog response stays lightweight: cover metadata, title, summary, sparse tags and order. Full prose belongs to the detail response. Initially keep collection and detail payloads below 100 KiB and 250 KiB of uncompressed JSON respectively, excluding separate image files. Treat these as review budgets, measure them against actual stories and document any justified exception. No inline base64 screenshots or fetching every project story to render home.
 
-Suggested read endpoints are `GET /api/portfolio/site`, `GET /api/portfolio/projects`, and `GET /api/portfolio/projects/{slug}`. Final endpoint/module names should follow the delivered template conventions. Return summaries from the collection endpoint, not every full story. Missing/unpublished projects return 404 Problem Details; no HTML fallback on API paths. No anonymous content-writing endpoint is required.
+Suggested read endpoints are `GET /api/portfolio/site`, `GET /api/portfolio/projects`, `GET /api/portfolio/projects/{slug}` and `GET /api/portfolio/technologies`. Final endpoint/module names should follow the delivered template conventions. Return summaries from the collection endpoint, not every full story. TechnologyCatalog requires no fetching of every full story and follows the collection payload budget. Missing/unpublished projects return 404 Problem Details; no HTML fallback on API paths. No anonymous content-writing endpoint is required.
 
 Define DTOs and validation in C#, expose accurate OpenAPI metadata, and use the inherited schema/type generation and drift checks. [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) supplies the typed transport. During migration, preserve authorization and private cache rules for any endpoints still present. Final Portfolio removes account/bookcase APIs; former private routes must return 404 without an HTML fallback or leaked data.
 
@@ -312,6 +329,7 @@ React Router owns URL matching, document metadata, route errors, route focus and
 | Surface/component | Input | Required behavior |
 | --- | --- | --- |
 | Home route `/` | Published site metadata and ordered project summaries | Selected-work heading, all ready cards, meaningful empty/error states |
+| Technologies route `/technologies` | Derived TechnologyCatalog | Brief categorized overview, each technology once, stable anchors and published project links |
 | Project route `/projects/:slug` | One published project detail | Cover/introduction, continuous sections, navigation and outbound actions |
 | `ProjectCard` | One summary | One clear accessible project link; descriptive image behavior; no nested interactive controls |
 | `ProjectStory` | Ordered sections and blocks | One H1; metadata-driven H2s; shared reader layout; no project-name conditionals |
@@ -365,7 +383,7 @@ Use the project inventory's shot lists to prepare real media. For Unlost, select
 
 ## 7. Public rendering and hosting
 
-SPA mode is an intermediate development milestone within VS1. Before VS1 completes, set `ssr:false` with an explicit prerender list containing `/` and the published ImprovedDb story; extend it to every published `/projects/{slug}` in each subsequent story slice. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
+SPA mode is an intermediate development milestone within VS1. Before VS1 completes, set `ssr:false` with an explicit prerender list containing `/`, `/technologies` and the published ImprovedDb story; extend it to every published `/projects/{slug}` in each subsequent story slice. React Router supports [prerendering without a runtime SSR server](https://reactrouter.com/how-to/pre-rendering). Node is a build dependency; production continues to run ASP.NET Core only.
 
 Prerender loaders read the compiled public snapshot, not a live production API. They are a build-time adapter, not a second backend or an independent server-state store. For API-backed components, seed the same Query definitions from this snapshot and prevent a redundant hydration fetch. Keep runtime-only data out of static output. Match implementation details to the delivered Router version and verify generated HTML, navigation data and fallback artifacts rather than assuming their filenames.
 
@@ -383,7 +401,7 @@ Use [Progress.md](Support/PortfolioStudio/Progress.md) as the single execution l
 
 Work on one eligible packet at a time. Read the latest ledger before editing. Reserve files before sharing a phase with another agent. Do not run build and test concurrently in one checkout. Different agents working over different days need no shared chat history: the resume prompt, packet contract and retained evidence must be sufficient. A packet is a work unit, not a requirement to open a new chat for every packet.
 
-Review the real Studio home and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
+Review the real Studio home, Technologies page and ImprovedDb story at P5 before filling the remaining stories. Preserve the approved design. Publication blockers on GeckoBot, Grumlebob or JobHunt do not block building the renderer or publishing other fully reviewed stories.
 
 Use [Architecture.md](Support/PortfolioStudio/Architecture.md) for feature ownership and vertical completion. A P4/P5 checkpoint is partial VS1 until first-story P7 hosting/prerender/acceptance works. Subsequent stories ship their content, contracts/renderers when needed, routes, metadata and checks together. The slice ledger summarizes these outcomes over the same packet inventory.
 
@@ -397,7 +415,7 @@ Recommend **three** context resets during full delivery. These are changes in th
 | **C2 — First journey to story production** | VS1 verified end to end: reviewed ImprovedDb content, API, Studio home/reader, direct HTML, hosting, image/profile acceptance and merged-green evidence | Repeat VS2 for the next ready story, normally P6.2 KinoJoin; use the shared renderer and VisualProduction. Complete required VS3 runtime cleanup before release readiness. This replaces prototype/debugging context with source, copy and figure production. |
 | **C3 — Product to native/public delivery** | Reviewed launch set, VS3 file-only runtime and final P7.4 release readiness verified; exact release/digest/content identity and outstanding catalog work saved | Finish remaining P8 prerequisites, then P9 public launch and P10 recovery/full handover. This starts operations with current runbooks, native ownership and release evidence. An early P8 bootstrap does not consume this checkpoint. |
 
-Keep content, C# contracts/API, React, prerender/hosting and acceptance together through C2; an API-only or UI-only milestone is not a reset point. C3 does not require all eleven stories before the initial launch. Carry remaining stories into P10; neither a chat reset nor a four-story launch completes the goal. No fourth planned reset is needed between launch and recovery.
+Keep content, C# contracts/API, React, prerender/hosting and acceptance together through C2; an API-only or UI-only milestone is not a reset point. C3 does not require all twelve stories before the initial launch. Carry remaining stories into P10; neither a chat reset nor a four-story launch completes the goal. No fourth planned reset is needed between launch and recovery.
 
 At each checkpoint, fill the **Fresh-chat handoff** in [Progress.md](Support/PortfolioStudio/Progress.md). Save the verified boundary, next packet/substep, authoritative repository, base SHA, implementation paths/commands, evidence links, open claims/dirty work, remaining blockers/catalog and authorization scope. Carry useful facts and decisions rather than a transcript or large logs. Reference private notes by location only; transfer those notes privately to the next agent/machine when needed. Never put their values in a public prompt.
 
@@ -415,7 +433,7 @@ Required implementation evidence covers:
 
 - Deterministic C# content validation/export; DTO/status contracts; drafts excluded from API, media, prerender and sitemap.
 - Generated-contract drift; strict TypeScript/lint; content renderer and query behavior; no Books/account dependency in the final contract.
-- Home, every published story, direct fragment links, desktop section tracking, mobile menu, theme persistence, accessible enlargement and Back/Forward.
+- Home, Technologies, every published story including Techs, native technology/section fragment links, deduplication, draft exclusion, desktop section tracking, mobile menu, theme persistence, accessible enlargement and Back/Forward.
 - SPA failure/retry states; prerendered initial content; hydration without duplicate reads.
 - GET/HEAD, exact documents/navigation data, canonical paths, real 404s, former sample/account routes and reserved-path protection.
 - WCAG 2.2 AA review: contrast, semantic headings, skip link, focus, reflow, reduced motion, alt text and manual screen-reader spot checks.
@@ -437,8 +455,8 @@ Release milestones:
 1. **Repository foundation ready:** P0–P3 merged and green; Portfolio identity, React-only frontend and LocalSingleNode-only deployment are proven.
 2. **Product ready:** P4–P7 merged and green; reviewed Studio pages, public HTML, final acceptance profile and documented operations work locally.
 3. **Public launch:** P8–P9 pass on the intended native node with valid HTTPS, verified release/content identity and a recorded launch set.
-4. **Full handover:** P10 records update/recovery evidence, complete authoring/runbooks and disposition of all eleven stories.
+4. **Full handover:** P10 records update/recovery evidence, complete authoring/runbooks and disposition of all twelve stories.
 
-Recommend an initial launch of ImprovedDb, KinoJoin, TraceBack and Unlost, subject to their publication checklist. Expand to all eleven without filler cards. An initial four-story launch is a milestone, not completion of the eleven-story backlog. Mark the entire plan complete only when all required packets are merged and green, public acceptance passes, and each intended story is published or explicitly deferred by the owner with a reason. Do not count an agent's unilateral draft decision as owner-approved scope reduction.
+Recommend an initial launch of ImprovedDb, KinoJoin, TraceBack and Unlost, subject to their publication checklist. Expand to all twelve without filler cards. An initial four-story launch is a milestone, not completion of the twelve-story backlog. Mark the entire plan complete only when all required packets are merged and green, public acceptance passes, and each intended story is published or explicitly deferred by the owner with a reason. Do not count an agent's unilateral draft decision as owner-approved scope reduction.
 
 Historical preparation on 2026-10-11 compared both sample Books catalogs, reviewed the source/report artifacts recorded in the inventory, and prepared the JobHunt workflow preview. It ran no source apps, notebooks or benchmarks and completed no Portfolio implementation, node setup or deployment. Keep that evidence separate from later runtime and publication results.

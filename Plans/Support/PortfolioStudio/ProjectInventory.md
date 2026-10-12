@@ -1,11 +1,11 @@
 # Portfolio project inventory and story briefs
 
-Reviewed: 2026-10-11.
+Reviewed: 2026-10-12.
 Parent plan: [Portfolio Studio delivery master plan](../../PortfolioStudioImplementation.md).
 
 Use [PageBriefs.md](PageBriefs.md) for editorial headlines and illustration treatments, [DeliveryPhases.md](DeliveryPhases.md) for executable packets, and [Progress.md](Progress.md) for current publication evidence. This inventory remains the factual source register and stable section-ID reference; proposed copy is not proof of implemented behavior.
 
-This inventory covers the six owner projects named in the template's author-book seed and five additional projects explicitly supplied by the owner: MiniTwit, BestBets, Geospatial research, Grumlebob and JobHunt. The application template and cover demonstrations are excluded from the portfolio catalog. It is a content preparation specification, not a claim that every story is ready to publish. Local source review was read-only; no project was started, modified or tested.
+This inventory covers the six owner projects named in the template's author-book seed and six additions: MiniTwit, BestBets, Geospatial research, Grumlebob, JobHunt and Template. The owner's 2026-10-12 request supersedes the earlier Template exclusion; cover demonstrations remain outside the catalog. This is a content preparation specification, not publication/runtime evidence. Unlost's recovered working files were separately imported into the owner's new repository; no source application was started or tested by this refinement.
 
 ## 1. Catalog and readiness
 
@@ -16,14 +16,15 @@ This inventory covers the six owner projects named in the template's author-book
 | 30 | `traceback` | TraceBack | Owner description and local README/concept/boundary/demo documentation | Prepare a prototype case study and capture a synthetic-data workflow |
 | 40 | `kinojoin` | KinoJoin | Local UI, domain, import and calendar source | Prepare a cinema-planning case study and capture an example event |
 | 50 | `ship-inspections` | Ship Inspections | Owner-confirmed repository; local inspection/upload source and feature docs | Prepare a vessel-part/image-upload story and capture a synthetic inspection |
-| 60 | `unlost` | Unlost | Owner-confirmed Project map folder; project report and genuine UI/algorithm images | Prepare a map/pathfinding story using existing artifacts; Java source is not required for this content draft |
+| 60 | `unlost` | Unlost | Recovered Java/JavaFX source; confirmed Project map report and genuine figures | Pin imported source and reconcile it with dated report/media |
 | 70 | `minitwit` | MiniTwit | Owner-supplied repository; local report, system description and operational documentation | Prepare a microblogging/DevOps story with dated architecture and workflow figures |
 | 80 | `bestbets` | BestBets | Architecture report/prototypes; owner-selected school Exam PDF and BestBets deck located | Review preferred PDF/deck and reconcile their versions with repository evidence |
 | 90 | `geospatial-research` | Geospatial research | Owner-supplied ExamGDS repository; local notebook and New York crime report | Prepare a research story with attributed maps, methods and limitations |
-| 100 | `grumlebob` | Grumlebob | Owner explanation; restricted local background folder supplied | Obtain approved domain-neutral explanation and permitted generic illustrations |
+| 100 | `grumlebob` | Grumlebob | Owner-approved free-offer automation, passive income, approximately DKK 500,000 profit in one year and capacity explanation | Attribute claims to owner; prepare permitted generic illustrations |
 | 110 | `jobhunt` | JobHunt | Owner's administrative/personal-work boundary; private repository and local workflow documentation | Prepare a restrained story with fictional examples; reconcile writing scope before publication |
+| 120 | `template` | Template | Owner's tooling/choice list and BlazorAutoAppTemplate repository | Review pinned tooling, two frontend choices and three deployment choices |
 
-Ordering is an editorial proposal; the manifest owns it. All eleven entries belong in the content backlog and local review catalog. Public visibility follows content readiness. Do not fill an incomplete entry with invented product features or publish a broken card destination.
+Ordering is an editorial proposal; the manifest owns it. All twelve entries belong in the content backlog and local review catalog. Public visibility follows content readiness. Do not fill an incomplete entry with invented product features or publish a broken card destination.
 
 The Books seed inventory is `BlazorAutoApp/Features/Books/AuthorBookcase/Seed/AuthorBookSeeder.cs`. Its six entries are TraceBack, Ship Inspections, ImprovedDb, KinoJoin, Unlost and GeckoBot. Their seed URLs are null. These book records are sample data, not a project-content API, and cannot establish public websites, repository URLs, dates or feature descriptions. The owner's subsequent project list extends the portfolio beyond that seed without requiring changes to the template. The owner supplied source repositories for KinoJoin, Ship Inspections, MiniTwit, BestBets and Geospatial research and confirmed the Unlost project-material folder. `ship-inspections` is a proposed portfolio slug, not a change to the template's `ship` seed key.
 
@@ -54,7 +55,7 @@ Full cover-demo comparison:
 | `seismograph-log` | Seismograph Log | Pulse Trace | Demo title; no verified project under this name |
 | `alpine-trail-guide` | Alpine Trail Guide | Trail Guide | Demo title; no verified project under this name |
 
-This explains the larger visible demo catalog. The reviewed source establishes six named owner projects and ten cover designs, with TraceBack appearing in both. The owner explicitly excluded the application template and requested actual projects. The five later additions bring the portfolio backlog to eleven actual projects; this count is independent of the ten cover designs. Do not add invented case studies for the cover titles or reintroduce the rejected portfolio directions through these visual experiments. Recompare these files with the verified upstream baseline at execution time in case the catalog changes.
+This explains the larger visible demo catalog. The reviewed source establishes six named owner projects and ten cover designs, with TraceBack appearing in both. Six owner additions, including Template requested on 2026-10-12, bring the backlog to twelve projects independently of the cover designs. Do not add invented case studies for the cover titles. Recompare these files with the verified upstream baseline at execution time.
 
 ### Source register for continued improvement
 
@@ -65,13 +66,14 @@ This explains the larger visible demo catalog. The reviewed source establishes s
 | `SRC-KINOJOIN` | KinoJoin | Owner-supplied [Grumlebob/KinoJoin](https://github.com/Grumlebob/KinoJoin), plus the local checkout/file list in section 4 | Cinema planning, sharing, participant choices and calendar source | Screenshot capture, owner contribution and exact public/local revision alignment |
 | `SRC-SHIP` | Ship Inspections | Owner-supplied [Grumlebob/BlazorTusReliableUpload](https://github.com/Grumlebob/BlazorTusReliableUpload), plus the local checkout/file list in section 7 | Vessel-part forms, image handling and TUS implementation | Screenshot capture, public/local revision alignment and behavior claims requiring execution |
 | `SRC-TRACEBACK` | TraceBack | Owner description; local `README.md`, `Docs/CoreConcepts.md`, `Docs/ReproducibilityBoundaries.md` and `Docs/Demos.md` | Research-prototype purpose, concepts, saved context and limitations | Media capture, individual contribution and an approved public source/tutorial URL |
-| `SRC-UNLOST` | Unlost | Owner-confirmed Dropbox **Project map** folder; `rapport.pdf`, `rapport/user/` and `rapport/images/` | Historical map/pathfinding account and genuine project figures | Selected media permissions/attribution and individual contribution; no Java-source recovery gate |
+| `SRC-UNLOST` | Unlost | Owner-confirmed Dropbox **Project map** report/figures and recovered [Grumlebob/Unlost](https://github.com/Grumlebob/Unlost) source | Historical map/pathfinding account; Java/JavaFX/FXML, Gradle, JUnit and JaCoCo configuration | Pin import revision, reconcile source/report, review media attribution and contribution; runtime remains unverified |
 | `SRC-GECKOBOT` | GeckoBot | Selected private [GeckoBot](https://github.com/Grumlebob/GeckoBot), renamed from mail; reviewed file trees/Python AST structure; earlier demo deleted with complete private Git backup | Outlook/COM booking-email flow, parser/UI separation and configuration functions; no execution evidence | Review requirements/actual use and prepare fictional media; omit private source/backup buttons |
 | `SRC-MINITWIT` | MiniTwit | Owner-supplied [Grumlebob/The-Pentuple-MiniTwit](https://github.com/Grumlebob/The-Pentuple-MiniTwit); local report chapters and `MiniTwitSolution/Documentation/` | Microblogging purpose, historical .NET migration, architecture and documented DevOps work | Capture selected media, confirm individual contribution and align the reviewed local/public revisions |
 | `SRC-BESTBETS` | BestBets | Owner-selected school `Exam.pdf` and `BestBets.pptx` (locations private), plus [Grumlebob/Architecture](https://github.com/Grumlebob/Architecture), report/diagrams/prototypes | Preferred text reviewed; broker/final actor design and prototype limits reconciled | Visually select permitted figures; preserve targets/results and team attribution |
 | `SRC-GEOSPATIAL` | Geospatial research | Owner-supplied [Grumlebob/ExamGDS](https://github.com/Grumlebob/ExamGDS); local `exam.ipynb` and `New_York_Crime.pdf` | New York crime/amenity research question, documented spatial methods and data-preparation issues | Verify dataset windows/licenses, select legible figures and review conclusions and contribution |
-| `SRC-GRUMLEBOB` | Grumlebob | Owner explanation as primary source; restricted background folder recorded in ignored notes | Owner-supplied scope only; no folder contents reviewed | Approved public description, contribution and generic media; exclude private domain/context/results without inventing another use case |
+| `SRC-GRUMLEBOB` | Grumlebob | Owner statements on 2026-10-12; restricted folder recorded privately, contents unreviewed | Free online offer automation for passive income; approximately DKK 500,000 profit in one year; membership capacity due to concern about being caught | Attribute to owner, avoid invented year/member count/guarantees; protect remaining restricted context and prepare generic media |
 | `SRC-JOBHUNT` | JobHunt | Owner-supplied [Grumlebob/JobHunt](https://github.com/Grumlebob/JobHunt); authenticated repository metadata confirms private visibility; local `README.md`, `AGENTS.md` and `jobhunt/applications/` procedures | Administrative workflow, document organization, Notion tracking, browser-assisted preparation and user-only final submission policy | Use D10: acknowledge drafting assistance/personal review, omit unverified account creation, select fictional media |
+| `SRC-TEMPLATE` | Template | Owner's 2026-10-12 list and [BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate) | Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io, scc; Blazor/React; Cloud/LocalCluster/LocalSingleNode | Pin source evidence for tooling/choices; configuration alone establishes no passing score or deployment |
 
 Keep these source IDs in private editorial fact notes so later copy changes can be traced to evidence. Public copy includes only useful source links and permitted provenance, not this preparation table or private machine paths. The owner explicitly excluded `hojelseMaps.zip`; it is not an Unlost source. Record exact local locations in ignored preparation notes when needed, rather than introducing machine-specific paths into tracked plans.
 
@@ -87,6 +89,7 @@ Every project preparation task should produce:
 6. Honest tradeoffs or limitations and only documented outcomes. Numbers need a source and context.
 7. Verified outbound links, or no outbound action when the project is not publicly accessible.
 8. A private editorial evidence record: source repository/commit, relevant files, review date, fact checks and media permission/provenance. Private paths and internal references are excluded from the public bundle.
+9. Source-supported `technologyIds` referencing the common registry. The compiler supplies the shared **Techs** section; the published references also feed the deduplicated Technologies page.
 
 The project status (for example prototype or archived) is separate from editorial publication status (draft, review-ready or published). A historical project may have a polished public story; a currently running app may still have an unpublished draft. Do not derive employment, project dates or personal ownership scope from file timestamps or repository existence.
 
@@ -244,7 +247,7 @@ The owner describes Unlost as a Java map application with A* and confirms **Proj
 - Its user guide describes car/bike/walk choices, suggested addresses, a textual route plan and overview values.
 - Its conclusion discusses full-Denmark performance limitations and code-structure tradeoffs. The A* discussion acknowledges heuristic limitations and cases where its route differs from Dijkstra's.
 - `rapport/user/menu.PNG` visibly identifies Unlost. `rapport/images/routeplan.PNG` shows an actual route-instruction view. Supporting artifacts include `rapport/images/astarwithexplored.png`, `rapport/images/astarpath.png`, `rapport/images/graph/osmgraphlive.png` and Kd-tree illustrations.
-- The Java application source was not found in this review. At the owner's instruction, continue the portfolio plan using the confirmed folder's report and artifacts. Do not make source recovery a prerequisite for writing this historical story.
+- On 2026-10-12 the owner located the Java source and supplied the new [Unlost repository](https://github.com/Grumlebob/Unlost) for its import. Recovered files include JavaFX 18, FXML views, Gradle 7.3.3, JUnit 5 and JaCoCo configuration. Preserve the existing local edits; pin the imported revision for later content review. Large regional OSM files/archives and generated caches are excluded from Git; the exact historical `small.osm` test fixture is retained. No build/test/runtime result is established by the import.
 
 Proposed card copy: **A Java map application exploring address search, route planning and A* pathfinding.**
 
@@ -345,9 +348,9 @@ Use static exports of genuine research figures; the portfolio does not need a GI
 
 The owner names this project **Grumlebob** and previously described AHK/Python automation, analysis, bookkeeping and automated billing. A local background folder is now supplied and recorded privately; only its presence was checked. The owner's explanation is the primary editorial source, and inspecting or publishing that folder is not a prerequisite. No GitHub repository has been supplied; do not guess one from the account name.
 
-Public content must exclude the owner's private domain context, sensitive workflows/data/results and identifying artifacts. Apply the restriction to copy, screenshots, diagrams, filenames, alt text, captions, social previews and links. Use approved generic technical explanations and fictional examples when accurate. Do not fabricate an unrelated real application to replace the omitted context. Obtain the owner's approved public description before publication.
+On 2026-10-12 the owner approved these public facts: Grumlebob automates free online offers to generate money passively; approximately **DKK 500,000 profit in one year**; membership has reached capacity because of concern about being caught. Public prose attributes the profit and capacity explanation to the owner. The calendar year, exact member count, profit accounting and providers are unspecified; do not invent them or promise future returns. These statements supersede the earlier blanket exclusion only for this supplied scope.
 
-Proposed card copy, subject to the owner's public explanation: **AHK and Python tools for automation, analysis, bookkeeping and automated billing.**
+Proposed card copy: **Automation of free online offers for passive income, supported by analysis, bookkeeping and billing tools.** Keep identifying accounts, providers, operational details, private data and background artifacts out of all public surfaces. Generic figures may explain the approved scope without showing restricted source material.
 
 ### Proposed sections
 
@@ -358,8 +361,9 @@ Proposed card copy, subject to the owner's public explanation: **AHK and Python 
 | `analysis` | Analysis | Explain approved methods and lessons without private datasets/results | Generic explanatory figure or fictional example, accurately labelled |
 | `bookkeeping-and-billing` | Bookkeeping and automated billing | Show the real record-to-bill workflow and implemented controls | Synthetic records and an example bill with fictional details |
 | `design-and-lessons` | Design and lessons | Explain verified boundaries, failure handling and maintenance decisions | Reviewed workflow diagram and owner reflection |
+| `results-and-capacity` | Results and member capacity | Owner reports approximately DKK 500,000 profit in one year and membership at capacity because of concern about being caught | Plain attributed prose; no invented financial chart or member counts |
 
-Keep this as one proposed entry unless the owner chooses otherwise. The approved explanation should establish whether the workflows share code or only a personal-tool context. Do not infer integrations, ML/computer vision, autonomous sending, payment collection or outcomes. Use fictional billing/accounting examples only where they represent approved real functionality. Existing restricted folder contents are not approved media. No automation script, invoice or interaction is executed for this preparation.
+Keep one entry. Do not infer whether tools share code, integrations, ML/computer vision, autonomous sending, payment collection or outcomes beyond the expressly supplied owner statements. Use fictional billing/accounting examples only where they represent approved functionality. Restricted folder contents are not approved media. No automation, invoice or interaction is executed for this preparation.
 
 ## 13. JobHunt
 
@@ -438,7 +442,23 @@ Resolved decision D10: acknowledge actual drafting assistance and personal motiv
 
 Prepare all public media using fictional employers, applicant details, documents and tracker records. Do not publish real application letters, personal CVs, references, employer correspondence, active application status, private workspace links, credentials or receipts. Choose simple workflow and record examples that communicate the engineering without exposing another application's data. Keep automation choices tied to the owner's real behavior. Do not claim hiring success, recruiter approval, time saved or autonomous mass submission without evidence. The portfolio contains a story, not a live application bot or access to the private tracker.
 
-## 14. Preparation task matrix
+## 14. Template
+
+Display name **Template**, slug `template`, packet **P6.13**. Public source: [BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). This addition replaces the earlier catalog exclusion and does not restore removed frontend/deployment targets inside Portfolio.
+
+Proposed card copy: **A reusable application template with two frontend choices, three deployment choices and integrated quality tooling.**
+
+| Stable ID | Heading | Story and evidence | Media request |
+| --- | --- | --- | --- |
+| `a-reusable-foundation` | A reusable foundation | Purpose, shared C# host and configurable product foundation | Sourced responsibility diagram |
+| `frontend-choices` | Two frontend choices | Blazor and React profiles; pin actual capabilities at the reviewed revision | Two concise choices with shared host boundary |
+| `deployment-choices` | Three deployment choices | Cloud, LocalCluster and LocalSingleNode; distinguish configuration from live delivery | Three-choice diagram without host identifiers |
+| `quality-and-security` | Quality and security tooling | Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io and scc; describe each role from source evidence | Brief tool-to-purpose list; actual results only with dated run evidence |
+| `tradeoffs-and-lessons` | Tradeoffs and lessons | Profile complexity, reusable checks and maintenance decisions supported by source | Reviewed explanatory diagram or prose |
+
+Reference canonical technology IDs for the actual stack and all seven requested tools. Do not present deployment choice labels as invented technologies. Do not infer quality scores, scan clearance, certification or a deployed target from configured tools alone.
+
+## 15. Preparation task matrix
 
 | Project | Source/fact review | Draft sections | Genuine media | Role/context confirmed | Public links verified | Publish decision |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -447,11 +467,12 @@ Prepare all public media using fictional employers, applicant details, documents
 | TraceBack | Docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Research context documented; personal role pending | Pending | Pending editorial review |
 | GeckoBot | Private GeckoBot selected/tree/AST reviewed; runtime unverified | Brief | Fictional captures pending | Historical use/status pending | Active source/backup private; omit public buttons | Draft pending source-aligned copy/permitted figures |
 | Ship Inspections | Source/docs reviewed; runtime unverified | Outlined | Pending synthetic capture | Pending | Owner-supplied public repository; live app unknown | Pending editorial review |
-| Unlost | Owner-confirmed report/artifacts; Java source unavailable | Outlined | Genuine report-folder images available; select/review | Team context documented; individual contribution pending | Unknown | Pending editorial review |
+| Unlost | Recovered Java source plus confirmed report/artifacts; runtime unverified | Outlined | Genuine figures available; select/review | Team context; individual contribution pending | Owner-supplied public repository | Pending source/report and editorial review |
 | MiniTwit | Repository/report/docs reviewed; runtime unverified | Outlined | Report/source artifacts identified; capture/select | Team context documented; individual contribution pending | Owner-supplied public repository; live app unverified | Pending editorial review |
 | BestBets | Preferred Exam/deck text reviewed and reconciled | Outlined | Preferred deck/figures pending review | Team context; individual role pending | Public repository supplied | Pending visual/rights/editorial review |
 | Geospatial research | Notebook structure/report reviewed; results not reproduced | Outlined | Report/notebook figures identified; select/export | Team context documented; individual contribution pending | Owner-supplied public repository | Pending editorial review |
-| Grumlebob | Owner explanation; restricted folder present, contents unreviewed | Domain-neutral brief | Approved generic examples pending | Pending | None approved | Draft pending approved public explanation |
+| Grumlebob | Free offers/passive income/profit/capacity supplied by owner | Public facts scoped; draft copy | Generic examples pending | Owner-reported outcomes; no member count/year inferred | None approved | Draft pending figures/editorial review |
 | JobHunt | Private repository/general docs reviewed; runtime unverified | Eight-step flow and copy boundary resolved | Workflow preview prepared; fictional examples pending | Personal intent supplied; contribution/status wording pending | Private source supplied; omit inaccessible public action | Draft pending figures/editorial review |
+| Template | Owner tooling/choices supplied; pin source evidence | Outlined | Choice/tool diagrams pending | Contribution/context to be sourced | Public template repository | Pending source/figure/editorial review |
 
 For each row, use its P6 packet and ImplementationCheckpoints' repeated story sequence. Unknown individual-role/count/date claims can be omitted with neutral accurate context; permissions and approved public explanation remain prerequisites where needed. Readiness must not be inferred from the presence of a folder, a cover image or a seed row. Recheck facts and links at execution time because implementation is deliberately scheduled for later.

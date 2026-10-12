@@ -111,7 +111,7 @@ Resolve code/docs upload limits before including numbers. Permitted illustration
 | `search-comparison` / Dijkstra/A* | Existing explored-node/path figure, or faithful attributed redraw from the report. Align endpoints and legend; distinguish explored nodes from selected path. | Explain the search difference. Do not infer new measured speedup or optimality. |
 | `spatial-index` / spatial data | Source-backed Kd-tree/spatial index explanation with tiny schematic points labeled “illustration.” | Explain the operation the index supports; no invented benchmark. |
 
-Use available artifacts; recovering Java code or inspecting another team's archive is not required. Review team attribution and map/figure reuse.
+Use genuine artifacts alongside the recovered Unlost source; reconcile code/report provenance without implying a new runtime check. Exclude another team's archive. Review team attribution and map/figure reuse.
 
 ## 8. MiniTwit — P6.6
 
@@ -156,15 +156,15 @@ Reject illegible graph exports rather than silently redrawing unknown values. Fo
 
 ## 11. Grumlebob — P6.10
 
-**Opening proposal:** “Tools for recurring tasks.” **Visual question:** which approved recurring tasks are connected and where does review happen?
+**Opening proposal:** “Free online offers, automated.” **Visual question:** how does approved offer automation connect to the owner's passive-income account?
 
 | Asset / placement | Composition and labels | Caption / alt direction |
 | --- | --- | --- |
-| `tools-overview` / cover, introduction | Generic AHK/Python tools illustration with no specific excluded domain, real accounts or identifiable source artifact. Label as explanatory. | Public copy must match the owner's approved explanation. No implied company/client/impact. |
+| `tools-overview` / cover, introduction | Generic AHK/Python offer-automation illustration without real accounts, providers or source artifacts. Label as explanatory. | Match owner-approved free online offer/passive-income scope; no invented workflow or outcome. |
 | `task-boundary` / automation | Approved input → transformation → output plus actual review/control boundary only if the explanation supports it. Separate independent tools instead of inventing one integrated system. | Describe technical responsibilities, not the restricted originating workflow. |
 | `fictional-records` / bookkeeping/billing | Only if specifically supported: fictional rows `Example item A/B` and an illustrative totals/check handoff. No real invoice, provider, payment action or transaction result. | Mark fictional. Alt explains the generic record organization. Never infer automated payment collection. |
 
-Prepare a short proposed description and source-free diagram for the owner to approve when this packet is reached. Without that input the story remains draft; other packets continue. Publication review includes text, image metadata, URLs, alt/caption, source maps, filename and social preview.
+Use the owner's 2026-10-12 explanation. State approximately DKK 500,000 profit in one year and member capacity due to concern about being caught as attributed prose. No invented monthly series, calendar year, member count or earnings chart. Generic figures/final copy still need publication review; restricted artifacts remain private across text, metadata, URLs, alt/caption, filenames and previews.
 
 ## 12. JobHunt — P6.11
 
@@ -179,6 +179,18 @@ Prepare a short proposed description and source-free diagram for the owner to ap
 
 Adapt the existing workflow concept, preserving shared Studio styling. No carousel, autoplay, hidden mandatory steps or new app-specific widget engine. The personal/manual-writing principle is an intention; do not present it as an enforced current implementation when assisted drafting exists.
 
-## 13. Finish a page without inventing facts
+## 13. Template — P6.13
+
+**Opening proposal:** “One foundation, several choices.” **Visual question:** what is shared, which choices are available, and what do the quality tools inspect?
+
+| Asset / placement | Composition and labels | Caption / alt direction |
+| --- | --- | --- |
+| `template-foundation` / cover | Shared C# host with two labeled frontend choices: Blazor and React. Use pinned source responsibilities. | Explanatory architecture, not a screenshot or proof of deployment. |
+| `deployment-choices` / deployment | Three equal choices: Cloud, LocalCluster, LocalSingleNode. No real host values or addresses. | Template capabilities; Portfolio selects LocalSingleNode. |
+| `quality-tools` / quality | Brief source-backed tool-to-purpose list: Lighthouse, SonarQube, Qlty, Trivy, ZAP, sitespeed.io, scc. Group by purpose without invented scores or green status marks. | Configured tooling does not establish passed scans or measured results. Provide a text equivalent. |
+
+Keep Techs registry-driven; tool illustrations must not become a second technology inventory. Preserve labels and reading order on mobile.
+
+## 14. Finish a page without inventing facts
 
 At the visual checkpoint, record its opening, chosen figure stems, source revision/permission, final captions/alts, missing evidence and how it was handled. Ask whether a visitor can explain the project's purpose, one design decision and its limitations from prose plus figures. Remove redundant captures, decorative charts and unsupported outcome claims. Apply the PageBriefs publication checklist and update the existing P6 row, not a separate image-only completion ledger.

@@ -15,7 +15,7 @@ P0–P3 are the necessary product import/identity/platform prerequisites. After 
 | Slice | Visitor/operator outcome | Existing work packets | Exit evidence |
 | --- | --- | --- | --- |
 | VS0 — Independent product | Safe Portfolio checkout/image identity, React-only host and retained single-node operations | P0–P3; early P8 access/CI only when necessary | Own remotes/provenance, supported local gate/CI, no active Blazor/removed-target dependency |
-| VS1 — Read ImprovedDb | Open home, choose ImprovedDb, read its full illustrated story and use section links in either theme | P4.1–P4.3, P5.1–P5.3, first-story P7.1/P7.3 and applicable P7.4 checks | One reviewed published story; consistent content/API/HTML revision; direct and fragment URLs; useful HTML without JavaScript; true missing/draft-route 404; keyboard/mobile/theme/image behavior; production image acceptance |
+| VS1 — Read ImprovedDb | Open home, read ImprovedDb and its Techs, then explore Technologies in either theme | P4.1–P4.3, P5.1–P5.3, first-story P7.1/P7.3 and applicable P7.4 checks | One reviewed story; generated Techs and unique categorized overview; consistent content/API/HTML revision; direct/fragment URLs and readable HTML without JavaScript; true missing/draft-route 404; keyboard/mobile/theme/image behavior; production image acceptance |
 | VS2 — Add one reviewed story | Discover and read one additional complete project through the same experience | One P6 story packet at a time, followed by P6.12 catalog review | Reviewed contribution/status/prose/media; export/API/card/detail/prerender/sitemap/social output updated together; no public links to drafts; relevant slice checks and green merge/main evidence |
 | VS3 — Match runtime to the product | Operate the final file-only portfolio | P7.2 | Unused DB/cache/Identity/migrations removed from startup/Compose/release/doctor/backup/audit/tests; verified production image without fake migration artifacts |
 | VS4 — Visit the public portfolio | Read the reviewed launch set over public HTTPS on the intended hostname | P7.4, remaining P8, P9 | Immutable release and real native/LAN/Cloudflare/public/browser evidence; authorized deployment recorded |
@@ -33,6 +33,7 @@ Portfolio/
     SiteContent/GetSite/             # home heading, public name and verified links
     ProjectCatalog/ListProjects/     # ordered lightweight published summaries
     ProjectStories/GetProject/       # one published story, sections and public assets
+    Technologies/ListTechnologies/   # unique categorized technologies and published project links
     PublicPages/ResolvePage/         # known prerender document/data and real 404 policy
   Content/                          # validated immutable bundle reader/export integration
 Portfolio.Core/
@@ -41,6 +42,7 @@ Portfolio.React/app/
   features/
     home/                           # home view, catalog query/loader adapter and states
     project-story/                  # detail query/loader, reader, section menu and states
+    technologies/                   # overview from compiled TechnologyCatalog
   components/                       # only genuinely shared shell/theme/image primitives
   api/generated/                    # generated transport schema, never hand-edited
   routes/                           # thin Router route modules delegating to features
@@ -51,7 +53,7 @@ Content/Portfolio/                  # reviewed metadata, Markdown and media
 
 Keep endpoint/handler/validation/mapping/checks next to their use case where the template supports that. A small handler can remain in one file; avoid adding empty abstractions to satisfy a folder diagram. A generic top-level Controllers/Services/Repositories hierarchy is not the organizing model for new portfolio behavior. Do not add a generic CRUD repository, CQRS bus or MediatR dependency without a concrete need. Published editorial content is an immutable file bundle, so a database repository is unnecessary for it.
 
-`ProjectStories/GetProject` and the React reader serve every project by validated slug/metadata. Individual stories are content slices, not eleven copied backend modules or twelve special-case React pages. A new content block or interaction belongs to the story slice that first needs it; extract shared rendering after its behavior is defined.
+`ProjectStories/GetProject` and the React reader serve every project by validated slug/metadata. Individual stories are content slices, not twelve copied backend modules or twelve special-case React pages. A new content block or interaction belongs to the story slice that first needs it; extract shared rendering after its behavior is defined.
 
 Shared responsibilities stay narrow: immutable bundle loading/validation, generated transport/contracts, theme/shell primitives and generic deployment infrastructure. Implement `Portfolio.ContentTool` referencing compilation in `Portfolio.Core/Content/Compilation` and the single public DTO set in `Portfolio.Core/Features/Portfolio/Contracts`, using ExecutionDecisions' proposed CLI contract. It runs without DB/Redis/credentials and produces the same deterministic representation consumed by API and prerender. Shared code must not call feature modules to reconstruct a second content model. Sharp is a build-only raster preprocessor driven by the C# published-media plan.
 
@@ -79,10 +81,10 @@ Keep the master plan's public endpoints, lightweight collection, block union, st
 Use successive reviewable PRs when necessary, retaining one active VS1 record:
 
 1. Prepare real ImprovedDb source/prose/media and preserve the approved Studio references. Use the selected Markdig/safe-rendering contract; omit personal-role claims until verified rather than blocking neutral project copy.
-2. Implement only the public authoring/export contract needed by this story and home. Other project metadata can remain drafts; do not build an all-purpose content framework first.
-3. Implement the SiteContent, ProjectCatalog and ProjectStories read features with generated transport. Replace the corresponding Books consumer flows and remove former sample/account endpoints through the scoped P4.3 inventory.
-4. Implement home, shared shell/theme and the ImprovedDb reader together with its content. Exercise existing loading/error/cancellation behavior where APIs are used.
-5. Prerender home/ImprovedDb from that same bundle and implement exact C# direct-page/navigation-data/asset hosting. Add the first Portfolio public acceptance assertions in the image/local gate.
+2. Implement the authoring/export contract for this story, home and the shared technology registry. Generate Techs and TechnologyCatalog from published references. Other project metadata remains draft.
+3. Implement SiteContent, ProjectCatalog, ProjectStories and Technologies read features with generated transport. Replace corresponding Books consumers and remove sample/account endpoints through P4.3.
+4. Implement home, shared shell/theme, ImprovedDb with Techs and the Technologies page together. Exercise loading/error/cancellation behavior where APIs are used.
+5. Prerender home/Technologies/ImprovedDb from the same bundle; implement exact C# page/navigation-data/asset hosting. Add Portfolio acceptance assertions in the image/local gate.
 6. Complete the P5 visual checkpoint and applicable content/API/browser/hosting/image checks; verify the merged main release. Record the actual module paths, export/build commands, contract revision and precise next story.
 
 VS1 finishes when a fresh production image supports the complete reading journey. API success alone, a mockup, an SPA shell or a renamed Books demo is partial work. Public DNS/native launch remains VS4.
