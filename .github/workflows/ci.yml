@@ -38,6 +38,9 @@ jobs:
           ref: ${{ github.sha }}
           clean: true
 
+      - name: Validate quality audit runner
+        run: python3 -m unittest Scripts.Quality.tests.test_run_quality_audit
+
       - name: Isolate registry credentials for this job
         run: |
           docker_config="$(mktemp -d "${RUNNER_TEMP}/ci-docker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.XXXXXX")"

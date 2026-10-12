@@ -1,0 +1,18 @@
+{
+  "trivy": {
+    "version": "0.75.0",
+    "image": "aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"
+  },
+  "zap": {
+    "version": "2.17.0",
+    "image": "ghcr.io/zaproxy/zaproxy:2.17.0@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2"
+  },
+  "sitespeed": {
+    "version": "42.7.0",
+    "image": "sitespeedio/sitespeed.io:42.7.0@sha256:3b89ded94e75faf09d34a9f0921d621d470564dcee7c7f51bf2297d701451f71"
+  },
+  "scc": {
+    "version": "4.1.0",
+    "image": "ghcr.io/boyter/scc@sha256:178db581f74adc7cca5322c92d64ff63f426e1338f1b27eb83cdb6aada3b40d2"
+  }
+}
