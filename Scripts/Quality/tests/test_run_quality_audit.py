@@ -2,18 +2,29 @@
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+import zipfile
 
 from Scripts.Quality import run_quality_audit as audit
+from Scripts.Quality import qlty_audit
 
 
 class QualityAuditTests(unittest.TestCase):
+    def test_qlty_clears_git_overrides_and_disables_telemetry(self):
+        with patch.dict(os.environ, {"GIT_DIR": "private-worktree", "GIT_WORK_TREE": "private-source",
+                                     "git_config_count": "1", "QLTY_TELEMETRY": "on"}):
+            environment = qlty_audit.analysis_environment()
+        self.assertFalse(any(key.upper().startswith("GIT_") for key in environment))
+        self.assertEqual(environment["QLTY_TELEMETRY"], "off")
+
     def test_snapshot_uses_tracked_working_files_and_excludes_untracked_data(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
@@ -107,6 +118,55 @@ class QualityAuditTests(unittest.TestCase):
         with patch.object(audit.subprocess, "run", return_value=subprocess.CompletedProcess(
                 [], 1, stderr="Cannot connect to the Docker daemon")), self.assertRaises(ValueError):
             audit.remove_container("quality-audit-test")
+
+    def test_qlty_archive_hash_is_required_before_writing_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive, binary = Path(temporary) / "qlty.zip", Path(temporary) / "qlty.exe"
+            with zipfile.ZipFile(archive, "w") as package:
+                package.writestr("qlty.exe", b"verified binary")
+            with self.assertRaises(ValueError):
+                qlty_audit.extract_binary(archive, "0" * 64, binary)
+            self.assertFalse(binary.exists())
+
+    def test_qlty_extraction_copies_only_the_expected_binary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive, binary = root / "qlty.zip", root / "qlty.exe"
+            with zipfile.ZipFile(archive, "w") as package:
+                package.writestr("qlty.exe", b"verified binary")
+                package.writestr("../unexpected.txt", b"must not be extracted")
+            qlty_audit.extract_binary(archive, hashlib.sha256(archive.read_bytes()).hexdigest(), binary)
+            self.assertEqual(binary.read_bytes(), b"verified binary")
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["qlty.exe", "qlty.zip"])
+
+    def test_qlty_rejects_invalid_sarif_and_accepts_explicit_zero_findings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "qlty.sarif"
+            for invalid in ({}, {"version": "2.1.0", "runs": []},
+                            {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "other"}}, "results": []}]}):
+                report.write_text(json.dumps(invalid))
+                with self.assertRaises(ValueError):
+                    qlty_audit.summarize_sarif(report)
+            report.write_text(json.dumps({"version": "2.1.0", "runs": [
+                {"tool": {"driver": {"name": "qlty"}}, "results": []},
+            ]}))
+            self.assertEqual(qlty_audit.summarize_sarif(report)["reportedLocations"], 0)
+
+    def test_qlty_counts_mirrored_duplication_locations_as_one_group(self):
+        def location(path):
+            return {"physicalLocation": {"artifactLocation": {"uri": path}, "region": {"startLine": 1, "endLine": 20}}}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "qlty.sarif"
+            report.write_text(json.dumps({"version": "2.1.0", "runs": [
+                {"tool": {"driver": {"name": "qlty"}}, "results": [
+                    {"ruleId": "qlty:similar-code", "locations": [location("a.cs")], "relatedLocations": [location("b.cs")]},
+                    {"ruleId": "qlty:similar-code", "locations": [location("b.cs")], "relatedLocations": [location("a.cs")]},
+                ]},
+            ]}))
+            result = qlty_audit.summarize_sarif(report)
+            self.assertEqual(result["reportedLocations"], 2)
+            self.assertEqual(result["duplicationGroups"], 1)
 
 
 if __name__ == "__main__":

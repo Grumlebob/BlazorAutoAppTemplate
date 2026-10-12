@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run bounded, informational Docker audits. See docs/Quality/QualityTools.md."""
+"""Run bounded, informational quality audits. See docs/Quality/QualityTools.md."""
 
 import argparse
 from collections import Counter
@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import uuid
 
 
-TOOLS = ("trivy-source", "trivy-image", "zap", "sitespeed", "scc")
+TOOLS = ("trivy-source", "trivy-image", "zap", "sitespeed", "scc", "qlty")
 
 
 def git(repo, *arguments):
@@ -129,6 +129,12 @@ def read_results(tool, report_dir, exit_code):
 
 
 def run_audit(args):
+    if args.tool == "qlty":
+        if __package__:
+            from .qlty_audit import run_qlty_audit
+        else:
+            from qlty_audit import run_qlty_audit
+        return run_qlty_audit(args, git, snapshot_source)
     repo = args.repo_root.resolve()
     validate_target(args.tool, args.target)
     tool_key = args.tool.split("-", 1)[0]
