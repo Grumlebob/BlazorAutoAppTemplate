@@ -206,11 +206,13 @@ public static class BookEndpoints
             title: "Book not found",
             detail: $"Book {id} was not found.");
 
-    private static RouteHandlerBuilder WithAuthorizationResponses(this RouteHandlerBuilder endpoint) =>
+    private static void WithAuthorizationResponses(this RouteHandlerBuilder endpoint)
+    {
         endpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .RequireAuthorization();
+    }
 }
 
 internal sealed class BooksEndpointLogCategory;
