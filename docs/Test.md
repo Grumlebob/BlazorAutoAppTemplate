@@ -25,7 +25,7 @@ bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
 
 Integration tests use Testcontainers with PostgreSQL 18 and Redis 8, so Docker must be running.
 
-CI restores, builds and tests the complete solution sequentially under both frontend profiles. The required result counts are 219 passed and 13 expected opt-in skips for `BlazorAuto`, and 207 passed and 13 expected opt-in skips for `React`. The React run excludes only tests tagged `FrontendProfile=BlazorAuto`, which assert Blazor document assets or render modes. CI checks the TRX results so failures, extra skips, missing tests, or unknown outcomes fail the job. The opt-in Testcontainers lifecycle suite separately requires 3 passed and zero skips.
+CI restores, builds and tests the complete solution sequentially under both frontend profiles. The required result counts are 194 passed and 13 expected opt-in skips for `BlazorAuto`, and 182 passed and 13 expected opt-in skips for `React`. The React run excludes only tests tagged `FrontendProfile=BlazorAuto`, which assert Blazor document assets or render modes. CI checks the TRX results so failures, extra skips, missing tests, or unknown outcomes fail the job. The opt-in Testcontainers lifecycle suite separately requires 3 passed and zero skips.
 
 ## Frontend Profile Hosting
 

@@ -12,7 +12,6 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 - `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
 - `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing; [SonarQubeAnalysis.md](docs/Quality/SonarQubeAnalysis.md) covers on-demand source audits.
-- `docs/SimulationGuide.md` explains safe synthetic traffic for local and deployed observability demos.
 - `docs/HowToForkThisRepo.md` explains fork identity, target selection and the prepared LocalCluster path; its single-node path links the native agent setup.
 - `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.
 - `Plans/` holds tracked plans for multi-step changes; see `Plans/README.md`.
@@ -44,19 +43,6 @@ Local Docker can run the Grafana observability stack with `.\Scripts\RunLocal.ps
 
 The LocalCluster and Cloud observability deployments use existing nodes; no extra observability node is part of the plan.
 
-## Traffic Simulation
-
-Use `Scripts/RunSimulation.ps1` to generate safe traffic for dashboard demos and smoke checks:
-
-```powershell
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
-.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\Scripts\RunSimulation.ps1 -Target local -AuthCheck
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
-```
-
-Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evidence pass, and `Scripts/AnalyzeSimulationReports.ps1` to summarize generated reports. The simulator is a .NET console operator tool in `BlazorAutoApp.Simulation`. It is built and tested by CI, but it is not deployed with the app. It paces API and authenticated write traffic below the app's rate limits, reports unexpected `429` responses separately, cleans up V2 synthetic books, and writes run summaries under `artifacts/simulation`. See `docs/SimulationGuide.md`.
-
 ## Repository Layout
 
 - `BlazorAutoApp.Core/Features/*` contains shared feature contracts, domain types, and request/response DTOs.
@@ -66,7 +52,6 @@ Use `Scripts/RunSimulationMatrix.ps1` for a strict local/LocalCluster/Cloud evid
 - `BlazorAutoApp.Client/Features/AppShell` contains layout, reconnect UI, not-found UI, and template render-mode diagnostics.
 - `BlazorAutoApp/Features/Login/Account` contains Identity account components and account endpoint helpers.
 - `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
-- `BlazorAutoApp.Simulation` contains the synthetic traffic simulator.
 - `Deployment/LocalSingleNode` contains native one-PC agent setup, local Ansible, Compose, LAN Caddy and protected nightly backups.
 - `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
 - `Deployment/Common` contains release settings, host roles and helpers shared by all three deployment targets (CI provenance, release manifest validation, artifact retention).
@@ -133,12 +118,6 @@ pwsh -File .\docker\observability\smoke-local-observability.ps1
 ```
 
 For dashboard access, common checks, and troubleshooting queries, see `docs/ObservabilityGuide.md`.
-
-Generate local demo traffic for Grafana:
-
-```powershell
-.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-```
 
 Build Tailwind output:
 

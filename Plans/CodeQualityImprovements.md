@@ -4,17 +4,10 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 
 ## Prioritized work
 
-### Q-001 — Make the localhost TLS exception explicit in the traffic simulator
+### Q-001 — Superseded: simulator retired
 
-- Evidence: BlazorAuto and React analyses; `csharpsquid:S4830` keys `b8eb19f7-9c91-4235-837c-0936291cc9c7` at `BlazorAutoApp.Simulation/Http/HttpClientFactory.cs:22`, `6e842420-91f6-4947-86e0-889cbd3d99e3` at `BlazorAutoApp.Simulation/Running/ScenarioRunner.cs:128`, `4c5b91ad-ec03-4c7e-aacb-30c7c91fa049` at the first path, and `645ee031-44f8-4f4c-8ec1-69993af5277d` at the second. Both handlers use `DangerousAcceptAnyServerCertificateValidator` for local hosts.
-- Why it matters: the override skips certificate-chain and host validation for HTTPS to loopback. The current check confines it to the local simulation target, which limits exposure, but also hides invalid local certificates.
-- Proposed change: route discovery and scenario requests through one handler factory. Prefer the normal trusted development certificate. If self-signed local HTTPS still needs support, make the exception an explicit local-only option with a warning.
-- Behavior to preserve: local HTTP simulation, trusted local HTTPS, cookie handling, and all deployed-target certificate validation.
-- Verification: focused tests show invalid certificates fail by default, any opt-in applies only to loopback, non-loopback certificates are always validated, and both simulation flows still work with a trusted local certificate.
-- Effort: medium; both request paths and local developer-certificate setup need coordinated behavior.
-- Dependencies: none.
-- Decision: defer design work; this is a constrained local trust exception, not a confirmed remote-target vulnerability.
-- Acceptance: no silent certificate bypass remains; any local exception is explicit and cannot be used for a deployed target.
+- Original evidence: the 2026-10-12 analyzer baseline reported permissive localhost certificate callbacks in the standalone simulator.
+- Disposition: P16 removes the simulator project and both HTTP paths. No replacement TLS option or simulator test is needed. Keep ordinary app and deployment certificate validation unchanged.
 
 ### Q-002 — Replace the MD5-based packaged Caddyfile check with a package-aware verification
 
@@ -88,17 +81,10 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 - Decision: fix.
 - Acceptance: shared rules have one implementation, target-specific validation remains explicit, and both settings contracts produce equivalent results for equivalent input.
 
-### Q-008 — Decompose simulation option parsing after higher-risk items
+### Q-008 — Superseded: simulator retired
 
-- Evidence: `csharpsquid:S3776` keys `c07fa85c-36ee-4a95-af69-094d5041a4db` (BlazorAuto) and `042277aa-50b9-4ac1-bc06-88876f1de0b2` (React) at `BlazorAutoApp.Simulation/Options/SimulationOptions.cs:67`; cognitive complexity 41. The existing `SimulationOptionsAuthTests` cover several credential and write-gate cases.
-- Why it matters: option parsing mixes target selection, credential policy, write authorization, and profile validation. Small helpers would make safety gates easier to review without changing the CLI.
-- Proposed change: separate target resolution, auth configuration, and write/deployed-target validation while retaining one immutable result and aggregated errors.
-- Behavior to preserve: no password on the command line, environment-only credentials, local-only seeded demo account, and explicit gates for deployed targets and writes.
-- Verification: expand table-driven parser tests for each option group; preserve `Scripts/RunSimulation.ps1` help and exit behavior; run the simulation contract tests.
-- Effort: medium.
-- Dependencies: Q-001 should settle the shared HTTP handler contract first if that code is changed in the same wave.
-- Decision: defer until the security and coverage work is planned.
-- Acceptance: the same arguments produce the same options/errors and safety gates, with each validation group independently tested.
+- Original evidence: the 2026-10-12 analyzer baseline reported high complexity in standalone simulator option parsing.
+- Disposition: P16 removes the parser, CLI and wrapper consumers. No parser decomposition is needed. Preserve the historical finding here as evidence, not as active work.
 
 ## Reviewed findings with no immediate follow-up
 
@@ -106,8 +92,8 @@ This backlog starts from the accepted SonarQube baseline at `8393173bc4f580ae1dc
 |---|---|
 | `python:S3516` at `Deployment/LocalSingleNode/Scripts/lib/doctor.py:46` (keys `2ae477d5-b59b-4429-88c5-0a2a1223e67a` / `54eb0af8-565a-42d6-850b-dc6f18194ce4`) | The method builds and returns a list of named checks whose boolean results depend on live host state. It does not always return the same value. Reviewed noise; no code change. |
 | `python:S5332` at `Deployment/LocalSingleNode/Scripts/lib/collisions.py:85` (keys `439e80ec-6d02-4fda-b363-3879b4e68a8b` / `5bb47505-d963-4089-b136-65c7b77d5cdb`) | The `http://` literal is matched inside Caddy configuration text to detect a port-80 collision; this code does not issue an HTTP request. Reviewed noise; keep the static collision check. |
-| `csharpsquid:S2068` on `User123` and `postgres` defaults (for example `7a82f2b5-f3eb-47a3-8811-cb53cbb32f21`, `8414802e-46f7-4940-9ca0-fab2d83c054f`, `6cc2cb39-bcb1-4397-82ee-0b7406a8ae68`, `85c584f0-a498-4a73-ac6d-2d91a009efd0`) | The findings point to local/demo credentials and sample connection strings. The simulation default is guarded to the local target, Docker local account seeding is controlled by `LocalAccounts:Enabled`, `.env.example` documents local PostgreSQL defaults, and deployment compositions inject connection strings from protected settings. No report finding identifies a live secret. Reviewed noise; keep production secrets injected and do not copy these defaults into deployment settings. |
-| `csharpsquid:S2245` at `BlazorAutoApp.Simulation/Running/ScenarioRunner.cs:29` (keys `5e42d43c-bc21-4706-8e18-ac320bf64c56` / `5fbb4709-60cd-4a38-ae00-4de542e24da4`) | `Random` is seeded by `options.Seed` to make synthetic scenario selection reproducible. It does not generate credentials, tokens, or cryptographic material. Reviewed noise. |
+| `csharpsquid:S2068` on `User123` and `postgres` defaults (for example `7a82f2b5-f3eb-47a3-8811-cb53cbb32f21`, `8414802e-46f7-4940-9ca0-fab2d83c054f`, `6cc2cb39-bcb1-4397-82ee-0b7406a8ae68`, `85c584f0-a498-4a73-ac6d-2d91a009efd0`) | These historical findings pointed to local/demo credentials and sample connection strings. The simulator defaults were removed with P16; Docker local account seeding is controlled by `LocalAccounts:Enabled`, `.env.example` documents local PostgreSQL defaults, and deployment compositions inject connection strings from protected settings. No report finding identified a live secret. Keep production secrets injected. |
+| `csharpsquid:S2245` at the retired simulator ScenarioRunner.cs:29` (keys `5e42d43c-bc21-4706-8e18-ac320bf64c56` / `5fbb4709-60cd-4a38-ae00-4de542e24da4`) | Historical finding only. P16 removed the deterministic synthetic scenario selector with the standalone simulator; no cryptographic use was involved. |
 | `javascript:S8786` at `BlazorAutoApp.React/scripts/openapi-contract.mjs:41` (key `34d0470d-6ef0-42d6-9b23-f7bd1fb49fa4`) | The expression `\n*` normalizes trailing line feeds in generated text; it is a single-character repetition rather than a nested or ambiguous backtracking pattern. Reviewed noise; no performance defect was observed. |
 
 The SonarQube quality gate remains informational. Implement these items only through separately authorized, tested changes; do not suppress rules or exclude source just to reduce counts.

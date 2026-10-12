@@ -32,9 +32,8 @@ New features should fit the technologies and runtime shape already used by the t
 - Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
 - xUnit, Testcontainers, architecture tests, and headed Playwright E2E.
 - GitHub Actions CI/CD, EF migration bundles, Docker images, LocalCluster deployment, and Cloud deployment.
-- Synthetic traffic through `BlazorAutoApp.Simulation` when dashboards or deployed demos need evidence.
 
-The feature guide does not replace the operator docs. Use `HowToRunLocally.md`, `Test.md`, `ObservabilityGuide.md`, and `SimulationGuide.md` for the detailed commands in those areas.
+The feature guide does not replace the operator docs. Use `HowToRunLocally.md`, `Test.md`, and `ObservabilityGuide.md` for detailed commands in those areas.
 
 ## Migration Workflow
 
@@ -48,7 +47,7 @@ For each migrated feature, follow this order:
 6. Add the client API implementation and UI.
 7. Add integration tests for the behavior before adding broad E2E coverage.
 8. Add E2E only for workflows users actually perform in the browser.
-9. Add observability, simulation, or docs only when the feature creates new operator-facing behavior.
+9. Add observability or docs only when the feature creates new operator-facing behavior.
 10. Run the full local gate and keep the app deployable.
 
 Avoid carrying old layering into the new repo. Old controllers, repositories, service locators, static globals, and database helper classes should be translated into this repo's feature-slice shape instead of copied across unchanged.
@@ -65,7 +64,7 @@ Write down these answers before editing code:
 - Does the feature store data in PostgreSQL?
 - Does the feature need Redis/HybridCache?
 - Does it need local seed data?
-- Does it affect health, observability dashboards, or synthetic simulation?
+- Does it change health signals or operator dashboards?
 - What must be proven by unit/integration tests?
 - What must be proven by browser E2E?
 
@@ -734,7 +733,7 @@ Feature-level observability should normally include:
 - Error logs only for exceptional failures, not normal validation or not-found behavior.
 - No high-cardinality metric labels.
 
-If a feature becomes important to demos or dashboards, update the simulator in `BlazorAutoApp.Simulation`, `Scripts/RunSimulation.ps1`, and `SimulationGuide.md` so observability can show realistic traffic without manual clicking.
+If a feature changes dashboard signals, update its telemetry and dashboard query examples. Normal app requests and browser tests produce the activity those dashboards display.
 
 ## 9. Add Tests
 
@@ -855,15 +854,6 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 For more test details, see `Test.md`.
 
-For synthetic traffic after the feature is observable or demo-critical:
-
-```powershell
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke
-.\Scripts\RunSimulationMatrix.ps1 -All
-```
-
-Only add feature-specific simulation writes when they can be safely cleaned up and paced below rate limits.
-
 ## Deployment And Operations Checklist
 
 Most feature changes deploy through the existing CI/CD path without editing deployment files. Still check these points before shipping:
@@ -876,7 +866,6 @@ Most feature changes deploy through the existing CI/CD path without editing depl
 - Public routes work behind forwarded headers and Caddy/Cloudflare.
 - Health endpoints do not depend on feature data unless deliberately added as a readiness dependency.
 - Observability docs mention any new operator-facing dashboards, alerts, or runbooks.
-- Simulation docs/scripts are updated if the feature is part of demos or acceptance evidence.
 - LocalCluster and Cloud do not need separate feature code; environment differences belong in configuration/deployment values.
 
 For pure UI or API additions, no deployment guide change is normally needed. For new infrastructure dependencies, deployment changes must be planned explicitly before the feature is considered complete.
@@ -896,7 +885,7 @@ Ask the AI to report:
 
 - Files added or changed by layer.
 - Any old-project behavior intentionally not migrated yet.
-- Any config, migration, cache, observability, simulation, or deployment impact.
+- Any config, migration, cache, observability, or deployment impact.
 - The exact tests it ran and any tests it could not run.
 
 ## Implementation Checklist
@@ -919,5 +908,5 @@ Ask the AI to report:
 - Every Core `*Request` has a matching feature test class with at least one `[Fact]` or `[Theory]`.
 - Integration tests cover validation, auth, not-found, persistence, and owner isolation where relevant.
 - E2E covers important browser workflows where relevant.
-- Docs, simulation, and observability are updated only when the feature changes those surfaces.
+- Docs and observability are updated only when the feature changes those surfaces.
 - `dotnet test` passes.

@@ -167,15 +167,13 @@ BlazorAutoApp.Core/Features/<Feature>
 BlazorAutoApp/Features/<Feature>
 BlazorAutoApp.Client/Features/<Feature>
 BlazorAutoApp.Test/Features/<Feature>
-BlazorAutoApp.Simulation
-docs/SimulationGuide.md
 docs/ObservabilityGuide.md
 Deployment/Common/observability/grafana
 ```
 
 Keep shared request and response contracts in `BlazorAutoApp.Core`. Keep server behavior in `BlazorAutoApp`. Keep routable client components under `BlazorAutoApp.Client/Features/<Feature>/Routes`. Keep tests in the matching `BlazorAutoApp.Test/Features/<Feature>` tree.
 
-If the fork still uses the Books slice, the Books simulation and Books dashboards are valid. If the fork changes the main domain, update the simulator, metrics, dashboards, and guide text before relying on observability demos.
+If the fork changes the main domain, update feature metrics, dashboards, and guide text before relying on observability examples.
 
 Cloud deployment files remain in the repository. They are not required for a fast LocalCluster fork, but CI still lint-checks and validates their shape. Do not run `CD - Cloud` until you intentionally customize `Deployment/Cloud/HowToDeployCloud.md`, `Deployment/Cloud/inventory/prod/group_vars/all.yml`, OpenTofu settings, Cloud secrets, and Cloud DNS for the fork.
 
@@ -739,7 +737,6 @@ BlazorAutoApp/
 BlazorAutoApp.Client/
 BlazorAutoApp.Core/
 BlazorAutoApp.Test/
-BlazorAutoApp.Simulation/
 .github/workflows/ci.yml
 .github/workflows/cd-localcluster.yml
 node-main/node-app1/node-app2/node-db
@@ -769,7 +766,7 @@ Before first deploy:
 
 After first deploy:
 
-- Update or remove any remaining Books-specific UI, docs, metrics, dashboards, and simulation code that no longer matches the fork.
+- Update or remove any remaining Books-specific UI, docs, metrics, and dashboards that no longer match the fork.
 - Configure real email delivery before requiring confirmed accounts or relying on password reset email in production.
 - Configure real OAuth credentials if the fork uses Google login.
 - Revisit rate limits for the real product.

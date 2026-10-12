@@ -717,7 +717,7 @@ def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool,
     tests = evidence.get("tests")
     if not isinstance(tests, dict):
         tests = {}
-    expected_passed = 219 if profile == "BlazorAuto" else 207
+    expected_passed = 194 if profile == "BlazorAuto" else 182
     valid_dotnet = _has_test_counts(tests.get("dotnet"), expected_passed, 13)
     if not valid_dotnet:
         warnings.append("The approved .NET suite result counts are missing or invalid.")

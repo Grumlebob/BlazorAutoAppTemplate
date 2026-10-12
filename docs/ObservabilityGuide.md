@@ -687,31 +687,9 @@ Noise policy:
 - do not alert on isolated 429s.
 - do not page on GitHub-runner Cloudflare challenges if origin checks pass.
 
-## Synthetic Traffic
+## Traffic Sources
 
-Use the simulator to warm dashboards and verify telemetry:
-
-```powershell
-.\Scripts\RunSimulation.ps1 -Target local -Profile demo -Duration 10m -MaxRps 3
-.\Scripts\RunSimulation.ps1 -Target local -Profile smoke -Writes -AllowWrite -Duration 30s
-```
-
-For a strict public matrix:
-
-```powershell
-.\Scripts\RunSimulationMatrix.ps1 -LocalCluster -Cloud -IncludeWrites -RegisterSyntheticUsers -AllowDeployedWrites -Duration 60s
-.\Scripts\AnalyzeSimulationReports.ps1 -Latest 10
-```
-
-Normal smoke/demo simulation should show:
-
-```text
-unexpected 429: 0
-cleanup: ok, leftovers=0
-```
-
-The simulator is not deployed with the app. It runs from the operator machine
-and writes local reports under `artifacts/simulation/`.
+Application telemetry comes from normal app requests. This template has no separate traffic generator. Use ordinary browser workflows or existing browser tests to create activity for dashboard review.
 
 ## Security
 

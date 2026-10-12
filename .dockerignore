@@ -39,5 +39,4 @@ data/**
 BlazorAutoApp/Storage/**
 TestResults/**
 artifacts/**
-BlazorAutoApp.Simulation/**
 Tools/**
