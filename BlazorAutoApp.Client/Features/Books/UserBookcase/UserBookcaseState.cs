@@ -24,9 +24,7 @@ public sealed class UserBookcaseState(
 
     public string? Error { get; private set; }
 
-    public string? CurrentUserId { get; private set; }
-
-    public IReadOnlyList<BookListItemResponse> Books { get; private set; } = [];
+    private IReadOnlyList<BookListItemResponse> Books { get; set; } = [];
 
     public IReadOnlyList<BookcaseBook> ShelfBooks { get; private set; } = [];
 
@@ -41,17 +39,18 @@ public sealed class UserBookcaseState(
         var userId = GetUserKey(authState.User);
         if (string.IsNullOrWhiteSpace(userId))
         {
-            ApplyLoadResult(version, null, []);
+            ApplyLoadResult(version, []);
             return;
         }
 
         try
         {
             var response = await _books.GetAsync(cancellationToken);
-            ApplyLoadResult(version, userId, response.Books);
+            ApplyLoadResult(version, response.Books);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Component disposal cancels this load; it is not a user-visible failure.
         }
         catch (Exception ex)
         {
@@ -61,7 +60,6 @@ public sealed class UserBookcaseState(
             }
 
             _logger.LogWarning(ex, "User bookcase load failed for user {UserId}", userId);
-            CurrentUserId = userId;
             Error = "Your bookcase could not be loaded.";
             IsLoading = false;
             NotifyChanged();
@@ -106,6 +104,7 @@ public sealed class UserBookcaseState(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // The modal ignores canceled deletes when navigation or disposal supersedes them.
             return false;
         }
         catch (Exception ex)
@@ -122,14 +121,13 @@ public sealed class UserBookcaseState(
         }
     }
 
-    private void ApplyLoadResult(int version, string? userId, IReadOnlyList<BookListItemResponse> books)
+    private void ApplyLoadResult(int version, IReadOnlyList<BookListItemResponse> books)
     {
         if (version != Volatile.Read(ref _version))
         {
             return;
         }
 
-        CurrentUserId = userId;
         ApplyBooks(books.OrderBy(book => book.Id).ToList());
         Error = null;
         IsLoading = false;

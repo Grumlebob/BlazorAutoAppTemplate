@@ -46,7 +46,7 @@ CHURN_TEXT = (
 )
 RUN_EVIDENCE = {
     "tests": {"frontendTests": {"status": "not-applicable"},
-              "dotnet": {"passed": 211, "failed": 0, "skipped": 13, "total": 224, "result": "tests/suite.trx"}},
+              "dotnet": {"passed": 214, "failed": 0, "skipped": 13, "total": 227, "result": "tests/suite.trx"}},
     "coverage": {"reactLcov": "not-applicable", "dotnet": {"valid": True, "directReportCount": 1,
                                                                   "coveredProductionSources": [GEOMETRY]}},
 }
@@ -109,7 +109,7 @@ def build_standard_report(routes: dict | None = None, path_exists=None, profile:
     if profile == "React":
         run_evidence = {
             "tests": {"frontendTests": {"passed": 31, "failed": 0, "skipped": 0, "total": 31},
-                      "dotnet": {"passed": 203, "failed": 0, "skipped": 13, "total": 216, "result": "tests/suite.trx"}},
+                      "dotnet": {"passed": 206, "failed": 0, "skipped": 13, "total": 219, "result": "tests/suite.trx"}},
             "coverage": {"reactLcov": "validated", "dotnet": {"valid": True, "directReportCount": 1,
                                                                         "coveredProductionSources": [GEOMETRY]}},
         }

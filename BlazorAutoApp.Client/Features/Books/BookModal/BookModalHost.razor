@@ -23,18 +23,6 @@
                     Loading book...
                 </div>
             }
-            else if (_error is not null)
-            {
-                <div class="w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
-                    <div class="mb-2 flex justify-end">
-                        <a data-testid="book-back"
-                           class="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700 no-underline shadow-sm hover:bg-red-50 hover:text-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                           href="/books">Close</a>
-                    </div>
-                    <h1 id="book-modal-title" class="mb-1 text-lg font-bold text-red-700">Book not found.</h1>
-                    <p>@_error</p>
-                </div>
-            }
             else if (_request.Mode is BookModalMode.View && _viewModel is not null)
             {
                 <h1 id="book-modal-title" class="sr-only">@_viewModel.Title</h1>
@@ -49,6 +37,24 @@
                               OnDeleteRequest="RequestDelete"
                               OnDeleteConfirm="DeleteAsync"
                               OnDeleteCancel="CancelDelete" />
+                @if (_error is not null)
+                {
+                    <p data-testid="book-operation-error"
+                       class="mt-4 w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm"
+                       role="alert">@_error</p>
+                }
+            }
+            else if (_error is not null)
+            {
+                <div class="w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
+                    <div class="mb-2 flex justify-end">
+                        <a data-testid="book-back"
+                           class="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700 no-underline shadow-sm hover:bg-red-50 hover:text-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                           href="/books">Close</a>
+                    </div>
+                    <h1 id="book-modal-title" class="mb-1 text-lg font-bold text-red-700">Book not found.</h1>
+                    <p>@_error</p>
+                </div>
             }
             else if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
@@ -177,6 +183,7 @@
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Navigation or disposal canceled a stale load; the current route owns modal errors.
         }
         catch (Exception ex)
         {
@@ -332,6 +339,7 @@
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Navigation canceled this operation; do not show its result on a later route.
         }
         catch (Exception ex)
         {
@@ -399,6 +407,7 @@
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Navigation canceled this operation; do not show its result on a later route.
         }
         catch (Exception ex)
         {
