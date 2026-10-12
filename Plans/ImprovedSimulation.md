@@ -1,13 +1,10 @@
 # Improved Simulation Refactor Plan
 
-Status: executing. This file is the durable progress record in case context is
-lost.
+Status: Historical. P16/P17 retired the standalone simulator on 2026-10-12; the remaining implementation steps in this plan no longer apply.
 
 Last updated: 2026-05-30.
 
-Important repo note: `/Plans/` is ignored by `.gitignore`. This plan is
-intentionally stored here because requested, but it will not be committed unless
-moved to `docs/` or the ignore rule changes.
+Historical retirement record: [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md) records the removal and verification. The execution notes below remain as historical evidence.
 
 ## Goal
 

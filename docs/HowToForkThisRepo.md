@@ -350,7 +350,7 @@ git status --short
 git add README.md docs/HowToRunLocally.md .env.example
 git add BlazorAutoApp/appsettings.json BlazorAutoApp/appsettings.Docker.json
 git add Deployment/Common/release.yml Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml
-# Add any feature, test, simulator, dashboard, or extra docs files you intentionally changed.
+# Add any feature, test, dashboard, or extra docs files you intentionally changed.
 git commit -m "Customize template fork identity"
 git push --set-upstream origin fork/customize-template
 gh pr create --base main --head fork/customize-template

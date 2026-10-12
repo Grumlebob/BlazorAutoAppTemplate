@@ -1,6 +1,6 @@
 # BlazorAutoApp
 
-BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render mode. The first screen is the Books feature, with server prerendering, WebAssembly hydration, PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, OpenTelemetry-ready logging, Docker Compose, and visible Playwright E2E tests.
+BlazorAutoApp is a .NET 10 template with two supported frontend profiles: `BlazorAuto` (the default, using Interactive Auto) and a public-only React SPA. The default Books screen demonstrates server prerendering and WebAssembly hydration. See [Frontend Profiles](docs/FrontendProfiles.md) for profile selection and profile-specific behavior. The app includes PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, OpenTelemetry-ready logging, Docker Compose, and Playwright browser tests.
 
 ## Start Here
 
@@ -18,7 +18,7 @@ BlazorAutoApp is a .NET 10 Blazor Web App template using Interactive Auto render
 
 ## Tech Stack
 
-- .NET 10 Blazor Web App with `InteractiveAuto`.
+- .NET 10 Blazor Web App with `InteractiveAuto` as the default, plus a supported public-only React frontend profile.
 - EF Core 10 and Npgsql for PostgreSQL.
 - ASP.NET Core Identity with component account pages and .NET 10 passkeys schema support.
 - Redis for HybridCache and Data Protection keys.

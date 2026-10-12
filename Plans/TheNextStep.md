@@ -1,12 +1,10 @@
 # The Next Step Plan
 
-Status: first expansion executed; later backlog recorded.
+Status: Historical. The simulator expansion work was superseded when P16/P17 retired the standalone simulator on 2026-10-12; no live traffic or expansion phase remains active.
 
 Last updated: 2026-05-30.
 
-Important repo note: `/Plans/` is ignored by `.gitignore`. This plan is
-intentionally stored here because requested, but it will not be committed unless
-moved to `docs/` or the ignore rule changes.
+Historical retirement record: [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md) records the removal and verification. The original plan and evidence below are retained as history.
 
 ## Goal
 
