@@ -73,12 +73,11 @@ jobs:
       - name: Verify GitHub CLI
         run: command -v gh
 
-      - name: Evaluate auto-merge scope and refresh stale branches
+      - name: Evaluate auto-merge scope
         id: evaluate
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          DISPATCH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           SOURCE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || 'workflow_dispatch' }}
           SOURCE_PR: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].number || '' }}
@@ -254,51 +253,8 @@ jobs:
             skip "GitHub could not determine merge state for pull request #$pr"
           fi
 
-          if [[ "$merge_state" == 'BEHIND' ]]; then
-            if update_output="$(gh api --method PUT "repos/$GH_REPO/pulls/$pr/update-branch" -f expected_head_sha="$SOURCE_SHA" 2>&1)"; then
-              if [[ -n "$update_output" ]]; then
-                printf '%s\n' "$update_output"
-              fi
-            else
-              update_status=$?
-              if ! grep -Eiq 'HTTP 403|403 Forbidden' <<<"$update_output" ||
-                 ! grep -Eiq 'without .?workflows.? permission|workflows permission.*required|permission.*workflows.*required' <<<"$update_output"; then
-                printf '%s\n' "$update_output" >&2
-                exit "$update_status"
-              fi
-
-              error_message="Cannot refresh Dependabot pull request #$pr: token lacks the Workflows permission required for workflow-file changes. Configure the repository Actions secret GH_TOKEN with Contents: write, Pull requests: write, and Workflows: write permissions."
-              echo "::error::$error_message" >&2
-              {
-                echo "Auto-merge blocked for pull request #$pr: token lacks Workflows permission."
-                echo "Configure repository Actions secret GH_TOKEN with Contents: write, Pull requests: write, and Workflows: write permissions."
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit "$update_status"
-            fi
-
-            refreshed_sha="$(gh pr view "$pr" --json headRefOid --jq '.headRefOid')"
-            attempt=0
-            while [[ "$refreshed_sha" == "$SOURCE_SHA" && "$attempt" -lt 30 ]]; do
-              attempt=$((attempt + 1))
-              sleep 5
-              refresh_status="$(gh pr view "$pr" --json headRefOid --jq '.headRefOid')"
-              refreshed_sha="$refresh_status"
-            done
-            if [[ "$refreshed_sha" == "$SOURCE_SHA" ]]; then
-              echo "GitHub accepted branch update for pull request #$pr but head SHA did not change." >&2
-              exit 1
-            fi
-
-            # Run updated workflow action pins from the refreshed Dependabot commit.
-            GH_TOKEN="$DISPATCH_TOKEN" gh workflow run ci.yml --ref "$head_branch"
-            echo "action=skip" >> "$GITHUB_OUTPUT"
-            {
-              echo "Auto-merge deferred: refreshed pull request #$pr to $refreshed_sha."
-              echo "Dispatched CI for $head_branch; its isolated success callback will retry auto-merge."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
+          # Let GitHub's merge rules decide whether a behind branch is mergeable.
+          # This workflow does not push updated workflow files to Dependabot branches.
           case "$merge_state" in
             DIRTY)
               skip "pull request #$pr has merge conflicts"
@@ -306,7 +262,7 @@ jobs:
             DRAFT)
               skip "pull request #$pr is a draft"
               ;;
-            CLEAN|BLOCKED|HAS_HOOKS|UNSTABLE)
+            CLEAN|BEHIND|BLOCKED|HAS_HOOKS|UNSTABLE)
               ;;
             *)
               skip "pull request #$pr has unsupported merge state $merge_state"
@@ -442,9 +398,11 @@ jobs:
         if: steps.evaluate.outputs.action == 'merge'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          MAIN_CI_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           SOURCE_PR: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].number || '' }}
           SOURCE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || 'workflow_dispatch' }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || inputs.source_sha }}
           HEAD_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.head_branch }}
         run: |
           set -euo pipefail
@@ -458,4 +416,49 @@ jobs:
             test "${#matching_prs[@]}" -eq 1
             pr="${matching_prs[0]}"
           fi
-          gh pr merge "$pr" --merge --auto
+          pull_fields="$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.state, .head.sha] | @tsv')"
+          IFS=$'\t' read -r pull_state pull_head_sha <<<"$pull_fields"
+          if [[ "$pull_state" != 'open' || "$pull_head_sha" != "$SOURCE_SHA" ]]; then
+            echo "Pull request #$pr changed after CI; refusing to enable auto-merge." >&2
+            exit 1
+          fi
+
+          gh pr merge "$pr" --merge --auto --match-head-commit "$SOURCE_SHA"
+
+          merge_attempt=0
+          while [[ "$merge_attempt" -lt 12 ]]; do
+            pull_fields="$(gh api "repos/$GH_REPO/pulls/$pr" --jq '[.state, (.merged | tostring), .head.sha] | @tsv')"
+            IFS=$'\t' read -r pull_state pull_merged pull_head_sha <<<"$pull_fields"
+            if [[ "$pull_state" == 'closed' && "$pull_merged" == 'true' ]]; then
+              if [[ "$pull_head_sha" != "$SOURCE_SHA" ]]; then
+                echo "Pull request #$pr merged a head other than the commit CI tested." >&2
+                exit 1
+              fi
+              main_sha="$(gh api "repos/$GH_REPO/commits/main" --jq '.sha')"
+              existing_main_ci=0
+              ci_check_attempt=0
+              while [[ "$existing_main_ci" == '0' && "$ci_check_attempt" -lt 6 ]]; do
+                existing_main_ci="$(gh run list --workflow ci.yml --branch main \
+                  --json headSha,event,status,conclusion --limit 100 \
+                  --jq "[.[] | select(.headSha == \"$main_sha\") | select(.event == \"push\" or .event == \"workflow_dispatch\") | select(.status != \"completed\" or .conclusion == \"success\")] | length")"
+                if [[ "$existing_main_ci" == '0' ]]; then
+                  ci_check_attempt=$((ci_check_attempt + 1))
+                  if [[ "$ci_check_attempt" -lt 6 ]]; then sleep 5; fi
+                fi
+              done
+              if [[ "$existing_main_ci" == '0' ]]; then
+                GH_TOKEN="$MAIN_CI_TOKEN" gh workflow run ci.yml --repo "$GH_REPO" --ref main
+                echo "Pull request #$pr merged. Dispatched CI for main $main_sha; no CD workflow was dispatched." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "Pull request #$pr merged. Main CI already exists for $main_sha; no duplicate CI run or CD workflow was dispatched." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              exit 0
+            fi
+            if [[ "$pull_state" != 'open' ]]; then
+              echo "Pull request #$pr closed without merging." >&2
+              exit 1
+            fi
+            merge_attempt=$((merge_attempt + 1))
+            sleep 5
+          done
+          echo "Auto-merge remains enabled for pull request #$pr. Main CI will be requested after a later confirmed merge." >> "$GITHUB_STEP_SUMMARY"

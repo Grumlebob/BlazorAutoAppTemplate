@@ -16,7 +16,7 @@ import time
 
 API_ROOT = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
 API_VERSION = "2026-03-10"
-ALLOWED_EVENTS = {"push"}
+ALLOWED_EVENTS = {"push", "workflow_dispatch"}
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 
