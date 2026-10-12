@@ -9,6 +9,13 @@ COMMON_LIB = Path(__file__).resolve().parents[5] / "Deployment/Common/Scripts/Co
 sys.path.insert(0, str(COMMON_LIB))
 
 from simple_yaml import read_simple_yaml  # noqa: E402
+from settings_validation import (  # noqa: E402
+    posix_opt_path_checks,
+    valid_dns_name,
+    valid_retention_period,
+    valid_retention_size,
+    validate_observability_ports,
+)
 
 
 REQUIRED_KEYS = [
@@ -60,20 +67,6 @@ def default_settings_path(root: Path | None = None) -> Path:
     return resolved_root / "Deployment/Cloud/inventory/prod/group_vars/all.yml"
 
 
-def valid_dns_name(value: str) -> bool:
-    if len(value) > 253 or "." not in value:
-        return False
-    labels = value.rstrip(".").split(".")
-    for label in labels:
-        if not 1 <= len(label) <= 63:
-            return False
-        if label.startswith("-") or label.endswith("-"):
-            return False
-        if not re.match(r"^[A-Za-z0-9-]+$", label):
-            return False
-    return True
-
-
 def validate(values: dict[str, str]) -> list[str]:
     errors: list[str] = []
     allowed = set(REQUIRED_KEYS + OPTIONAL_KEYS)
@@ -118,11 +111,12 @@ def validate(values: dict[str, str]) -> list[str]:
 
     observability_root = values.get("observability_root", "")
     if observability_root:
-        if not observability_root.startswith("/opt/"):
+        under_opt, no_whitespace, safe_characters = posix_opt_path_checks(observability_root)
+        if not under_opt:
             errors.append("observability_root must be under /opt, for example /opt/bookscloud-observability")
-        if re.search(r"\s", observability_root):
+        if not no_whitespace:
             errors.append("observability_root must not contain whitespace")
-        if not re.match(r"^/[A-Za-z0-9._/-]+$", observability_root):
+        if not safe_characters:
             errors.append("observability_root must contain only letters, numbers, dots, underscores, hyphens, and slashes")
 
     observability_network = values.get("observability_docker_network", "")
@@ -151,21 +145,7 @@ def validate(values: dict[str, str]) -> list[str]:
         "observability_postgres_exporter_port",
         "observability_redis_exporter_port",
     ]
-    for key in observability_port_keys:
-        port_value = values.get(key, "")
-        if not port_value:
-            continue
-        if not port_value.isdigit():
-            errors.append(f"{key} must be a number")
-            continue
-        port = int(port_value)
-        if port < 1024 or port > 65535:
-            errors.append(f"{key} must be between 1024 and 65535")
-        previous_key = seen_ports.get(port)
-        if previous_key:
-            errors.append(f"{key} must not reuse {previous_key} ({port})")
-        else:
-            seen_ports[port] = key
+    errors.extend(validate_observability_ports(values, observability_port_keys, seen_ports))
 
     for key in [
         "observability_prometheus_retention_time",
@@ -173,11 +153,11 @@ def validate(values: dict[str, str]) -> list[str]:
         "observability_tempo_retention_period",
     ]:
         value = values.get(key, "")
-        if value and not re.match(r"^[0-9]+[hdwmy]$", value):
+        if value and not valid_retention_period(value):
             errors.append(f"{key} must look like 24h, 7d, 4w, 12m, or 1y")
 
     retention_size = values.get("observability_prometheus_retention_size", "")
-    if retention_size and not re.match(r"^[0-9]+(MB|GB)$", retention_size):
+    if retention_size and not valid_retention_size(retention_size):
         errors.append("observability_prometheus_retention_size must look like 512MB or 4GB")
 
     public_hostname = values.get("public_hostname", "")
@@ -186,11 +166,12 @@ def validate(values: dict[str, str]) -> list[str]:
 
     deploy_root = values.get("deploy_root", "")
     if deploy_root:
-        if not deploy_root.startswith("/opt/"):
+        under_opt, no_whitespace, safe_characters = posix_opt_path_checks(deploy_root)
+        if not under_opt:
             errors.append("deploy_root must be under /opt, for example /opt/bookscloud")
-        if re.search(r"\s", deploy_root):
+        if not no_whitespace:
             errors.append("deploy_root must not contain whitespace")
-        if not re.match(r"^/[A-Za-z0-9._/-]+$", deploy_root):
+        if not safe_characters:
             errors.append("deploy_root must contain only letters, numbers, dots, underscores, hyphens, and slashes")
 
     tunnel_name = values.get("cloudflare_tunnel_name", "")
