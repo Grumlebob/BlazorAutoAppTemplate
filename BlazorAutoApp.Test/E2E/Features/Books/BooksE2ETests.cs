@@ -26,6 +26,12 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await ClickVisibleAuthorBookAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
             await Expect(Page.GetByTestId("book-edit-pencil")).ToHaveCountAsync(0);
+            await Expect(Page.GetByTestId("book-modal")).ToBeFocusedAsync();
+            await Page.GetByTestId("book-modal").PressAsync("Escape");
+            await Expect(Page.GetByTestId("book-modal")).ToHaveCountAsync(0);
+            await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
+            await ClickVisibleAuthorBookAsync();
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
             await Page.GetByTestId("book-back").ClickAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
             await GoToAsync("/books?authorBookId=99999999&bookMode=view");
@@ -60,6 +66,28 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await Page.GetByTestId("book-title").FillAsync(title);
             await Page.GetByTestId("book-author").FillAsync(author);
             await Page.GetByTestId("book-url").FillAsync(url);
+
+            await SkipIfBrowserApiRequestsAreNotObservableAsync("Book modal save-failure checks");
+            var failNextCreate = true;
+            await Page.RouteAsync("**/api/books", async route =>
+            {
+                if (route.Request.Method == "POST" && failNextCreate)
+                {
+                    failNextCreate = false;
+                    await route.FulfillAsync(new RouteFulfillOptions
+                    {
+                        Status = 500,
+                        ContentType = "application/problem+json",
+                        Body = "{\"title\":\"Synthetic save failure\"}"
+                    });
+                    return;
+                }
+
+                await route.ContinueAsync();
+            });
+            await Page.GetByTestId("book-save").ClickAsync();
+            await Expect(Page.GetByText("Book could not be saved.")).ToBeVisibleAsync();
+            await Page.UnrouteAsync("**/api/books");
             await Page.GetByTestId("book-save").ClickAsync();
 
             var bookLink = UserBookLink(title);
@@ -140,6 +168,30 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
 
             await Page.GetByTestId("book-delete").ClickAsync();
             await Expect(Page.GetByTestId("book-delete-confirm")).ToBeVisibleAsync();
+            await Page.GetByTestId("book-delete-cancel").ClickAsync();
+            await Expect(Page.GetByTestId("book-delete-confirm")).ToHaveCountAsync(0);
+            await Expect(updatedBookLink).ToBeVisibleAsync();
+            await Page.GetByTestId("book-delete").ClickAsync();
+            await Expect(Page.GetByTestId("book-delete-confirm")).ToBeVisibleAsync();
+            await Page.RouteAsync("**/api/books/*", async route =>
+            {
+                if (route.Request.Method == "DELETE")
+                {
+                    await route.FulfillAsync(new RouteFulfillOptions
+                    {
+                        Status = 500,
+                        ContentType = "application/problem+json",
+                        Body = "{\"title\":\"Synthetic delete failure\"}"
+                    });
+                    return;
+                }
+
+                await route.ContinueAsync();
+            });
+            await Page.GetByTestId("book-delete-confirm").ClickAsync();
+            await Expect(Page.GetByTestId("book-operation-error")).ToContainTextAsync("Book could not be deleted.");
+            await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
+            await Page.UnrouteAsync("**/api/books/*");
             await Page.GetByTestId("book-delete-confirm").ClickAsync();
             await Expect(updatedBookLink).ToBeHiddenAsync(new LocatorAssertionsToBeHiddenOptions { Timeout = 30_000 });
             await ReloadAndWaitForBooksDocumentAsync();

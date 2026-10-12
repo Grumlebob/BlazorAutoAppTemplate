@@ -51,6 +51,7 @@ public sealed class AuthorBookcaseState(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Component disposal cancels this request; keep expected cancellation out of the error state.
         }
         catch (Exception ex)
         {
