@@ -4,8 +4,7 @@
                    TitleY="@_renderModel.TitleY"
                    TitleFontSize="@_renderModel.TitleFontSize"
                    AccessibleTitle="@_renderModel.DisplayTitle"
-                   SvgClass="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]"
-                   ForcedOpen="@ForcedOpen" />
+                   SvgClass="h-[19.7rem] w-[17.25rem] overflow-visible sm:h-[23.625rem] sm:w-[20.65rem]" />
 
 @code {
     private BookSideViewRenderModel _renderModel = BuildRenderModel(0, string.Empty);
@@ -15,12 +14,6 @@
 
     [Parameter]
     public string Title { get; set; } = string.Empty;
-
-    [Parameter]
-    public string? Url { get; set; }
-
-    [Parameter]
-    public bool ForcedOpen { get; set; }
 
     protected override void OnParametersSet()
     {
