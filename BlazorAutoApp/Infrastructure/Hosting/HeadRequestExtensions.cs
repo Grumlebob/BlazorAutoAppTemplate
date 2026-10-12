@@ -7,8 +7,6 @@ internal static class HeadRequestExtensions
         MapHead(endpoints, "/");
         MapHead(endpoints, "/books");
         MapHead(endpoints, "/books/author/{seedKey}");
-        MapHead(endpoints, "/books/design-demos");
-        MapHead(endpoints, "/books/design-demos/{designId}");
         MapHead(endpoints, "/Account/Login");
 
         return endpoints;

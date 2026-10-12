@@ -13,8 +13,8 @@ public sealed class RenderModeHtmlTests(WebAppFactory factory)
     private readonly HttpClient _client = factory.HttpClient;
 
     [Theory]
-    [InlineData("/books/design-demos")]
-    [InlineData("/books/design-demos/cloth-hardback")]
+    [InlineData("/Account/Register")]
+    [InlineData("/Account/ForgotPassword")]
     [InlineData("/Account/Login")]
     public async Task StaticAndAccountPages_DoNotLoadInteractiveBlazorRuntime(string path)
     {
@@ -36,7 +36,7 @@ public sealed class RenderModeHtmlTests(WebAppFactory factory)
 
     [Theory]
     [InlineData("/")]
-    [InlineData("/books/design-demos")]
+    [InlineData("/books")]
     public async Task PublicPages_DoNotReferenceRemovedScopedCssBundle(string path)
     {
         var html = await _client.GetStringAsync(path);

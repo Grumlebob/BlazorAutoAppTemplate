@@ -17,11 +17,15 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
         await RunWithFailureScreenshotAsync(async () =>
         {
             await GoHomeAndWaitForInteractivityAsync();
-            await Expect(Page.GetByTestId("design-demo-link")).ToBeVisibleAsync();
-            await Page.GetByTestId("design-demo-link").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Book Design Demos" }))
-                .ToBeVisibleAsync();
-            await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Back to books" }).ClickAsync();
+            await Expect(Page.GetByTestId("design-demo-link")).ToHaveCountAsync(0);
+            await Page.SetViewportSizeAsync(390, 844);
+            await Page.GetByTestId("nav-toggle").ClickAsync();
+            await Expect(Page.GetByTestId("design-demo-menu-link")).ToHaveCountAsync(0);
+            await Page.GetByTestId("nav-toggle").ClickAsync();
+            await Page.SetViewportSizeAsync(1280, 900);
+            await GoToAsync("/Account/Login");
+            await Expect(Page.Locator("#Input\\.Email")).ToBeVisibleAsync();
+            await GoHomeAndWaitForInteractivityAsync();
             await Expect(Page.GetByTestId("author-bookcase-title")).ToHaveTextAsync("The Authors Bookcase");
             await ClickVisibleAuthorBookAsync();
             await Expect(Page.GetByTestId("book-page-view")).ToBeVisibleAsync();
@@ -286,10 +290,10 @@ public sealed class BooksE2ETests : BlazorE2ETestBase
             await ReloadAndWaitForInteractivityAsync();
             await Expect(bookLink).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
-            await Page.GetByTestId("design-demo-link").ClickAsync();
-            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Book Design Demos" }))
-                .ToBeVisibleAsync();
-            await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Back to books" }).ClickAsync();
+            await GoToAsync("/Account/Manage");
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Profile" }))
+                .ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
+            await GoHomeAndWaitForInteractivityAsync();
             await Expect(bookLink).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30_000 });
 
             await GoHomeAndWaitForInteractivityAsync();

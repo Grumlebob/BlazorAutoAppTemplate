@@ -41,22 +41,4 @@ internal sealed class ScenarioContext
             ? 1
             : AuthorBooks[Random.Next(AuthorBooks.Count)].Id;
 
-    public string NextDesignId()
-    {
-        string[] designIds =
-        [
-            "cloth-hardback",
-            "decorative-hardcover",
-            "field-notebook",
-            "prism-atlas",
-            "droplet-monograph",
-            "transit-map-folio",
-            "compass-fieldbook",
-            "atlas-pinboard",
-            "seismograph-log",
-            "alpine-trail-guide"
-        ];
-
-        return designIds[Random.Next(designIds.Length)];
-    }
 }

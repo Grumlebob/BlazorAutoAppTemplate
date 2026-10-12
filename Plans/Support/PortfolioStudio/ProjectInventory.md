@@ -37,7 +37,7 @@ The inspected Books implementation has two catalogs with different purposes:
 | `BlazorAutoApp/Features/Books/AuthorBookcase/Seed/AuthorBookSeeder.cs` | Six owner project titles | All six are included above |
 | `BlazorAutoApp.Test/Features/Books/Seed/AuthorBookSeedTests.cs` | Expects exactly `geckobot`, `improveddb`, `kinojoin`, `ship`, `traceback`, `unlost` | Confirms the intended seed inventory; the test was read, not run |
 | `BlazorAutoApp.Client/Features/Books/Shared/BookCoverDesignCatalog.cs` | Ten visual cover definitions and demonstration titles | Cover experiments are not additional verified owner projects |
-| `BlazorAutoApp.Client/Features/Books/DesignDemos/BookDesignDemoCatalog.cs` | Derives its entries directly from the cover catalog | Adds navigation around the same ten cover demos, not another content catalog |
+| `BlazorAutoApp.Client/Features/Books/DesignDemos/BookDesignDemoCatalog.cs` | Retired on 2026-10-12 | Historical research only; the public demo feature was removed under [TemplateCleanupAndFeatureRetirement.md](../../TemplateCleanupAndFeatureRetirement.md). The ten ordered cover designs remain in the normal bookcase. |
 | `README.md`, Current Behavior | Mentions four older local seed titles plus classics | Does not establish additional projects; its `SeedLocalDefaults` description was not found in the inspected current C# implementation |
 
 Full cover-demo comparison:

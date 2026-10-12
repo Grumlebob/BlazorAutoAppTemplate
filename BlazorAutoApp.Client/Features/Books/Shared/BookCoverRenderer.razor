@@ -66,7 +66,7 @@
                     }
                     else
                     {
-                        <tspan x="@Plate.TextX" dy="@TitleDy">@TitleLines[index]</tspan>
+                        <tspan x="@Plate.TextX" dy="1.2em">@TitleLines[index]</tspan>
                     }
                 }
             </text>
@@ -93,16 +93,10 @@
     public required string TitleFontSize { get; set; }
 
     [Parameter]
-    public string TitleDy { get; set; } = "1.2em";
-
-    [Parameter]
     public string AccessibleTitle { get; set; } = "Book";
 
     [Parameter]
     public string SvgClass { get; set; } = "h-auto w-full";
-
-    [Parameter]
-    public bool ForcedOpen { get; set; }
 
     private BookCoverTitlePlate Plate => Design.Plate;
 
@@ -114,11 +108,7 @@
 
     private string ClothWeaveId => $"book-cover-cloth-{_id}";
 
-    private string PagesClass => ForcedOpen
-        ? "translate-x-px -translate-y-[2px] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-visible:translate-x-px group-focus-visible:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
+    private const string PagesClass = "transition-transform duration-200 ease-out group-hover:translate-x-px group-hover:-translate-y-[2px] group-focus-visible:translate-x-px group-focus-visible:-translate-y-[2px] group-focus-within:translate-x-px group-focus-within:-translate-y-[2px] motion-reduce:transform-none motion-reduce:transition-none";
 
-    private string CoverClass => ForcedOpen
-        ? "[transform-box:fill-box] [transform-origin:13%_54%] -translate-x-[1.5px] -translate-y-px -rotate-[0.45deg] transition-transform duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none"
-        : "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-visible:-translate-x-[1.5px] group-focus-visible:-translate-y-px group-focus-visible:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
+    private const string CoverClass = "[transform-box:fill-box] [transform-origin:13%_54%] transition-transform duration-200 ease-out group-hover:-translate-x-[1.5px] group-hover:-translate-y-px group-hover:-rotate-[0.45deg] group-focus-visible:-translate-x-[1.5px] group-focus-visible:-translate-y-px group-focus-visible:-rotate-[0.45deg] group-focus-within:-translate-x-[1.5px] group-focus-within:-translate-y-px group-focus-within:-rotate-[0.45deg] motion-reduce:transform-none motion-reduce:transition-none";
 }

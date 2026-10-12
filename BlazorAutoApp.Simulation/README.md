@@ -29,6 +29,10 @@ dotnet run --project .\BlazorAutoApp.Simulation -- --target local --profile smok
 - `429` classification and `Retry-After` backoff.
 - JSON and Markdown reports under `artifacts/simulation`.
 
+## Historical Reports
+
+Existing JSON and Markdown reports may include the `design-demos` and `design-demo-detail` scenario names. Keep those artifacts unchanged; new runs omit both scenarios because the public demo routes are retired.
+
 ## Safety
 
 - Deployed targets require `--allow-deployed`.
