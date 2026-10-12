@@ -362,6 +362,8 @@ Normal snapshot runs write page screenshots under `TestResults/Playwright/Snapsh
 
 ## SonarQube Source Analysis
 
+Additional on-demand dependency/container security, passive web security, browser performance and code inventory audits are documented in [Quality/QualityTools.md](Quality/QualityTools.md).
+
 [On-demand SonarQube audits](Quality/SonarQubeAnalysis.md) inspect source findings and test coverage. They run only when explicitly invoked and remain informational; they are not part of this local gate.
 
 ## Lighthouse Performance
