@@ -7,7 +7,7 @@ Goal prompt (under 3,500 characters):
 
 Fixed decisions: retire design demos and all three legacy Books redirects. Add no legacy compatibility or route-absence tests. Test missing books at `/books?bookId=99999999&bookMode=view`. Retain full Identity, both frontend profiles, all deployments, PostgreSQL/Redis/Data Protection, observability and quality tools. Retire the rare simulator fully: code, tests, scripts, active docs, CI/config hooks and four obsolete simulator plans. Keep telemetry, dashboards, alerts and concise retirement evidence here/backlog. Add no simulator-absence tests.
 
-Fetch origin/main. Inspect dirty state, worktrees, branches and PRs. Remove stale worktrees only after proving commits merged or preserved; keep dirty work. Finish authorized Kilo cleanup; report any policy-blocked residue. Do not repeat integrated work or overwrite others' changes.
+Fetch origin/main. Inspect dirty state, worktrees, branches and PRs. Remove stale worktrees only after proving commits merged or preserved; keep dirty work. Ignore user-local Kilo data; it is outside this cleanup and requires no action. Do not repeat integrated work or overwrite others' changes.
 
 Execute bounded packets. Remove proven dead code, inputs and assets; simplify redundant branches/helpers; correct seed docs; strengthen Redis fallback assertions; share pure deployment validators. Review every candidate. Preserve binding/discovery, intentional endpoint duplication, frontend hook symmetry, migrations, security, cancellation and caching. Warnings alone do not prove dead code.
 
