@@ -115,6 +115,9 @@ jobs:
       - name: Test public tunnel ownership and credential safeguards
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py -v
 
+      - name: Test Cloud and LocalCluster settings validation parity
+        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_settings_validation.py -v
+
       # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
