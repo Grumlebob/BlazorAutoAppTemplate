@@ -47,7 +47,7 @@
                                class="@BookFrameClass"
                                href="@book.Href"
                                aria-label="@($"{book.Title} details")">
-                                <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                                <BookSideView Seed="@seed" Title="@book.Title" />
                             </a>
                         }
                         else
@@ -55,7 +55,7 @@
                             <span data-testid="@($"{TestId}-book")"
                                   @key="BuildBookKey(book, index)"
                                   class="@BookFrameClass">
-                                <BookSideView Seed="@seed" Title="@book.Title" Url="@book.Url" />
+                                <BookSideView Seed="@seed" Title="@book.Title" />
                             </span>
                         }
                     }
