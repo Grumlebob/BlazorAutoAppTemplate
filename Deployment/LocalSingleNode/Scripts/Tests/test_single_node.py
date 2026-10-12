@@ -1,4 +1,5 @@
 """Offline regression fixtures. No root bootstrap, runner registration or host mutation."""
+import hashlib
 import importlib
 import ipaddress
 import json
@@ -164,6 +165,20 @@ class CollisionTests(unittest.TestCase):
         with patch.object(collisions, "settings", side_effect=settings), patch.object(collisions, "ETC", directory / "etc"), patch.dict(os.environ, {"OPT_ROOT": str(directory / "opt")}), patch.object(collisions, "command", side_effect=scripts):
             collisions.check("https://github.com/fixture-owner/fixture-repo")
 
+    def test_published_port_collision_boundaries(self):
+        requested = {80, 5432}
+        cases = (
+            ("5432", "Port collision"),
+            ("5420-5432", "Port range collision"),
+            ("5432-5440", "Port range collision"),
+            ("5433-5440", None),
+            ("8080-8080", None),
+            ("not-a-port", None),
+        )
+        for published, expected in cases:
+            with self.subTest(published=published):
+                self.assertEqual(expected, collisions._port_collision_reason(published, requested))
+
     def test_empty_and_foreign_socket(self):
         def script(*args):
             return "State Recv-Q Send-Q Local Peer\n" if args[0] == "ss" else ""
@@ -181,12 +196,40 @@ class CollisionTests(unittest.TestCase):
             foreign.write_text("fixture")
             with self.assertRaisesRegex(ValueError, "Port collision"):
                 self.check(folder, lambda *args: json.dumps({"services": {"web": {"ports": [{"published": "8080"}]}}}))
+            range_conflict = json.dumps(
+                {"services": {"web": {"ports": [{"published": "5420-5440"}]}}}
+            )
+            with self.assertRaisesRegex(ValueError, "Port range collision"):
+                self.check(folder, lambda *args: range_conflict)
             foreign.unlink()
             own = folder / "opt/books"
             own.mkdir()
             (own / "foreign-file").write_text("unowned")
             with self.assertRaisesRegex(ValueError, "Unowned"):
                 self.check(folder, lambda *args: '')
+
+    def test_foreign_compose_subnet_cannot_overlap_deployment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            foreign = folder / "opt/other/docker-compose.yml"
+            foreign.parent.mkdir(parents=True)
+            foreign.write_text("fixture")
+            result = {
+                "networks": {
+                    "default": {"ipam": {"config": [{"subnet": "172.30.10.0/24"}]}}
+                }
+            }
+            with self.assertRaisesRegex(ValueError, "Docker subnet collision"):
+                self.check(folder, lambda *args: json.dumps(result))
+
+    def test_foreign_caddy_site_cannot_claim_requested_port(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            site = folder / "etc/caddy/sites/other.caddy"
+            site.parent.mkdir(parents=True)
+            site.write_text(":8080 { respond ok }")
+            with self.assertRaisesRegex(ValueError, "Caddy site"):
+                self.check(folder, lambda *args: "")
 
     def test_foreign_caddy_and_known_root(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -198,6 +241,23 @@ class CollisionTests(unittest.TestCase):
                 self.check(folder, lambda *args: '')
             file.write_bytes((ROOT / "Deployment/Common/caddy/Caddyfile").read_bytes())
             self.check(folder, lambda *args: "State Recv-Q Send-Q Local Peer\n" if args[0] == 'ss' else '')
+
+    def test_modified_caddyfile_requires_matching_dpkg_conffile_digest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            caddyfile = Path(temp) / "etc/caddy/Caddyfile"
+            caddyfile.parent.mkdir(parents=True)
+            content = b"fixture-owned Caddy configuration\n"
+            caddyfile.write_bytes(content)
+            digest = hashlib.md5(content).hexdigest()
+
+            with patch.object(collisions, "ETC", caddyfile.parents[1]), patch.object(
+                collisions, "command", return_value=f"/etc/caddy/Caddyfile {digest} package"
+            ):
+                collisions.caddy_root()
+            with patch.object(collisions, "ETC", caddyfile.parents[1]), patch.object(
+                collisions, "command", return_value="/etc/caddy/Caddyfile " + "0" * 32
+            ), self.assertRaisesRegex(ValueError, "Foreign"):
+                collisions.caddy_root()
 
     def test_foreign_secret_directory_is_never_adopted(self):
         with tempfile.TemporaryDirectory() as temp:
