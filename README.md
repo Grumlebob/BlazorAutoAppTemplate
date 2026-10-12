@@ -162,7 +162,9 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG author bookcase; logged-in users also see `Add Book` and their own editable SVG bookcase. View, edit, add, and delete all happen through the book modal flow. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
 
-Local development seeds fixed template books (`Ship`, `TraceBack`, `ImprovedDb`, `KinoJoin`) plus common classics after startup migrations when `Books:SeedLocalDefaults=true`. The seed is disabled in base configuration and enabled for Development/Docker local runs.
+After the startup migration step, the app seeds the public author-book catalog (`TraceBack`, `Ship Inspections`, `ImprovedDb`, `KinoJoin`, `Unlost`, and `GeckoBot`) by default in both frontend profiles. The `AuthorBooks:SeedAtStartup` setting defaults to `true`; set `AuthorBooks__SeedAtStartup=false` to disable this public seed. It does not create login accounts.
+
+Local demo login-account seeding is separate. It is enabled by default in Development and when `LocalAccounts__Enabled=true` in Docker. The root local Docker Compose file enables it; deployment Compose files disable it. The React frontend profile does not seed local login accounts.
 
 Redis is required outside development/test environments. It backs distributed `HybridCache`, Data Protection keys, and cross-node book cache invalidation. The default invalidation strategy uses Redis pub/sub with short local-cache TTLs; if strict freshness matters more than in-process cache speed, set `Cache__Books__DisableLocalCache=true` on every app node. Durable invalidation, such as Redis Streams or a database outbox, should be added by apps that need guaranteed delivery.
 
