@@ -131,8 +131,14 @@ class CiSelectionTests(unittest.TestCase):
         self.assertEqual(self.select([runs[1]], "9", "2")["outcome"], "success")
 
 
-    def test_main_dispatch_is_not_release_provenance(self) -> None:
-        self.assertEqual(self.select([run(9, "2026-09-24T11:00:00Z", event="workflow_dispatch")])["outcome"], "no_eligible_run")
+    def test_main_ci_dispatch_is_release_provenance_but_nonmain_dispatch_is_not(self) -> None:
+        main_dispatch = self.select([run(9, "2026-09-24T11:00:00Z", event="workflow_dispatch")])
+        self.assertEqual(main_dispatch["outcome"], "success")
+        self.assertEqual(main_dispatch["selected"]["event"], "workflow_dispatch")
+        nonmain_dispatch = self.select([
+            run(10, "2026-09-24T12:00:00Z", event="workflow_dispatch", branch="feature/test"),
+        ])
+        self.assertEqual(nonmain_dispatch["outcome"], "no_eligible_run")
 
     def publishing_job(self, **overrides) -> dict[str, object]:
         job = {"name": "build-test-push", "run_id": 9, "run_attempt": 1,

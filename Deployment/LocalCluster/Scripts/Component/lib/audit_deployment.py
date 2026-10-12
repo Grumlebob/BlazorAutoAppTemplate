@@ -691,7 +691,7 @@ for seeded_path in [
         fail(f'{seeded_path}: missing LocalAccounts__Enabled: "false" (no seeded demo logins in deployments)')
 
 ci_provenance = read("Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py")
-for needle in ['ALLOWED_EVENTS = {"push"}', "verify_publishing_job", "/attempts/{attempt}/jobs", 'job.get("run_attempt")', 'job.get("head_sha")']:
+for needle in ['ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "verify_publishing_job", "/attempts/{attempt}/jobs", 'job.get("run_attempt")', 'job.get("head_sha")']:
     if needle not in ci_provenance:
         fail(f"CI release provenance: missing publishing verification contract {needle}")
 
@@ -1378,7 +1378,7 @@ for needle, why in [
     ("GITHUB_TOKEN", "GitHub token input"),
     ("actions/workflows", "workflow runs API"),
     ('selected["conclusion"] != "success"', "successful CI conclusion requirement"),
-    ('ALLOWED_EVENTS = {"push"}', "pull request run exclusion"),
+    ('ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "main push and CI-only workflow dispatch provenance"),
     ('branch != "main"', "main branch run requirement"),
 ]:
     if needle not in find_ci:
@@ -1950,8 +1950,8 @@ require_contains(
     "self-hosted auto-merge gh availability check",
 )
 # Dependabot auto-merge must merge only the exact commit CI tested, keep major
-# bumps and deployment/workflow logic changes for a human, and keep the
-# branches Dependabot tracks.
+# bumps and deployment/workflow logic changes for a human, and leave branch
+# freshness decisions to GitHub's configured merge rules.
 auto_merge = read(".github/workflows/auto-merge-dependabot.yml")
 for needle, why in [
     ("startsWith(github.event.workflow_run.head_branch, 'dependabot/')", "Dependabot branch scope"),
@@ -1961,13 +1961,22 @@ for needle, why in [
     ("deployment-surface", "deployment surface manual review"),
     ("workflow-change-not-limited-to-action-version-updates", "workflow logic manual review"),
     ("gh pr merge \"$pr\" --disable-auto", "auto-merge disabled when manual review is required"),
-    ("expected_head_sha=\"$SOURCE_SHA\"", "branch refresh pinned to the tested head"),
-    ("secrets.GH_TOKEN || secrets.GITHUB_TOKEN", "optional workflow-capable token"),
+    ("CLEAN|BEHIND|BLOCKED|HAS_HOOKS|UNSTABLE)", "behind branch delegated to repository merge rules"),
+    ("secrets.GH_TOKEN || secrets.GITHUB_TOKEN", "optional repository write token"),
     ("Auto-merge deferred", "visible deferral reason"),
     ("gh pr merge \"$pr\" --merge --auto", "queued merge after required checks"),
+    ('--match-head-commit "$SOURCE_SHA"', "merge restricted to the exact CI-tested head"),
+    ('gh workflow run ci.yml --repo "$GH_REPO" --ref main', "main CI after confirmed merge"),
+    ('no CD workflow was dispatched', "CI-only post-merge routing"),
 ]:
     if needle not in auto_merge:
         fail(f".github/workflows/auto-merge-dependabot.yml: missing {why}")
+if "/update-branch" in auto_merge:
+    fail(".github/workflows/auto-merge-dependabot.yml: do not push base updates to Dependabot workflow branches")
+if 'gh workflow run ci.yml --ref "$head_branch"' in auto_merge:
+    fail(".github/workflows/auto-merge-dependabot.yml: do not refresh Dependabot branches or rerun their PR CI")
+if re.search(r"gh workflow run (?:cd-|.*deploy)", auto_merge):
+    fail(".github/workflows/auto-merge-dependabot.yml: Dependabot auto-merge must not dispatch deployment workflows")
 if "--delete-branch" in auto_merge:
     fail(".github/workflows/auto-merge-dependabot.yml: do not delete Dependabot branches; Dependabot tracks them")
 callback_job = ci_jobs.get("notify-dependabot-automerge")

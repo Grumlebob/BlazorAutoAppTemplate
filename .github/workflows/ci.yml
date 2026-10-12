@@ -139,6 +139,9 @@ jobs:
           echo "profile=${profile}" >> "$GITHUB_OUTPUT"
           echo "acceptance_profile=${acceptance_profile}" >> "$GITHUB_OUTPUT"
 
+      - name: Test Dependabot auto-merge routing
+        run: python3 -m unittest Scripts/CI/tests/test_dependabot_automerge_workflow.py -v
+
       - name: Test frontend profile selection
         run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py
 

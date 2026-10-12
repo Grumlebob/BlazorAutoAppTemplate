@@ -1052,7 +1052,7 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 [github]
 
-The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. The qualifying run must be a `push` to `main`, with a successful `publish-main` job on the same run attempt. A manual `workflow_dispatch` CI run does not satisfy CD provenance. Rerun an existing main push run when recovering a failed publish. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
+The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. A qualifying run is either a `push` to `main` or a `workflow_dispatch` on `main`, with a successful `publish-main` job on the same run attempt. Dependabot auto-merge requests CI on `main` after the exact tested PR head is merged; this creates deployment-ready CI artifacts without starting CD. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
 
 Runner policy: this repository runs CI, Dependabot auto-merge, maintenance, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label (`localcluster-books` here; a fork sets `LOCALCLUSTER_RUNNER_LABEL`). Every job skips external fork pull requests before a runner is allocated, so untrusted code never runs on `node-main`. Never add GitHub-hosted runner labels; the deployment audit rejects them.
 
