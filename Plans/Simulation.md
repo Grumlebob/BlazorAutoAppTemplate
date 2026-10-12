@@ -1,18 +1,16 @@
 # Website Traffic Simulation Plan
 
-Status: V1 read-only implementation completed on 2026-05-30. Authenticated write traffic and browser sampling remain future phases.
+Status: Historical. V1 read-only implementation was completed on 2026-05-30; authenticated write traffic and browser sampling proposals below were superseded when the standalone simulator was retired.
 
-V2 authenticated simulation plan: `Plans/SimulationV2Authenticated.md`.
+Historical V2 proposal: [SimulationV2Authenticated.md](SimulationV2Authenticated.md), also superseded by the retirement below.
 
 Last updated: 2026-05-30.
 
-Historical-plan note (2026-10-12): the public `/books/design-demos` routes described in this plan were retired under [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md). Existing route examples below document the original simulator design; current simulation runs do not generate demo-route traffic.
+Historical retirement note (2026-10-12): P13 retired the public `/books/design-demos` routes, and P16/P17 removed the standalone simulator, its commands and report/runner wrappers under [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md). This file preserves the original design only; there is no current simulator or implementation phase.
 
 Accepted recommendation: build an in-repo .NET console tool at `Tools/TrafficSimulation` as the primary traffic simulator. Use HTTP-level traffic for volume, and add a small optional Playwright browser sampler only for realistic user journeys that need a real browser.
 
 This document is intended to be detailed enough that another agent can implement the simulator without re-deciding the architecture.
-
-Important repo note: `/Plans/` is currently ignored by `.gitignore`. This file is intentionally created where requested, but it will not be committed unless the repo's ignore rules are changed or the plan is moved into `docs/`.
 
 ## Executive Summary
 
@@ -80,7 +78,7 @@ BlazorAutoApp/
   Deployment/                 # LocalCluster, Cloud, Common deployment assets
   docker/                     # local observability and Docker support
   docs/                       # operator docs intended for source control
-  Plans/                      # local planning docs, currently gitignored
+  Plans/                      # tracked planning documents
   Tools/                      # proposed developer/operator tools
     TrafficSimulation/        # proposed simulator console app
   RunSimulation.ps1           # proposed friendly PowerShell wrapper

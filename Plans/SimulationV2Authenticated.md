@@ -1,10 +1,10 @@
 # Authenticated Traffic Simulation V2 Plan
 
-Status: V2 implemented and locally accepted on 2026-05-30. Optional deployed acceptance remains not started.
+Status: Historical. V2 was locally accepted on 2026-05-30; its optional deployed acceptance was superseded when P16/P17 retired the standalone simulator on 2026-10-12.
 
 Last updated: 2026-05-30.
 
-Important repo note: `/Plans/` is currently ignored by `.gitignore`. This file is intentionally created where requested, but it will not be committed unless the repo's ignore rules are changed or the plan is moved into `docs/`.
+Historical retirement record: [TemplateCleanupAndFeatureRetirement.md](TemplateCleanupAndFeatureRetirement.md) records the removal and verification. This document preserves the original design only; do not implement the retired simulator workflow.
 
 ## Executive Summary
 
