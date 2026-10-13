@@ -8,7 +8,7 @@ Preceding cleanup: [PR #225](https://github.com/Grumlebob/BlazorAutoAppTemplate/
 
 Make the durable documentation easy for a new developer or a less capable AI to navigate without loading unrelated guides. Keep sufficient instructions to complete each task safely and correctly. Achieve this through task-sized slices, canonical ownership, source links and removal of redundant content.
 
-Scope: root `README.md`, `AGENTS.md`, `CLAUDE.md`, ordinary Markdown under `docs/` and `Deployment/`, and the narrow audit changes described in packet D2 if the owner selects full deployment slicing. Preserve every supported frontend and deployment target.
+Scope: root `README.md`, `AGENTS.md`, `CLAUDE.md`, ordinary Markdown under `docs/` and `Deployment/`, and the narrow audit changes described in D2. Preserve every supported frontend and deployment target.
 
 Existing plans and historical plan records are outside the cleanup scope. This file records only this plan's current progress and links to PR evidence. Do not rewrite other plans, touch downstream product folders, implement application changes, alter deployment settings or operate live services.
 
@@ -133,7 +133,7 @@ Exit: known defects corrected, initial task routing usable and common reading <=
 
 ### D2. Make audited guide slicing possible
 
-This packet defines the only planned code-change scope: adapting documentation checks and their declared slice map. Later D4/D7 map adjustments remain within that scope and still require code gates. It is provisional pending the scope decision in section 10. Inputs: the deployment audit, its local guide loop, the top-level settings check, the dual-guide SSH/provenance check and existing script test conventions. Preserve every rejection rule's intent.
+This packet defines the only planned code-change scope: adapting documentation checks and their declared slice map. Later D4/D7 map adjustments remain within that scope and still require code gates. The owner selected this packet because full deployment-guide slicing must keep existing audit protections without artificial filler. Inputs: the deployment audit, its local guide loop, the top-level settings check, the dual-guide SSH/provenance check and existing script test conventions. Preserve every rejection rule's intent.
 
 - [ ] **D2.1 Build the contract map.** Extract the current 60 literal checks, 27 settings keys and the three shared SSH/provenance literals per root guide into ignored notes. Assign each to setup, settings, existing-cluster operations or shared trust/release ownership. Inventory root path requirements, stale-path checks, fence validation and script existence checks. Verify there is a destination and acceptance condition for every current rule.
 - [ ] **D2.2 Add bounded documentation loading.** Keep the original entry files. Add a small explicit per-entry list of permitted documentation slices, initially empty so this PR works before movement. When a slice is declared, require its file and a reachable Markdown link from that entry or a declared intermediate slice. Do not concatenate every Markdown file or follow arbitrary paths into plans/private files. Reject missing/unreachable files and paths outside declared doc roots.
@@ -255,6 +255,7 @@ For links, inspect `](...)` destinations relative to their source file, split fi
 
 - Keep all supported frontend and deployment targets; simplify documentation, not runtime support.
 - Keep current guide entry paths so scripts, onboarding instructions and existing links can continue routing readers.
+- Include the narrow audit compatibility work in D2 so deployment guides can move checked content while preserving equivalent rejection tests.
 - Use task-sized Markdown and source links; no documentation framework, generated site, new runtime dependency or separate migration-prompt library.
 - Keep product constraints and working rules authoritative. Preserve safety instructions and meaningful current limitations.
 - Existing plans, downstream projects and private installation records are outside the cleanup scope.
@@ -268,13 +269,11 @@ Full deployment slicing needs D2's local code gate and CI, which are technical d
 
 Documentation verification does not require contacting a deployment node, running a backup/restore drill, starting a scanner or dispatching any deployment. Those operator handoffs remain documented for future real installations; they are not blockers for this plan.
 
-## 10. One open scope decision
+## 10. Chosen scope
 
-**Recommended: include the narrow audit compatibility change in D2.** It permits real slicing of the LocalCluster and fork runbooks while retaining the protected behaviors. This requires code gates for D2 and any subsequent audit-map changes; most other packets remain Markdown-only.
+**Include D2.** Adapt the deployment audit to declared, reachable documentation slices. Move each check to its canonical owner and retain its rejection behavior with focused negative tests. Never weaken or delete a check to allow a move. This lets D4/D7 shorten deployment task reading without retaining artificial duplicate content.
 
-Alternative: require strictly Markdown-only execution. Skip D2; keep all audited literals, settings-key references and the dual-guide trust/provenance content at their original paths. D4/D7 then shorten unaudited sections and add navigation, but cannot promise the same deployment reading reductions. Preserve checks rather than leaving artificial filler or duplicated procedures in newly created slices.
-
-Confirm this choice before implementation. It does not prevent retaining this prepared plan. No other owner preference is required: the layout, budgets and content decisions above provide concrete defaults.
+D2 and later audit-map changes use code gates: run focused tests and the full local gate, require green `build-test-push` on the exact PR head, then verify green CI on integrated main. Ordinary Markdown packets continue using the documentation-only exception. No further scope decision is open.
 
 ## 11. Progress and handoff
 
@@ -282,7 +281,7 @@ Confirm this choice before implementation. It does not prevent retaining this pr
 | --- | --- | --- | --- |
 | Preparation | Read-only inventory complete; plan prepared | Baseline and findings in section 3 | Retain plan through a documentation PR |
 | D1 | Pending | — | Recheck known defects and map section disposition |
-| D2 | Pending scope decision | — | Confirm full slicing versus Markdown-only option |
+| D2 | Selected; pending | — | D2.1 Extract the audit contract map and assign each rule to its canonical slice |
 | D3 | Pending | — | Follow D3.1 after D1 integration |
 | D4 | Pending | — | Follow D4.1 after D1 and selected D2 scope |
 | D5 | Pending | — | Follow D5.1 after D1 integration |
@@ -290,6 +289,6 @@ Confirm this choice before implementation. It does not prevent retaining this pr
 | D7 | Pending | — | Follow D7.1 after D4 and selected D2 scope |
 | D8 | Pending | — | Review task journeys after all selected packets |
 
-Active checkpoint: plan preparation only. No implementation packet has started.
+Active checkpoint: plan scope decision incorporated. No implementation packet has started.
 
 For each packet, record its exact next step, files owned, unresolved source contradiction, validation performed, PR/head, merge SHA and applicable main evidence. Keep detailed logs in ignored notes or the PR. A new executor should be able to select the next unchecked step without earlier conversation history.
