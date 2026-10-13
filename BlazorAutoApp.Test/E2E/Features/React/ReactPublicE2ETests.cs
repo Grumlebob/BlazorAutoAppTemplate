@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -13,6 +14,13 @@ namespace BlazorAutoApp.Test.E2E.Features.React;
 [Collection(TestCollectionNames.E2E)]
 public sealed class ReactPublicE2ETests(ITestOutputHelper output) : BlazorE2ETestBase
 {
+    // Cloudflare's JavaScript detections set these on the edge when the site is public. The
+    // application itself must still set none, so only these exact names are ignored.
+    private static readonly HashSet<string> EdgeCookieNames = ["cf_clearance", "__cf_bm", "_cfuvid", "__cflb"];
+
+    private async Task<IReadOnlyList<BrowserContextCookiesResult>> AppCookiesAsync() =>
+        [.. (await Context.CookiesAsync()).Where(cookie => !EdgeCookieNames.Contains(cookie.Name))];
+
     [Fact(Skip = "Set RUN_E2E=1 to run Playwright E2E tests.", SkipUnless = nameof(E2ETestGuard.IsEnabled), SkipType = typeof(E2ETestGuard))]
     [Trait("Category", "ReactPublicBroad")]
     public async Task AnonymousPublicFlow_IsAccessibleReadOnlyAndIsolated()
@@ -44,7 +52,7 @@ public sealed class ReactPublicE2ETests(ITestOutputHelper output) : BlazorE2ETes
                 }
             };
 
-            Assert.Empty(await Context.CookiesAsync());
+            Assert.Empty(await AppCookiesAsync());
             await GoToAsync("/");
 
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Find a book that stays with you." }))
@@ -125,7 +133,10 @@ public sealed class ReactPublicE2ETests(ITestOutputHelper output) : BlazorE2ETes
             Assert.NotEmpty(apiRequests);
             Assert.All(apiRequests, request => Assert.Equal("GET", request.Method));
             Assert.Contains(200, publicApiStatuses);
-            Assert.Empty(await Context.CookiesAsync());
+            Assert.Empty(await AppCookiesAsync());
+            output.WriteLine(
+                "Edge cookies seen: {0}",
+                string.Join(", ", (await Context.CookiesAsync()).Select(cookie => cookie.Name).Where(EdgeCookieNames.Contains)));
         });
     }
 }
