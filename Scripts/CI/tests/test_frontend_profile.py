@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -26,8 +27,14 @@ class FrontendProfileResolverTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def test_tracked_default_profile_resolves_to_blazor_auto(self) -> None:
-        self.assertEqual(resolver.resolve_frontend_profile(REPOSITORY_ROOT / "frontend-profile.txt"), "BlazorAuto")
+    def test_tracked_profile_is_supported_and_template_keeps_blazor_auto(self) -> None:
+        tracked = resolver.resolve_frontend_profile(REPOSITORY_ROOT / "frontend-profile.txt")
+        self.assertIn(tracked, resolver.SUPPORTED_PROFILES)
+        # The template itself ships BlazorAuto. A clone with its own release identity
+        # may select React (docs/HowToForkThisRepo.md) without editing this test.
+        release = (REPOSITORY_ROOT / "Deployment" / "Common" / "release.yml").read_text(encoding="utf-8")
+        if re.search(r"(?m)^app_image:\s*ghcr\.io/grumlebob/books\s*$", release):
+            self.assertEqual(tracked, "BlazorAuto")
 
     def test_acceptance_profile_is_paired_with_frontend(self) -> None:
         self.assertEqual(resolver.acceptance_profile_for_frontend("BlazorAuto"), "BlazorAutoV1")

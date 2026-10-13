@@ -177,6 +177,17 @@ If the fork changes the main domain, update feature metrics, dashboards, and gui
 
 Cloud deployment files remain in the repository. They are not required for a fast LocalCluster fork, but CI still lint-checks and validates their shape. Do not run `CD - Cloud` until you intentionally customize `Deployment/Cloud/HowToDeployCloud.md`, `Deployment/Cloud/inventory/prod/group_vars/all.yml`, OpenTofu settings, Cloud secrets, and Cloud DNS for the fork.
 
+## 5a. Choose The Frontend Profile
+
+The tracked root `frontend-profile.txt` selects the frontend for builds, Docker, CI, release manifests and acceptance. The template ships `BlazorAuto`. A public-only React product writes exactly `React`:
+
+```bash
+printf 'React\n' > frontend-profile.txt
+python3 Scripts/Frontend/resolve_frontend_profile.py
+```
+
+Commit it with the release identity below. The CI profile test accepts either supported profile once `Deployment/Common/release.yml` names your own image; only the template's own identity is pinned to `BlazorAuto`. See [Frontend Profiles](FrontendProfiles.md).
+
 ## 6. Change Shared Release Settings
 
 [CurrentPC]
