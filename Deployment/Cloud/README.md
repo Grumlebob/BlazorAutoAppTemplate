@@ -1,19 +1,20 @@
-# Deployment Cloud
+# Cloud deployment
 
-Cloud deployment files for `bookscloud.example.com` live here.
+This folder contains the Cloud target. OpenTofu owns Hetzner infrastructure; Ansible owns host configuration and app deployment.
 
-`HowToDeployCloud.md` is the only cloud deployment plan and runbook.
+## Topology and boundaries
 
-Target architecture:
+- `cloud-main` runs Caddy, Cloudflare Tunnel, SSH bastion, and the private observability backend.
+- `cloud-app1` and `cloud-app2` run the app and observability agents.
+- `cloud-db` runs PostgreSQL, Redis, exporters, and an observability agent.
+- Only `cloud-main` receives public networking. Private nodes use its NAT for outbound traffic.
+- Hetzner Cloud Firewalls protect public ingress; host firewalls enforce private-network service access.
+- App, database, Redis, and observability ports stay private. Reach Grafana through `Scripts/open-observability-tunnel.sh`.
+- Cloud CD uses a separate workflow and an existing self-hosted Linux x64 runner on `node-main`. The runner label comes from repository variable `LOCALCLUSTER_RUNNER_LABEL`; Cloud setup does not install it.
 
-- Option A: multi-VPS Hetzner Cloud deployment with Cloudflare Tunnel.
-- OpenTofu manages Hetzner infrastructure resources.
-- Ansible manages host configuration and app deployment.
-- `cloud-main` runs Caddy, cloudflared, acts as SSH bastion, and hosts Grafana/Prometheus/Alertmanager/Loki/Tempo.
-- `cloud-app1` and `cloud-app2` run app containers and observability agents.
-- `cloud-db` runs PostgreSQL, Redis, database exporters, and an observability agent.
-- Public networking is assigned only to `cloud-main` (IPv4 and IPv6 are configurable). `cloud-app1`, `cloud-app2`, and `cloud-db` have no public addresses and use `cloud-main` for outbound NAT. Public inbound traffic is restricted by Hetzner Cloud Firewalls.
-- Private-network service restrictions are enforced by host firewalls because Hetzner Cloud Firewalls do not secure private-network traffic.
-- Observability endpoints are private only; use `Scripts/open-observability-tunnel.sh` to reach Grafana.
+## Routes
 
-This folder must not import from `Deployment/LocalCluster`. Shared target-independent helpers belong in `Deployment/Common`.
+- [First deployment](Setup.md)
+- [Routine release, diagnosis, backups, restore, and teardown](Operations.md)
+- [Cloud entry path](HowToDeployCloud.md)
+- [Deployment target selection](../README.md)

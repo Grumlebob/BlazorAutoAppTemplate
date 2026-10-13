@@ -55,7 +55,7 @@ Remaining files are target/component indexes, existing native setup/security gui
 ### Verified defects and dependencies
 
 - `docs/Quality/SonarQubeAnalysis.md` links to `../Test.md#lighthouse`; the existing heading is `## Lighthouse Performance`, whose anchor is `#lighthouse-performance`. No missing explicit relative file destinations were found.
-- `Deployment/Cloud/README.md` says every node gets public IPv4. The main guide and `Deployment/Cloud/infra/opentofu/main.tf` disagree: only `cloud-main` uses the public networking variables; private servers explicitly disable public IPv4 and IPv6 and use NAT egress. Correct the README from source.
+- The earlier Cloud README drift note was stale at the D7 starting point: `Deployment/Cloud/README.md` already says only `cloud-main` gets public networking and private nodes use NAT. `Deployment/Cloud/infra/opentofu/main.tf` confirms this; preserve the source-backed boundary during slicing.
 - `Deployment/README.md` says never delete unused targets, while `Deployment/LocalSingleNode/SingleNodeOnlyClone.md` describes an intentional dependency-aware removal. Distinguish ordinary target disabling from a deliberate code/CI simplification of a fork.
 - `docs/Test.md#local-gate` permits relying on CI when local checks cannot run. `AGENTS.md` requires the local gate before pushing code. Align the guide with the working rule; do not introduce a new CI-first exception.
 - Restore/build/test, headed E2E, CSS build and observability start commands recur across the README, local guide, feature guide and test guide. Their canonical owners are assigned in section 5.
