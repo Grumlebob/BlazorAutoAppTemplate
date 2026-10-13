@@ -266,4 +266,4 @@ Run the telemetry check when `observability_enabled` is true:
 bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
 ```
 
-**Checkpoint:** observability doctor passes, or observability was deliberately disabled. Use [LocalCluster observability operations](Operations.md#observe-the-stack) for the Grafana tunnel and resource report.
+**Checkpoint:** observability doctor passes, or observability was deliberately disabled. Use [LocalCluster observability operations](Operations.md#observe-the-stack) for the Grafana tunnel.
