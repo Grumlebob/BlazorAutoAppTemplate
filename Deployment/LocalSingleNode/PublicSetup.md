@@ -48,13 +48,13 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
    For a prepared [additional app](ApplicationInstances.md), append both `--environment <additional-environment>` and `--instance-config-file <private-instance.json>` to this command. The helper writes its public metadata and connector secret only to the additional environment. Use that app's distinct hostname, tunnel and origin port.
 5. Dispatch **CD - Deploy LocalSingleNode** from `main`, selecting the intended `app_instance` and the publishing SHA as `target_sha`. Record the returned run ID before watching. Never redispatch because a watcher stops.
 6. CD installs the checksum-pinned binary in `/usr/local/libexec/cloudflared-<app_name>/<version>/`, with traversable root-owned parent directories, then enables `cloudflared-<app_name>.service`. A bounded systemd check requires the service to be active and running before public acceptance. It uses systemd credentials and a protected root-owned token file. Only `<app_name>-public.caddy` is added to shared Caddy, bound to the configured loopback port. HTTPS and Cloudflare client IP forwarding apply only there. The existing LAN listener remains unchanged.
-7. Require LAN and public acceptance. From the independent controller:
+7. Require LAN and public acceptance. From the independent controller, replace the quoted profile placeholders with the verified manifest's values and use the deployed HTTPS origin:
 
    ```powershell
-   pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile <verified-profile> -AcceptanceProfile <verified-acceptance-profile> -BaseUrl https://site.example.com
+   pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile '<verified-profile>' -AcceptanceProfile '<verified-acceptance-profile>' -BaseUrl https://site.example.com
    ```
 
-   Substitute the deployed HTTPS origin and profiles from the verified manifest. Certificate validation stays enabled. Require the selected profile's checks and verify its important interactive workflow in a real browser. Use [maintenance](Operations.md#maintenance) for an authorized persistence or connector recovery check; choose a node reboot drill only for changed boot behavior or a concrete recovery concern. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
+   Certificate validation stays enabled. Require the selected profile's checks and verify its important interactive workflow in a real browser. Use [maintenance](Operations.md#maintenance) for an authorized persistence or connector recovery check; choose a node reboot drill only for changed boot behavior or a concrete recovery concern. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
 
 ## Repeated setup and recovery
 

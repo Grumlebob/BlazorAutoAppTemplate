@@ -328,3 +328,13 @@ D8.3: the deleted Cloud Caddy README had no inbound references; its current topo
 D8.4: PR #253 head `a66acd2f53d9e3b08c093ee0604299a9581e3f4b` merged at `3d8a19a479c62e229d37ae65c508e60816ab415f`. Fetched `origin/main` and confirmed both changed blobs match the reviewed PR head. No D8 paths were deleted. This plan-only closeout records the final integrated state; the shared deploy-lock timeout's incorrect LocalSingleNode guide pointer remains a separate source follow-up.
 
 For each packet, record its exact next step, files owned, unresolved source contradiction, validation performed, PR/head, merge SHA and applicable main evidence. Keep detailed logs in ignored notes or the PR. A new executor should be able to select the next unchecked step without earlier conversation history.
+
+## 12. Final review and source follow-ups
+
+The post-acceptance review in [PR #255](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/255) merged at `a8d16ef36d5d365a4b9549948bb11e3df0e3b65d`. All 20 changed blobs matched the reviewed head on `origin/main`. It corrected rendering, profile registration, release selection and recovery guidance, simplified additional-app setup, and verified 307 relative links, 47 anchors and 60 required documentation phrases.
+
+The documentation plan is complete. These confirmed source defects require separate code PRs with the full local gate and green CI for the exact PR head and integrated main:
+
+- [Cloud SQL importer](../Deployment/Cloud/Scripts/Component/cloud-db/restore-db.sh): implement a tested recovery procedure that stops on SQL errors; the current importer does not clear existing objects or stop on every SQL error. Preserve explicit app/database confirmation and data loss decisions.
+- [Cloud CD](../.github/workflows/cd-cloud.yml): replace unauthenticated bastion-key adoption with independently verified, pinned host identity on the persistent runner.
+- [Shared deploy-lock timeout](../Deployment/Common/Scripts/Component/with-deploy-lock.sh): route LocalSingleNode users to applicable recovery guidance. Preserve owner/token verification and the prohibition on automatic lock reclamation.
