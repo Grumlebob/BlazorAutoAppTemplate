@@ -124,10 +124,10 @@ Avoid a new universal configuration table: inventories, release settings, compos
 
 Inputs: section 3, `README.md`, `AGENTS.md`, `docs/Requirements.md`, the known defect files and their cited sources. Ordinary Markdown only.
 
-- [ ] **D1.1 Recheck the baseline.** Fetch main; confirm each verified defect still exists. Make an ignored table mapping every current section to keep, shorten, move or remove, with its destination/reason. Read code fences as content; heading scanners must ignore headings inside code examples. Verify the mapping covers all 34 baseline files and any new durable files.
-- [ ] **D1.2 Fix current drift.** Correct the Lighthouse anchor, Cloud networking summary, deployment chooser's ordinary-disable versus intentional-single-target distinction and local-gate policy wording. Verify each correction against the named source. Do not use the source network example as a live address.
-- [ ] **D1.3 Rewrite the root README.** Keep a brief product/profile description, one local start command and a task table for local run, feature development by profile, tests, forks, deployment and observability/quality. Remove detailed topology, middleware/default lists, complete E2E/CSS commands and sample-product prose from this entry; retain their unique current facts in their owners before removal. Verify the common reading budget.
-- [ ] **D1.4 Preserve mandatory rules.** Keep `CLAUDE.md` as its existing pointer. Keep `AGENTS.md` and requirements concise and authoritative. Add a brief task-reading instruction only if README routing alone is insufficient; do not expand the working rules with the plan's full taxonomy. Verify all hard stops, local-gate requirements and product constraints remain.
+- [x] **D1.1 Recheck the baseline.** Fetch main; confirm each verified defect still exists. Make an ignored table mapping every current section to keep, shorten, move or remove, with its destination/reason. Read code fences as content; heading scanners must ignore headings inside code examples. Verify the mapping covers all 34 baseline files and any new durable files.
+- [x] **D1.2 Fix current drift.** Correct the Lighthouse anchor, Cloud networking summary, deployment chooser's ordinary-disable versus intentional-single-target distinction and local-gate policy wording. Verify each correction against the named source. Do not use the source network example as a live address.
+- [x] **D1.3 Rewrite the root README.** Keep a brief product/profile description, one local start command and a task table for local run, feature development by profile, tests, forks, deployment and observability/quality. Remove detailed topology, middleware/default lists, complete E2E/CSS commands and sample-product prose from this entry; retain their unique current facts in their owners before removal. Verify the common reading budget.
+- [x] **D1.4 Preserve mandatory rules.** Keep `CLAUDE.md` as its existing pointer. Keep `AGENTS.md` and requirements concise and authoritative. Add a brief task-reading instruction only if README routing alone is insufficient; do not expand the working rules with the plan's full taxonomy. Verify all hard stops, local-gate requirements and product constraints remain.
 
 Exit: known defects corrected, initial task routing usable and common reading <= 1,500 words. Documentation PR follows section 7.
 
@@ -280,7 +280,7 @@ D2 and later audit-map changes use code gates: run focused tests and the full lo
 | Packet | Status | PR / integrated commit / verification | Next action |
 | --- | --- | --- | --- |
 | Preparation | Read-only inventory complete; plan prepared | Baseline and findings in section 3 | Retain plan through a documentation PR |
-| D1 | Pending | — | Recheck known defects and map section disposition |
+| D1 | Prepared; pending PR integration | README 245 words; common reading 1,315 words; 34-file disposition map; source and changed links reviewed; `git diff --check` clean | Open and merge the docs-only PR, then verify `origin/main` and record the integrated SHA |
 | D2 | Selected; pending | — | D2.1 Extract the audit contract map and assign each rule to its canonical slice |
 | D3 | Pending | — | Follow D3.1 after D1 integration |
 | D4 | Pending | — | Follow D4.1 after D1 and selected D2 scope |
@@ -289,6 +289,6 @@ D2 and later audit-map changes use code gates: run focused tests and the full lo
 | D7 | Pending | — | Follow D7.1 after D4 and selected D2 scope |
 | D8 | Pending | — | Review task journeys after all selected packets |
 
-Active checkpoint: plan scope decision incorporated. No implementation packet has started.
+Active checkpoint: D1.1–D1.4 are complete on `docs/d1-task-entry`. All changed paths are ordinary Markdown. Next: open, review and integrate the documentation PR, then record its integrated SHA before starting D2.
 
 For each packet, record its exact next step, files owned, unresolved source contradiction, validation performed, PR/head, merge SHA and applicable main evidence. Keep detailed logs in ignored notes or the PR. A new executor should be able to select the next unchecked step without earlier conversation history.

@@ -160,6 +160,8 @@ The current product slice is Books. For a fast deployment, you can leave it in p
 docs/HowToAddANewFeature.md
 ```
 
+The public catalog shows seeded sample books. Signed-in Blazor Auto users can also manage their own books, each with a title and optional author or URL. Public catalog seeding defaults on; set `AuthorBooks__SeedAtStartup=false` to disable it. This seed is separate from local login-account seeding ([local setup](HowToRunLocally.md)); React skips account seeding ([frontend profiles](FrontendProfiles.md)).
+
 When replacing Books, update all layers together:
 
 ```text

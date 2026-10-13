@@ -1,6 +1,6 @@
 # On-demand source quality audit
 
-SonarQube inspects source code, rules, test results, and coverage. Lighthouse measures a running page in a browser. Use SonarQube to plan source improvements; use [Lighthouse](../Test.md#lighthouse) to investigate runtime performance and page quality. Neither tool starts the other.
+SonarQube inspects source code, rules, test results, and coverage. Lighthouse measures a running page in a browser. Use SonarQube to plan source improvements; use [Lighthouse](../Test.md#lighthouse-performance) to investigate runtime performance and page quality. Neither tool starts the other.
 
 Audits run only when a developer invokes them. They do not run from builds, CI, pull requests, application startup, deployment, timers, or schedules. The SonarQube quality gate is informational; existing build and test checks stay authoritative. Findings are evidence for review, not authorization to change application behavior.
 

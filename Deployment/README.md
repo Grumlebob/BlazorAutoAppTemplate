@@ -29,7 +29,9 @@ Single-node setup sets `LOCALSINGLENODE_HOST` and `LOCALSINGLENODE_RUNNER_LABEL`
 
 ## Keep the unused folders
 
-Keep all target folders in a fork. You can ignore an unused target's inventory, provisioning, secrets and operating guide, and leave it out of `DEPLOY_TARGETS`. Do not delete its folder: CI still validates all targets, and shared audit/render/Docker smoke entry points currently live under `Deployment/LocalCluster`.
+For a multi-target fork, keep all target folders. Ignore an unused target's inventory, provisioning, secrets and guide, and leave it out of `DEPLOY_TARGETS`. CI validates every target, and shared audit, render and Docker smoke entry points currently live under `Deployment/LocalCluster`.
+
+A fork intended to support only LocalSingleNode can remove Cloud and LocalCluster after replacing their CI, audit, test and documentation dependencies. Follow [Single-node-only clone](LocalSingleNode/SingleNodeOnlyClone.md); deleting the target folders alone breaks the build.
 
 `Deployment/Common` is always required. It holds release settings, shared host roles, tool pins, observability assets and the lock/prerequisite/cleanup helpers. A new target must use Common instead of reaching into another target's implementation.
 
