@@ -20,7 +20,7 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
 
 ## Agent execution
 
-1. Verify green main CI, the online LocalSingleNode runner and the intended `LOCALSINGLENODE_HOST`. Inspect existing Cloudflare DNS and routes.
+1. Select a [published main release](../Common/ReleaseContract.md#select-a-published-source), verify the online LocalSingleNode runner and intended `LOCALSINGLENODE_HOST`, and inspect existing Cloudflare DNS and routes.
 2. After protected authentication, create or reconcile the resources:
 
    ```bash
@@ -44,15 +44,17 @@ The agent edits this private JSON with the account ID, active zone, unique tunne
    ```
 
    This verifies ownership state, tunnel-token identity and the repository's native host. It refuses different existing public variables. It encrypts `LOCALSINGLENODE_PUBLIC_TUNNEL_TOKEN` through `gh secret set` using standard input and sets `LOCALSINGLENODE_PUBLIC_HOSTNAME`, `LOCALSINGLENODE_PUBLIC_TUNNEL_ID` and `LOCALSINGLENODE_PUBLIC_ORIGIN_PORT`. Tokens are not command arguments.
-5. Dispatch **CD - Deploy LocalSingleNode** from verified main through the normal release provenance gate. Record the returned run ID before watching. Never redispatch because a watcher stops. LocalCluster and Cloud deployment are unnecessary.
+
+   For a prepared [additional app](ApplicationInstances.md), append both `--environment <additional-environment>` and `--instance-config-file <private-instance.json>` to this command. The helper writes its public metadata and connector secret only to the additional environment. Use that app's distinct hostname, tunnel and origin port.
+5. Dispatch **CD - Deploy LocalSingleNode** from `main`, selecting the intended `app_instance` and the publishing SHA as `target_sha`. Record the returned run ID before watching. Never redispatch because a watcher stops.
 6. CD installs the checksum-pinned binary in `/usr/local/libexec/cloudflared-<app_name>/<version>/`, with traversable root-owned parent directories, then enables `cloudflared-<app_name>.service`. A bounded systemd check requires the service to be active and running before public acceptance. It uses systemd credentials and a protected root-owned token file. Only `<app_name>-public.caddy` is added to shared Caddy, bound to the configured loopback port. HTTPS and Cloudflare client IP forwarding apply only there. The existing LAN listener remains unchanged.
 7. Require LAN and public acceptance. From the independent controller:
 
    ```powershell
-   powershell -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile React -AcceptanceProfile ReactPublicV1 -BaseUrl https://demo.example.com
+   pwsh -NoProfile -File Scripts/Test-DeployedSite.ps1 -FrontendProfile <verified-profile> -AcceptanceProfile <verified-acceptance-profile> -BaseUrl https://site.example.com
    ```
 
-   The selected profiles must match the verified release manifest. Certificate validation stays enabled. React acceptance checks readiness, the public shell and data, inactive account routes, protected API denial, cache/security headers and no session cookie; it performs no account or user-data writes. Verify interactive React behavior in a real browser. For the React v1 goal, perform one scoped app restart and verify public seed-data persistence, connector health, and existing backup/doctor status. Connector restart or node reboot drills are conditional on changed connector/boot behavior or a concrete recovery concern. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
+   Substitute the deployed HTTPS origin and profiles from the verified manifest. Certificate validation stays enabled. Require the selected profile's checks and verify its important interactive workflow in a real browser. Use [maintenance](Operations.md#maintenance) for an authorized persistence or connector recovery check; choose a node reboot drill only for changed boot behavior or a concrete recovery concern. Record resource IDs, workflow IDs, release SHA/digest and public evidence before completion.
 
 ## Repeated setup and recovery
 

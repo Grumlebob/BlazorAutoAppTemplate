@@ -260,20 +260,10 @@ bash ./Deployment/LocalCluster/Scripts/acceptance-check.sh
 
 **Run on:** control machine, after acceptance passes.
 
-Run the telemetry check and follow [Observability operations](../../docs/Observability/Operations.md) for Grafana access:
+Run the telemetry check when `observability_enabled` is true:
 
 ```bash
 bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
 ```
 
-Expected result: observability doctor ok.
-
-**Checkpoint:** observability doctor passes.
-
-**Run on:** workstation with a browser and SSH access to node-main.
-
-```bash
-CONTROLPC_SSH_TARGET="<linux-mint-install-user>@node-main" bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
-```
-
-Open http://127.0.0.1:3000. Replace node-main with its reserved IP if local DNS does not resolve it.
+**Checkpoint:** observability doctor passes, or observability was deliberately disabled. Use [LocalCluster observability operations](Operations.md#observe-the-stack) for the Grafana tunnel and resource report.

@@ -1,6 +1,6 @@
 # SSH Host Trust
 
-Use this procedure when a persistent control machine must add a scanned SSH host key to `known_hosts`, such as the LocalCluster manual deploy path. `ssh-keyscan` obtains a candidate key; it does not prove the host's identity. LocalSingleNode controller setup uses its authenticated node record instead; see [Controller SSH](../LocalSingleNode/ControllerSsh.md). Cloud CD manages host trust on its ephemeral runner through its target workflow.
+Use this procedure when a controller must add a scanned SSH host key to `known_hosts`, including manual LocalCluster and Cloud access. `ssh-keyscan` obtains a candidate key; it does not prove the host's identity. LocalSingleNode uses its authenticated node record; see [Controller SSH](../LocalSingleNode/ControllerSsh.md). [Cloud CD](../../.github/workflows/cd-cloud.yml) currently appends scanned bastion keys on its persistent self-hosted runner without independent fingerprint verification; that workflow does not provide this trust check.
 
 On the control machine, scan the host and print the candidate fingerprint. Keep this terminal open while you check the host console; the exit trap deletes the candidate key.
 

@@ -24,7 +24,7 @@ Map APIs under `/api/{feature}` in `BlazorAutoApp/Features/{Feature}/Endpoints`.
 
 User-specific responses must be `private, no-store`. Keep APIs under `/api` so cookie challenges return API status codes rather than login HTML. Do not assume every feature is public or every write requires the same role; define the access policy from its data.
 
-Register the server implementation and bind safe feature defaults in its `DependencyInjection.cs`. Call its feature mapping method from `BlazorAutoApp/Program.cs`. Keep machine-specific values in environment or deployment configuration. The current examples are [BooksEndpoints](../../BlazorAutoApp/Features/Books/Endpoints/BooksEndpoints.cs), [Books DependencyInjection](../../BlazorAutoApp/Features/Books/DependencyInjection.cs), and [Program.cs](../../BlazorAutoApp/Program.cs).
+Register the server implementation and bind safe feature defaults in its `DependencyInjection.cs`. In [Program.cs](../../BlazorAutoApp/Program.cs), call both the service-registration method (`AddBooksFeature` in the example) and endpoint-mapping method (`MapBooksFeature`). Blazor UI state belongs in [its profile composition](../../BlazorAutoApp/Frontend/FrontendComposition.BlazorAuto.cs); keep client references out of shared `Program.cs`. Keep machine-specific values in environment or deployment configuration. See [BooksEndpoints](../../BlazorAutoApp/Features/Books/Endpoints/BooksEndpoints.cs) and [Books DependencyInjection](../../BlazorAutoApp/Features/Books/DependencyInjection.cs).
 
 ## Validation
 

@@ -5,10 +5,10 @@ Use this page to choose the implementation route. Read [Requirements](Requiremen
 ## Order
 
 1. Define the behavior, data scope, access rules, routes, and what is out of scope.
-2. Put shared domain types, API contracts, and request/response DTOs in `BlazorAutoApp.Core/Features/{Feature}`.
-3. Add server behavior in `BlazorAutoApp/Features/{Feature}`. Skip persistence when the feature does not store data. Follow [Server feature guidance](Features/Server.md).
+2. For shared behavior, put domain types and API contracts in `BlazorAutoApp.Core/Features/{Feature}`. UI-only features keep their state and types in the selected client; add no unused server contract or DTOs.
+3. When server behavior is needed, add it in `BlazorAutoApp/Features/{Feature}`. Skip persistence when the feature does not store data. Follow [Server feature guidance](Features/Server.md).
 4. Implement the selected UI: Blazor under `BlazorAutoApp.Client/Features/{Feature}`, or React under `BlazorAutoApp.React/app`. Do not add both clients unless both profiles need the feature.
-5. Test behavior at the API boundary, then add browser coverage only for important user workflows. Use [Infrastructure testing](Testing/Infrastructure.md) and [Browser testing](Testing/Browser.md).
+5. Test behavior at its boundary: components/state for UI-only work, APIs for server behavior. Add browser coverage for important user workflows. Use [Infrastructure testing](Testing/Infrastructure.md) and [Browser testing](Testing/Browser.md).
 6. Update configuration, observability, or operator docs only when the feature changes those behaviors. Run the [local gate](Test.md#local-gate).
 
 ## Existing project migration

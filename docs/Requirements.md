@@ -4,7 +4,7 @@ Canonical rules for apps built from this template. Detailed commands live in the
 
 ## Rendering
 
-- In Blazor Auto, product routes must work in SSR/prerender and after WebAssembly hydration through `InteractiveAuto`.
+- In Blazor Auto, product routes must work during SSR/prerender, interactive server rendering, and browser WebAssembly rendering through `InteractiveAuto`.
 - In Blazor Auto, do not force `InteractiveServer` on product routes to hide Auto, SSR or WebAssembly bugs. Any server-only exception needs a clear comment and focused tests.
 - In Blazor Auto, interactive controls rendered during prerender stay disabled until the component is interactive (`disabled="@(!RendererInfo.IsInteractive)"`). `PreHydrationControlsE2ETests` protects this.
 - In Blazor Auto, keep prerender payloads bounded. Use `PersistentComponentState` only for bounded public data, never for large response graphs.

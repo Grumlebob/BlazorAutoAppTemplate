@@ -7,8 +7,8 @@ Use this guide after initial setup. It covers routine releases, diagnosis, backu
 Run on GitHub:
 
 1. Push or merge code to main.
-2. Require CI to pass for the selected commit.
-3. Run CD - Deploy LocalCluster from main.
+2. Select a commit on main with successful publishing CI; see [source selection](../Common/ReleaseContract.md#select-a-published-source).
+3. Run CD - Deploy LocalCluster from main, setting target_sha to that full SHA. Leave it empty only when the dispatched main commit has its own published release.
 4. Set run_migrations to true when that commit includes EF migrations.
 5. Run the acceptance check.
 
@@ -20,15 +20,29 @@ bash ./Deployment/LocalCluster/Scripts/preflight.sh deploy
 bash ./Deployment/LocalCluster/Scripts/summary.sh
 bash ./Deployment/LocalCluster/Scripts/report-nodes.sh
 bash ./Deployment/LocalCluster/Scripts/acceptance-check.sh
-bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
 bash ./Deployment/LocalCluster/Scripts/check-github-runner.sh
 # Optional; requires Cloudflare API credentials:
 bash ./Deployment/LocalCluster/Scripts/check-cloudflare-tunnel.sh
 ```
 
-Doctor checks prerequisites. Preflight checks the selected deploy. Acceptance checks app, data services, Caddy, Cloudflared, and public readiness. Observability doctor checks telemetry after acceptance succeeds.
+Doctor checks prerequisites; preflight checks the selected deploy. Acceptance checks the app, data services and ingress. Runner policy: workflows use the configured self-hosted runner on node-main. External fork pull requests are skipped before runner allocation. Never run untrusted PR code there or add GitHub-hosted runner labels; the deployment audit rejects those labels.
 
-Runner policy: CI and deployment workflows use the configured LocalCluster self-hosted runner on node-main. External fork pull requests are skipped before a runner is allocated. Never add GitHub-hosted runner labels; the deployment audit rejects them. Do not run untrusted pull request code on the self-hosted runner.
+## Observe the stack
+
+When observability is enabled, run the doctor and resource report from the control machine:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
+bash ./Deployment/LocalCluster/Scripts/observability-resource-report.sh
+```
+
+Open Grafana from a workstation with this app's inventory and deploy key:
+
+```bash
+bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
+```
+
+Keep the tunnel open and visit `http://127.0.0.1:3000`. Pass an unused local port as the first argument when 3000 is busy. If using an existing trusted node-main login instead of the app's deploy key, set `CONTROLPC_SSH_TARGET="<install-user>@<node-main-address>"` for that command. Verify host trust before connecting; use [shared operations](../../docs/Observability/Operations.md) for queries and recovery.
 
 ## Diagnose a failed deploy
 

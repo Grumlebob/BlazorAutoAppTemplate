@@ -12,7 +12,7 @@ Start the local stack from the repository root:
 
 Open Grafana at `http://127.0.0.1:3000`. Prometheus is at `http://127.0.0.1:9090`, Alertmanager at `http://127.0.0.1:9093`, Loki at `http://127.0.0.1:3100`, and Tempo at `http://127.0.0.1:3200`. The ports bind to loopback; local Grafana allows anonymous admin access, so never publish these ports. Port overrides are in [`.env.example`](../../.env.example).
 
-For LocalCluster or Cloud, use that target guide's SSH tunnel command and open Grafana at `http://127.0.0.1:3000`. Keep the tunnel open. Do not expose Grafana, Prometheus, Alertmanager, Loki, Tempo, Alloy, or exporter ports publicly. LocalCluster and Cloud guides also own their target-specific doctor and resource-report commands: [LocalCluster](../../Deployment/LocalCluster/HowToDeployLocalCluster.md), [Cloud](../../Deployment/Cloud/HowToDeployCloud.md).
+For deployed dashboards, follow the tunnel and doctor commands in [LocalCluster operations](../../Deployment/LocalCluster/Operations.md#observe-the-stack) or [Cloud operations](../../Deployment/Cloud/Operations.md#observe-the-stack). Keep the tunnel open. Do not expose Grafana, Prometheus, Alertmanager, Loki, Tempo, Alloy, or exporter ports publicly.
 
 ## Diagnose signals
 
@@ -54,7 +54,7 @@ bash ./Deployment/Common/observability/scripts/check-telemetry-cardinality.sh ht
 bash ./Deployment/Common/observability/scripts/test-alertmanager-route.sh http://127.0.0.1:9093 local
 ```
 
-Deployment workflows run target capacity checks and, after acceptance, observability doctors. For manual target diagnosis, use the doctor invocation in the [LocalCluster](../../Deployment/LocalCluster/HowToDeployLocalCluster.md) or [Cloud](../../Deployment/Cloud/HowToDeployCloud.md) guide. The [shared cardinality checker](../../Deployment/Common/observability/scripts/check-telemetry-cardinality.sh) defaults to 25,000 active Prometheus series and 100 Loki streams; LocalCluster uses those defaults. The [Cloud doctor](../../Deployment/Cloud/Scripts/observability-doctor.sh) currently allows 25,000 series and 300 streams.
+Deployment workflows run target capacity checks and, after acceptance, observability doctors. Use the target commands linked above for manual diagnosis. The [shared cardinality checker](../../Deployment/Common/observability/scripts/check-telemetry-cardinality.sh) defaults to 25,000 active Prometheus series and 100 Loki streams; LocalCluster uses those defaults. The [Cloud doctor](../../Deployment/Cloud/Scripts/observability-doctor.sh) currently allows 25,000 series and 300 streams.
 
 ## Retention and capacity
 

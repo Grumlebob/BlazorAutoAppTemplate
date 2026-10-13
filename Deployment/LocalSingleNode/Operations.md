@@ -6,7 +6,7 @@ Use this guide for an already prepared native node. Workflow dispatches, reboot,
 
 From GitHub Actions, dispatch **CD - Deploy LocalSingleNode** from `main`. Require a successful publishing CI run for the exact selected SHA and record the workflow run ID before watching. If watching stops, inspect the same run; never dispatch another run to replace a watcher.
 
-- Leave `target_sha` empty to select the dispatched `main` commit, or supply a full SHA on `main`.
+- Leave `target_sha` empty only when the dispatched `main` commit has a published release, or supply a full publishing SHA on `main`. A `[skip ci]` documentation commit has no release; see [source selection](../Common/ReleaseContract.md#select-a-published-source).
 - Set `run_migrations=true` for the first deployment or a schema update. Use `false` when the selected release does not need a migration.
 - The default `app_instance` is `primary`. Use `additional` only for a configured instance; see [ApplicationInstances](ApplicationInstances.md).
 
@@ -35,11 +35,15 @@ The **LocalSingleNode maintenance** workflow runs against the selected app and u
 Use these options only when needed:
 
 - `acceptance_only=true` runs HTTP acceptance without routine maintenance.
-- `restart_app=true` may be combined with acceptance only; it restarts this app's web container and checks persistence.
-- `restart_connector=true` checks this app's public connector. Keep it separate from an app restart.
+- `restart_app=true` requires `acceptance_only=true`; it restarts this app's web container and checks persistence.
+- `restart_connector=true` also requires `acceptance_only=true` and checks this app's public connector. Keep it separate from an app restart.
 - `reboot_check=true` reboots after the whole workflow succeeds. Additional app operations cannot reboot the shared host.
 
 Select `app_instance=primary` or `additional` deliberately. See [ApplicationInstances](ApplicationInstances.md) for additional-app guards and host-wide operation limits. Public tunnel ownership, credential rotation and removal belong to [PublicSetup](PublicSetup.md).
+
+### Setup and maintenance source
+
+Additional-app setup and maintenance use [verify-operation-source.py](../Common/Scripts/verify-operation-source.py). They pin trusted `main` with full history. When ordinary documentation descendants skipped CI, the gate can use the nearest successful main CI only after proving the operation code is unchanged. Source/configuration changes, disguised Markdown in implementation directories, incomplete history, or an actual failed/pending run stop the operation. This exception validates operation code; it never selects release artifacts or relaxes CD's exact-source checks.
 
 ## Deployment lock recovery
 

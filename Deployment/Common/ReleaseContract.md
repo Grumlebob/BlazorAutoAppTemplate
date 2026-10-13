@@ -10,4 +10,8 @@ GitHub Actions `Workflow permissions: Read and write permissions` must allow pac
 
 If the migration bundle artifact is missing or expired, stop. Run CI again for the selected source SHA and deploy only after that run publishes a fresh artifact successfully.
 
+## Select a published source
+
+A documentation-only commit using `[skip ci]` creates no release. LocalCluster and LocalSingleNode can dispatch from current `main` with `target_sha` set to a full, previously published SHA on `main`; leave it empty only when the dispatched commit has its own successful publishing run. Cloud has no `target_sha` input and deploys the dispatched `main` commit. If that commit has no release, manually dispatch CI on `main` and require successful publication before Cloud CD. Do not substitute a PR artifact or an ancestor's artifact for the selected source.
+
 Sources: [CI workflow](../../.github/workflows/ci.yml), [successful-run selector](Scripts/Component/lib/find-successful-ci-run.py), [manifest validator](Scripts/validate_release_manifest.py), [LocalSingleNode CD](../../.github/workflows/cd-localsinglenode.yml), [LocalCluster CD](../../.github/workflows/cd-localcluster.yml), and [Cloud CD](../../.github/workflows/cd-cloud.yml).
