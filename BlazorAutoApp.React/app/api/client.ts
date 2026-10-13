@@ -31,7 +31,7 @@ export function createPublicApi(options: PublicApiClientOptions = {}) {
       return result;
     },
 
-    async getAuthorBook(id: number | string, { signal }: RequestOptions = {}) {
+    async getAuthorBook(id: number, { signal }: RequestOptions = {}) {
       const result = await requestJson<components["schemas"]["GetAuthorBookResponse"]>(
         client.GET("/api/author-books/{id}", { params: { path: { id } }, signal, parseAs: "text" }),
       );

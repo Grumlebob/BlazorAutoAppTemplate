@@ -22,6 +22,7 @@ builder.Configuration.AddAppConfiguration(builder.Environment);
 builder.AddAppObservability();
 builder.Services.AddAppOptions(builder.Configuration);
 builder.Services.AddProblemDetails();
+builder.Services.AddAppApiJson();
 builder.Services.AddValidation();
 
 var healthChecks = builder.Services

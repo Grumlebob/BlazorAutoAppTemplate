@@ -74,7 +74,7 @@ export interface components {
     schemas: {
         AuthorBookListItemResponse: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             seedKey: string;
             title: string;
             author?: null | string;
@@ -82,7 +82,7 @@ export interface components {
         };
         BookListItemResponse: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             title: string;
             author?: null | string;
             url?: null | string;
@@ -94,14 +94,14 @@ export interface components {
         };
         CreateBookResponse: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             title: string;
             author?: null | string;
             url?: null | string;
         };
         GetAuthorBookResponse: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             seedKey: string;
             title: string;
             author?: null | string;
@@ -112,7 +112,7 @@ export interface components {
         };
         GetBookResponse: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             title: string;
             author?: null | string;
             url?: null | string;
@@ -124,7 +124,7 @@ export interface components {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
             errors?: {
@@ -135,13 +135,13 @@ export interface components {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
         };
         UpdateBookRequest: {
             /** Format: int32 */
-            id?: number | string;
+            id?: number;
             title: string;
             author?: null | string;
             url?: null | string;
@@ -259,7 +259,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number | string;
+                id: number;
             };
             cookie?: never;
         };
@@ -378,7 +378,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number | string;
+                id: number;
             };
             cookie?: never;
         };
@@ -459,7 +459,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number | string;
+                id: number;
             };
             cookie?: never;
         };
