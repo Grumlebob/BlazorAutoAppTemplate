@@ -80,6 +80,6 @@ docker compose --profile observability stop postgres-exporter redis-exporter pro
 
 This preserves volumes. The app may still attempt telemetry export, but export failure must not block requests. To resume the local telemetry profile, use `RunLocal.ps1 -Observability`.
 
-For deployed targets, set `observability_enabled: false` through the target's normal settings and deployment route. Do not stop Compose services manually on a deployed shared host. The [Cloud destroy procedure](../../Deployment/Cloud/HowToDeployCloud.md#quick-destroy-and-recreate) deletes telemetry history and app data; use it only when that loss is intended.
+For deployed targets, set `observability_enabled: false` through the target's normal settings and deployment route. Do not stop Compose services manually on a deployed shared host. The [Cloud destroy procedure](../../Deployment/Cloud/Operations.md#destroy-or-recreate-the-stack) deletes telemetry history and app data; use it only when that loss is intended.
 
 For resource pressure, recover in this order: lower or disable app trace export; stop Tempo if traces are the source; reduce log collection or retention; increase scrape intervals; stop the target's observability backend through its documented route; then rerun normal app acceptance. Restore temporary sampling changes after recovery. Do not destroy PostgreSQL, Redis, tunnel, or runner state to recover observability.
