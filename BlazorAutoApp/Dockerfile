@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.24
 
-FROM node:24.21.0-bookworm-slim AS react-dependencies
+FROM node:26.11.1-bookworm-slim AS react-dependencies
 WORKDIR /src/BlazorAutoApp.React
 COPY BlazorAutoApp.React/package.json BlazorAutoApp.React/package-lock.json BlazorAutoApp.React/.npmrc ./
 RUN npm install --global npm@12.2.0 && npm ci
