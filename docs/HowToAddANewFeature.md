@@ -4,7 +4,7 @@ This guide explains how to add a coherent vertical feature slice to this reposit
 
 The examples use `Sample` as the singular feature concept and `Samples` as the plural feature area. Replace those names with the real domain language, such as `Review` and `Reviews`.
 
-Read [Requirements.md](Requirements.md) first: it lists the rules every feature must meet. This guide is written for incremental migration work. When moving an old project into this template, migrate one feature at a time and leave each feature in a shippable state before starting the next one.
+Read [Requirements.md](Requirements.md) first: it lists the rules every feature must meet. For React UI and typed API workflows, use [FrontendProfiles.md](FrontendProfiles.md#extend-a-typed-public-feature).
 
 ## Goal
 
@@ -35,13 +35,13 @@ New features should fit the technologies and runtime shape already used by the t
 
 The feature guide does not replace the operator docs. Use `HowToRunLocally.md`, `Test.md`, and `ObservabilityGuide.md` for detailed commands in those areas.
 
-## Migration Workflow
+## Feature Workflow
 
-For each migrated feature, follow this order:
+For each feature, follow this order:
 
 1. Define the feature boundary and name it in domain language.
 2. Identify whether the data is public, authenticated-user-owned, role-restricted, or admin-only.
-3. Decide which old-project behavior is being migrated now and which behavior is deliberately deferred.
+3. Define routes, API operations and the behavior to deliver or defer.
 4. Add Core domain/contracts/DTOs first.
 5. Add server persistence, service behavior, endpoints, and DI.
 6. Add the client API implementation and UI.
@@ -52,23 +52,15 @@ For each migrated feature, follow this order:
 
 Avoid carrying old layering into the new repo. Old controllers, repositories, service locators, static globals, and database helper classes should be translated into this repo's feature-slice shape instead of copied across unchanged.
 
-## Design The Slice Before Coding
+## Migrating an Existing Project
 
-Write down these answers before editing code:
+Use [HowToForkThisRepo.md](HowToForkThisRepo.md) for identity and deployment target selection. Before implementation, inspect the source project and write a plan in `Plans/` using [the plan conventions](../Plans/README.md).
 
-- What is the singular and plural feature name?
-- What are the user-visible routes?
-- What are the API routes?
-- Which actions require login?
-- Which actions require owner checks or roles?
-- Does the feature store data in PostgreSQL?
-- Does the feature need Redis/HybridCache?
-- Does it need local seed data?
-- Does it change health signals or operator dashboards?
-- What must be proven by unit/integration tests?
-- What must be proven by browser E2E?
-
-If the answer is unclear, keep the first slice smaller. A narrow, tested feature is better than a large partial migration.
+- Inventory features, routes, stored data, authorization, external dependencies and background work from actual source files. Mark missing evidence explicitly.
+- Select the frontend profile and map each feature to this template's contracts, server behavior, UI and tests.
+- Order small vertical slices by dependency. State the behavior to preserve or defer and the verification for each slice.
+- Plan existing data and user migration separately from schema migrations. Include mappings, a dry run, validation and backup/recovery; do not hide one-time imports in application startup.
+- Keep each slice deployable. Update configuration, observability and deployment instructions only when its behavior requires them.
 
 ## Recommended Slice Shape
 
@@ -134,11 +126,9 @@ The test suite actively enforces several boundaries. A new feature should satisf
 - Every public Core `*Api` interface has exactly one server implementation and is registered in DI.
 - Every Core feature with use cases has a matching feature test folder, and feature tests must exercise behaviour: a test that only constructs a request DTO and checks its properties is rejected.
 
-These tests are there to protect the migration. If they fail, prefer changing the feature shape rather than weakening the tests.
+These tests protect the feature boundaries. If they fail, prefer changing the feature shape rather than weakening the tests.
 
-## Lessons From Production
-
-These came from running apps built from this template on a multi-node cluster:
+## Runtime Rules
 
 - Disable interactive controls until the component is interactive: `disabled="@(!RendererInfo.IsInteractive)"`. During prerender a button looks clickable but does nothing until WebAssembly or the circuit is ready. Add an E2E check like `PreHydrationControlsE2ETests` for important forms.
 - Use `PersistentComponentState` only for bounded public data. Persisting a large or user-specific response graph bloats every prerendered page.
@@ -833,26 +823,7 @@ Test guidance:
 
 ## 10. Run The Local Gate
 
-Run this before committing. The full list, including formatting and deployment checks, is in [Test.md](Test.md#local-gate).
-
-```powershell
-dotnet restore .\BlazorAutoApp.sln
-dotnet format .\BlazorAutoApp.sln --verify-no-changes --no-restore
-dotnet build .\BlazorAutoApp.sln --no-restore
-dotnet test .\BlazorAutoApp.sln --no-build
-```
-
-For visible E2E:
-
-```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
-$env:RUN_E2E='1'
-$env:E2E_BASE_URL='https://localhost:7186'
-Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
-dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
-```
-
-For more test details, see `Test.md`.
+Run the [local gate](Test.md#local-gate) before pushing. Use [headed browser E2E](Test.md#headed-browser-e2e) for affected browser workflows.
 
 ## Deployment And Operations Checklist
 
@@ -869,24 +840,6 @@ Most feature changes deploy through the existing CI/CD path without editing depl
 - LocalCluster and Cloud do not need separate feature code; environment differences belong in configuration/deployment values.
 
 For pure UI or API additions, no deployment guide change is normally needed. For new infrastructure dependencies, deployment changes must be planned explicitly before the feature is considered complete.
-
-## AI Handoff Checklist
-
-When asking an AI agent to migrate a feature into this repo, include this instruction:
-
-```text
-Follow docs/HowToAddANewFeature.md. Keep the feature vertically sliced.
-Do not copy old-project layering blindly. Do not add public DTOs outside Core.
-Add integration tests for the API behavior and only add E2E for real browser workflows.
-Run dotnet build and dotnet test before finishing.
-```
-
-Ask the AI to report:
-
-- Files added or changed by layer.
-- Any old-project behavior intentionally not migrated yet.
-- Any config, migration, cache, observability, or deployment impact.
-- The exact tests it ran and any tests it could not run.
 
 ## Implementation Checklist
 

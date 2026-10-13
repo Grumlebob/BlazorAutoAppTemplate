@@ -4,6 +4,8 @@ BlazorAutoApp is a .NET 10 template with two supported frontend profiles: `Blazo
 
 ## Start Here
 
+Read the working rules and product requirements first. Open only the guides relevant to your task; deployment and observability guides are needed when those areas change.
+
 - `AGENTS.md` has the working rules for people and coding agents (checks, hard stops on the shared cluster).
 - `docs/Requirements.md` lists the product rules every feature must meet.
 - `docs/HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
@@ -13,7 +15,6 @@ BlazorAutoApp is a .NET 10 template with two supported frontend profiles: `Blazo
 - `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
 - `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing; [SonarQubeAnalysis.md](docs/Quality/SonarQubeAnalysis.md) covers on-demand source audits.
 - `docs/HowToForkThisRepo.md` explains fork identity, target selection and the prepared LocalCluster path; its single-node path links the native agent setup.
-- `docs/MigrateProjectPlanningPrompt.md` is a copy-paste prompt for planning an incremental migration from an old Blazor Server app into a fork.
 - `Plans/` holds tracked plans for multi-step changes; see `Plans/README.md`.
 
 ## Tech Stack
@@ -141,7 +142,7 @@ dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2
 
 The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG author bookcase; logged-in users also see `Add Book` and their own editable SVG bookcase. View, edit, add, and delete all happen through the book modal flow. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
 
-After the startup migration step, the app seeds the public author-book catalog (`TraceBack`, `Ship Inspections`, `ImprovedDb`, `KinoJoin`, `Unlost`, and `GeckoBot`) by default in both frontend profiles. The `AuthorBooks:SeedAtStartup` setting defaults to `true`; set `AuthorBooks__SeedAtStartup=false` to disable this public seed. It does not create login accounts.
+After the startup migration step, the app seeds the sample public author-book catalog by default in both frontend profiles. The `AuthorBooks:SeedAtStartup` setting defaults to `true`; set `AuthorBooks__SeedAtStartup=false` to disable this public seed. It does not create login accounts.
 
 Local demo login-account seeding is separate. It is enabled by default in Development and when `LocalAccounts__Enabled=true` in Docker. The root local Docker Compose file enables it; deployment Compose files disable it. The React frontend profile does not seed local login accounts.
 

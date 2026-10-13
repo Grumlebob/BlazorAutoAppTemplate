@@ -2,19 +2,16 @@
 
 The additional audits run on demand and produce informational reports. Run the source checks before dependency or infrastructure work, ZAP before changing HTTP security settings, and sitespeed.io when investigating a browser performance regression. They do not block merges. The small regression tests for the audit runner run in normal CI.
 
-## Selection
+## Available tools
 
-| Tool | Decision for ImprovedDb and the template | Reason and limits |
-| --- | --- | --- |
-| [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing) with axe | Keep the existing implementation | Both repositories already install axe-core and have Playwright helpers that check WCAG 2 A/AA and 2.1 A/AA rules. ImprovedDb checks browse filters, toolbar and front-page states; the template checks public React journeys. Existing assertions fail on serious or critical violations. Automated scans cover only the rendered state and cannot establish full accessibility compliance; keyboard, focus and screen-reader review still matter. |
-| [Trivy](https://github.com/aquasecurity/trivy) | Add source and immutable image audits | Finds dependency vulnerabilities, Dockerfile/Terraform misconfigurations and tracked secrets. This covers areas outside the SonarQube source analysis. Source scans inspect central NuGet versions and npm lockfiles. They do not establish complete runtime or transitive NuGet coverage; scan the published image too. |
-| [ZAP](https://www.zaproxy.org/docs/docker/baseline-scan/) | Add an optional baseline audit | Adds passive HTTP security checks and a one-minute traditional spider. No active scan is configured. Use a disposable local or staging target with public pages. It does not authenticate, exercise all Blazor/React states, or establish application security. Crawling still makes requests and can encounter routes with side effects. |
-| [Semgrep](https://docs.semgrep.dev/semgrep-ce-languages) | Defer | The CE documentation lists C# support through 7.0 and single-function analysis. These .NET 10 repositories use newer language features. The commercial product's C# support must not be attributed to CE. Python/JavaScript rules could help later if a specific gap remains after SonarQube findings are reviewed. Do not introduce another broad scan without evidence of useful unique findings. |
-| [Qlty](https://github.com/qltysh/qlty) | Add an optional second opinion | Built-in complexity metrics and code smells run quickly without a build or server. Exact similar/identical code pairs and different thresholds provide another review view alongside SonarQube. Trial reports contain useful review candidates and noisy warnings, not confirmed defects. Only built-in analysis is enabled: no plugin orchestration or cloud account. Its CLI uses a BSL/Fair Source license. |
-| [sitespeed.io](https://www.sitespeed.io/documentation/sitespeed.io/docker/) | Add an optional investigation audit | Three Chrome samples produce HTML reports, browser timings and request waterfalls. Use it for comparisons under the same conditions. Existing Lighthouse and application performance tests remain the faster starting points. Do not invent universal timing budgets or compare different data, hardware, cache states or network profiles. |
-| [scc](https://github.com/boyter/scc) | Add an optional inventory audit | Produces a fast per-file code inventory and lexical complexity estimates without a Sonar server. Counts code extensions only and excludes migrations, vendored `lib` directories and node_modules. Includes production code, tests and scripts. Counts are planning evidence, not quality scores or developer productivity measures. |
-
-The current selection favors tools that add distinct evidence. PR scanning remains an option if measured findings justify it. The initial Trivy baseline produced one low severity Dockerfile finding in about one minute, so a new mandatory scan is not justified yet. ZAP and sitespeed.io require a running target and take longer. There is no new scheduled job, service, account or paid provider integration.
+| Tool | Use and limits |
+| --- | --- |
+| [Playwright with axe](https://playwright.dev/docs/accessibility-testing) | Existing accessibility checks for public React journeys fail on serious or critical violations. Automated checks cover rendered states; keyboard, focus and screen-reader review still matter. |
+| [Trivy](https://github.com/aquasecurity/trivy) | Source and immutable image audits for dependency vulnerabilities, Dockerfile/Terraform misconfigurations and tracked secrets. Scan the published image for runtime dependencies beyond the source scan. |
+| [ZAP](https://www.zaproxy.org/docs/docker/baseline-scan/) | Optional passive HTTP baseline and one-minute spider against a disposable public target. It does not authenticate or exercise all UI states. Crawling makes requests and can encounter routes with side effects. |
+| [Qlty](https://github.com/qltysh/qlty) | Optional complexity, code smells and duplication review without a build or server. Findings require source review. Only built-in analysis is enabled, with no cloud account. Its CLI uses a BSL/Fair Source license. |
+| [sitespeed.io](https://www.sitespeed.io/documentation/sitespeed.io/docker/) | Three Chrome samples with HTML reports, browser timings and request waterfalls. Compare the same data, hardware, cache state and network conditions. Start with existing Lighthouse checks. |
+| [scc](https://github.com/boyter/scc) | Per-file code inventory and lexical complexity estimates, including production code, tests and scripts. Counts are planning evidence, not quality or productivity scores. |
 
 ## Run an audit
 
@@ -56,13 +53,13 @@ Keep raw reports private. Security findings can contain source snippets and brow
 
 `metrics.txt` lists the 30 production files with the highest complexity. `qlty.sarif` lists maintainability findings and paired locations for similar or identical code. `.qlty/qlty.toml` excludes generated, vendored and evidence directories and identifies test directories. The summary counts reported locations and also deduplicates mirrored duplication pairs into groups; neither number is a defect count.
 
-The trial found similar update/delete endpoint blocks and duplicated deployment validator setup in the template. Such duplication may be intentional; inspect the paired locations before extracting a shared function. Boolean-logic warnings also identified ordinary configuration expressions that were absent from an archived SonarQube issue report for unchanged files. Different answers can be useful, but do not establish that one analyzer is more accurate. SonarQube also analyzes complexity and duplication and remains the source for coverage and its broader findings.
+Duplication may be intentional; inspect paired locations before extracting shared behavior. Analyzer disagreement does not establish accuracy. SonarQube remains the source for coverage and broader source findings.
 
 Qlty runs `metrics` and `smells` only, with telemetry and upgrade checks disabled. It does not run `check`, formatting, plugins, or cloud uploads. Native runs use the same deadline but do not have Docker CPU or memory limits. Prefer this fast optional review before considering a PR gate; review noise and usefulness on real changes first.
 
 ## Accessibility and other existing checks
 
-Use the existing axe helper in a browser journey after the relevant state has loaded. Install the client lockfile first with `npm --prefix BlazorAutoApp.Client ci`. ImprovedDb's `Scripts/RunApplicationQuality.ps1` selects the existing synthetic browser and performance layers; the template's public React tests use the `Category=ReactPublicBroad` filter. Follow each repository's `docs/Test.md` for setup and guards.
+Use the existing axe helper in a browser journey after the relevant state has loaded. Install the client lockfile first with `npm --prefix BlazorAutoApp.Client ci`. Public React tests use the `Category=ReactPublicBroad` filter. Follow [Test.md](../Test.md) for setup and guards.
 
 Useful existing tools are worth keeping: SonarQube for source findings and coverage, Dependabot for dependency updates, `dotnet format` for C# formatting/analyzers, actionlint for workflows and ShellCheck for shell scripts. If source secret scanning proves useful but misses historical leaks, evaluate a separate Gitleaks history audit. Do not add a second secret scanner to every PR merely to duplicate Trivy.
 
@@ -76,4 +73,4 @@ Run the fast runner checks with:
 python -m unittest Scripts.Quality.tests.test_run_quality_audit -v
 ```
 
-They exercise source isolation, URL and image validation, report failures, informational findings and timeout cleanup, Qlty archive verification, SARIF validation, duplication grouping and Git environment isolation without pulling images or contacting a target. Actual scan timings and integration evidence are recorded in [the task plan](../../Plans/QualityToolsAssessment.md).
+They exercise source isolation, URL and image validation, report failures, informational findings and timeout cleanup, Qlty archive verification, SARIF validation, duplication grouping and Git environment isolation without pulling images or contacting a target.

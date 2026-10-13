@@ -2,7 +2,7 @@
 
 ## Status
 
-Both `BlazorAuto` and public-only `React` are implemented and supported. The template default remains `BlazorAuto`. Builds isolate frontend dependencies and assets; React supplies a typed public catalog with safe static hosting, explicit loading/error states, route focus, security headers and browser coverage. Immutable release manifests bind the actual frontend, acceptance contract, source, CI run and registry digest. Optional additional publication and protected LocalSingleNode application selection allow both apps to share one source repository and the existing runner. See [ApplicationInstances](../Deployment/LocalSingleNode/ApplicationInstances.md) for setup and operations, and [delivery acceptance](../Plans/ReactFrontendDeliveryAcceptance.md) for recorded evidence.
+Both `BlazorAuto` and public-only `React` are implemented and supported. The template default remains `BlazorAuto`. Builds isolate frontend dependencies and assets; React supplies a typed public catalog with safe static hosting, explicit loading/error states, route focus, security headers and browser coverage. Immutable release manifests bind the actual frontend, acceptance contract, source, CI run and registry digest. Optional additional publication and protected LocalSingleNode application selection allow both apps to share one source repository and the existing runner. See [ApplicationInstances](../Deployment/LocalSingleNode/ApplicationInstances.md) for setup and operations.
 
 ## Selecting a profile
 
@@ -21,9 +21,9 @@ validation_profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py --ove
 docker build --target final-react --build-arg "FRONTEND_PROFILE_OVERRIDE=${validation_profile}" -f BlazorAutoApp/Dockerfile .
 ```
 
-CI resolves the tracked file once and passes the validated output to MSBuild and the matching Docker target. A `BlazorAuto` validation uses `--target final-blazor`; a `React` validation uses `--target final-react`. P1.2 selects backend composition at compile time. The React profile does not register Razor UI services or compile Blazor components. P1.3 serves a selected physical web root and routes only safe HTML navigation to its shell.
+CI resolves the tracked file once and passes the validated output to MSBuild and the matching Docker target. A `BlazorAuto` validation uses `--target final-blazor`; a `React` validation uses `--target final-react`. Backend composition is selected at compile time. The React profile does not register Razor UI services or compile Blazor components. The host serves a selected physical web root and routes only safe HTML navigation to its shell.
 
-A downstream React product selects `React` in its own tracked `frontend-profile.txt` after the React composition packets are merged. The upstream template and existing Blazor demo remain on Blazor Auto.
+To select React in a fork, set its tracked `frontend-profile.txt` to `React`.
 
 ## Public React v1
 
@@ -41,7 +41,7 @@ In React production, the selected static root is the host's published `wwwroot`.
 
 ## Current repository entry points
 
-Recheck this inventory when a packet changes one of these boundaries.
+Update this inventory when the entry points change.
 
 | Concern | Current entry points | Profile work |
 | --- | --- | --- |
@@ -62,36 +62,19 @@ The release manifest and baked image labels identify the frontend and matching a
 
 The tracked profile file is the only persisted selection. A single resolver validates it and passes the same value to MSBuild, Docker, CI, release metadata and acceptance. The template default is exactly `BlazorAuto`; React downstream configuration is exactly `React`.
 
-React uses same-origin relative API paths. The HTTPS Vite development server proxies `/api` to the C# host. Production publishes the selected React Router `build/client` output beneath the ASP.NET host's web root. The host serves ordinary static files from the selected physical root and maps only safe HTML navigation to the shell. Missing assets and backend routes remain real errors. P1.3 also keeps profile inputs isolated at the host project level and clears the publish destination web root before copying the selected profile, so sequential publishes to one output directory cannot leave stale frontend assets.
+React uses same-origin relative API paths. The HTTPS Vite development server proxies `/api` to the C# host. Production publishes the selected React Router `build/client` output beneath the ASP.NET host's web root. The host serves ordinary static files from the selected physical root and maps only safe HTML navigation to the shell. Missing assets and backend routes remain real errors. The host project keeps profile inputs isolated and clears the publish destination web root before copying the selected profile, so sequential publishes to one output directory cannot leave stale frontend assets.
 
 Use ASP.NET Core OpenAPI 3.1 as the server contract. The minimal package at `BlazorAutoApp.React/` pins `openapi-typescript` and `openapi-fetch`; generated files are `api/openapi.json` and `app/api/generated/schema.d.ts`. Run `npm ci`, then `npm run api:generate` to update both files or `npm run api:check` to regenerate into temporary output and fail on drift without changing expected files. These commands work before React assets exist. Extraction uses the real React book-handler metadata, a fresh .NET artifacts path and the opt-in metadata-only entry; ordinary .NET builds remain generation-free. The metadata entry uses an empty builder and placeholder API services only for binding discovery. It does not load application settings or register persistence, cache, Identity, email or deployment services. Commit generated outputs with endpoint changes. Do not hand-edit them, duplicate wire DTOs or introduce a second client generator.
 
 Build order is: validate profile; install only the selected frontend's lockfile; run isolated metadata-only OpenAPI extraction when requested; check/generate declarations; typecheck, lint, test and build React when selected; stage selected web assets; rebuild and publish the C# host; build and smoke the final image. A missing React bundle fails a React publish clearly. Profile switches use clean, profile-owned output paths; never reuse `--no-build` output from the other profile.
 
-The final validation contract must exercise both profiles from clean output. PR CI builds and smokes both profiles. Main CI publishes only the persisted selection. The release manifest includes `frontend_profile` and `acceptance_profile` (`BlazorAuto` / `BlazorAutoV1` or `React` / `ReactPublicV1`). LocalCluster and Cloud remain supported and receive compatible profile-aware acceptance; this goal deploys only the React downstream app through LocalSingleNode.
+PR CI builds and smokes both profiles from clean output. Main CI publishes the persisted selection and any explicitly enabled additional profile. The release manifest includes `frontend_profile` and `acceptance_profile` (`BlazorAuto` / `BlazorAutoV1` or `React` / `ReactPublicV1`). All deployment targets use profile-aware acceptance.
 
-## Initial toolchain pins
+## Toolchain
 
-These exact stable versions were checked on 2026-10-11 against official release/support pages and npm registry metadata. Use exact versions in the package manifest and lockfile. Node is a build and development tool only.
+[package.json](../BlazorAutoApp.React/package.json) defines the exact Node/npm engines and package versions; [package-lock.json](../BlazorAutoApp.React/package-lock.json) pins the resolved dependencies. Use these files when checking or updating versions rather than maintaining another version table in documentation.
 
-| Tool | Initial exact version | Compatibility decision |
-| --- | --- | --- |
-| Node.js | `24.21.0` | Current LTS release line; supported by React Router 8 and the selected test tooling. |
-| npm | `12.2.0` | Exact package-manager version; its Node engine range includes Node 24.21.0. |
-| React / React DOM | `19.3.0` | Matching stable releases. |
-| React Router packages | `react-router`, `@react-router/dev`, `@react-router/node` `8.4.0` | Framework Mode and SPA build. Keep the package versions aligned. `@react-router/node` is a build dependency; do not run a Node production server. |
-| SPA user-agent helper | `isbot` `5.2.2` | Direct exact dependency required by React Router's type-generation and prerender tooling. |
-| Vite | `8.3.4` | Current supported Vite minor; React Router 8 supports Vite 8. |
-| Tailwind CSS | `tailwindcss`, `@tailwindcss/vite` `4.3.3` | Match the existing repository's Tailwind 4.3.3 line. React CSS remains separate from Blazor output. |
-| TanStack Query | `@tanstack/react-query` `5.104.1` | Stable React Query package; supports React 19. |
-| TypeScript | `5.9.3` | `openapi-typescript` 7.13.0 declares TypeScript 5.x peer support; React Router and typescript-eslint accept this version. |
-| OpenAPI | `openapi-typescript` `7.13.0`; `openapi-fetch` `0.17.0` | One generator and one typed fetch client. |
-| Test runner | `vitest` `5.0.3`; `jsdom` `30.1.2` | Vitest supports Vite 8 and Node 24; jsdom's Node range includes 24.21.0. |
-| React test helpers | `@testing-library/react` `16.3.3`; `@testing-library/user-event` `14.6.7`; `@testing-library/dom` `10.4.2`; `@testing-library/jest-dom` `7.0.1` | Matching current stable packages for behavior tests. |
-| Type declarations | `@types/react` and `@types/react-dom` `19.3.0`; `@types/node` `24.19.2` | Match React 19 and the Node 24 build target. |
-| Lint | `eslint` `10.12.0`; `@eslint/js` `10.0.1`; `typescript-eslint` `8.71.1`; `eslint-plugin-react-hooks` `7.1.1`; `eslint-plugin-react-refresh` `0.5.7` | Peer ranges cover ESLint 10 and TypeScript 5.9.3. |
-
-Selected React Router 8 and Vite 8 releases support one another. OpenAPI generator compatibility keeps TypeScript on 5.x even though TypeScript 7.0.2 is also stable. Node 24.21.0 meets the selected Router, Vitest, jsdom and npm minimums. Use the pinned Node 24 toolchain for React work, and do not change a developer's global installation as part of the profile implementation.
+Keep React/React DOM and React Router package versions aligned. Keep TypeScript compatible with the OpenAPI generator's peer range. `isbot` is required by React Router's type-generation/prerender tooling; `@react-router/node` is a build dependency. Production runs no Node server. React CSS remains separate from Blazor output.
 
 ## React local development
 
@@ -134,19 +117,17 @@ Change the actual C# response or endpoint contract first. Run `npm run api:check
 
 Add the route or component using the generated public API and existing query keys. Pass the query abort signal to the transport, preserve explicit loading/empty/error states, and add a focused component test. Run `typecheck`, `lint`, `test` and `build`, then the repository local gate. A backend response change should fail a typed consumer before regeneration and compile after it. Cosmetic Vite HMR edits should update the open browser without restarting the API or changing generated contracts.
 
-Primary references: [Node 24.21.0 LTS](https://nodejs.org/en/blog/release/v24.21.0), [React 19.3](https://react.dev/blog/2026/09/09/react-19-3), [React Router v8 release contract](https://reactrouter.com/start/start/changelog), [React Router SPA mode](https://reactrouter.com/how-to/spa), [Vite supported releases](https://vite.dev/releases), [Tailwind CSS v4.3](https://tailwindcss.com/blog/tailwindcss-v4-3). Package engine and peer ranges were checked from npm registry metadata on the review date.
+Framework reference: [React Router SPA mode](https://reactrouter.com/how-to/spa).
 
 ## Verification and handover
 
 Keep the repository's full local gate in `docs/Test.md`. React adds `api:check`, `typecheck`, `lint`, `test` and `build` checks plus both-profile image smoke. Build and test sequentially in a checkout. Record discovered, executed, skipped and blocked suite counts; skipped or absent required checks do not pass.
 
-Track implementation evidence against R01-R16 in the [delivery plan](../Plans/ReactFrontendProfile.md#requirement-traceability).
-
 Use the existing C# Playwright harness. React acceptance covers Chromium public flows broadly and Firefox/WebKit smoke before release, with mobile layouts, keyboard/focus, axe checks, manual screen-reader spot checks and repeatable Lighthouse budgets. Public acceptance remains read-only and creates no account or user-data fixture.
 
-Both profiles are supported in this repository; selecting or validating React does not require another GitHub repository. The template default remains `BlazorAuto`. The former separate demo repository approach is withdrawn. A second public app uses explicit optional publication, a protected additional application identity and the existing native runner. Keep the default profile stable and require a verified main release and immutable digest for each deployment.
+A second public app uses explicit optional publication, a protected additional application identity and the existing native runner. Require a verified main release and immutable digest for each deployment.
 
-Implementation status, packet evidence and deployment target details live in `Plans/ReactFrontendProfile.md` and applicable ignored installation records. Keep hostnames, node identity, resource IDs, ports, capacity, credentials, run IDs and authenticated deployment evidence in ignored or protected records, never here.
+Keep installation-specific hostnames, resource IDs, credentials and authenticated deployment evidence in ignored or protected records.
 
 ### Diagnose a deployed public app
 

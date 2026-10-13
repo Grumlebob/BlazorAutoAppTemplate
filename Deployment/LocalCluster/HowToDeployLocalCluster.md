@@ -99,7 +99,7 @@ During Linux Mint installation you create a normal user account. Write that user
 <linux-mint-install-user>
 ```
 
-Example: if you create a user named `jacob`, then `<linux-mint-install-user>` means `jacob`.
+Use the same install-user name in the inventory and SSH commands.
 
 Disable sleep/suspend in Linux Mint power settings:
 
@@ -155,7 +155,7 @@ sudo apt install -y git gh
 gh auth status || gh auth login
 ```
 
-For a fresh control machine, clone the repository you are deploying and enter it. For the original repository use `Grumlebob/BlazorAutoApp`; for a fork, use the fork's owner and repository name:
+For a fresh control machine, clone the repository you are deploying and enter it:
 
 ```bash
 export LOCALCLUSTER_REPO=<github-owner>/<repo-name>
@@ -566,7 +566,7 @@ If the script cannot detect a LAN IP or MAC address, it stops with a clear error
 The output is intentionally only four lines:
 
 ```text
-username: jacob
+username: <linux-mint-install-user>
 hostname: node-main
 lan_ip: 192.168.1.20
 lan_mac: aa:bb:cc:dd:ee:01
@@ -591,7 +591,7 @@ nodes:
   node-main:
     ip: 192.168.1.20
     mac: aa:bb:cc:dd:ee:01
-    install_user: jacob
+    install_user: <linux-mint-install-user>
 ```
 
 Use the matching node entry:
@@ -1296,7 +1296,7 @@ Open Grafana from your browser with an SSH tunnel. Keep the terminal open while 
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-CONTROLPC_SSH_TARGET=jacob@node-main bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
+CONTROLPC_SSH_TARGET="<linux-mint-install-user>@node-main" bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
 ```
 
 Then open:
@@ -1305,7 +1305,7 @@ Then open:
 http://127.0.0.1:3000
 ```
 
-If your ControlPC hostname is not resolvable from CurrentPC, replace `jacob@node-main` with `jacob@<node-main-lan-ip>`.
+If your ControlPC hostname is not resolvable from CurrentPC, replace `<linux-mint-install-user>@node-main` with `<linux-mint-install-user>@<node-main-lan-ip>`.
 
 ## Reference: Runtime Services
 
