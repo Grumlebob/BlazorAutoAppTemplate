@@ -67,6 +67,7 @@ During active CSS work, use `npm run css:watch`. Generated output is `BlazorAuto
 Create and apply a local schema migration with:
 
 ```powershell
+dotnet tool restore
 dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Infrastructure\Persistence\Migrations
 dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
 ```

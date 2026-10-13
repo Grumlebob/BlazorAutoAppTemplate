@@ -14,9 +14,9 @@ Run this when validating both compositions. It needs Docker. CI also builds and 
 
 ## Local Gate
 
-Documentation-only PRs containing only ordinary `.md` or `.mdx` files, with no source, build, workflow, deployment configuration, or other non-Markdown file, are exempt from local builds, formatting, tests, deployment gates, and waiting for PR/main CI. Review the complete diff, including both sides of renames, and run `git diff --check`. Add `[skip ci]` to the commit and squash title, then fetch and verify integrated content on `origin/main`. Respect enforced GitHub protection; never weaken it or manufacture a passing check. Mixed PRs use the full gate. See [AGENTS.md](../AGENTS.md).
+For ordinary Markdown-only changes, follow the documentation exception in [AGENTS.md](../AGENTS.md#changes-and-checks). Mixed PRs use the full gate below.
 
-Run every command successfully before pushing non-Markdown changes. The Bash commands need Linux, WSL, or Git Bash.
+Run every command successfully before pushing non-Markdown changes. Use Linux or WSL with the pinned .NET SDK, Python 3, Docker, and ShellCheck available in that environment. The virtual-environment paths below assume Linux.
 
 ```bash
 git diff --check

@@ -12,7 +12,7 @@ Follow the first reported action or blocker. On failure, stop at that step, reco
 
 The [`CD - Cloud` workflow](../../.github/workflows/cd-cloud.yml) is the supported release path. It runs on the existing self-hosted Linux x64 runner on `node-main`, requires CI success for the same commit, provisions hosts idempotently, manages temporary SSH access, and runs acceptance checks.
 
-In GitHub Actions, open `CD - Cloud`, choose **Run workflow** on `main`, and set `run_migrations=true` when the release includes a migration bundle that must run. Confirm CI passed for that exact commit and wait for the workflow to finish green. The workflow creates a pre-migration PostgreSQL backup and runs the bundle once.
+In GitHub Actions, open `CD - Cloud`, choose **Run workflow** on `main`, and set `run_migrations=true` when the release includes a migration bundle that must run. Require successful publishing CI for that exact commit; Cloud has no `target_sha` input. If documentation commits skipped CI, [publish current main first](../Common/ReleaseContract.md#select-a-published-source). Wait for CD to finish green. The workflow creates a pre-migration PostgreSQL backup and runs the bundle once.
 
 ## Diagnose connectivity and readiness
 
@@ -57,16 +57,20 @@ chmod 0600 "$HOME/.local/state/cloud/terraform.tfstate.post-replace."*
 cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/Cloud/Scripts/render-inventory-from-tofu.sh
 bash ./Deployment/Cloud/Scripts/validate-rendered-inventory.sh
-bash ./Deployment/Cloud/Scripts/reset-cloud-known-hosts.sh
-bash ./Deployment/Cloud/Scripts/provision.sh
-bash ./Deployment/Cloud/Scripts/acceptance-check.sh
 ~~~
 
-Run a full app and firewall acceptance check when needed:
+Verify the new host identities through their consoles using [SSH host trust](../Common/SshTrust.md), then reset only the cached Cloud inventory keys and refresh GitHub's bastion address. Keep the existing data credentials; do not enable `ROTATE_CLOUD_DATA_SECRETS`:
 
 ~~~bash
-bash ./Deployment/Cloud/Scripts/acceptance-check.sh
+bash ./Deployment/Cloud/Scripts/reset-cloud-known-hosts.sh
+bash ./Deployment/Cloud/Scripts/configure-github-environment.sh
+bash ./Deployment/Cloud/Scripts/check-github-environment.sh
+bash ./Deployment/Cloud/Scripts/provision.sh
 ~~~
+
+Provisioning prepares hosts, Caddy and optional telemetry; it does not start the app, PostgreSQL, Redis or Cloudflare connector. For an intentionally empty replacement stack, continue with [first deployment](Setup.md#8-run-the-first-deployment). To recover existing data, stop here until an operator-reviewed database recovery plan covers the empty database, selected backup, migrations and release. The import limitations below apply. A green redeployment alone does not restore lost data.
+
+After deployment and any data recovery, validate recovered records and run `bash ./Deployment/Cloud/Scripts/acceptance-check.sh`.
 
 Cloudflare managed challenges are tolerated only for public-edge checks after origin checks pass. To require a strict public response, run:
 
@@ -93,13 +97,13 @@ For shared dashboard, retention, query, and recovery guidance, see [Observabilit
 
 ## Back up and restore PostgreSQL
 
-Create a verified PostgreSQL dump:
+Create a PostgreSQL dump:
 
 ~~~bash
 bash ./Deployment/Cloud/Scripts/backup-db.sh
 ~~~
 
-The script reports a path under the configured `deploy_root/backups/` on `cloud-db` and verifies the gzip stream and SQL dump. It does not copy the dump off the node. Fetch it to a protected controller directory, then copy it to approved off-host storage before destructive changes:
+The script reports a path under the configured `deploy_root/backups/` on `cloud-db` and checks the gzip stream and SQL dump marker. It does not test a restore or copy the dump off the node. Fetch it to a protected controller directory, then copy it to approved off-host storage before destructive changes:
 
 ~~~bash
 install -d -m 0700 "$HOME/cloud-backups"
@@ -113,7 +117,9 @@ gzip -t "$HOME/cloud-backups/<backup-file>.sql.gz"
 
 Replace `<deploy-root>` and `<backup-file>` with the configured path and name printed by the backup script. The deployment workflow also creates a pre-migration backup. Neither backup is an off-host disaster-recovery copy until you transfer it.
 
-Restore only after verifying the selected backup and current Cloud settings. The wrapper reads a backup already under the configured deploy root's `backups/` directory and requires the exact app/database confirmation. If the selected dump is in `~/cloud-backups`, copy it back to `cloud-db` first:
+Restore requires an operator-reviewed recovery plan with app writes stopped and an empty target schema. The [current SQL importer](Scripts/Component/cloud-db/restore-db.sh) does not clear existing objects, stop app writes, or use [ON_ERROR_STOP](https://www.postgresql.org/docs/18/app-psql.html); its exit code alone cannot prove recovery succeeded. Never run it against a populated database expecting a safe replacement or isolated test restore.
+
+The wrapper requires a dump under the configured deploy root's `backups/` directory and exact app/database confirmation. Once the recovery prerequisites are satisfied, copy an off-host dump back to `cloud-db` and import it:
 
 ~~~bash
 gzip -t "$HOME/cloud-backups/<backup-file>.sql.gz"
@@ -126,11 +132,9 @@ ANSIBLE_CONFIG=./Deployment/Cloud/ansible/ansible.cfg ANSIBLE_ROLES_PATH=./Deplo
   -m ansible.builtin.copy \
   -a "src=$HOME/cloud-backups/<backup-file>.sql.gz dest=<deploy-root>/backups/<backup-file>.sql.gz owner=deploy group=deploy mode=0600"
 bash ./Deployment/Cloud/Scripts/restore-db.sh "<deploy-root>/backups/<backup-file>.sql.gz" --confirm "<app-name>/<database-name>"
-bash ./Deployment/Cloud/Scripts/acceptance-check.sh
 ~~~
 
-Replace `<deploy-root>`, `<backup-file>`, `<app-name>`, and `<database-name>` with the current configured values. This writes into the configured database. Verify the exact app/database confirmation before restoring. Do not use this as a side-by-side test restore.
-
+Replace the placeholders with current configured values. A gzip check proves archive integrity only. Inspect SQL output for errors, validate recovered records and migration history, and apply any required migrations before resuming app writes. Run app acceptance afterwards; HTTP readiness alone does not prove data recovery.
 
 ## Destroy or recreate the stack
 

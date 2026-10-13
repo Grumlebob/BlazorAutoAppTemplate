@@ -6,7 +6,7 @@ All targets use shared image and migration settings. CI can publish from a `main
 | --- | --- | --- | --- | --- | --- |
 | `localsinglenode` | One PC | Native Linux Mint and a LAN | Short interruption during migration/start | Nightly local PostgreSQL dump and protected secrets copy | Demos, hobby apps and a first deployment |
 | `localcluster` | Four PCs | Linux Mint, prepared cluster and Cloudflare | Rolling app update without migrations; see the guide for migrations | Follow the cluster guide | Several app instances at home |
-| `cloud` | Four Hetzner servers | Cloud/Cloudflare accounts and infrastructure cost | Follow the cloud guide | Follow the cloud guide | Public production with managed infrastructure |
+| `cloud` | Four Hetzner servers | Cloud/Cloudflare accounts and infrastructure cost | Follow the cloud guide | Follow the cloud guide | Public hosting without maintaining physical nodes |
 
 - [LocalSingleNode guide](LocalSingleNode/HowToDeployLocalSingleNode.md): native setup and operations. To add an app on a prepared node, use [application instances](LocalSingleNode/ApplicationInstances.md).
 - [LocalCluster guide](LocalCluster/HowToDeployLocalCluster.md): cluster preparation, inventory, Cloudflare and deployment.
@@ -26,7 +26,7 @@ gh variable set DEPLOY_TARGETS --body localcluster,localsinglenode
 
 Every deployment and maintenance workflow checks its target in the first step and stops when it is disabled. Enabling a target grants no permission to deploy it: obtain the operator's authorization before dispatch. CI remains common to all targets.
 
-Single-node setup sets `LOCALSINGLENODE_HOST` and `LOCALSINGLENODE_RUNNER_LABEL`. A one-PC fork without any registered CI runner also registers its runner with a CI label and sets `CI_RUNNER_LABEL`/`CI_RUNNER_HOST`. The template keeps its existing CI runner; a separate demo node handles single-node CD only.
+Single-node setup sets `LOCALSINGLENODE_HOST` and `LOCALSINGLENODE_RUNNER_LABEL`. A one-PC fork without any registered CI runner also registers its runner with a CI label and sets `CI_RUNNER_LABEL`/`CI_RUNNER_HOST`. Reuse an existing runner only when its host and labels meet the selected workflows' requirements.
 
 ## Keep the unused folders
 

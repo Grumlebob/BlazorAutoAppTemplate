@@ -99,7 +99,7 @@ bash ./Deployment/Cloud/Scripts/render-inventory-from-tofu.sh
 bash ./Deployment/Cloud/Scripts/validate-rendered-inventory.sh
 ~~~
 
-The generated inventory must route private-node SSH through `cloud-main` and use the deploy key on both SSH legs. Do not hand-edit generated inventory. If servers were replaced, remove stale host keys with `reset-cloud-known-hosts.sh` before connecting to the new identities.
+The generated inventory must route private-node SSH through `cloud-main` and use the deploy key on both SSH legs. Do not hand-edit generated inventory. Verify host identities through their Hetzner consoles using [SSH host trust](../Common/SshTrust.md) before accepting keys. After a deliberate server replacement, use `reset-cloud-known-hosts.sh` only after verifying the replacement identities; never clear keys to bypass an unexplained mismatch.
 
 ## 5. Create the Cloudflare Tunnel
 

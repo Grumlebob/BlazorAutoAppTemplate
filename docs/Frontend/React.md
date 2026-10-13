@@ -21,12 +21,14 @@ For live development, start compatible PostgreSQL and Redis services as describe
 
 The React client uses the existing C# API. Keep public API contracts in Core/server and generated request/response types in the React package. It has no login, cookie, auth, or CSRF bootstrap; public requests omit credentials and protected APIs must continue to deny anonymous access.
 
+UI-only changes stay in React and need no new API contract or generation. Run the package checks above and the repository local gate.
+
 When a C# endpoint contract changes:
 
 1. Run `npm run api:check` to find drift.
 2. Review the OpenAPI metadata and update generated files deliberately with `npm run api:generate`.
 3. Commit the backend contract, `api/openapi.json`, and `app/api/generated/schema.d.ts` together.
-4. Implement the route/component using the generated client and existing query keys. Pass the query abort signal to the transport and preserve explicit loading, empty, and safe error states.
+4. Implement the route/component using the typed API client and existing query keys. Pass the query abort signal to the transport and preserve explicit loading, empty, and safe error states.
 5. Add focused component tests. Run the package checks above, then the repository [local gate](../Test.md#local-gate).
 
 Generation uses a metadata-only server host; it needs the .NET SDK and package toolchain, but not a running database, Redis service, or built React bundle. Do not hand-edit generated declarations or maintain duplicate wire DTOs.
