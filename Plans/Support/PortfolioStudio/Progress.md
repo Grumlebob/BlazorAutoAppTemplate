@@ -10,7 +10,7 @@ Last updated: 2026-10-13, at the end of the first delivery session. The authorit
 
 ### Where things stand
 
-The plan's product outcome is delivered. Only a short list of remaining work and owner decisions is left (below).
+The plan's product outcome is delivered. What remains: PR #32 (CSP nonce for Cloudflare bot detection, and a favicon) needs to land and be verified live, and owner-led story improvements continue.
 
 - **Live site:** https://portfolio.jacobgrum.com serves all twelve stories, the Technologies page and real 404s.
 - **Current release:**
@@ -63,21 +63,31 @@ The plan's product outcome is delivered. Only a short list of remaining work and
 
 ### Remaining work, in order
 
-1. **Owner decision: Cloudflare JavaScript detections.** Cloudflare injects an inline bot-detection script (`/cdn-cgi/challenge-platform/.../jsd/main.js`) into every page. Portfolio's hash-based CSP blocks it. Visitors see no difference, but the browser logs a CSP error, Lighthouse best practices drops to 92, and the live E2E console check fails. The options are:
-   - (a) turn off JavaScript detections in the jacobgrum.com zone; this also affects demo.jacobgrum.com;
-   - (b) accept it, and make the live E2E ignore `/cdn-cgi/` CSP reports;
-   - (c) move the CSP to per-response nonces, which Cloudflare can reuse.
-
-   Do not change shared zone settings without the owner.
-2. **Small backlog.** Add a favicon: `/favicon.ico` returns 404 on every page.
-3. **P6 story improvements (owner-led).** Every story is a launched draft. The project readiness ledger lists the inputs only the owner can give, such as role, dates, real captures and links. Each improvement is its own PR:
+1. **Land PR #32 (`fix/csp-nonce-favicon`), then verify it on the live site.** This is the owner's request for bot detection **and** high scores, without disabling Cloudflare's JavaScript detections.
+   - What it does:
+     - Every document response gets a fresh 128-bit `'nonce-…'` in `script-src` (`ReactFrontendHosting.WithScriptNonce`). Cloudflare [reads that nonce from the CSP header and puts it on the script it injects](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/). Our own inline scripts stay hash-authorized, and `unsafe-inline` is never added.
+     - It adds a minimal SVG "JG" favicon plus a 16/32 px ICO fallback, both linked from `app/root.tsx`.
+   - Evidence so far: 40 hosting tests (including the new nonce test), 28 React tests and lint all pass. The full local gate was started on the PR head (log in the session scratchpad); re-run it if its result is unknown.
+   - Steps:
+     1. Full local gate PASS on the PR head.
+     2. Exact-head `build-test-push` passes.
+     3. `gh pr merge 32 --squash --delete-branch --match-head-commit <head>`.
+     4. Main CI passes.
+     5. `gh workflow run cd-localsinglenode.yml --ref main -f target_sha=<main sha>`, recording the run ID.
+   - Then verify the live site:
+     - The browser console is clean, with no CSP error from `/cdn-cgi/challenge-platform/`. Use the puppeteer probes in `Plans.local/Portfolio/Tools`, or run the live E2E: `RUN_E2E=1`, `E2E_BASE_URL=https://portfolio.jacobgrum.com`, `E2E_HEADLESS=1`, `dotnet test Portfolio.Test -c Release --no-build --filter "Category=ReactPublicBroad|Category=ReactPublicSmoke"`. Both should pass.
+     - `/favicon.svg` and `/favicon.ico` return 200.
+     - Lighthouse best practices rises from 92. Record the new scores here.
+   - **If the console still shows a blocked script:** Cloudflare's script builds an iframe and runs an inline script inside it, which may not carry the nonce. In that case evaluate adding `'strict-dynamic'`. That would require putting the nonce on our own `<script>` tags at serve time, so check hydration carefully. Do not use `unsafe-inline`, and do not change zone settings.
+   - Port the nonce part to the template only if the template also runs behind Cloudflare JavaScript detections. Otherwise record that it is not applicable.
+2. **P6 story improvements (owner-led).** Every story is a launched draft. The project readiness ledger lists the inputs only the owner can give, such as role, dates, real captures and links. Each improvement is its own PR:
    - run `npm run content` and the full local gate;
    - merge after exact-head CI passes;
-   - dispatch `gh workflow run cd-localsinglenode.yml --ref main -f target_sha=<main sha>`;
+   - deploy with CD;
    - verify acceptance.
 
    Re-check `Plans.local/Portfolio/FactNotes/<slug>.md` before changing a story's claims.
-4. **Optional operator clean-up** on the node, after the file-only switch: `/etc/portfolio/secrets.yml` and `/opt/portfolio-backups` are unused. Removing them is the operator's choice. Never prune volumes.
+3. **Optional operator clean-up** on the node, after the file-only switch: `/etc/portfolio/secrets.yml` and `/opt/portfolio-backups` are unused. Removing them is the operator's choice. Never prune volumes.
 
 ### Owner instructions and boundaries to keep
 
