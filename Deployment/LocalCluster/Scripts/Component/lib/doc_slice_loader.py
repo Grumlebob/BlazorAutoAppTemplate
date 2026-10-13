@@ -18,13 +18,13 @@ ENTRY_DOCUMENT_ROOTS: dict[str, tuple[str, ...]] = {
 
 DOC_OWNER_SLICES: dict[str, tuple[str, tuple[str, ...]]] = {
     # Add an entry path when a documentation-movement packet creates a slice.
-    "setup": ("Deployment/LocalCluster/Setup.md", ()),
-    "settings": ("Deployment/LocalCluster/Settings.md", ()),
+    "setup": ("Deployment/LocalCluster/Setup.md", (CLUSTER_ENTRY,)),
+    "settings": ("Deployment/LocalCluster/Settings.md", (CLUSTER_ENTRY,)),
     "fork_existing": (
         "Deployment/LocalCluster/ForkExistingCluster.md",
         (CLUSTER_ENTRY, FORK_ENTRY),
     ),
-    "operations": ("Deployment/LocalCluster/Operations.md", ()),
+    "operations": ("Deployment/LocalCluster/Operations.md", (CLUSTER_ENTRY,)),
     "ssh_trust": (
         "Deployment/Common/SshTrust.md",
         (CLUSTER_ENTRY, FORK_ENTRY),
