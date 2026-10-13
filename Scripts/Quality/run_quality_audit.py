@@ -206,14 +206,19 @@ def _summarize_scc(data):
             "complexity": sum(row["Complexity"] for row in data)}
 
 
+def _run_qlty(args):
+    """Load the native Qlty workflow in package and direct-script contexts."""
+    if __package__:
+        from .qlty_audit import run_qlty_audit
+    else:
+        from qlty_audit import run_qlty_audit
+    return run_qlty_audit(args, git, snapshot_source)
+
+
 def run_audit(args):
     image_archive = validate_image_archive(args.tool, getattr(args, "image_archive", None))
     if args.tool == "qlty":
-        if __package__:
-            from .qlty_audit import run_qlty_audit
-        else:
-            from qlty_audit import run_qlty_audit
-        return run_qlty_audit(args, git, snapshot_source)
+        return _run_qlty(args)
     repo = args.repo_root.resolve()
     validate_target(args.tool, args.target)
     archive_metadata = image_archive_metadata(image_archive) if image_archive is not None else None
