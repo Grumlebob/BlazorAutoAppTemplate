@@ -91,7 +91,7 @@ gh workflow run localsinglenode-maintenance.yml --ref main -f acceptance_only=tr
 gh workflow run localsinglenode-maintenance.yml --ref main -f backup_now=true
 ```
 
-Use `run_migrations=true` for the first deployment or an approved schema update. CD requires main ancestry, successful main-push CI/publishing, a matching release manifest and the exact registry digest. A workflow-dispatch CI run cannot replace that provenance. For rollback rehearsal, compare migration files before selecting the older SHA:
+Use `run_migrations=true` for the first deployment or an approved schema update. CD requires a selected commit on `main` and a successful publishing attempt for that SHA; a qualifying CI run may come from a `push` or `workflow_dispatch`. LocalSingleNode validates the release manifest, profile pair, exact registry digest, and migration bundle before migration. See the [release contract](../Common/ReleaseContract.md). For rollback rehearsal, compare migration files before selecting the older SHA:
 
 ```bash
 git diff --exit-code <older-main-sha> <newest-main-sha> -- BlazorAutoApp/Infrastructure/Persistence/Migrations

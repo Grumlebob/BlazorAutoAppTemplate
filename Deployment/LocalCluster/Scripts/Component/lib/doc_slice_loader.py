@@ -20,10 +20,19 @@ DOC_OWNER_SLICES: dict[str, tuple[str, tuple[str, ...]]] = {
     # Add an entry path when a documentation-movement packet creates a slice.
     "setup": ("Deployment/LocalCluster/Setup.md", ()),
     "settings": ("Deployment/LocalCluster/Settings.md", ()),
-    "fork_existing": ("Deployment/LocalCluster/ForkExistingCluster.md", ()),
+    "fork_existing": (
+        "Deployment/LocalCluster/ForkExistingCluster.md",
+        (CLUSTER_ENTRY, FORK_ENTRY),
+    ),
     "operations": ("Deployment/LocalCluster/Operations.md", ()),
-    "ssh_trust": ("Deployment/Common/SshTrust.md", ()),
-    "release_contract": ("Deployment/Common/ReleaseContract.md", ()),
+    "ssh_trust": (
+        "Deployment/Common/SshTrust.md",
+        (CLUSTER_ENTRY, FORK_ENTRY),
+    ),
+    "release_contract": (
+        "Deployment/Common/ReleaseContract.md",
+        (CLUSTER_ENTRY, FORK_ENTRY),
+    ),
 }
 
 DOC_OWNER_PATHS: dict[str, str] = {

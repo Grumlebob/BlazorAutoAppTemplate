@@ -1,6 +1,6 @@
 # Choose a deployment target
 
-All targets use the same application image, migration bundle and verified main-push release manifest. Choose the topology, then follow its guide.
+All targets use shared image and migration settings. CI can publish from a `main` push or manual dispatch; the [release contract](Common/ReleaseContract.md) describes what each target verifies. Choose the topology, then follow its guide.
 
 | Target | Machines | Needs | Downtime per deploy | Backups | Pick it when |
 | --- | --- | --- | --- | --- | --- |
@@ -11,7 +11,8 @@ All targets use the same application image, migration bundle and verified main-p
 - [LocalSingleNode guide](LocalSingleNode/HowToDeployLocalSingleNode.md): agent setup on the selected native PC, with one operator sudo command.
 - [LocalCluster guide](LocalCluster/HowToDeployLocalCluster.md): cluster preparation, inventory, Cloudflare and deployment.
 - [Cloud guide](Cloud/HowToDeployCloud.md): OpenTofu infrastructure, Ansible and Cloudflare.
-- [Fork guide](../docs/HowToForkThisRepo.md): application identity and shared release settings.
+- [Fork guide](../docs/HowToForkThisRepo.md): application identity and target routing.
+- [Release contract](Common/ReleaseContract.md): source, CI attempt, artifact, image and target checks.
 
 ## Enable targets
 
