@@ -24,8 +24,7 @@ Continue Portfolio delivery from the recorded checkpoint, without redoing finish
 
    It does not cover changing shared Cloudflare zone settings or touching the demo site.
 3. **Finish the remaining work in Progress order:**
-   - Give the owner the Cloudflare JavaScript-detections options, then apply their choice.
-   - Add the missing favicon.
+   - Land and verify PR #32. It keeps Cloudflare bot detection on through a per-response CSP nonce, adds a favicon, and aims to remove the console CSP error and raise Lighthouse best practices above 92.
    - Carry out owner-led story improvements as the owner supplies inputs.
 
    Each code change follows the same path:
@@ -37,9 +36,8 @@ Continue Portfolio delivery from the recorded checkpoint, without redoing finish
 4. **Keep Progress authoritative.** After each merge or deploy, record the PR, head, merge, CI, CD run, digest and content revision, and the next action. Mirror the checkpoint into the template's `Plans/Support/PortfolioStudio/Progress.md` with a docs-only PR when it changes materially.
 5. **Fix upstream.** When Portfolio exposes a template defect, fix it in Portfolio and open a separate, gated template PR.
 
-**Completion:** the goal is complete when all of these are true:
-- the owner's Cloudflare decision is applied and verified on the live site;
-- the favicon is shipped;
+**Completion:** the goal is complete when both of these are true:
+- PR #32 is merged and deployed, the live site shows a clean console with bot detection still active, and the favicon and Lighthouse results are recorded;
 - every story improvement the owner has asked for is merged, deployed and publicly accepted, or explicitly deferred by the owner in Progress.
 
 A story that waits for owner input is not a blocker for other work. Record the input it needs and continue.

@@ -47,7 +47,7 @@ The plan was delivered in [Grumlebob/Portfolio](https://github.com/Grumlebob/Por
   - a CSS split between the prerender and client builds that broke hydration and theme persistence;
   - an OS-dependent content revision.
 - **The first clone found six template defects**, each fixed upstream in its own gated PR: #216 (profile test), #237 (runner labels in the fork guide), #240 (Git Bash SSH paths), #241 (OpenAPI number typing), #244 (single stylesheet) and #245 (readiness label).
-- **Open owner decision:** Cloudflare's injected bot-detection script conflicts with the hash-based CSP. The options are recorded in Progress.
+- **Cloudflare bot detection vs CSP:** the owner wants detection **and** high scores. PR #32 adds a per-response CSP nonce, which Cloudflare puts on its injected script, plus a favicon. It still has to land and be verified live (see Progress).
 
 ## 1. Purpose and relationship to the React delivery
 
