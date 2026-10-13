@@ -67,7 +67,7 @@ The plan's product outcome is delivered. What remains: PR #32 (CSP nonce for Clo
    - What it does:
      - Every document response gets a fresh 128-bit `'nonce-…'` in `script-src` (`ReactFrontendHosting.WithScriptNonce`). Cloudflare [reads that nonce from the CSP header and puts it on the script it injects](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/). Our own inline scripts stay hash-authorized, and `unsafe-inline` is never added.
      - It adds a minimal SVG "JG" favicon plus a 16/32 px ICO fallback, both linked from `app/root.tsx`.
-   - Evidence so far: 40 hosting tests (including the new nonce test), 28 React tests and lint all pass. The full local gate was started on the PR head (log in the session scratchpad); re-run it if its result is unknown.
+   - Evidence so far: 40 hosting tests (including the new nonce test), 28 React tests and lint all pass. The first gate and CI run on `c9e08b5` failed only because the required suite count was pinned at 173 passed. Head `5eeeb82` raises it to 174 in `Scripts/CI/validate-frontend-profiles.sh`, the audit rule and `docs/Test.md`. Re-run the full local gate on the current PR head and check its exact-head CI.
    - Steps:
      1. Full local gate PASS on the PR head.
      2. Exact-head `build-test-push` passes.
