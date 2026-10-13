@@ -1,7 +1,9 @@
 # Portfolio Studio delivery master plan
 
-Status: planning prepared; Studio design approved; Portfolio implementation not started.
-Last reviewed: 2026-10-12.
+Status: delivered downstream. Portfolio launched at https://portfolio.jacobgrum.com on 2026-10-13 with all twelve stories.
+Last reviewed: 2026-10-13.
+
+> **Downstream delivery record.** This template copy is the original plan only. The authoritative execution record is [Progress.md in Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md): merged packets, release and deployment evidence, open work and the resume prompt. Template defects found by that first clone were fixed here in #216, #237, #240 and #241, and in the follow-up stylesheet and readiness-label PRs.
 
 This is a multi-day delivery plan for an independent **Portfolio** product. Different agents should complete small, recorded packets without reconstructing earlier decisions. The destination is [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio), seeded from [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). The intended public product URL is **https://portfolio.jacobgrum.com/**, delivered through **LocalSingleNode and its Cloudflare Tunnel extension**. Configure this URL through product/deployment settings; do not embed it in components or scripts.
 
