@@ -105,6 +105,7 @@ bash Deployment/Common/Scripts/validate-common-release.sh
 bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
 bash Deployment/Common/observability/scripts/validate-observability.sh
 bash Deployment/LocalCluster/Scripts/audit-deployment.sh
+python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v
 python3 -m venv /tmp/tpl-venv && /tmp/tpl-venv/bin/pip install --constraint Deployment/Common/ci-python-constraints.txt jinja2 yamllint
 PATH="/tmp/tpl-venv/bin:$PATH" bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 PATH="/tmp/tpl-venv/bin:$PATH" yamllint .github Deployment docker-compose.yml .yamllint.yml
