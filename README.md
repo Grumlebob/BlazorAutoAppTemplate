@@ -15,7 +15,7 @@ Run the local Docker stack:
 | Understand contributor rules and product requirements | [AGENTS.md](AGENTS.md), [Requirements](docs/Requirements.md) |
 | Run the app or change local settings | [Run locally](docs/HowToRunLocally.md) |
 | Add a Blazor feature | [Feature guide](docs/HowToAddANewFeature.md) |
-| Add a React public feature | [React feature guide](docs/FrontendProfiles.md#extend-a-typed-public-feature) |
+| Add a React public feature | [React feature guide](docs/Frontend/React.md#change-a-typed-public-feature) |
 | Select a frontend profile | [Frontend profiles](docs/FrontendProfiles.md) |
 | Run and verify checks | [Tests](docs/Test.md) |
 | Prepare a fork | [Fork guide](docs/HowToForkThisRepo.md) |

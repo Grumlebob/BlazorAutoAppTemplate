@@ -1,328 +1,78 @@
-# How To Run Locally
+# Run locally
 
-Use Docker Compose for normal local development. It runs the app, PostgreSQL, Redis, and Redis Insight. The optional observability profile adds Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy.
+Use the repository wrapper for the normal local setup. It prepares Docker, local configuration, and the HTTPS certificate, then starts the profile selected by `frontend-profile.txt`.
 
 ## Prerequisites
 
-- Docker Desktop running.
-- .NET SDK 10 matching `global.json`.
-- Node.js 20 or newer if you rebuild Tailwind CSS. Node.js 24 LTS is recommended because CI uses it.
-- PowerShell.
-- Python available as `python` for the local status helper.
+- Docker Desktop running for the normal stack and integration tests.
+- .NET SDK selected by `global.json` for direct runs and migrations.
+- PowerShell and Python 3 for the setup/status scripts.
+- Node/npm only when changing React or rebuilding Tailwind; use each package's manifest and lockfile.
 
-## First Setup
+## First setup and run
 
-From the repository root:
+From the repository root, create local configuration and a development certificate:
 
 ```powershell
 pwsh -File ./docker/setup-local.ps1
 ```
 
-This creates `.env` from `.env.example` if needed, exports the HTTPS dev certificate to `docker/https/aspnetapp.pfx`, and validates the local setup.
-
-Manual equivalent:
-
-```powershell
-Copy-Item .env.example .env
-pwsh -File ./docker/create-dev-cert.ps1
-python ./docker/local-status.py
-```
-
-## Local Configuration
-
-Local Docker values live in `.env`. Do not edit `docker-compose.yml` for normal machine-specific values.
-
-The defaults in `.env.example` are enough for local development:
-
-```env
-App__Name=BlazorAutoApp
-App__Url=https://localhost:7186
-
-APP_HTTPS_HOST_PORT=7186
-POSTGRES_HOST_PORT=5432
-REDIS_HOST_PORT=6379
-REDIS_INSIGHT_HOST_PORT=5540
-GRAFANA_HOST_PORT=3000
-ALERTMANAGER_HOST_PORT=9093
-PROMETHEUS_HOST_PORT=9090
-LOKI_HOST_PORT=3100
-TEMPO_HOST_PORT=3200
-ALLOY_HOST_PORT=12345
-
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=app
-
-Database__Host=postgres
-Database__Port=5432
-Database__Name=app
-Database__Username=postgres
-Database__Password=postgres
-
-Redis__Configuration=redis:6379
-
-Observability__OpenTelemetry__Enabled=false
-Observability__OpenTelemetry__Endpoint=http://alloy:4317
-Observability__OpenTelemetry__Protocol=Grpc
-Observability__OpenTelemetry__TraceSampleRatio=0.1
-OBSERVABILITY_ENABLED=false
-OBSERVABILITY_OTLP_ENDPOINT=http://alloy:4317
-OBSERVABILITY_OTLP_PROTOCOL=Grpc
-OBSERVABILITY_TRACE_SAMPLE_RATIO=1.0
-OBSERVABILITY_DEPLOYMENT_TARGET=local
-
-Authentication__Google__ClientId=
-Authentication__Google__ClientSecret=
-
-```
-
-## Start The Stack
-
-In Rider, use the shared run configuration:
-
-```text
-Local Docker Stack
-```
-
-It runs `Scripts/RunLocal.ps1`, prepares `.env` and the HTTPS certificate, starts Docker Compose, waits for `/health/ready`, and opens the app.
-The runner waits for Docker Desktop to be ready before it starts the stack.
-
-From a terminal, the same one-click path is:
+Then start the app:
 
 ```powershell
 .\Scripts\RunLocal.ps1
 ```
 
-Reset the local Docker database and service volumes before starting:
+Use `-NoBrowser` to keep the browser closed, `-Observability` to start the optional local telemetry stack, and `-StopStack` to stop containers while retaining their volumes. Local Docker values belong in `.env`; use [`.env.example`](../.env.example) as the authority and do not commit `.env`. It contains the default host ports and service settings.
 
-```powershell
-.\Scripts\RunLocal.ps1 -ResetDatabase
-```
+The app is normally at `https://localhost:7186`. Docker exposes ports on loopback only. Postgres uses host port `5432`, Redis `6379`, and Redis Insight `5540` by default. Change a busy host port in `.env`, then rerun the wrapper. Keep container-to-container ports (Postgres `5432` and Redis `6379`) unchanged. The optional observability URLs and ports are defined in `.env.example`; usage is in [Observability](ObservabilityGuide.md).
 
-Use that reset path after major local PostgreSQL or Redis image upgrades. PostgreSQL 18 uses a version-specific data directory under the Docker volume, so stale PostgreSQL 16 volumes should be discarded instead of reused.
+Development can seed a local User account. Values are in [appsettings.Development.json](../BlazorAutoApp/appsettings.Development.json); use them only for local development. Startup migrations run in the Docker profile.
 
-Start without opening the browser:
-
-```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
-```
-
-Start the optional local Grafana observability stack:
-
-```powershell
-.\Scripts\RunLocal.ps1 -Observability
-pwsh -File .\docker\observability\smoke-local-observability.ps1
-```
-
-This starts Grafana, Prometheus, Alertmanager, Loki, Tempo, and Alloy with short local retention and explicit memory/CPU limits. It also enables app OTLP export for that Compose run. Without `-Observability`, OpenTelemetry stays disabled and the normal local stack is unchanged.
-
-For dashboard usage, common queries, and troubleshooting, see `ObservabilityGuide.md`.
-
-Manual equivalent:
-
-```powershell
-.\Scripts\RunLocal.ps1 -NoBrowser
-```
-
-Open:
-
-- App: `https://localhost:7186`
-- Health: `https://localhost:7186/health`
-- Redis Insight: `http://localhost:5540`
-- Grafana, only with `-Observability`: `http://localhost:3000`
-- Alertmanager, only with `-Observability`: `http://localhost:9093`
-- Prometheus, only with `-Observability`: `http://localhost:9090`
-- Loki, only with `-Observability`: `http://localhost:3100`
-- Tempo, only with `-Observability`: `http://localhost:3200`
-
-Blazor Auto account routes are `/Account/Login`, `/Account/Register`, and `/Account/Manage`. React has no account pages; see [Frontend Profiles](FrontendProfiles.md).
-
-Docker publishes app, PostgreSQL, Redis, Redis Insight, and optional observability ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
-
-Local User login seed:
-
-- Email: `user@user.com`
-- Password: `User123`
-- Role: `User`
-
-The User account is created after EF migrations run in `Development`, and in the local Docker stack because root `docker-compose.yml` explicitly sets `LocalAccounts__Enabled: "true"`. Startup does not create an Admin account, and this template does not provide an Admin provisioning workflow. The `Admin` role remains available for accounts provisioned separately. Deployment compose files set local seeding to `false`. Startup checks the legacy Admin in every environment and also checks the published User in Docker when local seeding is disabled. Matching published passwords are locked; accounts with changed passwords are preserved. If startup cannot verify or lock a published default account, it fails rather than serving with a possibly usable credential. Locking rotates the account's security stamp; existing sessions expire when Identity next validates that stamp. The local User seed writes its password hash directly so this local-only password works without weakening normal Identity password rules for registration and password reset flows.
-
-If one of the default host ports is busy, change the matching `*_HOST_PORT` value in `.env` and rerun `.\Scripts\RunLocal.ps1 -NoBrowser`. The wrapper resolves `frontend-profile.txt` and selects the matching Docker target. Container-to-container settings such as `Database__Port=5432` and `Redis__Configuration=redis:6379` should stay on the container ports unless you also change the containers.
-
-Redis Insight can connect to:
-
-```text
-redis://redis:6379
-```
-
-## Local Behavior
-
-Docker uses:
-
-- `.env`
-- `docker-compose.yml`
-- `BlazorAutoApp/appsettings.Docker.json`
-- `ASPNETCORE_ENVIRONMENT=Docker`
-- `Database__RunMigrationsAtStartup=true`
-
-The `./data/storage:/app/Storage` mount is local runtime storage for fallback Data Protection keys inside Docker. Direct local runs use `data/storage/DataProtection-Keys`. Neither path is upload or media storage.
-
-The Docker profile applies EF migrations on startup. If you reset the local database, recreate the stack with volumes removed:
+## Reset local data
 
 ```powershell
 .\Scripts\RunLocal.ps1 -ResetDatabase -NoBrowser
 ```
 
-## Local Docker Storage Maintenance
+Reset removes this Compose project's named volumes before rebuilding. This deletes the local PostgreSQL database and stored state for Redis Insight and optional observability services. It cannot be undone. Use it only when you intend to recreate local service data, such as after an incompatible database image upgrade. Ordinary start and stop keep the volumes. Do not delete another clone's data.
 
-`RunLocal.ps1` builds the local `web` image by default. Docker Compose tags the newest build as `<project>-web:latest`, so older local app builds become dangling `<none>:<none>` images, and Docker Desktop does not remove them automatically. After each successful build, `RunLocal.ps1` removes dangling images. Skip that for one run with:
+## Run without Docker
 
-```powershell
-.\Scripts\RunLocal.ps1 -SkipDockerCleanup
-```
-
-For a broader cleanup, run the cleanup script yourself. By default it removes dangling images, stopped containers older than 24 hours, unused networks older than 24 hours, and unused build cache older than 48 hours. Those can belong to other projects on the same Docker Desktop, so check the dry run first:
-
-```powershell
-.\Scripts\PruneLocalDockerResidue.ps1 -DryRun
-.\Scripts\PruneLocalDockerResidue.ps1
-```
-
-For a one-off cleanup of everything old, use `-Aggressive`. The script never prunes Docker volumes, so local PostgreSQL, Redis Insight, Grafana and other named-volume state is preserved.
-
-Stop the stack with `.\Scripts\RunLocal.ps1 -StopStack`. Use `-ResetDatabase` (alone, or with `-StopStack`) only when you intentionally want to delete the local Docker volumes.
-
-## Run Without Docker
-
-Use this only when compatible PostgreSQL and Redis services already exist outside Docker.
+Use this only when compatible local PostgreSQL and Redis services already run:
 
 ```powershell
 $env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"
 $env:Redis__Configuration = "localhost:6379"
 $env:Database__RunMigrationsAtStartup = "true"
-dotnet run --project BlazorAutoApp
+dotnet run --project .\BlazorAutoApp\BlazorAutoApp.csproj -- --urls https://localhost:7186
 ```
 
-If port `7186` is already in use, stop the old process/container or run on another HTTPS URL:
-
-```powershell
-dotnet run --project BlazorAutoApp --urls "https://localhost:7286"
-```
-
-When changing the app URL for E2E, set `E2E_BASE_URL` to the same URL.
-
-Local port checklist:
-
-```text
-7186 app HTTPS
-5025 optional app HTTP
-5432 PostgreSQL
-6379 Redis
-5540 Redis Insight
-3000 Grafana, optional observability profile
-9093 Alertmanager, optional observability profile
-9090 Prometheus, optional observability profile
-3100 Loki, optional observability profile
-3200 Tempo, optional observability profile
-12345 Alloy UI/API, optional observability profile
-```
-
-For Docker host-port conflicts, prefer changing `.env` values such as `POSTGRES_HOST_PORT=5433` or `APP_HTTPS_HOST_PORT=7286` instead of editing `docker-compose.yml`.
+If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_URL` to the same URL for browser tests. React's Vite proxy and API setup are described in [Frontend/React](Frontend/React.md).
 
 ## Tailwind
 
+Use the client lockfile for repeatable installs:
+
 ```powershell
-cd BlazorAutoApp.Client
-npm install
+Set-Location .\BlazorAutoApp.Client
+npm ci
 npm run css:build
 ```
 
-For active CSS work:
-
-```powershell
-npm run css:watch
-```
-
-Generated output is committed at `BlazorAutoApp/wwwroot/tailwind.css`.
+During active CSS work, use `npm run css:watch`. Generated output is `BlazorAutoApp/wwwroot/tailwind.css`; commit it when Razor classes or `BlazorAutoApp.Client/Styles` change.
 
 ## Migrations
 
-Add a migration:
+Create and apply a local schema migration with:
 
 ```powershell
 dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Infrastructure\Persistence\Migrations
-```
-
-Apply migrations:
-
-```powershell
 dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
 ```
 
-Build a migration bundle:
-
-```powershell
-dotnet ef migrations bundle --project BlazorAutoApp\BlazorAutoApp.csproj --startup-project BlazorAutoApp\BlazorAutoApp.csproj --configuration Release --self-contained --runtime linux-x64 --output artifacts\migrations\verify-migrate
-```
-
-The existing LocalCluster deployment flow builds its own named migration bundle and GHCR image from `.github/workflows/ci.yml`, then deploys them through `.github/workflows/cd-localcluster.yml`. See `Deployment/LocalCluster/HowToDeployLocalCluster.md`.
+Production uses the release workflow's verified migration bundle; follow the relevant [deployment guide](../Deployment/README.md). Do not import another system's data from application startup.
 
 ## Tests
 
-Docker must be running because integration tests use Testcontainers.
-
-```powershell
-dotnet test
-```
-
-Visible E2E is documented in `Test.md`.
-
-Deployment validation without deploying:
-
-```powershell
-bash Deployment/LocalCluster/Scripts/audit-deployment.sh
-bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
-python -m yamllint .github Deployment/LocalCluster
-docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
-docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck-alpine:stable sh -c "find Deployment/LocalCluster/Scripts -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning"
-```
-
-## Troubleshooting
-
-Check local setup:
-
-```powershell
-python ./docker/local-status.py
-```
-
-Check container status and logs:
-
-```powershell
-docker compose ps
-docker compose logs web --tail=100
-docker compose logs postgres --tail=100
-```
-
-Recreate the HTTPS certificate:
-
-```powershell
-pwsh -File ./docker/create-dev-cert.ps1 -Force
-```
-
-Stop containers while keeping volumes:
-
-```powershell
-docker compose down
-```
-
-Stop containers and delete local Docker volumes:
-
-```powershell
-docker compose down --volumes --remove-orphans
-```
-
-If the app exits while applying a fresh initial migration and the logs mention an existing table such as `AspNetRoles`, the local Docker database volume is from an older template version. Reset the local Docker volumes:
-
-```powershell
-.\Scripts\RunLocal.ps1 -ResetDatabase
-```
+Integration tests need Docker. See [Test](Test.md) for the normal run and full local gate; browser tests have a separate [opt-in guide](Testing/Browser.md).
