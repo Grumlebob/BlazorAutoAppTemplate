@@ -30,4 +30,4 @@ Register the server implementation and bind safe feature defaults in its `Depend
 
 Test validation, access, not-found behavior, persistence, ownership isolation, and cache behavior when applicable. Add tests for the contract rather than tests that only construct DTOs. See [Infrastructure testing](../Testing/Infrastructure.md) and the [local gate](../Test.md#local-gate).
 
-Log useful outcomes without secrets or full user payloads. Add metrics only to answer an operator question, and keep labels low-cardinality. Link new operator-facing signals from [Observability](../ObservabilityGuide.md).
+Log useful outcomes without secrets or full user payloads. Add metrics only to answer an operator question, and keep labels low-cardinality. Link new operator-facing signals from [Observability architecture](../Observability/Architecture.md).
