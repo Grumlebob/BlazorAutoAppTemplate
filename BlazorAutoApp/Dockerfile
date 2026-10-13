@@ -7,7 +7,10 @@ RUN npm install --global npm@12.2.0 && npm ci
 
 FROM react-dependencies AS react-assets
 COPY BlazorAutoApp.React/ ./
-RUN npm run build && test -s build/client/index.html
+# One app stylesheet: prerendered HTML must link the same CSS the client bundle loads,
+# or hydration fails.
+RUN npm run build && test -s build/client/index.html \
+    && test "$(ls build/client/assets/app-*.css | wc -l)" -eq 1
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
