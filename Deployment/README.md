@@ -8,7 +8,7 @@ All targets use shared image and migration settings. CI can publish from a `main
 | `localcluster` | Four PCs | Linux Mint, prepared cluster and Cloudflare | Rolling app update without migrations; see the guide for migrations | Follow the cluster guide | Several app instances at home |
 | `cloud` | Four Hetzner servers | Cloud/Cloudflare accounts and infrastructure cost | Follow the cloud guide | Follow the cloud guide | Public production with managed infrastructure |
 
-- [LocalSingleNode guide](LocalSingleNode/HowToDeployLocalSingleNode.md): agent setup on the selected native PC, with one operator sudo command.
+- [LocalSingleNode guide](LocalSingleNode/HowToDeployLocalSingleNode.md): routes for authorized native setup, controller access, public setup, app instances and operations.
 - [LocalCluster guide](LocalCluster/HowToDeployLocalCluster.md): cluster preparation, inventory, Cloudflare and deployment.
 - [Cloud guide](Cloud/HowToDeployCloud.md): OpenTofu infrastructure, Ansible and Cloudflare.
 - [Fork guide](../docs/HowToForkThisRepo.md): application identity and target routing.

@@ -1,0 +1,115 @@
+# LocalSingleNode operations
+
+Use this guide for an already prepared native node. Workflow dispatches, reboot, restore and app removal require operator authorization. Use [AgentSetup](AgentSetup.md) for authorized first setup or resume, [ApplicationInstances](ApplicationInstances.md) for a second app, and [PublicSetup](PublicSetup.md) for tunnel and HTTPS changes. Commands that say “on the node” require its repository checkout.
+
+## Release and rollback
+
+From GitHub Actions, dispatch **CD - Deploy LocalSingleNode** from `main`. Require a successful publishing CI run for the exact selected SHA and record the workflow run ID before watching. If watching stops, inspect the same run; never dispatch another run to replace a watcher.
+
+- Leave `target_sha` empty to select the dispatched `main` commit, or supply a full SHA on `main`.
+- Set `run_migrations=true` for the first deployment or a schema update. Use `false` when the selected release does not need a migration.
+- The default `app_instance` is `primary`. Use `additional` only for a configured instance; see [ApplicationInstances](ApplicationInstances.md).
+
+The deployment verifies the release manifest, immutable image digest, migration artifact and acceptance profile before applying migrations. From the node's repository checkout, run the independent LAN check when needed:
+
+```bash
+bash ./Deployment/LocalSingleNode/Scripts/acceptance-check.sh
+```
+
+For an app rollback before a migration, dispatch the prior verified `main` SHA with `run_migrations=false`; that SHA still needs its successful publishing run. After a migration, prefer a forward fix. Restoring an older backup loses later writes, and rolling back the app image does not roll back database changes. See [the release contract](../Common/ReleaseContract.md).
+
+## Diagnose a running node
+
+`doctor.sh --json` is read-only. Run it from the node's repository checkout:
+
+```bash
+bash ./Deployment/LocalSingleNode/Scripts/doctor.sh --json
+```
+
+Use its reported checks to identify what needs attention. Run `acceptance-check.sh` to verify LAN readiness and the configured HTTP acceptance profile. Use [Readiness](Readiness.md) for a pre-setup candidate check; it does not bootstrap, back up, deploy, restart or repair the node.
+
+## Maintenance
+
+The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance.
+
+Use these options only when needed:
+
+- `acceptance_only=true` runs HTTP acceptance without routine maintenance.
+- `restart_app=true` may be combined with acceptance only; it restarts this app's web container and checks persistence.
+- `restart_connector=true` checks this app's public connector. Keep it separate from an app restart.
+- `reboot_check=true` reboots after the whole workflow succeeds. Additional app operations cannot reboot the shared host.
+
+Select `app_instance=primary` or `additional` deliberately. See [ApplicationInstances](ApplicationInstances.md) for additional-app guards and host-wide operation limits. Public tunnel ownership, credential rotation and removal belong to [PublicSetup](PublicSetup.md).
+
+## Deployment lock recovery
+
+Single-node workflows run on this node's self-hosted `deploy` runner. They use the shared `/tmp/localcluster-deploy.lockdir` to serialize app changes. The wrapper releases the lock after its command exits; it does not reclaim a lock left by an interrupted command.
+
+If a workflow times out waiting for the lock, inspect it from the node's repository checkout:
+
+```bash
+sudo -u deploy bash ./Deployment/Common/Scripts/release-deploy-lock.sh --inspect
+```
+
+Confirm the owner process is gone and no `ansible-playbook` process runs as `deploy`. Release only the exact token printed by inspection:
+
+```bash
+sudo -u deploy bash ./Deployment/Common/Scripts/release-deploy-lock.sh --release --token <exact-token>
+```
+
+If the owner is on another host, confirm no deployment is active there and add `--owner-host-checked`. If the lock contains another app's metadata, stop and use that app's recovery tool. Never remove the lock by hand.
+
+## Backups and recovery
+
+The node creates a protected PostgreSQL backup nightly. Maintenance also creates and verifies a fresh backup by default. Backups and their secrets copy stay on the node until you transfer them to protected off-host storage. Verify the host key through [Controller SSH](ControllerSsh.md) before copying.
+
+To verify the newest dump, run this from the node checkout as an account with Docker access:
+
+```bash
+bash ./Deployment/LocalSingleNode/Scripts/verify-backup.sh
+```
+
+To verify a specific dump, add `--file <backup-root>/<backup-file>.dump`. Verification restores it into an isolated, network-disabled temporary PostgreSQL container and removes only that container.
+
+Copy the configured backup directory to another machine or encrypted storage. Substitute the actual install user, node address, configured `backup_root`, and protected destination:
+
+```bash
+scp -r <install-user>@<node-ip>:<backup-root> <protected-destination>
+```
+
+Manual restore requires an operator decision. It creates a new `<database>_restore_<suffix>` database; it refuses the live or an existing target and does not switch application connections. Use the app's exact slug for confirmation and replace hyphens with underscores in the database name:
+
+```bash
+APP_NAME="your-app-slug"
+DATABASE_NAME="${APP_NAME//-/_}"
+sudo bash ./Deployment/LocalSingleNode/Scripts/verify-backup.sh \
+  --restore-into "${DATABASE_NAME}_restore_recovery" \
+  --confirm-restore "$APP_NAME"
+```
+
+Keep the complete target database name at 63 characters or fewer. The suffix must use lowercase letters, digits or underscores.
+
+Add `--file <backup-root>/<backup-file>.dump` before the confirmation option to select a specific owned dump. For an additional app, select its persisted settings explicitly:
+
+```bash
+APP_NAME="your-app-slug"
+DATABASE_NAME="${APP_NAME//-/_}"
+sudo env LOCALSINGLENODE_SETTINGS_FILE="/etc/${APP_NAME}/settings.yml" \
+  bash ./Deployment/LocalSingleNode/Scripts/verify-backup.sh \
+  --restore-into "${DATABASE_NAME}_restore_recovery" \
+  --confirm-restore "$APP_NAME"
+```
+
+Validate recovered data before planning a separate reviewed cutover. A failed partial replacement is left for operator inspection.
+
+## Remove an application
+
+Removal requires an explicit operator decision. Copy a verified backup off the node and record the exact app resources first. Disable this app's backup timer. Remove a runner only if it is dedicated to the removed app and no other app needs it.
+
+Stop only this app's Compose project:
+
+```bash
+sudo docker compose --project-directory <deploy-root> -p <app-name> down
+```
+
+Never add `--volumes`. Keep its PostgreSQL, Redis and app-storage volumes until the operator identifies the exact owned volume, verifies the off-host backup and removes that volume manually. Remove only this app's Caddy site; validate the shared Caddy configuration before reloading it. Retain protected backups and secrets until their removal is separately authorized. Do not uninstall shared host services or alter another app.
