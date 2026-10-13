@@ -947,6 +947,8 @@ To print a Cloud observability resource snapshot:
 bash ./Deployment/Cloud/Scripts/observability-resource-report.sh
 ```
 
+For common dashboard queries, retention, validation, and recovery, use [Observability operations](../../docs/Observability/Operations.md).
+
 Do not expose Grafana, Prometheus, Loki, Tempo, Alloy, or exporter ports publicly.
 
 ## 15. Backup And Restore
