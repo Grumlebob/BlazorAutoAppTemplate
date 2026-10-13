@@ -56,7 +56,7 @@ Stop only this repository's stack; history volumes remain:
 pwsh -NoProfile -File Scripts/Quality/SonarQubeServer.ps1 -Stop
 ```
 
-The stack is intentionally separate from application and deployment Compose files. It does not share the unrelated `sonarqube-improveddb` stack.
+The stack is isolated from application, deployment and other repositories' Compose stacks.
 
 ## Read results
 

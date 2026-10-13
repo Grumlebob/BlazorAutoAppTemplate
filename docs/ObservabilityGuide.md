@@ -1,8 +1,6 @@
 # Observability Guide
 
-This is the durable operator guide and architecture reference for the current
-Books observability stack. It replaces the historical implementation plan:
-keep this file, not the phase-by-phase rollout notes.
+Operator guide and architecture reference for the template observability stack.
 
 ## Purpose
 
@@ -261,7 +259,7 @@ LocalCluster from CurrentPC:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-CONTROLPC_SSH_TARGET=jacob@node-main bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
+CONTROLPC_SSH_TARGET="<linux-mint-install-user>@node-main" bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
 ```
 
 Then open:
@@ -292,7 +290,7 @@ version endpoint.
 If `node-main` is not resolvable from CurrentPC:
 
 ```bash
-CONTROLPC_SSH_TARGET=jacob@<node-main-lan-ip> bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
+CONTROLPC_SSH_TARGET="<linux-mint-install-user>@<node-main-lan-ip>" bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
 ```
 
 Cloud from CurrentPC:

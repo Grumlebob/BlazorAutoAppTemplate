@@ -1,16 +1,14 @@
 # How To Deploy Cloud
 
-This is the only cloud deployment plan and runbook. Follow it from top to bottom.
+Runbook for the four-server Cloud deployment. Follow it from top to bottom.
 
-The target site is:
+The example site is:
 
 ```text
 https://bookscloud.example.com
 ```
 
-## Current Status
-
-The Cloud deployment has been brought live at `https://bookscloud.example.com`.
+## Operating the deployment
 
 This guide remains the source of truth for rebuilding, repairing, or repeating the Cloud deployment. Follow it from top to bottom for a fresh deployment; for an existing deployment, run the doctor script first and continue from the first `ACTION` or `BLOCKER`.
 
@@ -22,15 +20,14 @@ No `[ControlPC]` action is needed for Cloud deployment.
 
 ## Fixed Decisions
 
-- Architecture: Option A, multi-VPS Docker Compose with Cloudflare Tunnel.
+- Architecture: multi-VPS Docker Compose with Cloudflare Tunnel.
 - Infrastructure: OpenTofu manages Hetzner Cloud resources.
 - Runtime/deploy: Ansible manages OS configuration, services, Docker Compose, migrations, backups, and checks.
 - App build: existing shared CI builds the app image and migration bundle.
 - Cloud CD: separate `CD - Cloud` workflow, not a duplicate CI.
 - Cloud site: `bookscloud.example.com`.
-- LocalCluster site remains: `books.example.com`.
-- App image remains shared: `ghcr.io/grumlebob/books`.
-- Migration bundle remains shared: `books-migrate-linux-x64`.
+- App image: read `app_image` from `Deployment/Common/release.yml`.
+- Migration bundle: read its name and runtime from `Deployment/Common/release.yml`.
 - Cloud server OS: Ubuntu 24.04 LTS for v1.
 - Cloud server type: `cx23` for all four servers in v1.
 - Hetzner location: `fsn1` for v1.
@@ -166,11 +163,11 @@ Review:
 Deployment/Common/release.yml
 ```
 
-Expected values:
+Example fork values:
 
 ```yaml
-app_image: ghcr.io/grumlebob/books
-migration_bundle_name: books-migrate
+app_image: ghcr.io/your-github-user/your-app
+migration_bundle_name: your-app-migrate
 migration_runtime: linux-x64
 ```
 

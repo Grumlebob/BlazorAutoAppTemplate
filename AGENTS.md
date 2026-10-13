@@ -21,6 +21,7 @@ Portable rules for people and coding agents working in this repository. Machine-
 - When you change behaviour that the deployment audit (`Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py`) checks, update the audit in the same change: replace the old rule with a rule for the new behaviour, never just delete it.
 - Rebuild and commit `BlazorAutoApp/wwwroot/tailwind.css` when Razor classes or `BlazorAutoApp.Client/Styles` change.
 - Product requirements are in [docs/Requirements.md](docs/Requirements.md).
+- Keep durable docs focused on current template behavior. Link canonical rules and commands instead of duplicating them; keep execution history in plans or PRs and use generic examples unless project-specific details explain template behavior.
 
 ## Hard stops
 
