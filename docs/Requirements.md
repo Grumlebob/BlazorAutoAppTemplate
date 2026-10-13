@@ -35,4 +35,6 @@ Canonical rules for apps built from this template. Detailed commands live in the
 ## Security
 
 - Never log or commit secrets, auth headers, cookies, raw request bodies, connection strings or vault contents.
+- Keep built-in rate limiting enabled: defaults are 600 global requests/minute, 60 API requests/minute and 120 account POSTs per five minutes, partitioned by signed-in user or client IP; static assets are exempt. Defaults are in [`appsettings.json`](../BlazorAutoApp/appsettings.json) and can be overridden with `RateLimiting` configuration.
+- Trust forwarded headers only from configured proxies or networks.
 - React v1 is account-free and reads public APIs without credentials or an auth/CSRF bootstrap. Keep protected APIs denied and profile-specific route/security headers documented in [FrontendProfiles.md](FrontendProfiles.md); skip local account seeding while retaining public author-book seeds and existing Identity storage.

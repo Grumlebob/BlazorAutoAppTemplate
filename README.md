@@ -1,159 +1,36 @@
 # BlazorAutoApp
 
-BlazorAutoApp is a .NET 10 template with two supported frontend profiles: `BlazorAuto` (the default, using Interactive Auto) and a public-only React SPA. The default Books screen demonstrates server prerendering and WebAssembly hydration. See [Frontend Profiles](docs/FrontendProfiles.md) for profile selection and profile-specific behavior. The app includes PostgreSQL persistence, Redis-backed caching/Data Protection, ASP.NET Core Identity, OpenTelemetry-ready logging, Docker Compose, and Playwright browser tests.
+BlazorAutoApp is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional public-only React SPA. Both use the same ASP.NET Core backend. PostgreSQL stores app data; Redis supports distributed caching and Data Protection.
 
-## Start Here
-
-Read the working rules and product requirements first. Open only the guides relevant to your task; deployment and observability guides are needed when those areas change.
-
-- `AGENTS.md` has the working rules for people and coding agents (checks, hard stops on the shared cluster).
-- `docs/Requirements.md` lists the product rules every feature must meet.
-- `docs/HowToRunLocally.md` explains Docker, direct `dotnet run`, local URLs, and port conflicts.
-- [Choose a deployment target](Deployment/README.md): one native PC, the existing LocalCluster, or Cloud.
-- [LocalSingleNode setup](Deployment/LocalSingleNode/AgentSetup.md) is the local-agent entry point for the explicitly selected native PC.
-- `Deployment/LocalCluster/HowToDeployLocalCluster.md` explains the existing LocalCluster deployment flow.
-- `docs/HowToAddANewFeature.md` explains how to add a coherent vertical feature slice.
-- `docs/Test.md` explains unit, integration, architecture, E2E, and Lighthouse testing; [SonarQubeAnalysis.md](docs/Quality/SonarQubeAnalysis.md) covers on-demand source audits.
-- `docs/HowToForkThisRepo.md` explains fork identity, target selection and the prepared LocalCluster path; its single-node path links the native agent setup.
-- `Plans/` holds tracked plans for multi-step changes; see `Plans/README.md`.
-
-## Tech Stack
-
-- .NET 10 Blazor Web App with `InteractiveAuto` as the default, plus a supported public-only React frontend profile.
-- EF Core 10 and Npgsql for PostgreSQL.
-- ASP.NET Core Identity with component account pages and .NET 10 passkeys schema support.
-- Redis for HybridCache and Data Protection keys.
-- Built-in ASP.NET Core rate limiting for API and account endpoints.
-- Tailwind CSS generated from `BlazorAutoApp.Client/Styles/input.css`.
-- Serilog console logging with OpenTelemetry trace/span correlation.
-- GitHub Actions CI on the selected self-hosted runner (`CI_RUNNER_LABEL`/`CI_RUNNER_HOST`; the template retains its existing runner): a `validate` job (deployment audit, script tests, build, tests, Docker and browser smoke for pull requests) and a `main`-only `publish-main` job that pushes the image to GHCR and publishes the migration bundle with a release manifest.
-- Centralized NuGet package versions in `Directory.Packages.props`.
-
-## Observability
-
-Local Docker can run the Grafana observability stack with `.\Scripts\RunLocal.ps1 -Observability`. LocalCluster deploys the stack on `node-main`, and Cloud deploys the stack on `cloud-main`; both targets use per-node collectors. `docs/ObservabilityGuide.md` is the operator guide and architecture reference:
-
-- OpenTelemetry instruments the .NET app and correlates logs, metrics, and traces.
-- Grafana is the dashboard and operator UI.
-- Prometheus stores metrics and runs alert rules.
-- Alertmanager receives Prometheus alerts for routing and silencing.
-- Loki is centralized log aggregation.
-- Tempo stores distributed traces from OpenTelemetry.
-- Grafana Alloy is the per-node collector for logs, metrics, and OTLP telemetry.
-- Exporters expose host, PostgreSQL, and Redis metrics; Alloy collects app container logs and app OTLP metrics/traces.
-
-The LocalCluster and Cloud observability deployments use existing nodes; no extra observability node is part of the plan.
-
-## Repository Layout
-
-- `BlazorAutoApp.Core/Features/*` contains shared feature contracts, domain types, and request/response DTOs.
-- `BlazorAutoApp/Features/*` contains server-side feature implementations and endpoint mapping.
-- `BlazorAutoApp/Infrastructure/*` contains server host/platform concerns such as persistence, caching, Data Protection, rate limiting, forwarded headers, and health checks.
-- `BlazorAutoApp.Client/Features/*` contains client UI slices and WASM service implementations.
-- `BlazorAutoApp.Client/Features/AppShell` contains layout, reconnect UI, not-found UI, and template render-mode diagnostics.
-- `BlazorAutoApp/Features/Login/Account` contains Identity account components and account endpoint helpers.
-- `BlazorAutoApp.Test` contains xUnit integration, architecture, rate-limiting, and Playwright E2E tests.
-- `Deployment/LocalSingleNode` contains native one-PC agent setup, local Ansible, Compose, LAN Caddy and protected nightly backups.
-- `Deployment/LocalCluster` contains the Ansible, compose, inventory, and helper scripts for the existing LocalCluster deployment.
-- `Deployment/Common` contains release settings, host roles and helpers shared by all three deployment targets (CI provenance, release manifest validation, artifact retention).
-- `Scripts/CI` contains CI helpers (runner capacity check, migration staging provenance).
-- `docker-compose.yml` runs the local app stack.
-- `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.
-
-## Deployment targets
-
-Use [the target chooser](Deployment/README.md) before provisioning or dispatching. `DEPLOY_TARGETS` enables each selected target; CI builds the shared digest-pinned release. Single-node setup runs only on the explicitly selected native Linux PC and stops for authentication and one operator sudo command.
-
-### LocalCluster deployment
-
-The LocalCluster deployment flow is intentionally kept in this repository. It uses:
-
-- `.github/workflows/ci.yml` to validate every change and, on `main`, publish the image, the migration bundle and a `release-manifest.json` that binds them to the commit and CI run.
-- `.github/workflows/cd-localcluster.yml` to deploy a commit on `main` from the app-specific self-hosted runner. It requires a successful CI run, validates the release manifest, deploys the image by digest, and verifies every app node runs it.
-- `.github/workflows/localcluster-docker-maintenance.yml` for scoped runner and Docker cleanup under the shared deployment lock (manual by default; forks can enable its schedule).
-- `.github/workflows/auto-merge-dependabot.yml` to merge exactly-tested, low-risk Dependabot updates.
-- `Deployment/LocalCluster/Scripts/audit-deployment.sh` and `validate-rendered-templates.sh` as deployment safety checks.
-- `Deployment/LocalCluster/HowToDeployLocalCluster.md` as the operating guide.
-
-## URLs
-
-When running the Docker stack:
-
-- App: `https://localhost:7186`
-- Health: `https://localhost:7186/health`
-- Redis Insight: `http://localhost:5540`
-- Grafana, with `.\Scripts\RunLocal.ps1 -Observability`: `http://localhost:3000`
-
-Local Docker publishes these ports on `127.0.0.1` only.
-
-If a default port is already in use, change the matching `*_HOST_PORT` value in `.env`; for example `POSTGRES_HOST_PORT=5433` or `APP_HTTPS_HOST_PORT=7286`.
-
-Canonical account routes:
-
-- Login: `/Account/Login`
-- Register: `/Account/Register`
-- Manage profile: `/Account/Manage`
-
-## Common Commands
-
-```powershell
-dotnet restore .\BlazorAutoApp.sln
-dotnet build .\BlazorAutoApp.sln --no-restore
-dotnet test .\BlazorAutoApp.sln --no-build
-dotnet package list --project .\BlazorAutoApp.sln --outdated
-dotnet package list --project .\BlazorAutoApp.sln --deprecated
-dotnet package list --project .\BlazorAutoApp.sln --vulnerable --include-transitive
-```
-
-Run the app stack:
+Run the local Docker stack:
 
 ```powershell
 .\Scripts\RunLocal.ps1
 ```
 
-Run the local Grafana/Prometheus/Loki/Tempo/Alloy observability stack:
+## Start here
 
-```powershell
-.\Scripts\RunLocal.ps1 -Observability
-pwsh -File .\docker\observability\smoke-local-observability.ps1
-```
+| Task | Guide |
+| --- | --- |
+| Understand contributor rules and product requirements | [AGENTS.md](AGENTS.md), [Requirements](docs/Requirements.md) |
+| Run the app or change local settings | [Run locally](docs/HowToRunLocally.md) |
+| Add a Blazor feature | [Feature guide](docs/HowToAddANewFeature.md) |
+| Add a React public feature | [React feature guide](docs/FrontendProfiles.md#extend-a-typed-public-feature) |
+| Select a frontend profile | [Frontend profiles](docs/FrontendProfiles.md) |
+| Run and verify checks | [Tests](docs/Test.md) |
+| Prepare a fork | [Fork guide](docs/HowToForkThisRepo.md) |
+| Choose and operate a deployment target | [Deployment guide](Deployment/README.md) |
+| View or diagnose telemetry | [Observability guide](docs/ObservabilityGuide.md) |
+| Run optional quality audits | [Quality tools](docs/Quality/QualityTools.md), [SonarQube](docs/Quality/SonarQubeAnalysis.md) |
 
-For dashboard access, common checks, and troubleshooting queries, see `docs/ObservabilityGuide.md`.
+Read only the guides needed for your task. The contributor rules point to required checks and integration steps.
 
-Build Tailwind output:
+## Repository map
 
-```powershell
-cd BlazorAutoApp.Client
-npm install
-npm audit
-npm run css:build
-```
-
-Run visible E2E:
-
-```powershell
-$env:RUN_E2E='1'
-$env:E2E_BASE_URL='https://localhost:7186'
-Remove-Item Env:\E2E_HEADLESS -ErrorAction SilentlyContinue
-dotnet test .\BlazorAutoApp.Test\BlazorAutoApp.Test.csproj --filter "Category=E2E"
-```
-
-## Current Behavior
-
-The Books page is the home page and shows render-mode diagnostics so template users can see the transition from prerendered server output to an interactive renderer. Books have a title, optional author, and optional URL. Anonymous users see the public SVG author bookcase; logged-in users also see `Add Book` and their own editable SVG bookcase. View, edit, add, and delete all happen through the book modal flow. Books data access is abstracted behind the shared `IBooksApi` contract: the server uses EF Core during prerender, and the hydrated WASM client calls `/api/books`.
-
-After the startup migration step, the app seeds the sample public author-book catalog by default in both frontend profiles. The `AuthorBooks:SeedAtStartup` setting defaults to `true`; set `AuthorBooks__SeedAtStartup=false` to disable this public seed. It does not create login accounts.
-
-Local demo login-account seeding is separate. It is enabled by default in Development and when `LocalAccounts__Enabled=true` in Docker. The root local Docker Compose file enables it; deployment Compose files disable it. The React frontend profile does not seed local login accounts.
-
-Redis is required outside development/test environments. It backs distributed `HybridCache`, Data Protection keys, and cross-node book cache invalidation. The default invalidation strategy uses Redis pub/sub with short local-cache TTLs; if strict freshness matters more than in-process cache speed, set `Cache__Books__DisableLocalCache=true` on every app node. Durable invalidation, such as Redis Streams or a database outbox, should be added by apps that need guaranteed delivery.
-
-Rate limiting is enabled by default:
-
-- Global app limit: `600` requests per minute per user/IP. Static assets (`_framework`, `_content`, `/assets` and static files) are not counted, so a WebAssembly boot does not use up the budget.
-- Books API limit: `60` requests per minute per user/IP.
-- Account POST endpoint limit: `120` requests per five minutes per user/IP.
-
-Override these values under the `RateLimiting` configuration section when building a real product from the template.
-
-Forwarded headers are trusted only from configured proxies or networks. LocalCluster injects the Caddy node IP into the app-server environment; direct public clients cannot choose their own `X-Forwarded-For` value by default.
+- `BlazorAutoApp.Core/Features/` contains shared feature contracts and domain types.
+- `BlazorAutoApp/Features/` contains server behavior and endpoint mappings.
+- `BlazorAutoApp.Client/Features/` contains Blazor client behavior and UI.
+- `BlazorAutoApp.React/` contains the optional React client.
+- `BlazorAutoApp.Test/` contains integration, architecture and browser tests.
+- `Deployment/` contains the three deployment targets and shared release tooling.
+- `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.

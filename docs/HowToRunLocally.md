@@ -135,6 +135,8 @@ Open:
 - Loki, only with `-Observability`: `http://localhost:3100`
 - Tempo, only with `-Observability`: `http://localhost:3200`
 
+Blazor Auto account routes are `/Account/Login`, `/Account/Register`, and `/Account/Manage`. React has no account pages; see [Frontend Profiles](FrontendProfiles.md).
+
 Docker publishes app, PostgreSQL, Redis, Redis Insight, and optional observability ports on `127.0.0.1` only. They are reachable from your machine, not from the LAN.
 
 Local User login seed:

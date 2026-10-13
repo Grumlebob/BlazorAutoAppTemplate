@@ -93,7 +93,7 @@ Public browser acceptance can target a deployed React app through `E2E_BASE_URL`
 
 Documentation-only PRs, containing only ordinary `.md` or `.mdx` documentation and no source, build, workflow, deployment configuration, or other non-Markdown file, are exempt from the local build, format, test and deployment gate and do not wait for PR/main CI. Review the complete PR diff, including both paths of renames, and run `git diff --check` before pushing. Add `[skip ci]` to documentation commits and the squash-merge title; fetch and verify the integrated content on `origin/main`. Respect enforced GitHub protection without changing it or manufacturing passing checks. Mixed PRs use the full gate below, even if their last commit only changes documentation. See [AGENTS.md](../AGENTS.md) for the integration rule.
 
-Run this before pushing a non-Markdown-only change. Each command must pass; CI runs the same checks. If one cannot run on your machine (for example no Docker daemon), say so in the pull request and rely on CI for it, but run everything else. The bash commands need Linux, WSL or Git Bash.
+Run the complete local gate before pushing a non-Markdown-only change. Run every required command successfully; CI does not replace the local gate. The bash commands need Linux, WSL or Git Bash.
 
 ```bash
 git diff --check
