@@ -21,7 +21,7 @@ if [[ -z "$PUBLIC_URL" ]]; then
   echo 'Public acceptance: disabled for this LAN-only deployment'
   exit 0
 fi
-python3 "$SCRIPT_DIR/lib/readiness.py" "$PUBLIC_URL/health/ready"
+python3 "$SCRIPT_DIR/lib/readiness.py" "$PUBLIC_URL/health/ready" public
 exec pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
   -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE" \
   -BaseUrl "$PUBLIC_URL"
