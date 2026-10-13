@@ -47,21 +47,30 @@ def snapshot_source(repo, destination):
 
 def validate_target(tool, target):
     if tool in ("zap", "sitespeed"):
-        url = urlsplit(target or "")
-        if url.scheme not in ("http", "https") or not url.hostname:
-            raise ValueError("Web audits require --target with an absolute HTTP(S) URL.")
-        if url.username or url.password or url.query or url.fragment:
-            raise ValueError("Use a public URL without credentials, query strings or fragments.")
-        if url.hostname in ("localhost", "127.0.0.1", "::1"):
-            raise ValueError("Container loopback is not the host; use host.docker.internal or a Docker service name.")
+        _validate_web_target(target)
     elif tool == "trivy-image":
-        if not target or target.startswith("-") or "@sha256:" not in target:
-            raise ValueError("Image audits require --target registry/image@sha256:<digest>.")
-        digest = target.rsplit("@sha256:", 1)[1]
-        if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-            raise ValueError("Image target must contain a full lowercase SHA-256 digest.")
+        _validate_image_target(target)
     elif target:
         raise ValueError(f"{tool} scans this checkout and does not accept --target.")
+
+
+def _validate_web_target(target):
+    url = urlsplit(target or "")
+    if url.scheme not in ("http", "https") or not url.hostname:
+        raise ValueError("Web audits require --target with an absolute HTTP(S) URL.")
+    if url.username or url.password or url.query or url.fragment:
+        raise ValueError("Use a public URL without credentials, query strings or fragments.")
+    if url.hostname in ("localhost", "127.0.0.1", "::1"):
+        raise ValueError("Container loopback is not the host; use host.docker.internal or a Docker service name.")
+
+
+def _validate_image_target(target):
+    digest_marker = "@sha256:"
+    if not target or target.startswith("-") or digest_marker not in target:
+        raise ValueError("Image audits require --target registry/image@sha256:<digest>.")
+    digest = target.rsplit(digest_marker, 1)[1]
+    if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        raise ValueError("Image target must contain a full lowercase SHA-256 digest.")
 
 
 def tool_command(tool, target):
@@ -81,6 +90,26 @@ def tool_command(tool, target):
             "--include-ext", "cs,razor,py,js,ts,tsx,jsx,ps1,psm1,sh,css",
             "--exclude-dir", "Migrations,lib,node_modules",
             "--output", "/reports/scc.json", "/src"]
+
+
+def _build_docker_command(args, repo, reports, source, container, image, summary):
+    command = ["docker", "run", "--rm", "--pull", "never", "--name", container,
+               "--cpus", "2", "--memory", "4g", "--shm-size", "1g"]
+    if os.name != "nt":
+        command += ["--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp"]
+    report_mount = "/zap/wrk" if args.tool == "zap" else "/reports"
+    command += ["--mount", f"type=bind,source={reports},target={report_mount}"]
+    if args.tool in ("trivy-source", "scc"):
+        summary["source"] = snapshot_source(repo, source)
+        command += ["--mount", f"type=bind,source={source},target=/src,readonly"]
+    if args.tool == "scc":
+        command += ["--network", "none"]
+    elif args.network:
+        command += ["--network", args.network]
+    if args.tool in ("zap", "sitespeed"):
+        command += ["--add-host", "host.docker.internal:host-gateway"]
+    command += [image, *tool_command(args.tool, args.target)]
+    return command
 
 
 def remove_container(name):
@@ -105,22 +134,34 @@ def read_results(tool, report_dir, exit_code):
         return {"report": "sitespeed/index.html", "iterations": 3}
     data = json.loads(report.read_text(encoding="utf-8-sig"))
     if tool.startswith("trivy"):
-        if not isinstance(data, dict) or data.get("SchemaVersion") != 2 or not data.get("ArtifactName"):
-            raise ValueError("Trivy returned an invalid report.")
-        counts = Counter()
-        for result in data.get("Results", []):
-            for family in ("Vulnerabilities", "Misconfigurations", "Secrets"):
-                for finding in result.get(family, []):
-                    counts[f"{family}:{finding.get('Severity', 'UNKNOWN')}"] += 1
-        return {"findings": dict(sorted(counts.items())), "targets": len(data.get("Results", []))}
+        return _summarize_trivy(data)
     if tool == "zap":
-        if not isinstance(data, dict) or not data.get("site"):
-            raise ValueError("ZAP did not report any scanned site.")
-        counts = Counter()
-        for site in data.get("site", []):
-            for alert in site.get("alerts", []):
-                counts[alert["riskdesc"]] += 1
-        return {"alerts": dict(sorted(counts.items()))}
+        return _summarize_zap(data)
+    return _summarize_scc(data)
+
+
+def _summarize_trivy(data):
+    if not isinstance(data, dict) or data.get("SchemaVersion") != 2 or not data.get("ArtifactName"):
+        raise ValueError("Trivy returned an invalid report.")
+    counts = Counter()
+    for result in data.get("Results", []):
+        for family in ("Vulnerabilities", "Misconfigurations", "Secrets"):
+            for finding in result.get(family, []):
+                counts[f"{family}:{finding.get('Severity', 'UNKNOWN')}"] += 1
+    return {"findings": dict(sorted(counts.items())), "targets": len(data.get("Results", []))}
+
+
+def _summarize_zap(data):
+    if not isinstance(data, dict) or not data.get("site"):
+        raise ValueError("ZAP did not report any scanned site.")
+    counts = Counter()
+    for site in data.get("site", []):
+        for alert in site.get("alerts", []):
+            counts[alert["riskdesc"]] += 1
+    return {"alerts": dict(sorted(counts.items()))}
+
+
+def _summarize_scc(data):
     if not isinstance(data, list) or not data:
         raise ValueError("scc returned an empty or invalid inventory.")
     return {"languages": len(data), "files": sum(row["Count"] for row in data),
@@ -167,22 +208,7 @@ def run_audit(args):
                 raise ValueError("Could not pull the pinned image; see tool.log.")
             with tempfile.TemporaryDirectory(prefix="quality-source-") as temporary:
                 source = Path(temporary)
-                command = ["docker", "run", "--rm", "--pull", "never", "--name", container,
-                           "--cpus", "2", "--memory", "4g", "--shm-size", "1g"]
-                if os.name != "nt":
-                    command += ["--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp"]
-                report_mount = "/zap/wrk" if args.tool == "zap" else "/reports"
-                command += ["--mount", f"type=bind,source={reports},target={report_mount}"]
-                if args.tool in ("trivy-source", "scc"):
-                    summary["source"] = snapshot_source(repo, source)
-                    command += ["--mount", f"type=bind,source={source},target=/src,readonly"]
-                if args.tool == "scc":
-                    command += ["--network", "none"]
-                elif args.network:
-                    command += ["--network", args.network]
-                if args.tool in ("zap", "sitespeed"):
-                    command += ["--add-host", "host.docker.internal:host-gateway"]
-                command += [image, *tool_command(args.tool, args.target)]
+                command = _build_docker_command(args, repo, reports, source, container, image, summary)
                 try:
                     result = execute(command, log)
                 finally:

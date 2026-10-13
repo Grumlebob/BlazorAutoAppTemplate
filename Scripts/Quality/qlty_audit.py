@@ -36,6 +36,38 @@ def extract_binary(archive, expected_sha256, destination):
     destination.chmod(0o755)
 
 
+def _download_archive(archive, package, remaining):
+    if archive.exists():
+        return
+    try:
+        with urlopen(package["url"], timeout=min(30, remaining())) as response, archive.open("wb") as output:
+            while chunk := response.read(1024 * 1024):
+                remaining()
+                output.write(chunk)
+    except BaseException:
+        archive.unlink(missing_ok=True)
+        raise
+
+
+def _qlty_package(settings):
+    machine = "x86_64" if platform.machine().lower() in ("amd64", "x86_64") else platform.machine()
+    platform_key = f"{platform.system()}-{machine}"
+    if platform_key not in settings["archives"]:
+        raise ValueError("The pinned Qlty audit supports Windows x64 and Linux x64.")
+    package = settings["archives"][platform_key]
+    return platform_key, package
+
+
+def _ensure_qlty_binary(repo, version, platform_key, package, remaining):
+    cache = repo / "TestResults" / "QualityTools" / "tools" / version / platform_key
+    cache.mkdir(parents=True, exist_ok=True)
+    archive = cache / ("qlty.zip" if platform.system() == "Windows" else "qlty.tar.xz")
+    binary = cache / ("qlty.exe" if platform.system() == "Windows" else "qlty")
+    _download_archive(archive, package, remaining)
+    extract_binary(archive, package["sha256"], binary)
+    return binary
+
+
 def summarize_sarif(path):
     data = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict) or data.get("version") != "2.1.0" or not data.get("runs"):
@@ -71,11 +103,7 @@ def run_qlty_audit(args, git, snapshot_source):
         raise ValueError("Qlty analyzes tracked source and does not accept a target or Docker network.")
     repo = args.repo_root.resolve()
     settings = json.loads(Path(__file__).with_name("audit-tools.json").read_text())["qlty"]
-    machine = "x86_64" if platform.machine().lower() in ("amd64", "x86_64") else platform.machine()
-    platform_key = f"{platform.system()}-{machine}"
-    if platform_key not in settings["archives"]:
-        raise ValueError("The pinned Qlty audit supports Windows x64 and Linux x64.")
-    package = settings["archives"][platform_key]
+    platform_key, package = _qlty_package(settings)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
     reports = repo / "TestResults" / "QualityTools" / run_id
     reports.mkdir(parents=True)
@@ -93,20 +121,7 @@ def run_qlty_audit(args, git, snapshot_source):
         return seconds
 
     try:
-        cache = repo / "TestResults" / "QualityTools" / "tools" / settings["version"] / platform_key
-        cache.mkdir(parents=True, exist_ok=True)
-        archive = cache / ("qlty.zip" if platform.system() == "Windows" else "qlty.tar.xz")
-        if not archive.exists():
-            try:
-                with urlopen(package["url"], timeout=min(30, remaining())) as response, archive.open("wb") as output:
-                    while chunk := response.read(1024 * 1024):
-                        remaining()
-                        output.write(chunk)
-            except BaseException:
-                archive.unlink(missing_ok=True)
-                raise
-        binary = cache / ("qlty.exe" if platform.system() == "Windows" else "qlty")
-        extract_binary(archive, package["sha256"], binary)
+        binary = _ensure_qlty_binary(repo, settings["version"], platform_key, package, remaining)
         with tempfile.TemporaryDirectory(prefix="quality-qlty-") as temporary, (reports / "tool.log").open("wb") as log:
             source = Path(temporary)
             summary["source"] = snapshot_source(repo, source)
