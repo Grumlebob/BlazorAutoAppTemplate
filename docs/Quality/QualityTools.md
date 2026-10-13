@@ -23,13 +23,14 @@ python Scripts/Quality/run_quality_audit.py trivy-source
 python Scripts/Quality/run_quality_audit.py scc
 python Scripts/Quality/run_quality_audit.py qlty
 python Scripts/Quality/run_quality_audit.py trivy-image --target "ghcr.io/owner/app@sha256:<full-image-digest>"
+python Scripts/Quality/run_quality_audit.py trivy-image --target "ghcr.io/owner/app@sha256:<full-image-digest>" --image-archive "/path/to/verified-docker-save.tar"
 python Scripts/Quality/run_quality_audit.py zap --target "http://host.docker.internal:8080/"
 python Scripts/Quality/run_quality_audit.py sitespeed --target "http://host.docker.internal:8080/"
 ```
 
 Use a disposable app for ZAP and sitespeed. Replace the example URL with its actual container-reachable address. Pass `--network <name>` when the app uses an existing Docker network; container `localhost` refers to the audit container. On Linux, the host app must listen on an interface reachable from Docker. A self-signed HTTPS certificate can fail browser scans; use a trusted certificate or the app's HTTP endpoint. The runner never disables certificate checks.
 
-`trivy-image` reads an immutable registry image without mounting the Docker socket. Public images pull directly. Private registry credentials are not copied from the host; arrange an authorized scan environment separately.
+`trivy-image` requires an immutable digest in `--target`. By default it reads that image from a registry without mounting the Docker socket. Public pulls work directly; private registry credentials are not copied from the host. For a private image, use `--image-archive` with a non-empty Docker-save tar created by an authorized environment after pulling the target by digest. The wrapper mounts the archive read-only and records its SHA-256 and byte count beside the requested digest. The caller must preserve evidence that the archive came from that digest.
 
 The default timeout is 15 minutes, including image pulls. Set `--timeout-minutes 1` through `60` to change it. Docker audits use a unique container, two CPUs, 4 GiB memory, and 1 GiB shared memory. The first browser-image pull can be large. Trivy downloads its vulnerability database for each run.
 
@@ -44,7 +45,7 @@ TestResults/QualityTools/<UTC-time>-<unique-id>/
   trivy.json | scc.json | qlty.sarif + metrics.txt | zap.json + zap.html + zap.md | sitespeed/index.html
 ```
 
-The summary records checkout SHA, dirty state, tool version, target, elapsed time, exit code, and result counts. Exit `0` means the required report exists. ZAP finding exit codes `1` and `2` are recorded as completed scans. Startup failures, malformed reports, cleanup failures, and timeouts return `1`; do not treat them as clean scans.
+The summary records checkout SHA, dirty state, tool version, target, image archive hash and size, elapsed time, exit code, and result counts. Exit `0` means the required report exists. ZAP finding exit codes `1` and `2` are recorded as completed scans. Startup failures, malformed reports, cleanup failures, and timeouts return `1`; do not treat them as clean scans.
 
 Source tools use current working contents of Git-tracked files in a temporary copy mounted read-only. Stage new source paths before scanning. Untracked files, ignored data, build output, Git history, and installed dependencies are outside the scan. Tracked symlinks and deleted files are skipped and listed. Qlty creates a disposable Git repository inside its copy; the original checkout stays untouched.
 

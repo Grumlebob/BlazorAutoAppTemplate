@@ -4,6 +4,7 @@
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -73,13 +74,43 @@ def _validate_image_target(target):
         raise ValueError("Image target must contain a full lowercase SHA-256 digest.")
 
 
-def tool_command(tool, target):
+def validate_image_archive(tool, image_archive):
+    if image_archive is None:
+        return None
+    if tool != "trivy-image":
+        raise ValueError("--image-archive is supported only by trivy-image.")
+    archive = Path(image_archive)
+    if archive.is_symlink():
+        raise ValueError("Image archives must be regular files, not symbolic links.")
+    try:
+        archive = archive.resolve(strict=True)
+    except OSError as error:
+        raise ValueError(f"Image archive does not exist: {archive}") from error
+    if not archive.is_file() or archive.stat().st_size == 0:
+        raise ValueError(f"Image archive must be a non-empty file: {archive}")
+    return archive
+
+
+def image_archive_metadata(archive):
+    digest = hashlib.sha256()
+    byte_count = 0
+    with archive.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+            byte_count += len(chunk)
+    return {"fileName": archive.name, "sha256": digest.hexdigest(), "byteCount": byte_count}
+
+
+def tool_command(tool, target, image_archive=None):
     if tool == "trivy-source":
         return ["fs", "--scanners", "vuln,misconfig,secret", "--format", "json",
                 "--output", "/reports/trivy.json", "--exit-code", "0", "/src"]
     if tool == "trivy-image":
-        return ["image", "--scanners", "vuln", "--format", "json",
-                "--output", "/reports/trivy.json", "--exit-code", "0", target]
+        command = ["image", "--scanners", "vuln", "--format", "json",
+                   "--output", "/reports/trivy.json", "--exit-code", "0"]
+        if image_archive is not None:
+            return command + ["--input", "/image/image.tar"]
+        return command + [target]
     if tool == "zap":
         return ["zap-baseline.py", "-t", target, "-m", "1", "-T", "5",
                 "-J", "zap.json", "-r", "zap.html", "-w", "zap.md"]
@@ -108,7 +139,13 @@ def _build_docker_command(args, repo, reports, source, container, image, summary
         command += ["--network", args.network]
     if args.tool in ("zap", "sitespeed"):
         command += ["--add-host", "host.docker.internal:host-gateway"]
-    command += [image, *tool_command(args.tool, args.target)]
+    image_archive = validate_image_archive(args.tool, getattr(args, "image_archive", None))
+    if image_archive is not None:
+        command += [
+            "--mount",
+            f"type=bind,source={image_archive},target=/image/image.tar,readonly",
+        ]
+    command += [image, *tool_command(args.tool, args.target, image_archive)]
     return command
 
 
@@ -170,6 +207,7 @@ def _summarize_scc(data):
 
 
 def run_audit(args):
+    image_archive = validate_image_archive(args.tool, getattr(args, "image_archive", None))
     if args.tool == "qlty":
         if __package__:
             from .qlty_audit import run_qlty_audit
@@ -178,6 +216,7 @@ def run_audit(args):
         return run_qlty_audit(args, git, snapshot_source)
     repo = args.repo_root.resolve()
     validate_target(args.tool, args.target)
+    archive_metadata = image_archive_metadata(image_archive) if image_archive is not None else None
     tool_key = args.tool.split("-", 1)[0]
     settings = json.loads((Path(__file__).with_name("audit-tools.json")).read_text())
     image = settings[tool_key]["image"]
@@ -193,6 +232,8 @@ def run_audit(args):
     summary = {"schema": 1, "tool": args.tool, "version": settings[tool_key]["version"],
                "image": image, "sha": sha, "dirty": dirty, "target": args.target,
                "startedUtc": datetime.now(timezone.utc).isoformat(), "status": "error"}
+    if archive_metadata is not None:
+        summary["imageArchive"] = archive_metadata
     started = time.monotonic()
     deadline = started + args.timeout_minutes * 60
 
@@ -242,6 +283,11 @@ def main():
     parser.add_argument("tool", choices=TOOLS)
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--target", help="Container-reachable public URL, or immutable registry image reference.")
+    parser.add_argument(
+        "--image-archive",
+        type=Path,
+        help="Read-only Docker-save tar for trivy-image; --target must still identify its immutable registry digest.",
+    )
     parser.add_argument("--network", help="Existing Docker network for a disposable local app.")
     parser.add_argument("--timeout-minutes", type=int, choices=range(1, 61), default=15, metavar="1..60")
     args = parser.parse_args()

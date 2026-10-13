@@ -55,6 +55,85 @@ class QualityAuditTests(unittest.TestCase):
                 audit.validate_target("trivy-image", target)
         audit.validate_target("trivy-image", "registry.example/app@sha256:" + "a" * 64)
 
+    def test_image_archive_requires_a_nonempty_file_and_trivy_image_target(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / "image.tar"
+            with self.assertRaisesRegex(ValueError, "does not exist"):
+                audit.validate_image_archive("trivy-image", archive)
+            archive.write_bytes(b"docker-save-fixture")
+            self.assertEqual(audit.validate_image_archive("trivy-image", archive), archive.resolve())
+            with self.assertRaisesRegex(ValueError, "only by trivy-image"):
+                audit.validate_image_archive("trivy-source", archive)
+            archive.write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "non-empty file"):
+                audit.validate_image_archive("trivy-image", archive)
+
+    def test_image_archive_is_mounted_readonly_and_hashed_in_summary_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / "private-image.tar"
+            archive.write_bytes(b"verified docker archive")
+            target = "ghcr.io/example/app@sha256:" + "a" * 64
+            args = argparse.Namespace(tool="trivy-image", target=target, image_archive=archive,
+                                      network=None, fixture_origin=False)
+            command = audit._build_docker_command(args, root, root, root, "owned-container",
+                                                  "trivy@sha256:digest", {})
+            archive_mount = f"type=bind,source={archive.resolve()},target=/image/image.tar,readonly"
+            self.assertIn(archive_mount, command)
+            tool_arguments = command[command.index("trivy@sha256:digest") + 1:]
+            self.assertIn("--input", tool_arguments)
+            self.assertIn("/image/image.tar", tool_arguments)
+            self.assertNotIn(target, tool_arguments)
+            self.assertEqual(audit.image_archive_metadata(archive.resolve()), {
+                "fileName": "private-image.tar",
+                "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                "byteCount": len(archive.read_bytes()),
+            })
+
+    def test_image_archive_audit_records_digest_and_archive_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary).resolve()
+            archive = repo / "image.tar"
+            archive.write_bytes(b"verified docker archive")
+            target = "ghcr.io/example/app@sha256:" + "b" * 64
+            args = argparse.Namespace(tool="trivy-image", repo_root=repo, target=target,
+                                      image_archive=archive, network=None, timeout_minutes=1)
+            calls = []
+
+            def docker(command, **kwargs):
+                calls.append(command)
+                if command[:2] == ["docker", "run"]:
+                    report_mount = next(
+                        item for item in command
+                        if item.startswith("type=bind,source=") and ",target=/reports" in item
+                    )
+                    reports = Path(report_mount.split("source=", 1)[1].split(",target=", 1)[0])
+                    (reports / "trivy.json").write_text(json.dumps({
+                        "SchemaVersion": 2,
+                        "ArtifactName": "example/app:main",
+                        "Results": [{"Vulnerabilities": []}],
+                    }))
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+            with patch.object(audit, "git", side_effect=[b"a" * 40, b""]), \
+                    patch.object(audit.subprocess, "run", side_effect=docker), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(audit.run_audit(args), 0)
+
+            summary_path = next(repo.glob("TestResults/QualityTools/*/summary.json"))
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(summary["status"], "completed")
+            self.assertEqual(summary["target"], target)
+            self.assertEqual(summary["imageArchive"], {
+                "fileName": "image.tar",
+                "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                "byteCount": len(archive.read_bytes()),
+            })
+            run = next(command for command in calls if command[:2] == ["docker", "run"])
+            self.assertIn("--input", run)
+            self.assertIn("/image/image.tar", run)
+            self.assertNotIn(target, run)
+
     def test_missing_malformed_reports_and_scanner_errors_never_pass(self):
         with tempfile.TemporaryDirectory() as temporary:
             reports = Path(temporary)
