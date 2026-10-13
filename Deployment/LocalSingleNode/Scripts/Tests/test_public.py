@@ -199,7 +199,7 @@ class PublicTests(unittest.TestCase):
         self.assertIn("read_release_acceptance.py", (LIB / "acceptance_profile.sh").read_text())
         self.assertIn('-BaseUrl "$PUBLIC_URL"', public)
         self.assertIn('-FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$ACCEPTANCE_PROFILE"', public)
-        self.assertIn("lib/readiness.py", public)
+        self.assertIn('lib/readiness.py" "$PUBLIC_URL/health/ready" public', public)
 
 
 if __name__ == "__main__":
