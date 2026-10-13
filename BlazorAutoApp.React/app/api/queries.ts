@@ -5,7 +5,7 @@ import { invalidApiResponse } from "./errors";
 export const authorBookQueryKeys = {
   all: ["author-books"] as const,
   list: () => [...authorBookQueryKeys.all, "list"] as const,
-  detail: (id: number | string) => [...authorBookQueryKeys.all, "detail", String(id)] as const,
+  detail: (id: number) => [...authorBookQueryKeys.all, "detail", String(id)] as const,
   bySeedKey: (seedKey: string) => [...authorBookQueryKeys.all, "seed-key", seedKey] as const,
 };
 
@@ -15,7 +15,7 @@ export const authorBookQueries = {
       queryKey: authorBookQueryKeys.list(),
       queryFn: ({ signal }) => publicApi.listAuthorBooks({ signal }),
     }),
-  detail: (id: number | string) =>
+  detail: (id: number) =>
     queryOptions({
       queryKey: authorBookQueryKeys.detail(id),
       queryFn: ({ signal }) => publicApi.getAuthorBook(id, { signal }),

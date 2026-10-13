@@ -32,6 +32,7 @@ internal static class OpenApiMetadataHosting
 
         builder.Services.AddRouting();
         builder.Services.AddAuthorization();
+        builder.Services.AddAppApiJson();
         builder.Services.AddRateLimiter(options =>
             options.AddPolicy(
                 AppRateLimiting.ApiPolicyName,
