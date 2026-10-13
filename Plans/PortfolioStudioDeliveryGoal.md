@@ -3,9 +3,14 @@
 ## Status (2026-10-13)
 
 The original goal below has been delivered:
-- https://portfolio.jacobgrum.com is live with all twelve stories, from release `c74f5f0` in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio).
+- https://portfolio.jacobgrum.com is live with all twelve stories, from release `b35f065` in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio).
 - P0–P10 are verified, including public acceptance and recovery proof (rollback, restarts and reboot).
 - The template defects found by this first clone are fixed upstream.
+
+The continuation goal's first item, PR #32, is merged and deployed (release `b35f065`, CD run 38457663765):
+- The live console is clean and Cloudflare bot detection is active; the favicon is served and the Lighthouse results are recorded.
+- Lighthouse best practices is 81, not above 92. The only failing audit is a deprecation inside Cloudflare's own detection script, which the CSP used to block. Whether to accept that or exclude the site from JavaScript detections is the owner's decision, recorded in Progress.
+- Progress records no owner-requested story improvement as outstanding; the stories wait on inputs only the owner can give.
 
 The exact evidence and the short remaining list are in [Progress.md § Current checkpoint](Support/PortfolioStudio/Progress.md). The authoritative copy is the one in Grumlebob/Portfolio.
 

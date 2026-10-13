@@ -6,18 +6,25 @@ Read [master plan](../../PortfolioStudioImplementation.md), [architecture/slices
 
 ## Current checkpoint
 
-Last updated: 2026-10-13, at the end of the first delivery session. The authoritative ledger is this file in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md). A fresh `/goal Plans/PortfolioStudioDeliveryGoal.md` run should read this section first, then the phase ledger and the project readiness ledger.
+Last updated: 2026-10-13, after PR #32 was merged, deployed and verified live. The authoritative ledger is this file in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md). A fresh `/goal Plans/PortfolioStudioDeliveryGoal.md` run should read this section first, then the phase ledger and the project readiness ledger.
 
 ### Where things stand
 
-The plan's product outcome is delivered. What remains: PR #32 (CSP nonce for Cloudflare bot detection, and a favicon) needs to land and be verified live, and owner-led story improvements continue.
+The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bot detection, and a favicon) is merged, deployed and verified live. What remains: one owner decision about Lighthouse best practices, and owner-led story improvements.
 
 - **Live site:** https://portfolio.jacobgrum.com serves all twelve stories, the Technologies page and real 404s.
 - **Current release:**
-  - Release `c74f5f0` (#30). Main CI: 38427217116. CD run: 38428073637.
-  - Running identity: `sha256:594c7e769e21e78f9955e6942b52f2940bec0dc74e7c3f74c9f93b7e2e30d31b`, React/PortfolioPublicV1.
-  - Content revision: `b60f12d3cc19aa48`.
-  - LAN and public PortfolioPublicV1 acceptance pass, including the served content revision.
+  - Release `b35f065` (#32). Main CI: 38457044050. CD run: 38457663765.
+  - Running identity: `sha256:e93908e357d64295a8b433c02d9b6a1d5b92e6fc11450a0103b231e8546d194b`, React/PortfolioPublicV1.
+  - Content revision: `b60f12d3cc19aa48` (unchanged).
+  - LAN (in the CD run) and public PortfolioPublicV1 acceptance pass, including the served content revision. The public run covered 27 checks.
+  - `main` is ahead of the release by #35 (`278792c`, main CI 38459075356 green). It changes only a test file, so it was not deployed.
+- **PR #32 outcome (2026-10-13):**
+  - Head `5eeeb82`: full local gate PASS and exact-head `build-test-push` run 38456275684 success. Merged as `b35f065` with `--match-head-commit`.
+  - Console: no browser errors (Lighthouse `errors-in-console` passes and the live E2E console assertion passes). The CSP error from `/cdn-cgi/challenge-platform/` is gone.
+  - Bot detection is still active. Cloudflare's `jsd/main.js` is injected, its inline script carries the response's nonce, and a real browser receives `cf_clearance`.
+  - Favicon: `/favicon.svg` returns 200 `image/svg+xml` (287 B) and `/favicon.ico` returns 200 `image/x-icon` (1358 B).
+  - **Best practices did not rise above 92; it fell to 81.** The only failing audit is `deprecations` (weight 5): Cloudflare's own `jsd/main.js` calls the deprecated `StorageType.persistent`. Before #32 the CSP blocked that script, so it never ran. The old 92 is consistent with the CSP violation failing `errors-in-console` and `inspector-issues`, but the pre-#32 reports were not kept, so that explanation is inferred from the scores, not observed. The app cannot change what Cloudflare's script does. See the owner decision under Remaining work.
 - **Product as built:**
   - React Router 8 framework mode with `ssr:false` + prerender, Tailwind 4 and TanStack Query, served by an ASP.NET Core host.
   - File-only runtime: no database, Redis, accounts or migrations.
@@ -39,17 +46,18 @@ The plan's product outcome is delivered. What remains: PR #32 (CSP nonce for Clo
 - **Release readiness and browser evidence (P7.4, P9.2):**
   - A fresh GitHub clone of main `1ad94fa` passed the full local gate and reproduced content revision `b60f12d3cc19aa48`.
   - The broad React E2E suite passed locally, including axe on four pages, themes, mobile, fragments and 404s.
-  - Against the live site, every functional E2E assertion passes. The only failure is the final console check, caused by Cloudflare's injected script (owner decision 1 below).
-  - Lighthouse on the live site:
+  - Against the live site on release `b35f065`, the broad and smoke E2E suites pass (2 of 2), including the console check. The run logged `Edge cookies seen: cf_clearance`, so Cloudflare's detection executed in the browser.
+  - Lighthouse 13.5 on the live site, release `b35f065`, headless Chromium 153, `Scripts/RunLighthouse.ps1`:
 
     | Page / device | Performance | Accessibility | Best practices | SEO | LCP |
     | --- | --- | --- | --- | --- | --- |
-    | `/` mobile | 87 | 100 | 92 | 100 | 3.4 s |
-    | `/` desktop | 100 | 100 | 92 | 100 | 0.7 s |
-    | `/projects/unlost` mobile | 88 | 100 | 92 | 100 | 3.2 s |
-    | `/projects/unlost` desktop | 99 | 100 | 92 | 100 | 0.7 s |
+    | `/` mobile | 98 | 100 | 81 | 100 | 2.0 s |
+    | `/` desktop | 99 | 100 | 81 (77 in one run) | 100 | 0.8 s |
+    | `/projects/unlost` mobile | 87 | 100 | 81 | 100 | 3.4 s |
+    | `/projects/unlost` desktop | 99 | 100 | 81 | 100 | 0.8 s |
 
-    CLS is at most 0.009 and TBT is 0 ms everywhere.
+    CLS is at most 0.009 and TBT is at most 3 ms. Four more `/` desktop runs all scored 81 for best practices (performance 99 to 100). The one 77 had a transient `inspector-issues` entry and did not recur.
+    Before #32 (release `c74f5f0`) best practices was 92 on all four, with performance 87, 100, 88 and 99 in the same row order.
 - **Bugs found and fixed during verification:**
   - **#30, the hydration failure.** In Docker, Tailwind could not see `.gitignore`, so the prerender build emitted different CSS from the client build. Every page threw React #418, and readers' saved theme was lost on reload. Tailwind now scans only `app/`, and the Dockerfile fails the build unless exactly one app stylesheet exists.
   - **#27, OS-independent content revision.** Content files are now LF on every OS, so a Windows export reproduces the release revision.
@@ -59,27 +67,18 @@ The plan's product outcome is delivered. What remains: PR #32 (CSP nonce for Clo
   - The stylesheet split: template #244.
   - The readiness label: template #245, merged as `466925c`.
   - Template #243 links the template plan to this ledger.
+  - The live no-cookie E2E assertion: Portfolio #35 (`278792c`) and template #259 (`2a72160a`, main CI 38460394504 success on exact main). Behind Cloudflare JavaScript detections a real browser holds `cf_clearance`, so only Cloudflare's exact edge cookie names are ignored.
+  - The template's deployment audit was failing on `main` because two docs-only `[skip ci]` commits (`94933bfc`, `a8d16ef3`) removed required wording and referenced a script that exists only under `Cloud/`. Repaired by template #260 (`73a2593f`) with the audit passing on the head.
+- **Closeout (2026-10-13):** deleted branches, with full SHAs. Portfolio `fix/csp-nonce-favicon` `5eeeb82ff5908178649594a853783bc479f9cff5` and `fix/e2e-ignore-edge-cookies` `73c9306bb65498e8f26ccc1519521c002bdb8a27`. Template `fix/e2e-ignore-edge-cookies` `1d60d03195ea7691b5bb143c5d242d1e64abe1f5` and `docs/fix-audit-after-skip-ci-docs` `04afceadc5fa5d628e2fcd22a4226f058d7ee3be`. Content of each PR was verified identical on `main` before deletion.
 - **Handover docs:** `docs/HowToAddAProject.md` in Portfolio covers adding or updating a story, the validator rules, release, deploy, rollback and restarts. Private tools are in `Plans.local/Portfolio/Tools/`, with a README: the live-test sequence runner, the SVG arrowhead converter, a safe Cloudflare check and a public-setup lister.
 
 ### Remaining work, in order
 
-1. **Land PR #32 (`fix/csp-nonce-favicon`), then verify it on the live site.** This is the owner's request for bot detection **and** high scores, without disabling Cloudflare's JavaScript detections.
-   - What it does:
-     - Every document response gets a fresh 128-bit `'nonce-…'` in `script-src` (`ReactFrontendHosting.WithScriptNonce`). Cloudflare [reads that nonce from the CSP header and puts it on the script it injects](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/). Our own inline scripts stay hash-authorized, and `unsafe-inline` is never added.
-     - It adds a minimal SVG "JG" favicon plus a 16/32 px ICO fallback, both linked from `app/root.tsx`.
-   - Evidence so far: 40 hosting tests (including the new nonce test), 28 React tests and lint all pass. The first gate and CI run on `c9e08b5` failed only because the required suite count was pinned at 173 passed. Head `5eeeb82` raises it to 174 in `Scripts/CI/validate-frontend-profiles.sh`, the audit rule and `docs/Test.md`. Re-run the full local gate on the current PR head and check its exact-head CI.
-   - Steps:
-     1. Full local gate PASS on the PR head.
-     2. Exact-head `build-test-push` passes.
-     3. `gh pr merge 32 --squash --delete-branch --match-head-commit <head>`.
-     4. Main CI passes.
-     5. `gh workflow run cd-localsinglenode.yml --ref main -f target_sha=<main sha>`, recording the run ID.
-   - Then verify the live site:
-     - The browser console is clean, with no CSP error from `/cdn-cgi/challenge-platform/`. Use the puppeteer probes in `Plans.local/Portfolio/Tools`, or run the live E2E: `RUN_E2E=1`, `E2E_BASE_URL=https://portfolio.jacobgrum.com`, `E2E_HEADLESS=1`, `dotnet test Portfolio.Test -c Release --no-build --filter "Category=ReactPublicBroad|Category=ReactPublicSmoke"`. Both should pass.
-     - `/favicon.svg` and `/favicon.ico` return 200.
-     - Lighthouse best practices rises from 92. Record the new scores here.
-   - **If the console still shows a blocked script:** Cloudflare's script builds an iframe and runs an inline script inside it, which may not carry the nonce. In that case evaluate adding `'strict-dynamic'`. That would require putting the nonce on our own `<script>` tags at serve time, so check hydration carefully. Do not use `unsafe-inline`, and do not change zone settings.
-   - Port the nonce part to the template only if the template also runs behind Cloudflare JavaScript detections. Otherwise record that it is not applicable.
+1. **Owner decision: Lighthouse best practices versus Cloudflare bot detection.** PR #32 delivered what it could (clean console, detections running, favicon), but the owner's second aim, best practices above 92, is not reachable while Cloudflare's script runs: it scores 81. Options:
+   - **Keep detections and accept 81.** This is the current state and needs no action. The deprecation is a DevTools notice, not something visitors see.
+   - **Exclude `portfolio.jacobgrum.com` from Cloudflare's JavaScript detections** to remove the only failing audit. That is a Cloudflare zone rule, outside this goal's authority, and it gives up the bot detection the owner asked to keep. Do it only on an explicit owner instruction.
+
+   Do not add `'strict-dynamic'` or `unsafe-inline`: the console is already clean and neither affects the deprecation. Port the nonce to the template only if a template deployment runs behind JavaScript detections and the owner accepts the same trade-off; it was not ported.
 2. **P6 story improvements (owner-led).** Every story is a launched draft. The project readiness ledger lists the inputs only the owner can give, such as role, dates, real captures and links. Each improvement is its own PR:
    - run `npm run content` and the full local gate;
    - merge after exact-head CI passes;
