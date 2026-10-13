@@ -29,11 +29,10 @@ Doctor checks prerequisites; preflight checks the selected deploy. Acceptance ch
 
 ## Observe the stack
 
-When observability is enabled, run the doctor and resource report from the control machine:
+When observability is enabled, run the doctor from the control machine:
 
 ```bash
 bash ./Deployment/LocalCluster/Scripts/observability-doctor.sh
-bash ./Deployment/LocalCluster/Scripts/observability-resource-report.sh
 ```
 
 Open Grafana from a workstation with this app's inventory and deploy key:
