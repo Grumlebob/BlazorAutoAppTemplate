@@ -6,6 +6,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+from doc_slice_loader import (
+    DOC_OWNER_PATHS,
+    CLUSTER_ENTRY,
+    FORK_ENTRY,
+    DocumentSliceError,
+    fence_error,
+    load_document_slices,
+    missing_literal,
+    missing_section_literal,
+    missing_target_scripts,
+)
+
 
 ROOT = Path(__file__).resolve().parents[5]
 failures: list[str] = []
@@ -80,6 +92,7 @@ required_files = [
     "Deployment/Common/ci-python-constraints.txt",
     "Deployment/LocalCluster/Scripts/ci-docker-smoke.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-ci-docker-smoke.sh",
+    "Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py",
     "Scripts/CI/validate-frontend-profiles.sh",
     "Scripts/CI/validate_dotnet_test_results.py",
     "Scripts/CI/tests/test_validate_dotnet_test_results.py",
@@ -166,6 +179,7 @@ required_files = [
     "Deployment/LocalCluster/Scripts/install-ansible.sh",
     "Deployment/LocalCluster/Scripts/read-deploy-setting.sh",
     "Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py",
+    "Deployment/LocalCluster/Scripts/Component/lib/doc_slice_loader.py",
     "Deployment/LocalCluster/Scripts/Component/lib/deploy_settings.py",
     "Deployment/LocalCluster/Scripts/Component/lib/generate-inventory.py",
     "Deployment/LocalCluster/Scripts/Component/lib/read-deploy-setting.py",
@@ -262,9 +276,22 @@ for path in old_layout_paths:
         fail(f"old deployment layout path should not exist: {path}")
 
 
-guide = read("Deployment/LocalCluster/HowToDeployLocalCluster.md")
-if guide.count("```") % 2 != 0:
-    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: unbalanced markdown code fences")
+try:
+    cluster_guide_documents = load_document_slices(ROOT, CLUSTER_ENTRY)
+except DocumentSliceError as exc:
+    fail(str(exc))
+    cluster_guide_documents = {CLUSTER_ENTRY: read(CLUSTER_ENTRY) if exists(CLUSTER_ENTRY) else ""}
+
+try:
+    fork_guide_documents = load_document_slices(ROOT, FORK_ENTRY)
+except DocumentSliceError as exc:
+    fail(str(exc))
+    fork_guide_documents = {FORK_ENTRY: read(FORK_ENTRY) if exists(FORK_ENTRY) else ""}
+
+for document_path, document_text in cluster_guide_documents.items():
+    error = fence_error(document_path, document_text)
+    if error:
+        fail(error)
 
 for forbidden in [
     ".deploy.local",
@@ -274,92 +301,101 @@ for forbidden in [
     "Deployment/LocalCluster/caddy/sites/app.caddy",
     "Deployment/LocalCluster/inventory/prod/host_vars",
 ]:
-    if forbidden in guide:
-        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: contains stale deployment reference: {forbidden}")
+    for document_path, document_text in cluster_guide_documents.items():
+        if forbidden in document_text:
+            fail(f"{document_path}: contains stale deployment reference: {forbidden}")
 
-for script_name in sorted(
-    set(re.findall(r"(?:\./)?Deployment/LocalCluster/Scripts/([A-Za-z0-9_.-]+\.sh)", guide))
-    | set(re.findall(r"`([A-Za-z0-9_.-]+\.sh)`", guide))
-):
-    if not exists(f"Deployment/LocalCluster/Scripts/{script_name}"):
-        fail(
-            "Deployment/LocalCluster/HowToDeployLocalCluster.md: "
-            f"references missing script: Deployment/LocalCluster/Scripts/{script_name}"
-        )
+for document_path, document_text in cluster_guide_documents.items():
+    for error in missing_target_scripts(ROOT, document_path, document_text):
+        fail(error)
 
-for needle, why in [
-    ("## 4. Reserve LAN IPs", "dedicated router IP reservation step"),
-    ("## 5. Generate Inventory", "dedicated control-machine inventory generation step"),
-    ("Ensure all four nodes are using their reserved IPs before proceeding.", "router reservation checkpoint"),
-    ("validate-machines.sh", "machines.yml validation checkpoint before inventory generation"),
-    ("Success: prints OK lines for machines.yml, deployment settings, and all four nodes.", "machines validation success checkpoint"),
-    ("Run this only from a full repository checkout on the control machine.", "verify-bootstrap full-checkout warning"),
-    ("test -f \"$REPO_ROOT/Deployment/LocalCluster/Scripts/verify-bootstrap.sh\"", "verify-bootstrap dependency checkpoint"),
-    ("## 12. Configure The GitHub CD Environment", "dedicated GitHub environment setup step"),
-    ("New environment -> localcluster", "localcluster environment creation"),
-    ("Deployment branches and tags: Selected branches and tags", "deployment branch restriction instructions"),
-    ("Allowed branch: main", "main-only environment branch rule"),
-    ("Environment localcluster exists and allows deployments from main.", "environment setup checkpoint"),
-    ("## 13. First Deploy From GitHub Actions", "first CD deploy step after environment setup"),
-    ("publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`", "main-only CI publishing explanation"),
-    ("Optional sanity check: before deploying, confirm the image tag exists.", "optional image check wording"),
-    ("migration bundle artifact is missing or expired", "expired CI artifact recovery guidance"),
-    ("pins PostgreSQL and Redis to exact versioned image tags", "pinned database image guidance"),
-    ("If this is the only app on these four nodes, keep the default ports and continue.", "single-site default guidance"),
-    ("If another LocalCluster app already runs on these nodes", "side-by-side settings warning"),
-    ("### Optional: Second Fork On The Same Nodes", "second-fork side-by-side subsection"),
-    ("For a second fork on the same nodes, do not reuse these values from the first app", "unique side-by-side values list"),
-    ("Second-fork flow on already-prepared nodes", "second-fork execution flow"),
-    ("prepare-existing-localcluster-app.sh", "existing cluster app preparation guidance"),
-    ("Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes", "side-by-side rerun warning"),
-    ("this fork's deploy key installed on the nodes", "side-by-side validation ordering warning"),
-    ("same Cloudflare account", "shared tunnel Cloudflare account limitation"),
-    ("gh repo clone \"$LOCALCLUSTER_REPO\"", "fork-safe clone command"),
-    ("gh repo view --json nameWithOwner,url,defaultBranchRef", "repository identity checkpoint"),
-    ("Deployment identity checkpoint", "deployment identity checkpoint before setup"),
-    ("git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml", "deployment settings commit command"),
-    ("needs committed `all.yml` settings and committed `hosts.yml` inventory", "committed settings and inventory explanation"),
-    ("git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml", "pre-push deployment file clean-state check"),
-    ("Workflow permissions: Read and write permissions", "fork GitHub Actions package write prerequisite"),
-    ("`app_image`", "side-by-side app image uniqueness"),
-    ("`migration_bundle_name`", "side-by-side migration bundle uniqueness"),
-    ("same machine IPs", "side-by-side reused machine IP guidance"),
-    ("`cloudflare_tunnel_name`, and Cloudflare tunnel token", "side-by-side shared tunnel guidance"),
-    ("Add this fork's public_hostname to the existing Cloudflare tunnel", "second-fork Cloudflare hostname step"),
-    ("open the existing tunnel and add the fork's `public_hostname`", "second-fork existing tunnel guidance"),
-    ("secondnotes", "side-by-side example app"),
-    ("LOCALCLUSTER_RUNNER_LABEL", "side-by-side runner label variable guidance"),
-    ("Repository -> Settings -> Secrets and variables -> Actions -> Variables", "GitHub repository variables UI path"),
-    ("No GitHub token goes into the vault.", "no stored registry token guidance"),
-    ("only `read:packages`", "minimum registry permission for optional manual-deploy tokens"),
-    ("Name: ANSIBLE_VAULT_PASSWORD", "manual GitHub vault secret guidance"),
-    ("This secret is the Ansible Vault password.", "vault secret purpose"),
-    ("release-manifest.json", "release manifest explanation"),
-    ("### Runner And Docker Storage Maintenance", "maintenance workflow guidance"),
-    ("### Deployment lock", "deployment lock recovery guidance"),
-    ("### Tool provisioning: --check versus --provision", "check-only versus provisioning guidance"),
-    ("Runner policy:", "self-hosted runner policy"),
-    ("summary.sh", "deployment summary command guidance"),
-    ("doctor.sh", "doctor readiness command guidance"),
-    ("acceptance-check.sh", "acceptance check guidance"),
-    ("report-nodes.sh", "node report guidance"),
-    ("list-deployed-apps.sh", "deployed app marker listing guidance"),
-    ("validate-side-by-side.sh", "side-by-side marker validation guidance"),
-    ("verify-backup.sh", "backup verification guidance"),
-    ("check-github-runner.sh", "GitHub runner API check guidance"),
-    ("check-cloudflare-tunnel.sh", "Cloudflare read-only check guidance"),
+for needle, why, owner in [
+    ('## 4. Reserve LAN IPs', 'dedicated router IP reservation step', 'setup'),
+    ('## 5. Generate Inventory', 'dedicated control-machine inventory generation step', 'setup'),
+    ('Ensure all four nodes are using their reserved IPs before proceeding.', 'router reservation checkpoint', 'setup'),
+    ('validate-machines.sh', 'machines.yml validation checkpoint before inventory generation', 'setup'),
+    ('Success: prints OK lines for machines.yml, deployment settings, and all four nodes.', 'machines validation success checkpoint', 'setup'),
+    ('Run this only from a full repository checkout on the control machine.', 'verify-bootstrap full-checkout warning', 'setup'),
+    ('test -f "$REPO_ROOT/Deployment/LocalCluster/Scripts/verify-bootstrap.sh"', 'verify-bootstrap dependency checkpoint', 'setup'),
+    ('## 12. Configure The GitHub CD Environment', 'dedicated GitHub environment setup step', 'setup'),
+    ('New environment -> localcluster', 'localcluster environment creation', 'setup'),
+    ('Deployment branches and tags: Selected branches and tags', 'deployment branch restriction instructions', 'release_contract'),
+    ('Allowed branch: main', 'main-only environment branch rule', 'release_contract'),
+    ('Environment localcluster exists and allows deployments from main.', 'environment setup checkpoint', 'release_contract'),
+    ('## 13. First Deploy From GitHub Actions', 'first CD deploy step after environment setup', 'setup'),
+    ('publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`', 'main-only CI publishing explanation', 'release_contract'),
+    ('Optional sanity check: before deploying, confirm the image tag exists.', 'optional image check wording', 'setup'),
+    ('migration bundle artifact is missing or expired', 'expired CI artifact recovery guidance', 'release_contract'),
+    ('pins PostgreSQL and Redis to exact versioned image tags', 'pinned database image guidance', 'settings'),
+    ('If this is the only app on these four nodes, keep the default ports and continue.', 'single-site default guidance', 'settings'),
+    ('If another LocalCluster app already runs on these nodes', 'side-by-side settings warning', 'fork_existing'),
+    ('### Optional: Second Fork On The Same Nodes', 'second-fork side-by-side subsection', 'fork_existing'),
+    ('For a second fork on the same nodes, do not reuse these values from the first app', 'unique side-by-side values list', 'settings'),
+    ('Second-fork flow on already-prepared nodes', 'second-fork execution flow', 'fork_existing'),
+    ('prepare-existing-localcluster-app.sh', 'existing cluster app preparation guidance', 'fork_existing'),
+    ('Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes', 'side-by-side rerun warning', 'fork_existing'),
+    ("this fork's deploy key installed on the nodes", 'side-by-side validation ordering warning', 'fork_existing'),
+    ('same Cloudflare account', 'shared tunnel Cloudflare account limitation', 'fork_existing'),
+    ('gh repo clone "$LOCALCLUSTER_REPO"', 'fork-safe clone command', 'setup'),
+    ('gh repo view --json nameWithOwner,url,defaultBranchRef', 'repository identity checkpoint', 'setup'),
+    ('Deployment identity checkpoint', 'deployment identity checkpoint before setup', 'setup'),
+    ('git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml', 'deployment settings commit command', 'settings'),
+    ('needs committed `all.yml` settings and committed `hosts.yml` inventory', 'committed settings and inventory explanation', 'settings'),
+    ('git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml', 'pre-push deployment file clean-state check', 'settings'),
+    ('Workflow permissions: Read and write permissions', 'fork GitHub Actions package write prerequisite', 'release_contract'),
+    ('`app_image`', 'side-by-side app image uniqueness', 'settings'),
+    ('`migration_bundle_name`', 'side-by-side migration bundle uniqueness', 'settings'),
+    ('same machine IPs', 'side-by-side reused machine IP guidance', 'fork_existing'),
+    ('`cloudflare_tunnel_name`, and Cloudflare tunnel token', 'side-by-side shared tunnel guidance', 'fork_existing'),
+    ("Add this fork's public_hostname to the existing Cloudflare tunnel", 'second-fork Cloudflare hostname step', 'fork_existing'),
+    ("open the existing tunnel and add the fork's `public_hostname`", 'second-fork existing tunnel guidance', 'fork_existing'),
+    ('`app_name`', 'side-by-side app identity field listed for non-reuse', 'settings'),
+    ('LOCALCLUSTER_RUNNER_LABEL', 'side-by-side runner label variable guidance', 'settings'),
+    ('Repository -> Settings -> Secrets and variables -> Actions -> Variables', 'GitHub repository variables UI path', 'settings'),
+    ('No GitHub token goes into the vault.', 'no stored registry token guidance', 'release_contract'),
+    ('only `read:packages`', 'minimum registry permission for optional manual-deploy tokens', 'release_contract'),
+    ('Name: ANSIBLE_VAULT_PASSWORD', 'manual GitHub vault secret guidance', 'settings'),
+    ('This secret is the Ansible Vault password.', 'vault secret purpose', 'settings'),
+    ('release-manifest.json', 'release manifest explanation', 'release_contract'),
+    ('### Runner And Docker Storage Maintenance', 'maintenance workflow guidance', 'operations'),
+    ('### Deployment lock', 'deployment lock recovery guidance', 'entry'),
+    ('### Tool provisioning: --check versus --provision', 'check-only versus provisioning guidance', 'operations'),
+    ('Runner policy:', 'self-hosted runner policy', 'operations'),
+    ('summary.sh', 'deployment summary command guidance', 'operations'),
+    ('doctor.sh', 'doctor readiness command guidance', 'operations'),
+    ('acceptance-check.sh', 'acceptance check guidance', 'operations'),
+    ('report-nodes.sh', 'node report guidance', 'operations'),
+    ('list-deployed-apps.sh', 'deployed app marker listing guidance', 'operations'),
+    ('validate-side-by-side.sh', 'side-by-side marker validation guidance', 'operations'),
+    ('verify-backup.sh', 'backup verification guidance', 'operations'),
+    ('check-github-runner.sh', 'GitHub runner API check guidance', 'operations'),
+    ('check-cloudflare-tunnel.sh', 'Cloudflare read-only check guidance', 'operations'),
 ]:
-    if needle not in guide:
-        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing {why}")
-if "gh repo clone Grumlebob/BlazorAutoApp" in guide:
-    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: clone commands must be fork-safe, not hardcoded to the original repository")
-
-for line_number, line in enumerate(guide.splitlines(), start=1):
-    if 'ansible ' in line and '-a "cd ' in line and "-m ansible.builtin.shell" not in line:
-        fail(
-            "Deployment/LocalCluster/HowToDeployLocalCluster.md:"
-            f"{line_number}: ansible commands using cd/&& must use -m ansible.builtin.shell"
+    owner_path = CLUSTER_ENTRY if owner == "entry" else DOC_OWNER_PATHS[owner]
+    if needle == "`app_name`":
+        error = missing_section_literal(
+            cluster_guide_documents,
+            CLUSTER_ENTRY,
+            owner_path,
+            "For a second fork on the same nodes, do not reuse these values from the first app",
+            "The second fork normally reuses the same machine IPs",
+            needle,
+            why,
         )
+    else:
+        error = missing_literal(cluster_guide_documents, CLUSTER_ENTRY, owner_path, needle, why)
+    if error:
+        fail(error)
+for document_path, document_text in cluster_guide_documents.items():
+    if "gh repo clone Grumlebob/BlazorAutoApp" in document_text:
+        fail(f"{document_path}: clone commands must be fork-safe, not hardcoded to the original repository")
+
+for document_path, document_text in cluster_guide_documents.items():
+    for line_number, line in enumerate(document_text.splitlines(), start=1):
+        if 'ansible ' in line and '-a "cd ' in line and "-m ansible.builtin.shell" not in line:
+            fail(
+                f"{document_path}:{line_number}: ansible commands using cd/&& must use -m ansible.builtin.shell"
+            )
 
 
 tracked = tracked_files()
@@ -491,8 +527,15 @@ for release_key in ["app_image", "migration_bundle_name", "migration_runtime", "
             f"{release_key} belongs in Deployment/Common/release.yml"
         )
 for key in all_var_keys:
-    if f"`{key}`" not in guide:
-        fail(f"Deployment/LocalCluster/HowToDeployLocalCluster.md: missing all.yml setting documentation: {key}")
+    error = missing_literal(
+        cluster_guide_documents,
+        CLUSTER_ENTRY,
+        DOC_OWNER_PATHS["settings"],
+        f"`{key}`",
+        f"all.yml setting documentation: {key}",
+    )
+    if error:
+        fail(error)
 
 try:
     common_validation = subprocess.run(
@@ -928,6 +971,7 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/Tests/test-prune-actions-runner-residue.sh", "runner residue fixture test"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
+    ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v", "bounded documentation slice loader tests"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
@@ -1338,15 +1382,37 @@ for needle, why in [
         fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
 if "- name: Log in to GHCR" in app_tasks:
     fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
-for path in ("Deployment/LocalCluster/HowToDeployLocalCluster.md", "docs/HowToForkThisRepo.md"):
-    release_guide = read(path)
-    for needle in ("Append the same scanned key only after the fingerprints match",
-                   'cat "$host_key_candidate" >> ~/.ssh/known_hosts',
-                   "successful `publish-main` job on the same run attempt"):
-        if needle not in release_guide:
-            fail(f"{path}: document verified SSH host keys and exact-attempt publishing provenance")
-if "Tokens (classic)" in guide or "vault_ghcr_token: <github-token" in guide:
-    fail("Deployment/LocalCluster/HowToDeployLocalCluster.md: CD no longer needs a stored GHCR token; do not instruct users to create one")
+shared_route_rules = [
+    (
+        "Append the same scanned key only after the fingerprints match",
+        DOC_OWNER_PATHS["ssh_trust"],
+        "verified SSH host key acceptance",
+    ),
+    (
+        'cat "$host_key_candidate" >> ~/.ssh/known_hosts',
+        DOC_OWNER_PATHS["ssh_trust"],
+        "SSH host key acceptance command",
+    ),
+    (
+        "successful `publish-main` job on the same run attempt",
+        DOC_OWNER_PATHS["release_contract"],
+        "exact-attempt publishing provenance",
+    ),
+]
+for entry_path, documents in (
+    (CLUSTER_ENTRY, cluster_guide_documents),
+    (FORK_ENTRY, fork_guide_documents),
+):
+    for needle, owner_path, why in shared_route_rules:
+        error = missing_literal(documents, entry_path, owner_path, needle, why)
+        if error:
+            fail(error)
+
+for document_path, document_text in cluster_guide_documents.items():
+    if "Tokens (classic)" in document_text or "vault_ghcr_token: <github-token" in document_text:
+        fail(
+            f"{document_path}: CD no longer needs a stored GHCR token; do not instruct users to create one"
+        )
 if "image_tag" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: manual image_tag input should not be required")
 if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
