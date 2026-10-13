@@ -7,12 +7,14 @@ Shared deployment files live here only when they are independent of a specific t
 Current shared ownership:
 
 - `release.yml` defines the build artifact names used by CI, LocalCluster CD, and Cloud CD.
+- [Release contract](ReleaseContract.md) describes CI provenance, manifest fields, and each target's current release checks.
+- [SSH host trust](SshTrust.md) describes independent fingerprint verification for manual `known_hosts` setup.
 - `Scripts/read-release-setting.sh` reads one value from `release.yml`.
 - `Scripts/validate-common-release.sh` validates `release.yml`.
 - `migration_artifact_name` is derived by the reader as `<migration_bundle_name>-<migration_runtime>`.
 - `Scripts/install-ansible.sh` installs the pinned Ansible toolchain used by deployment runners/control machines.
-- `Scripts/Component/lib/find-successful-ci-run.py` selects the newest trusted CI run for a commit (main branch push, this repository, current attempt with a successful publisher) and fails unless it succeeded. `--json` prints the run id and attempt for CD.
-- `Scripts/validate_release_manifest.py` validates the schema-v2 `release-manifest.json` that CI publishes next to the migration bundle: repository/source commit, CI run id and attempt, frontend/acceptance profile pair, matching baked image labels and registry digest, ordered migration ids, bundle SHA-256 and .NET SDK. Schema v1 remains an explicit BlazorAuto/BlazorAutoV1-only path for verified legacy releases. CD deploys the digest it prints and verifies the pulled image identity before migration.
+- `Scripts/Component/lib/find-successful-ci-run.py` selects a trusted publishing attempt for a commit; see [ReleaseContract.md](ReleaseContract.md).
+- `Scripts/validate_release_manifest.py` validates the release manifest used by LocalCluster and LocalSingleNode CD; see [ReleaseContract.md](ReleaseContract.md).
 - `Scripts/Component/lib/prune-actions-artifacts.py` keeps the newest release artifacts and never deletes those of protected (deployed) CI runs.
 - `ci-python-constraints.txt` pins the Python packages CI installs into its per-run virtual environment.
 - `Scripts/Tests/` holds unit tests for the provenance, manifest and retention helpers; CI runs them.

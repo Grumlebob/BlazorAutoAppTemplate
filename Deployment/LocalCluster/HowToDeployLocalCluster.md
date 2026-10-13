@@ -26,6 +26,8 @@ Happy path:
 10. Build/push the image, install the GitHub runner, configure the GitHub CD environment, deploy, and run acceptance-check.sh.
 ```
 
+If the four nodes are already prepared and you are adding a fork or another app, use [Fork Onto An Existing LocalCluster](ForkExistingCluster.md) instead of repeating the bootstrap path.
+
 Location labels in this guide:
 
 ```text
@@ -289,29 +291,24 @@ If you are only renaming the public domain for the same app, change only `public
 
 ### Optional: Rename An Existing App Identity
 
-Use this only when you intentionally want to rename an already-deployed app identity, for example from `ship` to `books`, while reusing the same four nodes. This is different from a domain-only rename. It creates a new deploy key, runner, deploy root, Caddy site, Docker Compose project, and app marker for the new app name.
+Use this only when intentionally replacing an existing app identity on the same nodes. It creates a new deploy key, runner, runtime root, Caddy site, Compose project, and ownership marker. If the old database or Redis data must be retained, design and verify a data migration before continuing.
 
-If the old database and Redis data must be preserved, stop and design a data migration first. If the old runtime data is disposable, this helper prepares the renamed app and leaves final old-runtime deletion for after the new deployment is verified.
-
-Example `ship` to `books` control-machine block:
+Set the previous app slug, then review the helper's dry run:
 
 ```bash
-# [ControlPC] Run after the renamed all.yml and hosts.yml are committed and pushed.
-set -euo pipefail
-
-cd "$(git rev-parse --show-toplevel)"
-git pull --ff-only
-
-echo "Dry run: verify current app settings are books and the old app is ship."
+OLD_APP_SLUG="<old-app-slug>"
 bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
-  --old-app-name ship
+  --old-app-name "$OLD_APP_SLUG"
+```
 
-echo "Prepare books, stop old ship runtime, remove the old ship marker, and run deploy preflight."
+After committing the new `all.yml` and `hosts.yml` and pushing them, prepare the replacement and confirm the cutover:
+
+```bash
 bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
-  --old-app-name ship \
+  --old-app-name "$OLD_APP_SLUG" \
   --setup-control-machine \
   --install-new-key \
-  --existing-key ~/.ssh/ship_deploy \
+  --existing-key "$HOME/.ssh/${OLD_APP_SLUG}_deploy" \
   --configure-runner \
   --stop-old-runtime \
   --remove-old-marker \
@@ -319,139 +316,19 @@ bash ./Deployment/LocalCluster/Scripts/prepare-renamed-localcluster-app.sh \
   --confirm-cutover
 ```
 
-Expected final lines include:
-
-```text
-preflight ok (deploy)
-renamed app preparation complete
-```
-
-After the renamed app has deployed successfully and `acceptance-check.sh` passes, clean up old local cluster leftovers:
+After the replacement is deployed and `acceptance-check.sh` passes, remove old node-local runtime pieces:
 
 ```bash
-# [ControlPC] Run only after the new books deployment is live and verified.
-set -euo pipefail
-
-cd "$(git rev-parse --show-toplevel)"
-git pull --ff-only
-
 bash ./Deployment/LocalCluster/Scripts/cleanup-renamed-localcluster-app.sh \
-  --old-app-name ship \
+  --old-app-name "$OLD_APP_SLUG" \
   --confirm-cleanup
 ```
 
-That removes old node-local runtime pieces such as `/opt/ship`, `/etc/caddy/sites/ship.caddy`, the old app marker, the old Docker firewall service, and the old `node-main-ship` runner registration/directory when GitHub CLI is authenticated. Add `--remove-old-deploy-key` only after you are certain the old deploy key is no longer needed for rollback.
+The cleanup removes resources owned by the old app, including its runtime root, Caddy site, ownership marker, firewall service, and runner. Add `--remove-old-deploy-key` only when the old key is no longer needed for rollback.
 
-### Optional: Second Fork On The Same Nodes
+### Fork Onto Existing Nodes
 
-Skip this subsection if this is the only app on the four nodes.
-
-For a second fork on the same nodes, do not reuse these values from the first app:
-
-- `app_name`
-- `app_image`
-- `app_port`
-- `postgres_port`
-- `redis_port`
-- `deploy_root`
-- `public_hostname`
-- `migration_bundle_name`
-- GitHub runner name derived from `app_name`
-- GitHub runner label derived from `app_name`
-
-The second fork normally reuses the same machine IPs, `Deployment/LocalCluster/machines.yml` values, `cloudflare_tunnel_name`, and Cloudflare tunnel token. It should have its own vault file and can use its own PostgreSQL database name, PostgreSQL password, and Redis password.
-
-All side-by-side apps that reuse the default `cloudflared` service must use a tunnel in the same Cloudflare account. A separate Cloudflare account or a separate tunnel token on the same `node-main` requires a custom multi-service `cloudflared` design that this guide does not cover.
-
-Example side-by-side shape:
-
-```yaml
-# app 1: Deployment/Common/release.yml
-app_image: ghcr.io/example/notes
-migration_bundle_name: notes-migrate
-migration_runtime: linux-x64
-
-# app 1: Deployment/LocalCluster/inventory/prod/group_vars/all.yml
-app_name: notes
-app_port: 8080
-postgres_port: 5432
-redis_port: 6379
-deploy_root: /opt/notes
-public_hostname: notes.example.com
-cloudflare_tunnel_name: notes-prod
-
-# app 2, in the forked repo: Deployment/Common/release.yml
-app_image: ghcr.io/example/secondnotes
-migration_bundle_name: secondnotes-migrate
-migration_runtime: linux-x64
-
-# app 2, in the forked repo: Deployment/LocalCluster/inventory/prod/group_vars/all.yml
-app_name: secondnotes
-app_port: 8081
-postgres_port: 5433
-redis_port: 6380
-deploy_root: /opt/secondnotes
-public_hostname: secondnotes.example.com
-cloudflare_tunnel_name: notes-prod
-```
-
-For the second fork, set GitHub repository variable `LOCALCLUSTER_RUNNER_LABEL` to the derived app label, for example `localcluster-secondnotes`, if you want CD to run only on that app's runner. Set `LOCALCLUSTER_ENVIRONMENT` only if you also want a separate GitHub deployment environment. Repository variables are here:
-
-```text
-Repository -> Settings -> Secrets and variables -> Actions -> Variables
-```
-
-Second-fork flow on already-prepared nodes:
-
-```text
-1. Clone the fork, not the original repository.
-2. Set unique release values in `Deployment/Common/release.yml` and unique LocalCluster values in `all.yml`.
-3. Copy the same machines.yml values used by the first app, or rerun discover-machines.sh on each node.
-4. Run generate-inventory.sh and commit the fork's all.yml and generated hosts.yml.
-5. Run setup-control-machine.sh to create this app's deploy key.
-6. Do not rerun bootstrap-node.sh or prepare-fresh-linux-machines.sh for already-prepared nodes.
-7. Run prepare-existing-localcluster-app.sh with an existing app's deploy key.
-8. Add this fork's public_hostname to the existing Cloudflare tunnel.
-9. Create this fork's vault.
-10. Install this fork's GitHub runner.
-11. Set this fork's GitHub repository variables and deployment environment.
-12. Deploy.
-```
-
-Install this fork's deploy key on the existing nodes by using a deploy key from an app that already works on the cluster:
-
-```bash
-bash ./Deployment/LocalCluster/Scripts/prepare-existing-localcluster-app.sh --existing-key ~/.ssh/<first-app-name>_deploy
-```
-
-This script does not upgrade packages, reboot nodes, reinstall Docker, or rotate secrets. It only verifies access with the existing key, adds this app's deploy public key to the `deploy` user, copies this app's private key to `node-main`, and verifies that the new key works.
-
-After step 7 above, this command lists the app ownership markers that have been written to the nodes:
-
-```bash
-bash ./Deployment/LocalCluster/Scripts/list-deployed-apps.sh
-```
-
-Before creating secrets or deploying the second fork, this command checks the current settings against known deployed app markers:
-
-```bash
-bash ./Deployment/LocalCluster/Scripts/validate-side-by-side.sh
-```
-
-These commands require generated `hosts.yml` and this fork's deploy key installed on the nodes, so do not run them before `prepare-existing-localcluster-app.sh` has succeeded.
-
-Checkpoint:
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-bash ./Deployment/LocalCluster/Scripts/validate-deploy-settings.sh
-```
-
-Expected result:
-
-```text
-OK    deployment settings are valid
-```
+For a side-by-side or replacement fork on nodes that are already prepared, follow [Fork Onto An Existing LocalCluster](ForkExistingCluster.md). The fork guide owns the app-specific collision checks, key installation, tunnel route, vault, runner, and first deploy.
 
 Print the concrete deployment target before proceeding:
 
@@ -1052,49 +929,11 @@ Deploy preflight also checks that `app_port`, `postgres_port`, and `redis_port` 
 
 [github]
 
-The CD workflow can only deploy artifacts produced by a successful CI run for the selected commit on `main`. A qualifying run is either a `push` to `main` or a `workflow_dispatch` on `main`, with a successful `publish-main` job on the same run attempt. Dependabot auto-merge requests CI on `main` after the exact tested PR head is merged; this creates deployment-ready CI artifacts without starting CD. CI builds and tests pull requests, but it publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`.
+Enable GitHub Actions for the repository. The fork needs package write permission so CI can publish its image. See the [shared release contract](../Common/ReleaseContract.md) for the eligible main CI attempt, release manifest, image digest, profile pair, and migration bundle checks.
 
-Runner policy: this repository runs CI, Dependabot auto-merge, maintenance, LocalCluster CD, and Cloud CD on the app-specific `node-main` self-hosted runner label (`localcluster-books` here; a fork sets `LOCALCLUSTER_RUNNER_LABEL`). Every job skips external fork pull requests before a runner is allocated, so untrusted code never runs on `node-main`. Never add GitHub-hosted runner labels; the deployment audit rejects them.
+Runner policy: CI and deployment workflows use the configured LocalCluster self-hosted runner on `node-main`. External fork pull requests are skipped before a runner is allocated. Never add GitHub-hosted runner labels; the deployment audit rejects them.
 
-CI has two jobs. `validate` runs for every pull request and push; on pull requests it is the required `build-test-push` check. It also builds the Docker image for pull requests and runs a Docker and browser smoke test, but never pushes. `publish-main` runs only for `main` after `validate` succeeds and carries the `build-test-push` name there.
-
-For a fork or a newly created repository, confirm GitHub Actions is enabled before pushing the deployment commit:
-
-```text
-Repository -> Settings -> Actions -> General
-Actions permissions: Allow actions and reusable workflows
-Workflow permissions: Read and write permissions
-```
-
-`Workflow permissions: Read and write permissions` is required because CI publishes the image to GHCR with `GITHUB_TOKEN`.
-
-Use this normal path:
-
-```text
-Merge/push the deployment commit to main and wait for CI to pass.
-```
-
-For `main`, `publish-main` builds and smoke-tests the image, pushes:
-
-```text
-<app_image>:<selected-commit-sha>
-```
-
-and uploads the release artifact `<migration_artifact_name>` with two files: the migration bundle and `release-manifest.json`. Schema v2 records the repository, source commit, CI run id and attempt, `frontend_profile`, its paired `acceptance_profile`, image digest, ordered migration ids, bundle SHA-256 and .NET SDK. Target-specific Docker labels bake the source SHA and profile pair into the image. CD validates the manifest and pulled image labels against the selected source commit before it interrupts a service or runs migrations, then verifies the same digest/profile identity on every server after deployment. Legacy schema v1 remains restricted to previously verified `BlazorAuto` / `BlazorAutoV1` releases; older commits without `frontend-profile.txt` resolve to that historical default, while schema v2 requires the file. Schema v1 cannot describe React.
-
-CI and CD are intentionally tied to the same commit:
-
-```text
-CI workflow: .github/workflows/ci.yml
-CD workflow: .github/workflows/cd-localcluster.yml
-Container image: <app_image>:<selected-commit-sha>
-Migration bundle artifact: <migration_artifact_name>
-Migration bundle file: <migration_bundle_name>
-```
-
-The CD workflow first finds the newest successful `main` CI run for the selected commit, resolves that commit's tracked frontend profile, downloads its release artifact, and checks `release-manifest.json` against the image's registry digest and baked labels plus the downloaded bundle. If the profile, source SHA, digest, CI run, or bundle do not line up, deployment stops before migration.
-
-Release artifacts have 7-day retention. The maintenance workflow keeps the newest 2 and never deletes the artifacts behind the last two successful deploys. The workflow intentionally does not use GitHub's npm cache because self-hosted workflow caches still consume GitHub Actions storage.
+For a new fork without a runner, complete Step 11 first and set its repository variables before opening the first pull request. Require `build-test-push` on the exact PR head, then merge. The resulting main run publishes the release; CD runs only after that release exists. Do not push deployment changes directly to `main`.
 
 Optional sanity check: before deploying, confirm the image tag exists. Run this from a machine with Docker access and GHCR read permission:
 
@@ -1106,9 +945,7 @@ docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
 echo "image exists: ${APP_IMAGE}:${APP_VERSION}"
 ```
 
-If this returns `unauthorized`, log Docker in to GHCR with a GitHub account or token that can read the package.
-
-Do not run `CD - Deploy LocalCluster` yet; the self-hosted runner is installed in the next step.
+If this returns `unauthorized`, log Docker in to GHCR with an account or token that can read the package.
 
 ## 11. Install The GitHub Actions Runner
 
@@ -1161,6 +998,17 @@ cd "$(git rev-parse --show-toplevel)"
 bash ./Deployment/LocalCluster/Scripts/check-github-runner.sh
 ```
 
+Before the first PR, set the runner label and hostname that CI checks:
+
+```bash
+RUNNER_LABEL="$(bash ./Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
+gh variable set LOCALCLUSTER_RUNNER_LABEL --body "$RUNNER_LABEL"
+gh variable set CI_RUNNER_LABEL --body "$RUNNER_LABEL"
+gh variable set CI_RUNNER_HOST --body node-main
+```
+
+`CI_RUNNER_HOST` must match the runner's actual hostname. For this LocalCluster route, that hostname is `node-main`.
+
 ## 12. Configure The GitHub CD Environment
 
 [github]
@@ -1184,7 +1032,7 @@ environment:
   name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
 ```
 
-For this app, set repository variable `LOCALCLUSTER_RUNNER_LABEL` to `localcluster-books` so workflows target this app's runner. For side-by-side apps, set it to that app's derived runner label, for example `localcluster-secondnotes`, and set `LOCALCLUSTER_ENVIRONMENT` to a repo-specific environment name if you want that distinction. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
+Step 11 sets `LOCALCLUSTER_RUNNER_LABEL`, `CI_RUNNER_LABEL`, and `CI_RUNNER_HOST` before the first PR. For a later side-by-side app, set the runner label to that app's derived label and set `LOCALCLUSTER_ENVIRONMENT` only when it needs a separate environment name. These are GitHub repository variables, not `all.yml` settings, because GitHub resolves `runs-on` and `environment` before the workflow checks out the repository.
 
 Repository variables are configured here:
 
@@ -1466,21 +1314,7 @@ bash ./Deployment/LocalCluster/Scripts/deploy.sh <git-sha>
 
 This acquires the same deployment lock on `node-main` that GitHub Actions uses, so a manual deploy and a CD deploy cannot mutate the four nodes at the same time.
 
-The manual path connects to `node-main` with strict SSH host-key checking. Seed and verify `node-main`'s host key on the control machine first; a first-seen key is not accepted automatically, because LAN IPs get reused:
-
-```bash
-host_key_candidate="$(mktemp)"
-ssh-keyscan -T 10 -t ed25519 -H <node-main-ip> > "$host_key_candidate"
-ssh-keygen -lf "$host_key_candidate"
-```
-
-Compare that fingerprint with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on node-main's own console. Append the same scanned key only after the fingerprints match. If they differ, stop.
-
-```bash
-mkdir -p ~/.ssh
-cat "$host_key_candidate" >> ~/.ssh/known_hosts
-rm -f "$host_key_candidate"
-```
+The manual path connects to `node-main` with strict SSH host-key checking. Before its first connection, follow [SSH Host Trust](../Common/SshTrust.md) to compare the scanned fingerprint with the key on the host's own console. A first-seen key is not accepted automatically because LAN IPs get reused.
 
 Wrapper script with a local migration bundle:
 

@@ -105,7 +105,7 @@ Security posture:
 [cloud-db]        run on cloud-db only
 ```
 
-`[ControlPC]` is not used for Cloud. The local cluster has a control machine; the cloud target uses `[CurrentPC]` for OpenTofu bring-up and the `node-main-books` self-hosted Actions runner for app deployment.
+`[ControlPC]` is not used for Cloud. Use `[CurrentPC]` for OpenTofu bring-up. Cloud CD assumes an online self-hosted Linux x64 Actions runner on a host named `node-main`; its label comes from `LOCALCLUSTER_RUNNER_LABEL` and defaults to `localcluster-books`. Cloud setup does not install that runner.
 
 `cloud-main` is a bastion and ingress node, not a control machine. Do not run commands on cloud servers unless a step is explicitly labeled `[cloud-main]`, `[cloud-db]`, `[cloud-app1]`, `[cloud-app2]`, or `[each cloud node]`.
 
@@ -171,7 +171,7 @@ migration_bundle_name: your-app-migrate
 migration_runtime: linux-x64
 ```
 
-Do not duplicate these values in Cloud settings. CI owns the shared build artifacts; Cloud consumes them.
+Do not duplicate these values in Cloud settings. CI owns the shared build artifacts; Cloud consumes them. See the [release contract](../Common/ReleaseContract.md) for the source and CI attempt selected by Cloud and for the boundary of its current artifact checks.
 
 ## 1. Install CurrentPC Tools
 
@@ -630,6 +630,8 @@ If Step 7 replaced existing Cloud servers, remove stale SSH host keys for the ol
 ```bash
 bash ./Deployment/Cloud/Scripts/reset-cloud-known-hosts.sh
 ```
+
+Cloud CD uses an ephemeral runner's own host-key handling. The manual persistent-machine fingerprint procedure in [SSH Host Trust](../Common/SshTrust.md) does not replace this Cloud path.
 
 Expected shape:
 
