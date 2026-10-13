@@ -3,7 +3,7 @@
 Status: delivered downstream. Portfolio launched at https://portfolio.jacobgrum.com on 2026-10-13 with all twelve stories.
 Last reviewed: 2026-10-13.
 
-> **Downstream delivery record.** This template copy is the original plan only. The authoritative execution record is [Progress.md in Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md): merged packets, release and deployment evidence, open work and the resume prompt. Template defects found by that first clone were fixed here in #216, #237, #240 and #241, and in the follow-up stylesheet and readiness-label PRs.
+> **Downstream delivery record.** This template copy is the original plan only. The authoritative execution record is [Progress.md in Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md): merged packets, release and deployment evidence, open work and the resume prompt. Template defects found by that first clone were fixed here in #216, #237, #240, #241, #244 and #245.
 
 This is a multi-day delivery plan for an independent **Portfolio** product. Different agents should complete small, recorded packets without reconstructing earlier decisions. The destination is [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio), seeded from [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate). The intended public product URL is **https://portfolio.jacobgrum.com/**, delivered through **LocalSingleNode and its Cloudflare Tunnel extension**. Configure this URL through product/deployment settings; do not embed it in components or scripts.
 
@@ -22,6 +22,32 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | [PortfolioStudioDeliveryGoal.md](PortfolioStudioDeliveryGoal.md) | Prompt for later full-plan goal execution, capped at 3,500 characters |
 
 Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.md`. It records the supplied local checkout locations, fresh Linux Mint node, reserved address and node-name clarification. Copy it privately to the future Portfolio checkout. Tracked plans remain portable. The main PC is a development/controller machine; it must never be bootstrapped as the deployment node.
+
+## 0. Delivery outcome (2026-10-13)
+
+The plan was delivered in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio). Its [Progress.md](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md) holds the exact PRs, runs, digests and remaining work. A fresh session continues with `/goal Plans/PortfolioStudioDeliveryGoal.md` (see that file's continuation goal).
+
+**As built**
+
+| Area | Outcome |
+| --- | --- |
+| Product | https://portfolio.jacobgrum.com, live with all twelve stories (owner chose to launch them all as drafts, to be improved afterwards), a categorized `/technologies` page, true 404s, both themes, section navigation and responsive media |
+| Frontend | React Router 8 framework mode, `ssr:false` with prerender (one route per published slug, `/__not-found`), Tailwind 4, TanStack Query and openapi-fetch. Tailwind scans only `app/`, so prerender and client builds share one stylesheet |
+| Backend | ASP.NET Core host serving the prerendered pages with per-document CSP hashes, ETag/304, `.data` navigation files, exact 404s and 308 trailing-slash redirects. Read-only content API, in-memory rate limiting, strict JSON number handling |
+| Content | `Content/Portfolio` (site, technology registry, `projects/<slug>`), compiled by `Portfolio.ContentTool` with safe Markdown, an SVG allowlist and alt/caption limits. Sharp builds image variants; the export bundle carries a content revision (source files are LF on every OS). Guide: `docs/HowToAddAProject.md` |
+| Runtime | File-only: no database, Redis, Identity, migrations or backups. Books, Blazor, accounts, Cloud and LocalCluster are removed from Portfolio |
+| Release | Release manifest schema 3 (source SHA, CI run, image digest, profile pair React/PortfolioPublicV1, content revision). CD verifies it before and after deploying, and acceptance checks the served content revision |
+| Operations | LocalSingleNode on the Portfolio node, with its own Cloudflare tunnel and DNS. Proven so far: rollback, roll-forward, app restart, connector restart, reboot and post-reboot acceptance |
+
+**Deviations from the plan, with reasons**
+
+- **All twelve stories launched at once.** This replaced "four reviewed stories first", by owner decision, so the owner can review and improve them live. Story improvements are owner-led follow-ups.
+- **Grumlebob uses the owner's own wording** (AutoHotkey automation of free offers, automatic billing and bookkeeping). The private source was not inspected.
+- **Verification found two product bugs, now fixed in Portfolio and the template:**
+  - a CSS split between the prerender and client builds that broke hydration and theme persistence;
+  - an OS-dependent content revision.
+- **The first clone found six template defects**, each fixed upstream in its own gated PR: #216 (profile test), #237 (runner labels in the fork guide), #240 (Git Bash SSH paths), #241 (OpenAPI number typing), #244 (single stylesheet) and #245 (readiness label).
+- **Open owner decision:** Cloudflare's injected bot-detection script conflicts with the hash-based CSP. The options are recorded in Progress.
 
 ## 1. Purpose and relationship to the React delivery
 
