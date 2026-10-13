@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -86,6 +87,45 @@ class QualityAuditTests(unittest.TestCase):
             for code in (0, 1, 2):
                 self.assertEqual(audit.read_results("zap", reports, code)["alerts"], {"Medium (High)": 1})
 
+    def test_scc_and_sitespeed_summary_contracts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            reports = Path(temporary)
+            inventory = [
+                {"Count": 2, "Code": 30, "Complexity": 4},
+                {"Count": 1, "Code": 5, "Complexity": 1},
+            ]
+            (reports / "scc.json").write_text(json.dumps(inventory))
+            self.assertEqual(audit.read_results("scc", reports, 0), {
+                "languages": 2, "files": 3, "codeLines": 35, "complexity": 5,
+            })
+            (reports / "scc.json").write_text("[]")
+            with self.assertRaisesRegex(ValueError, "empty or invalid inventory"):
+                audit.read_results("scc", reports, 0)
+
+            sitespeed = reports / "sitespeed"
+            sitespeed.mkdir()
+            (sitespeed / "index.html").write_text("report")
+            self.assertEqual(audit.read_results("sitespeed", reports, 0), {
+                "report": "sitespeed/index.html", "iterations": 3,
+            })
+
+    def test_docker_command_keeps_scc_source_readonly_and_offline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo, reports, source = root / "repo", root / "reports", root / "source"
+            reports.mkdir()
+            source.mkdir()
+            args = argparse.Namespace(tool="scc", target=None, network="unrelated-network")
+            summary = {}
+            with patch.object(audit, "snapshot_source", return_value={"trackedFilesCopied": 1,
+                                                                        "skippedPaths": []}):
+                command = audit._build_docker_command(args, repo, reports, source, "owned-container",
+                                                       "pinned-image@sha256:digest", summary)
+            self.assertIn(f"type=bind,source={source},target=/src,readonly", command)
+            self.assertEqual(command[command.index("--network") + 1], "none")
+            self.assertEqual(summary["source"], {"trackedFilesCopied": 1, "skippedPaths": []})
+            self.assertNotIn("unrelated-network", command)
+
     def test_timeout_records_failure_and_removes_only_its_container(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary).resolve()
@@ -138,6 +178,87 @@ class QualityAuditTests(unittest.TestCase):
             qlty_audit.extract_binary(archive, hashlib.sha256(archive.read_bytes()).hexdigest(), binary)
             self.assertEqual(binary.read_bytes(), b"verified binary")
             self.assertEqual(sorted(path.name for path in root.iterdir()), ["qlty.exe", "qlty.zip"])
+
+    def test_qlty_selects_supported_platform_and_rejects_unsupported_architecture(self):
+        archives = {
+            "Windows-x86_64": {"url": "https://fixture.invalid/windows.zip"},
+            "Linux-x86_64": {"url": "https://fixture.invalid/linux.tar.xz"},
+        }
+        with patch.object(qlty_audit.platform, "system", return_value="Windows"), \
+                patch.object(qlty_audit.platform, "machine", return_value="AMD64"):
+            self.assertEqual(qlty_audit._qlty_package({"archives": archives}),
+                             ("Windows-x86_64", archives["Windows-x86_64"]))
+        with patch.object(qlty_audit.platform, "system", return_value="Linux"), \
+                patch.object(qlty_audit.platform, "machine", return_value="x86_64"):
+            self.assertEqual(qlty_audit._qlty_package({"archives": archives}),
+                             ("Linux-x86_64", archives["Linux-x86_64"]))
+        with patch.object(qlty_audit.platform, "system", return_value="Linux"), \
+                patch.object(qlty_audit.platform, "machine", return_value="aarch64"), \
+                self.assertRaisesRegex(ValueError, "Windows x64 and Linux x64"):
+            qlty_audit._qlty_package({"archives": archives})
+
+    def test_qlty_binary_uses_verified_versioned_cache(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            cache = repo / "TestResults" / "QualityTools" / "tools" / "1.2.3" / "Windows-x86_64"
+            cache.mkdir(parents=True)
+            archive = cache / "qlty.zip"
+            with zipfile.ZipFile(archive, "w") as package_file:
+                package_file.writestr("qlty.exe", b"verified binary")
+            package = {"url": "https://fixture.invalid/qlty.zip",
+                       "sha256": hashlib.sha256(archive.read_bytes()).hexdigest()}
+            with patch.object(qlty_audit.platform, "system", return_value="Windows"), \
+                    patch.object(qlty_audit, "urlopen") as download:
+                binary = qlty_audit._ensure_qlty_binary(
+                    repo, "1.2.3", "Windows-x86_64", package, lambda: 30)
+            download.assert_not_called()
+            self.assertEqual(binary, cache / "qlty.exe")
+            self.assertEqual(binary.read_bytes(), b"verified binary")
+
+    def test_qlty_linux_tarball_uses_versioned_cache(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            cache = repo / "TestResults" / "QualityTools" / "tools" / "1.2.3" / "Linux-x86_64"
+            cache.mkdir(parents=True)
+            archive = cache / "qlty.tar.xz"
+            with tarfile.open(archive, "w:xz") as package_file:
+                contents = io.BytesIO(b"verified Linux binary")
+                member = tarfile.TarInfo("qlty")
+                member.size = len(contents.getvalue())
+                package_file.addfile(member, contents)
+            package = {"url": "https://fixture.invalid/qlty.tar.xz",
+                       "sha256": hashlib.sha256(archive.read_bytes()).hexdigest()}
+            with patch.object(qlty_audit.platform, "system", return_value="Linux"), \
+                    patch.object(qlty_audit, "urlopen") as download:
+                binary = qlty_audit._ensure_qlty_binary(
+                    repo, "1.2.3", "Linux-x86_64", package, lambda: 30)
+            download.assert_not_called()
+            self.assertEqual(binary, cache / "qlty")
+            self.assertEqual(binary.read_bytes(), b"verified Linux binary")
+
+    def test_qlty_partial_archive_download_is_removed(self):
+        class InterruptedResponse:
+            def __init__(self):
+                self.reads = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self, _size):
+                self.reads += 1
+                if self.reads == 1:
+                    return b"partial archive"
+                raise OSError("fixture download interrupted")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / "qlty.zip"
+            with patch.object(qlty_audit, "urlopen", return_value=InterruptedResponse()), \
+                    self.assertRaisesRegex(OSError, "fixture download interrupted"):
+                qlty_audit._download_archive(archive, {"url": "https://fixture.invalid/qlty.zip"}, lambda: 30)
+            self.assertFalse(archive.exists())
 
     def test_qlty_rejects_invalid_sarif_and_accepts_explicit_zero_findings(self):
         with tempfile.TemporaryDirectory() as temporary:
