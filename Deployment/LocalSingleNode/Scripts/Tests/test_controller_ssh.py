@@ -114,6 +114,30 @@ class ControllerSshTests(unittest.TestCase):
         other = ssh.run("ssh", "-G", "-F", str(main), "foreign")
         self.assertIn("user someone", other)
 
+    def test_windows_paths_are_home_relative_for_every_ssh_client(self):
+        path = self.home / ".ssh" / "localsinglenode" / "abc.conf"
+        self.assertEqual("~/.ssh/localsinglenode/abc.conf", ssh.ssh_path(path, windows=True))
+        self.assertEqual(path.as_posix(), ssh.ssh_path(path, windows=False))
+
+    def test_windows_configuration_replaces_absolute_include(self):
+        directory = self.home / ".ssh"
+        directory.mkdir()
+        conf_directory, identity = ssh.paths(self.args.repo, self.args.controller)
+        legacy = 'Include "' + (conf_directory / (identity + ".conf")).as_posix() + '"'
+        main = directory / "config"
+        foreign = "Host foreign\n    User someone\n"
+        main.write_text(legacy + "\n" + foreign)
+        original = ssh.ssh_path
+        with patch.object(ssh, "ssh_path", lambda path: original(path, windows=True)):
+            self.configure()
+            self.configure()
+        expected = 'Include "~/.ssh/localsinglenode/' + identity + '.conf"\n' + foreign
+        self.assertEqual(expected, main.read_text())
+        generated = (conf_directory / (identity + ".conf")).read_text()
+        self.assertIn('IdentityFile "~/key"', generated)
+        self.assertIn('UserKnownHostsFile "~/.ssh/localsinglenode/', generated)
+        self.assertNotIn(self.home.as_posix(), generated)
+
     def test_configuration_refuses_changed_host_key(self):
         self.configure()
         main = self.home / ".ssh/config"
