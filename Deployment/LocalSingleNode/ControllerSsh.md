@@ -35,8 +35,8 @@ Choose a unique controller name within the repository and a local SSH alias. The
 3. Back on the controller, save and verify the alias:
 
    ```bash
-   python3 Deployment/LocalSingleNode/Scripts/controller-ssh.py configure --repo OWNER/REPOSITORY --controller main-pc --alias demo-node
-   ssh demo-node
+   python3 Deployment/LocalSingleNode/Scripts/controller-ssh.py configure --repo OWNER/REPOSITORY --controller main-pc --alias app-node
+   ssh app-node
    ```
 
    Configuration uses the authenticated node record instead of trusting an unauthenticated key scan. It pins host identity in a dedicated known-hosts file and adds one include to the user's existing SSH config. Existing config remains intact; conflicting aliases and changed pinned host keys stop setup. A live passwordless probe must confirm the native hostname and original install user. Batch mode, strict host checking, one selected identity, connection timeouts and keepalive are persistent. Agent forwarding is disabled.

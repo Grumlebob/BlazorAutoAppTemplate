@@ -33,6 +33,14 @@ Portable rules for people and coding agents working in this repository. Machine-
 - Stage explicit paths. Do not use `git add -A` or `git add .` for integration commits.
 - Do not stash, reset or overwrite someone else's uncommitted work.
 
+## Worktree closeout
+
+- Closeout is part of task completion: fetch and prune, verify `origin/main`, then remove finished task checkouts and local/remote branches. Preserve the primary checkout and `main` branch.
+- Before cleanup, verify integrated or superseded content and no live task, process, lock, resource or open PR depends on it. Inspect tracked, untracked and ignored files; reconcile useful unmerged changes first. Squash merges require PR-head/content verification; ancestry or a closed PR alone is insufficient.
+- Archive unique required notes/evidence outside the checkout and verify SHA-256. Do not archive whole checkouts or reproducible build output. Preserve private inputs, keys and other sessions' edits.
+- Record each deleted branch's full SHA in its plan or PR. Run `git worktree remove` from another checkout; resolve refusals without force or broad recursive deletion.
+- Verified routine cleanup needs no additional approval, including finished tasks from earlier sessions. Fast-forward primary `main` when clean and idle. Report each retained task worktree with its concrete owner or dependency; age alone is not proof.
+
 ## Shared deployment hosts
 
 - LocalCluster and LocalSingleNode hosts can run several apps. Host-level services (Docker, Caddy, cloudflared, the deployment lock) are shared: change them only through the deployment scripts, and only remove resources you can prove this repository owns.
