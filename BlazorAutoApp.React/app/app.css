@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Scan only the app source. Automatic detection follows .gitignore, which the Docker
+   build excludes, so it would also scan build/ output and give the prerender (server)
+   build different CSS from the client build. */
+@import "tailwindcss" source(none);
+@source "./";
 
 :root {
   color-scheme: light;
