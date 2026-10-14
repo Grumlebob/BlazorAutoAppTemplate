@@ -9,7 +9,7 @@ The original goal below has been delivered:
 
 The continuation goal's first item, PR #32, is merged and deployed (release `b35f065`, CD run 38457663765):
 - The live console is clean and Cloudflare bot detection is active; the favicon is served and the Lighthouse results are recorded.
-- Lighthouse best practices is 81, not above 92. The only failing audit is a deprecation inside Cloudflare's own detection script, which the CSP used to block. Whether to accept that or exclude the site from JavaScript detections is the owner's decision, recorded in Progress.
+- Lighthouse best practices is 81, not above 92. The only failing audit is a deprecation inside Cloudflare's own detection script, which the CSP used to block. On 2026-10-14 the owner decided to keep the detections and accept 81.
 - Progress records no owner-requested story improvement as outstanding; the stories wait on inputs only the owner can give.
 
 The exact evidence and the short remaining list are in [Progress.md § Current checkpoint](Support/PortfolioStudio/Progress.md). The authoritative copy is the one in Grumlebob/Portfolio.

@@ -5,7 +5,15 @@ Use this when a fork becomes a product of its own instead of a configured copy o
 ## Create the repository
 
 1. Create the empty product repository. Disable Actions until a runner for it exists (`gh api -X PUT repos/<owner>/<repo>/actions/permissions -F enabled=false`). Every job runs on self-hosted labels and otherwise queues indefinitely.
-2. Clone the template with its history into a new folder. Rename its remote to `upstream`, add the product as `origin` and push `main`.
+2. Clone the template with its history and point the remotes at the product:
+
+   ```bash
+   git clone https://github.com/<template-owner>/<template-repo>.git <Product>
+   cd <Product>
+   git remote rename origin upstream
+   git remote add origin https://github.com/<owner>/<repo>.git
+   git push -u origin main
+   ```
 3. Run `gh repo set-default <owner>/<repo>` in the new checkout immediately. `gh` prefers a remote named `upstream`, so without it `gh pr merge`, `gh run list` and scripts that call `gh repo view` act on the template.
 4. Commit one seed change for identity, frontend profile and release settings as described in the fork guide. Keep the internal project names until the rename step.
 
@@ -41,6 +49,7 @@ Each step is its own pull request with the [local gate](Test.md#local-gate) and 
 | `Plans/` template plans and `Plans/Support/` | Remove. Start the product's own plans and keep `Plans/README.md`. Git history and the template keep the old plans |
 | Fork guide, this page, [React-only clone](Frontend/ReactOnlyClone.md), `SingleNodeOnlyClone.md` | Remove after use. The deployment audit reads the fork guide, so update the audit in the same code PR |
 | `README.md`, `docs/Requirements.md` | Describe the product and its requirements. A one-line provenance link to the template is enough |
+| Favicon | The React app ships none, so browsers log a 404 for `/favicon.ico`. Add the product's icon under the React app's `public/` folder |
 | `AGENTS.md` | Keep the working rules; drop rules for removed parts, such as the Razor stylesheet rebuild |
 | `.claude/skills/`, `.codex/`, `.qlty/`, `.run/` | Keep what the team uses and update names and paths |
 | `Scripts/Quality`, `docker/sonarqube` | Keep deliberately or remove with their docs |
@@ -56,15 +65,18 @@ Keep only provenance links, intentional shared names and recorded follow-ups.
 
 ## Public site behind Cloudflare
 
-The React host sends a strict Content Security Policy (`script-src 'self'`; see `BlazorAutoApp/Frontend/ReactFrontendHosting.cs`). When the Cloudflare zone runs JavaScript detections, Cloudflare injects a script from `/cdn-cgi/challenge-platform/` that this policy blocks, and browsers log a CSP error. Choose one of two fixes:
-
-- **Allow it with a per-response nonce.** [Portfolio #32](https://github.com/Grumlebob/Portfolio/pull/32) did this. The detection script then runs, and Lighthouse best practices dropped to 81 because of a deprecated API inside Cloudflare's script.
-- **Exclude the hostname from JavaScript detections** in the zone. This gives up that bot signal.
-
-The live browser tests already ignore Cloudflare's own edge cookies.
+The React host sends a strict Content Security Policy. On HTML responses it adds a fresh `'nonce-…'` to `script-src` ([frontend profiles](FrontendProfiles.md)), so Cloudflare JavaScript detections can inject their script without `'unsafe-inline'` and the browser console stays clean. While detections run, Lighthouse best practices scores about 81, because Cloudflare's script calls a deprecated browser API; Portfolio accepted that to keep the bot signal. To trade the signal for the score, exclude the hostname from JavaScript detections in the zone. The live browser tests already ignore Cloudflare's own edge cookies.
 
 ## Sharing a node with another product
 
 Several apps can share a LocalSingleNode machine. Each app owns its Compose project, runtime root, Caddy site, ports and subnet, and shares Docker, Caddy and the deployment lock ([deployment overview](../Deployment/README.md)). [Application instances](../Deployment/LocalSingleNode/ApplicationInstances.md) covers only a second profile of the *same* repository.
 
-A different repository on a node that already serves another app has no tested route yet. Start with the read-only [readiness and collision check](../Deployment/LocalSingleNode/Readiness.md) using the new app's candidate settings. Stop for an operator decision before any root command, and never change the other app's resources.
+A different repository joins a node through the normal [AgentSetup](../Deployment/LocalSingleNode/AgentSetup.md), run from that repository's own checkout on the node:
+
+- Use the node's existing name as `--node`; bootstrap renames the host when the name differs.
+- The existing runner belongs to the other repository and cannot run this one's jobs. The root bootstrap step registers an app-specific runner for the checkout's `origin` repository.
+- Bootstrap records each app separately in `/etc/localsinglenode/bootstrap.json`. The shared root Caddyfile imports `/etc/caddy/sites/*.caddy` and each app writes only its own site file, so the other app's records and site stay in place.
+- Choose an app name, ports, roots and Docker subnet that differ from every existing app. Setup's collision check (`Deployment/LocalSingleNode/Scripts/check-port-collisions.sh`) rejects overlaps before anything starts.
+- The operator runs the one root command that setup prints. Never change the other app's resources, tunnel or DNS.
+
+This route follows the bootstrap design but had not been run on a real node when it was written; record the first run's outcome in the product's plan.
