@@ -38,7 +38,7 @@ Expect matches in these areas:
 1. Branch from the clone's latest `main`.
 2. Move anything React or tests still need out of the client first, including the browser tools and shared assets.
 3. Change the entry points (MSBuild, Dockerfile, CI and profile validation) so nothing builds the Blazor profile. Then delete the client, Razor UI and Blazor composition.
-4. Delete Blazor-only tests and rewrite the shared ones. The React profile must now run the whole suite; record the new skip count (the pass count is not pinned).
+4. Delete Blazor-only tests and rewrite the shared ones. The React profile must now run the whole suite. No test count is pinned, so nothing needs recording.
 5. For every deployment-audit rule about a removed file or step, add a React-only rule, for example "no Blazor build path" or "no other-profile publication". Never only delete a rule.
 6. Update the docs and rules listed above.
 7. Run the inventory command again. Every remaining match must be intentional, such as provenance links, plan history or a recorded follow-up.

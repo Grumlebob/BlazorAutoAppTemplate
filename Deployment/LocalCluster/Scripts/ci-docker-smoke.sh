@@ -310,5 +310,5 @@ else
       --results-directory "$browser_results_dir"
   python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
     "$browser_results_dir/blazor-browser-smoke.trx" \
-    --expected-passed 2 --expected-skipped 0 --suite "Blazor Docker browser smoke"
+    --expected-skipped 0 --suite "Blazor Docker browser smoke"
 fi

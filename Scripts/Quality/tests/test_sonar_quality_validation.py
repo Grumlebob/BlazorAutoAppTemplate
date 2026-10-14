@@ -10,28 +10,31 @@ from Scripts.Quality.validate_vitest_results import validate, validate_react_sou
 
 
 class VitestValidationTests(unittest.TestCase):
-    def test_accepts_exact_complete_suite(self) -> None:
-        result = {
-            "success": True,
-            "numTotalTests": 31,
-            "numPassedTests": 31,
-            "numFailedTests": 0,
-            "numPendingTests": 0,
-            "numTodoTests": 0,
-        }
-        self.assertEqual(validate(result, 31, 0)["passed"], 31)
+    def test_accepts_a_complete_suite_of_any_size(self) -> None:
+        for count in (1, 31, 120):
+            with self.subTest(count=count):
+                result = {
+                    "success": True,
+                    "numTotalTests": count,
+                    "numPassedTests": count,
+                    "numFailedTests": 0,
+                    "numPendingTests": 0,
+                    "numTodoTests": 0,
+                }
+                self.assertEqual(validate(result)["passed"], count)
 
-    def test_rejects_failed_missing_or_skipped_tests(self) -> None:
-        result = {
-            "success": True,
-            "numTotalTests": 31,
-            "numPassedTests": 30,
-            "numFailedTests": 0,
-            "numPendingTests": 1,
-            "numTodoTests": 0,
-        }
-        with self.assertRaisesRegex(ValueError, "passing React tests"):
-            validate(result, 31, 0)
+    def test_rejects_failed_skipped_or_empty_suites(self) -> None:
+        base = {"success": True, "numTotalTests": 31, "numPassedTests": 31,
+                "numFailedTests": 0, "numPendingTests": 0, "numTodoTests": 0}
+        skipped = {**base, "numPassedTests": 30, "numPendingTests": 1}
+        with self.assertRaisesRegex(ValueError, "skipped React tests"):
+            validate(skipped)
+        failed = {**base, "numPassedTests": 30, "numFailedTests": 1}
+        with self.assertRaisesRegex(ValueError, "zero failed"):
+            validate(failed)
+        empty = {**base, "numTotalTests": 0, "numPassedTests": 0}
+        with self.assertRaisesRegex(ValueError, "no passing tests"):
+            validate(empty)
 
     def test_rejects_boolean_test_counts(self) -> None:
         result = {
@@ -43,11 +46,11 @@ class VitestValidationTests(unittest.TestCase):
             "numTodoTests": 0,
         }
         with self.assertRaisesRegex(ValueError, "valid test-count fields"):
-            validate(result, 1, 0)
+            validate(result)
 
     def test_rejects_non_object_test_report(self) -> None:
         with self.assertRaisesRegex(ValueError, "JSON object"):
-            validate([], 31, 0)
+            validate([])
 
     def test_validates_all_react_sources_when_none_is_fully_uncovered(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

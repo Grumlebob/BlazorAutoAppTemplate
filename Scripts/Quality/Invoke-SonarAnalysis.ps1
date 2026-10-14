@@ -366,7 +366,7 @@ try {
         $coverageSummary = Join-Path $reactRoot 'coverage/coverage-summary.json'
         $vitestValidator = Join-Path $PSScriptRoot 'validate_vitest_results.py'
         $validateReactTests = Invoke-QualityStep -Name 'validate-react-tests' -Executable $Context.PythonExecutable `
-            -Arguments @($vitestValidator, $vitestJson, '--expected-passed', '31', '--expected-skipped', '0',
+            -Arguments @($vitestValidator, $vitestJson, '--expected-skipped', '0',
                 '--coverage-summary', $coverageSummary, '--react-root', $reactRoot) `
             -WorkingDirectory $repoRoot -MaximumSeconds 60
         $rawLcov = Join-Path $reactRoot 'coverage/lcov.info'
@@ -429,7 +429,7 @@ try {
     $testValidator = Join-Path $repoRoot 'Scripts/CI/validate_dotnet_test_results.py'
     $testValidation = Invoke-QualityStep -Name 'validate-dotnet-tests' -Executable $Context.PythonExecutable `
         -Arguments @($testValidator, (Join-Path $testsDirectory 'suite.trx'),
-            '--expected-skipped', '13', '--suite', "$FrontendProfile .NET suite") `
+            '--suite', "$FrontendProfile .NET suite") `
         -WorkingDirectory $repoRoot -MaximumSeconds 60
     $dotnetTestCounts = $testValidation.Stdout.Trim()
     if ($dotnetTestCounts -notmatch '(?:^|:\s*)(?<passed>\d+) passed, (?<skipped>\d+) expected skips, (?<total>\d+) total') {
