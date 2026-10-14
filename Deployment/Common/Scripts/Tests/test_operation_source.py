@@ -12,8 +12,19 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
+def isolated_git_environment():
+    """Environment for fixture git commands. Inherited GIT_* variables, such as GIT_DIR from a
+    hook, would otherwise redirect `git -C <temporary> init/config` into the caller's repository."""
+    return {key:value for key,value in os.environ.items() if not key.upper().startswith('GIT_')}
+
+
 class OperationSourceTests(unittest.TestCase):
     current, parent = 'a'*40, 'b'*40
+
+    def setUp(self):
+        environment=patch.dict(os.environ,isolated_git_environment(),clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
 
     def success(self, sha):
         return {'outcome':'success','selected':{'head_sha':sha,'id':42,'run_attempt':1}}
@@ -64,7 +75,8 @@ class OperationSourceTests(unittest.TestCase):
 
     def repository(self, directory):
         def git(*args):
-            return subprocess.check_output(['git','-C',str(directory),*args],stderr=subprocess.DEVNULL,text=True).strip()
+            return subprocess.check_output(['git','-C',str(directory),*args],stderr=subprocess.DEVNULL,text=True,
+                                            env=isolated_git_environment()).strip()
         git('init','-q')
         git('config','user.name','Fixture')
         git('config','user.email','fixture@example.invalid')
@@ -74,6 +86,20 @@ class OperationSourceTests(unittest.TestCase):
         git('add','docs/Guide.md','source.py')
         git('commit','-qm','Fixture baseline')
         return git
+
+    def test_fixture_repository_ignores_inherited_git_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            sentinel,work=root/'sentinel',root/'work'
+            sentinel.mkdir()
+            work.mkdir()
+            subprocess.run(['git','init','-q',str(sentinel)],check=True,env=isolated_git_environment())
+            before=(sentinel/'.git'/'config').read_text()
+            with patch.dict(os.environ,{'GIT_DIR':str(sentinel/'.git'),'GIT_WORK_TREE':str(sentinel)}):
+                git=self.repository(work)
+            self.assertEqual(before,(sentinel/'.git'/'config').read_text())
+            self.assertTrue((work/'.git').is_dir())
+            self.assertEqual('Fixture',git('config','user.name'))
 
     def test_real_complete_diff_checks_both_rename_paths(self):
         with tempfile.TemporaryDirectory() as temporary:
