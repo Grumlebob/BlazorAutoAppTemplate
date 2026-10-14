@@ -19,22 +19,26 @@ Expect matches in these areas:
 | Client | `BlazorAutoApp.Client/`, its solution and project references | Delete |
 | Host UI | `BlazorAutoApp/Components/`, Razor account pages under `BlazorAutoApp/Features/Login/Account/`, `BlazorAutoApp/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
 | Styles | `BlazorAutoApp/wwwroot/tailwind.css`, `app.css`, `BlazorAutoApp.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
-| Build | `Directory.Build.targets`, `BlazorAutoApp/BlazorAutoApp.csproj` | Accept only `React`; fail clearly on `BlazorAuto` |
+| Build | `Directory.Build.targets`, `BlazorAutoApp/BlazorAutoApp.csproj`, `frontend-profile.txt` | Accept only `React`; fail clearly on `BlazorAuto`. The file holds `React` |
 | Docker | `publish-blazor` and `final-blazor` stages in `BlazorAutoApp/Dockerfile` | Remove; keep `final-react` |
-| CI | `.github/workflows/ci.yml`, `Scripts/CI/validate-frontend-profiles.sh`, `Scripts/CI/publish_additional_frontend.sh`, `ADDITIONAL_FRONTEND_PROFILES` | Build, test and smoke React only; remove other-profile publication |
+| CI | `.github/workflows/ci.yml`, `Scripts/CI/validate-frontend-profiles.sh`, `Scripts/CI/publish_additional_frontend.sh`, `Scripts/CI/migration_staging_artifact.py`, `ADDITIONAL_FRONTEND_PROFILES` | Build, test and smoke React only; remove other-profile publication. Project paths follow the rename |
 | Additional app | `Deployment/LocalSingleNode/ApplicationInstances.md`, `.github/workflows/localsinglenode-app-setup.yml`, `prepare-additional-app.sh`, `verify-additional-app.py`, the `app_instance` inputs of CD and maintenance | It exists only to run the other profile; remove it with its tests. Keep the primary identity and ownership checks in `resolve-app-instance.py` |
-| Release tooling | `Scripts/Frontend/resolve_frontend_profile.py`, `Scripts/CI/write_release_manifest.py`, `Deployment/Common/Scripts/validate_release_manifest.py`, each kept target's `verify-release-identity.sh`, `Scripts/Test-DeployedSite.ps1` | Narrow to React profile and acceptance pairs, now or in a recorded follow-up |
-| Tests | `BlazorAutoApp.Test/E2E/Support/BlazorE2ETestBase.cs`, Blazor E2E, render-mode and head-asset hosting tests, architecture tests naming the client | Delete Blazor-only tests; make architecture and composition tests assert the React-only host |
+| Release tooling | `Scripts/Frontend/resolve_frontend_profile.py`, `Scripts/CI/write_release_manifest.py`, `Deployment/Common/Scripts/validate_release_manifest.py`, `Deployment/Common/ReleaseContract.md`, each kept target's `verify-release-identity.sh`, `Scripts/Test-DeployedSite.ps1`, `.github/workflows/cd-localsinglenode.yml`, `Deployment/LocalSingleNode/Scripts/lib/read_release_acceptance.py`, `Deployment/LocalSingleNode/ansible/roles/single_node_stack/` | Narrow to React profile and acceptance pairs, including the legacy manifest v1 notes, now or in a recorded follow-up |
+| Other targets | `Deployment/LocalCluster/`, `.github/workflows/cd-localcluster.yml` | Delete with the single-node-only clone. If kept, narrow them like the release tooling |
+| Local tooling | `docker-compose.yml`, `Scripts/RunLocal.ps1`, `Scripts/Testing/`, `BlazorAutoApp.React/scripts/`, `.env.example` | Default to `final-react`; drop the `BlazorAuto` case and `BlazorAutoApp.Client` roots. Names follow the rename |
+| Repository config | `.gitattributes`, `.gitignore`, `.dockerignore`, `.qlty/qlty.toml`, `.github/dependabot.yml` | Drop the `*.razor` rule and the client Dependabot entries. Paths follow the rename |
+| Names | `Deployment/Common/observability/`, `Deployment/LocalSingleNode/Scripts/lib/readiness.py` | Dashboards and the readiness user agent carry the project name. Rename with the project |
+| Tests | `BlazorAutoApp.Test/E2E/Support/BlazorE2ETestBase.cs`, Blazor E2E, render-mode and head-asset hosting tests, architecture tests naming the client, and script fixtures under `Scripts/CI/tests/`, `Deployment/Common/Scripts/Tests/` and `Deployment/LocalSingleNode/Scripts/Tests/` | Delete Blazor-only tests; make architecture and composition tests assert the React-only host; turn fixtures that name the Blazor profile into React ones |
 | Browser tools | `axe-core` and `lighthouse` in `BlazorAutoApp.Client/package.json`, used by `Scripts/RunLighthouse.ps1` and the axe tests | Move them to a test-only package with its own lockfile and Dependabot entry **before** deleting the client |
 | Quality tools | `Scripts/Quality`, `docker/sonarqube` | Optional; update exclusions or record a follow-up |
-| Docs and rules | `AGENTS.md` (Tailwind rebuild rule), README, [FrontendProfiles](../FrontendProfiles.md), [Blazor features](../Features/Blazor.md), [feature guide](../HowToAddANewFeature.md), Requirements, Test and Testing pages, [running locally](../HowToRunLocally.md) | Describe one frontend; delete the Blazor guide |
+| Docs and rules | `AGENTS.md` (Tailwind rebuild rule), `README.md`, and every page under `docs/` that names the profile, such as [FrontendProfiles](../FrontendProfiles.md), [Blazor features](../Features/Blazor.md), the [feature guide](../HowToAddANewFeature.md) and [running locally](../HowToRunLocally.md) | Describe one frontend; delete the Blazor guide |
 
 ## Safe removal sequence
 
 1. Branch from the clone's latest `main`.
 2. Move anything React or tests still need out of the client first, including the browser tools and shared assets.
 3. Change the entry points (MSBuild, Dockerfile, CI and profile validation) so nothing builds the Blazor profile. Then delete the client, Razor UI and Blazor composition.
-4. Delete Blazor-only tests and rewrite the shared ones. The React profile must now run the whole suite; record the new pass and skip counts.
+4. Delete Blazor-only tests and rewrite the shared ones. The React profile must now run the whole suite; record the new skip count (the pass count is not pinned).
 5. For every deployment-audit rule about a removed file or step, add a React-only rule, for example "no Blazor build path" or "no other-profile publication". Never only delete a rule.
 6. Update the docs and rules listed above.
 7. Run the inventory command again. Every remaining match must be intentional, such as provenance links, plan history or a recorded follow-up.

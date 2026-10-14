@@ -1,6 +1,6 @@
 # Downstream clone readiness after Portfolio
 
-Status: workstreams A, B and C are **complete** (template PR #262, merge `d8357cd3a50f080fec633d256ad1345b3f9c4c4c`). Workstream D (§ 10) is **pending**. Run D with [DownstreamCloneReadinessGoal.md](DownstreamCloneReadinessGoal.md).
+Status: A–D complete; D's final record is in the description of the D5 PR.
 
 Owner requests (2026-10-14):
 
@@ -827,12 +827,12 @@ Start only after D1, D3 and D4 are merged. Run `cd $T && git switch -c docs/clon
 ### D record
 
 ```text
-D0 preflight (date, main SHAs, open PRs, main CI):
-D1 template fixture: PR / head / merge / PR CI / main CI / failing-then-passing proof / leak proof:
-D2 Portfolio fixture: PR / head / merge / PR CI / main CI / not deployed (test-only):
-D3 CSP nonce: PR / head / merge / PR CI / main CI / tests added:
-D4 Portfolio docs: PR / head / merge / files removed / links repointed / audit:
-D5 template docs: PR / head / merge / mirror diff / inventory size / audit:
-D6 closeout:
-Skipped (step, reason):
+D0 preflight (date, main SHAs, open PRs, main CI): 2026-10-14. Template main b59e12f6e926a96ee0f312ccddd5f7dc7ef35dcf, Portfolio main fe52eff2409db4664dab452a31703ff9373aa95c, both clean and fast-forwarded. Open PRs: template dependabot #222 and #223 (untouched), none in Portfolio. Main CI success in both (latest CI runs 2a72160a and 278792c3; the commits after them are docs-only). No leaked identity, gh logged in as Grumlebob, gate tools present (dotnet 10.0.303, Docker ok). No D branch or PR existed.
+D1 template fixture: PR #264 / head 6b64eb570bd18335abedc5868e61aed9e80bb881 / merge f49a72c2b14207bef5cdcc0ff9e0ddb2a37ec75f / PR CI 38533514702 success / main CI 38534468656 success / the regression test failed without env= (git add exit 128) and passed with it, whole file 11 tests / leak proof NO-LEAK, 32 Python tests pass under an inherited GIT_DIR. Test-SonarQualityAuditContract.ps1 passed before and after the edit. Addition to step 8: a setUp in test_run_quality_audit.py clears GIT_* for the code under test, because snapshot_source followed GIT_DIR and failed under the leak proof. Gate PASS for the head.
+D2 Portfolio fixture: PR #37 / head 6da9d5dd63302e94f8b35f209258002610d0c2f0 / merge acc02a548f4a1dda5fa721e725c48302360a6ca1 / PR CI 38533764904 success / main CI 38534478703 success / not deployed (test-only). All three files existed; same edits applied by hand; 23 Python tests pass with and without GIT_DIR; leak proof NO-LEAK. Gate PASS for the head.
+D3 CSP nonce: PR #265 / head 1698c56611b3bb0482d3e99b3f16a91a762daedf / merge b3ff67b1ce69488600df3f6ca86fd1b8ebe34823 / PR CI 38534549189 success / main CI 38536292939 success / one test added (HtmlDocuments_CarryAFreshScriptNonceForEdgeInjectedScripts), AssertSecurityHeaders updated to expect the nonce on HTML only. Without the nonce three hosting tests fail; with it all 28 pass. Deviation from step 8: the template did pin the .NET pass counts (182 React, 190 BlazorAuto) in validate-frontend-profiles.sh, audit_deployment.py, Invoke-SonarAnalysis.ps1, sonar_report.py and test fixtures. The owner decided on 2026-10-14 that exact pass-count pins are bad practice, so the PR removed them instead of bumping them: --expected-passed is optional in validate_dotnet_test_results.py, and the audit rejects a reintroduced pin. Skip counts stay exact. Not removed, for the owner to decide: Testcontainers lifecycle (--expected-passed 3), Docker smoke (--expected-passed 2), React unit tests (31). Not deployed. Gate PASS for the head.
+D4 Portfolio docs: PR #38 / head 65356b52930668c2c58be26b1ed3635ff8908c8f / merge 3b22bb19615ac407e69acd1ddd36e52d0bb0c1e9 / 14 Plans files and 2 support files removed, CodeQualityImprovements.md is a stub / 5 links repointed at the template (FrontendProfiles.md, QualityTools.md, PortfolioStudioImplementation.md, Progress.md, ProjectInventory.md) / Portfolio deployment audit passed, diff --check clean, only .md files, links resolve. Done before D3 merged, so the D3 PR number was recorded, not its merge.
+D5 template docs: see the D5 PR description for PR / head / merge. Mirror: Progress.md differs from Portfolio's only by the banner lines (date 2026-10-14); PortfolioStudioDeliveryGoal.md additionally keeps the template's own sentence naming the Portfolio copy as authoritative. Inventory: 301 files match the pattern outside Plans/, 56 were unnamed in the guide, 0 after the rehearsal; the guide is 802 words. Favicon row added (BlazorAutoApp.React/public was empty). Node-sharing mechanics were checked against bootstrap.py, runner.py and collisions.py. Template audit: see the PR description.
+D6 closeout: see the D5 PR description.
+Skipped (step, reason): Portfolio's own pass-count pin (174 in validate-frontend-profiles.sh, audit_deployment.py, docs/Test.md) was left for the owner, so D2 stays a pure fixture fix. The optional template deployment of the nonce needs separate operator authorization.
 ```

@@ -2,15 +2,15 @@
 
 Read [master plan](../../PortfolioStudioImplementation.md), [architecture/slices](Architecture.md), [phases](DeliveryPhases.md), [execution decisions](ExecutionDecisions.md), [implementation checkpoints](ImplementationCheckpoints.md), [page briefs](PageBriefs.md), [visual production](VisualProduction.md), [source inventory](ProjectInventory.md) and [node handoff](NodeHandoff.md). The later goal prompt is [PortfolioStudioDeliveryGoal.md](../../PortfolioStudioDeliveryGoal.md).
 
-> **Mirror.** This template copy mirrors the authoritative ledger in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md) as of 2026-10-13. When the two differ, the Portfolio copy wins. Do the work in the Portfolio checkout (`C:/Users/jgrum/Documents/Programming/Csharp/Portfolio`).
+> **Mirror.** This template copy mirrors the authoritative ledger in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md) as of 2026-10-14. When the two differ, the Portfolio copy wins. Do the work in the Portfolio checkout (`C:/Users/jgrum/Documents/Programming/Csharp/Portfolio`).
 
 ## Current checkpoint
 
-Last updated: 2026-10-13, after PR #32 was merged, deployed and verified live. The authoritative ledger is this file in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md). A fresh `/goal Plans/PortfolioStudioDeliveryGoal.md` run should read this section first, then the phase ledger and the project readiness ledger.
+Last updated: 2026-10-14, after the owner's Lighthouse decision and the standalone plan cleanup. The authoritative ledger is this file in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md). A fresh `/goal Plans/PortfolioStudioDeliveryGoal.md` run should read this section first, then the phase ledger and the project readiness ledger.
 
 ### Where things stand
 
-The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bot detection, and a favicon) is merged, deployed and verified live. What remains: one owner decision about Lighthouse best practices, and owner-led story improvements.
+The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bot detection, and a favicon) is merged, deployed and verified live. What remains: owner-led story improvements.
 
 - **Live site:** https://portfolio.jacobgrum.com serves all twelve stories, the Technologies page and real 404s.
 - **Current release:**
@@ -69,16 +69,18 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
   - Template #243 links the template plan to this ledger.
   - The live no-cookie E2E assertion: Portfolio #35 (`278792c`) and template #259 (`2a72160a`, main CI 38460394504 success on exact main). Behind Cloudflare JavaScript detections a real browser holds `cf_clearance`, so only Cloudflare's exact edge cookie names are ignored.
   - The template's deployment audit was failing on `main` because two docs-only `[skip ci]` commits (`94933bfc`, `a8d16ef3`) removed required wording and referenced a script that exists only under `Cloud/`. Repaired by template #260 (`73a2593f`) with the audit passing on the head.
+- **Standalone cleanup (2026-10-14):**
+  - The template-era plans and their support folders were removed; the template keeps their history, and links to them point there.
+  - `Plans/CodeQualityImprovements.md` is now a stub, because `Scripts/Quality/sonar_report.py` names it.
+  - `gh repo set-default Grumlebob/Portfolio` was run in this checkout.
+  - Test fixtures no longer follow an inherited `GIT_DIR`: Portfolio #37 (merge `acc02a5`, main CI run 38534478703 success; test-only, not deployed).
+  - Template PRs: #264 (the same fixture fix) and #265 (CSP nonce for the React host).
 - **Closeout (2026-10-13):** deleted branches, with full SHAs. Portfolio `fix/csp-nonce-favicon` `5eeeb82ff5908178649594a853783bc479f9cff5` and `fix/e2e-ignore-edge-cookies` `73c9306bb65498e8f26ccc1519521c002bdb8a27`. Template `fix/e2e-ignore-edge-cookies` `1d60d03195ea7691b5bb143c5d242d1e64abe1f5` and `docs/fix-audit-after-skip-ci-docs` `04afceadc5fa5d628e2fcd22a4226f058d7ee3be`. Content of each PR was verified identical on `main` before deletion.
 - **Handover docs:** `docs/HowToAddAProject.md` in Portfolio covers adding or updating a story, the validator rules, release, deploy, rollback and restarts. Private tools are in `Plans.local/Portfolio/Tools/`, with a README: the live-test sequence runner, the SVG arrowhead converter, a safe Cloudflare check and a public-setup lister.
 
 ### Remaining work, in order
 
-1. **Owner decision: Lighthouse best practices versus Cloudflare bot detection.** PR #32 delivered what it could (clean console, detections running, favicon), but the owner's second aim, best practices above 92, is not reachable while Cloudflare's script runs: it scores 81. Options:
-   - **Keep detections and accept 81.** This is the current state and needs no action. The deprecation is a DevTools notice, not something visitors see.
-   - **Exclude `portfolio.jacobgrum.com` from Cloudflare's JavaScript detections** to remove the only failing audit. That is a Cloudflare zone rule, outside this goal's authority, and it gives up the bot detection the owner asked to keep. Do it only on an explicit owner instruction.
-
-   Do not add `'strict-dynamic'` or `unsafe-inline`: the console is already clean and neither affects the deprecation. Port the nonce to the template only if a template deployment runs behind JavaScript detections and the owner accepts the same trade-off; it was not ported.
+1. **Lighthouse versus bot detection: decided.** Owner decision 2026-10-14: keep Cloudflare JavaScript detections and accept best practices 81. No action. Do not add `'strict-dynamic'` or `unsafe-inline`.
 2. **P6 story improvements (owner-led).** Every story is a launched draft. The project readiness ledger lists the inputs only the owner can give, such as role, dates, real captures and links. Each improvement is its own PR:
    - run `npm run content` and the full local gate;
    - merge after exact-head CI passes;
@@ -99,7 +101,7 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
 
 ### Working setup for the next agent
 
-- **Checkouts:** Portfolio is at `C:\Users\jgrum\Documents\Programming\Csharp\Portfolio`; the template is at `C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp`. On 2026-10-13 a stray `core.worktree` was removed from the template's `.git/config`, and the DocsD4 worktree's `.git` link was made relative so it works from Windows and WSL. Template `main` is checked out in the DocsD2 worktree, so branch from `origin/main`.
+- **Checkouts:** Portfolio is at `C:\Users\jgrum\Documents\Programming\Csharp\Portfolio`; the template is at `C:\Users\jgrum\Documents\Programming\Csharp\BlazorAutoApp`. On 2026-10-13 a stray `core.worktree` was removed from the template's `.git/config`, and the DocsD4 worktree's `.git` link was made relative so it works from Windows and WSL. Template `main` is checked out in the primary template checkout; branch from `origin/main`. `gh` defaults to Grumlebob/Portfolio in this checkout; still pass `-R`.
 - **Local gate:** WSL `~/bin/repo-gate.sh <branch> [steps]`. Always run it in a login shell: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc '...'`, because a non-login shell has no `dotnet`. Use `GATE_SRC`/`GATE_WORK` for another source; run only one gate per `GATE_WORK` at a time.
 - **Node access:** SSH alias `portfolio-node`; use `/c/Windows/System32/OpenSSH/ssh.exe` from Git Bash.
 - **Content rules:**
@@ -116,7 +118,7 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
 - Destination: [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio), public, seeded at `59de26c4c594d59a421801611b3ce0bd8e97bd8e` on 2026-10-12. Actions run on the Portfolio node's runner (`ci-portfolio`, `localsinglenode-portfolio`); the Dependabot auto-merge workflow was re-enabled on 2026-10-13 after the stack landed.
 - Source: [Grumlebob/BlazorAutoAppTemplate](https://github.com/Grumlebob/BlazorAutoAppTemplate), pinned at `6db93ed33fad6564fac68149bcfffbf98e6724f1` (see P0.1 record).
 - Owner authorization: see the Release and operator handoff record below. Implementation, own-PR merges after exact-head green CI, Portfolio repository operations and live LocalSingleNode setup/deployment on the intended Portfolio node are authorized.
-- The upstream [React delivery goal](../../ReactFrontendDeliveryGoal.md) and [SR1–SR6 plan](../../ReactFrontendSingleRepository.md) are complete (status 2026-10-11, final handover #176). P0.1 below records the capabilities Portfolio depends on. That agent's demo deployment stays untouched.
+- The upstream [React delivery goal](https://github.com/Grumlebob/BlazorAutoAppTemplate/blob/main/Plans/ReactFrontendDeliveryGoal.md) and [SR1–SR6 plan](https://github.com/Grumlebob/BlazorAutoAppTemplate/blob/main/Plans/ReactFrontendSingleRepository.md) are complete (status 2026-10-11, final handover #176). P0.1 below records the capabilities Portfolio depends on. That agent's demo deployment stays untouched.
 - Product decisions: Portfolio naming, React frontend/C# backend, Books/Blazor removal, LocalSingleNode-only deployment and intended public URL `https://portfolio.jacobgrum.com/`.
 - Owner refinement: generated **Techs** on every project, top-level `/technologies` with one categorized entry per published technology, and Template added as story **P6.13**, bringing the catalog to twelve. P6.12 remains catalog review.
 - Grumlebob public facts supplied: free online offer automation for passive income, approximately DKK 500,000 profit in one year and membership at capacity because of concern about being caught. Attribute result/capacity to owner; remaining restricted context stays private.
