@@ -34,6 +34,17 @@ Use a disposable app for ZAP and sitespeed. Replace the example URL with its act
 
 The default timeout is 15 minutes, including image pulls. Set `--timeout-minutes 1` through `60` to change it. Docker audits use a unique container, two CPUs, 4 GiB memory, and 1 GiB shared memory. The first browser-image pull can be large. Trivy downloads its vulnerability database for each run.
 
+## Summarize Lighthouse runs
+
+`Scripts/RunLighthouse.ps1` writes one report folder per run under `TestResults/Lighthouse`. Summarize several runs that share a label prefix, one line per page and device with the median of its runs:
+
+```powershell
+python Scripts/Quality/summarize_lighthouse.py p2-origin-
+python Scripts/Quality/summarize_lighthouse.py p2-origin- --minimum "performance=90,accessibility=100,best-practices=100,seo=100"
+```
+
+With `--minimum`, the script lists every page and device whose median is below a minimum and exits `1`. An unknown category, no matching reports, or a report from a run that did not finish (no scores) exits `2`; it never reports success for an empty set or a smaller sample. Delete the failed run's report and run that page again. `RunLighthouse.ps1 -Minimum "<same value>"` applies the check to its own run and returns the script's exit code. Both are for manual use and are not part of any workflow.
+
 ## Reports and cleanup
 
 Reports are local and ignored by Git:

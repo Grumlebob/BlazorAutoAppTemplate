@@ -9,7 +9,8 @@ param(
   [string]$Email = "user@user.com",
   [string]$Password = "User123",
   [string]$OutputRoot = "TestResults/Lighthouse",
-  [string]$BrowserProxy
+  [string]$BrowserProxy,
+  [string]$Minimum
 )
 
 $ErrorActionPreference = "Stop"
@@ -195,3 +196,13 @@ foreach ($path in $Paths) {
 }
 
 Write-Host "Lighthouse run complete: $runDirectory"
+
+if ($Minimum) {
+  $python = Get-Command python, python3 -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $python) {
+    throw "Python 3 was not found; it is required for -Minimum."
+  }
+
+  & $python.Source (Join-Path $scriptRoot "Quality/summarize_lighthouse.py") (Split-Path -Leaf $runDirectory) --root $outputRootPath --minimum $Minimum
+  exit $LASTEXITCODE
+}
