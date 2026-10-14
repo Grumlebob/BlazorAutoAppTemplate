@@ -2,7 +2,7 @@
 
 Read [master plan](../../PortfolioStudioImplementation.md), [architecture/slices](Architecture.md), [phases](DeliveryPhases.md), [execution decisions](ExecutionDecisions.md), [implementation checkpoints](ImplementationCheckpoints.md), [page briefs](PageBriefs.md), [visual production](VisualProduction.md), [source inventory](ProjectInventory.md) and [node handoff](NodeHandoff.md). The later goal prompt is [PortfolioStudioDeliveryGoal.md](../../PortfolioStudioDeliveryGoal.md).
 
-> **Mirror.** This template copy mirrors the authoritative ledger in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md) as of 2026-10-14. When the two differ, the Portfolio copy wins. Do the work in the Portfolio checkout (`C:/Users/jgrum/Documents/Programming/Csharp/Portfolio`).
+> **Mirror.** This template copy mirrors the authoritative ledger in [Grumlebob/Portfolio](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioStudio/Progress.md) as of 2026-10-14 (after the quality-scores plan). When the two differ, the Portfolio copy wins. Do the work in the Portfolio checkout (`C:/Users/jgrum/Documents/Programming/Csharp/Portfolio`).
 
 ## Current checkpoint
 
@@ -19,6 +19,10 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
   - Content revision: `b60f12d3cc19aa48` (unchanged).
   - LAN (in the CD run) and public PortfolioPublicV1 acceptance pass, including the served content revision. The public run covered 27 checks.
   - `main` is ahead of the release by #35 (`278792c`, main CI 38459075356 green). It changes only a test file, so it was not deployed.
+- **Releases since (2026-10-14):**
+  - `3213991` (quality-scores batches A and B, and #58): CD run 38582012114. Adds COOP, CORP and a wider Permissions-Policy and pins the .NET 10.0.13 base images by digest.
+  - `f590d99` (quality-scores batches C and E): CD run 38600001998, rollback `3213991`. The hydration bundle loads after the stylesheet and the main image, an 828 px image variant, compressed SVGs; `Test-DeployedSite.ps1` passes against the live site.
+- **Quality scores (2026-10-14):** the [scorecard](https://github.com/Grumlebob/Portfolio/blob/main/docs/Quality/Scorecard.md) records every tool's before and after on one commit and image, with the misses and the commands that reproduce it. Origin mobile performance went from 90-95 to 98-100 and LCP from 2.40-3.08 s to 1.50-2.25 s; live mobile LCP from 2.9-3.7 s to 1.3-2.0 s. The plan and its execution record are in [PortfolioQualityScores.md](https://github.com/Grumlebob/Portfolio/blob/main/Plans/PortfolioQualityScores.md); the decisions are in [Triage.md](https://github.com/Grumlebob/Portfolio/blob/main/Plans/Support/PortfolioQualityScores/Triage.md). The live "Content security policy" inspector issue is a report-only header that Cloudflare adds to about one response in ten, not site code.
 - **PR #32 outcome (2026-10-13):**
   - Head `5eeeb82`: full local gate PASS and exact-head `build-test-push` run 38456275684 success. Merged as `b35f065` with `--match-head-commit`.
   - Console: no browser errors (Lighthouse `errors-in-console` passes and the live E2E console assertion passes). The CSP error from `/cdn-cgi/challenge-platform/` is gone.
@@ -71,7 +75,7 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
   - The template's deployment audit was failing on `main` because two docs-only `[skip ci]` commits (`94933bfc`, `a8d16ef3`) removed required wording and referenced a script that exists only under `Cloud/`. Repaired by template #260 (`73a2593f`) with the audit passing on the head.
 - **Standalone cleanup (2026-10-14):**
   - The template-era plans and their support folders were removed; the template keeps their history, and links to them point there.
-  - The template's on-demand quality tooling (`Scripts/Quality`, `docker/sonarqube`, `docs/Quality`, `.qlty`) and its `Plans/CodeQualityImprovements.md` backlog were removed from this repository; the template keeps them.
+  - The on-demand quality tooling (`Scripts/Quality`, `docker/sonarqube`, `docs/Quality`, `.qlty`) was briefly removed and restored on 2026-10-14; the quality scorecard in `Plans/PortfolioQualityScores.md` uses it.
   - `gh repo set-default Grumlebob/Portfolio` was run in this checkout.
   - Test fixtures no longer follow an inherited `GIT_DIR`: Portfolio #37 (merge `acc02a5`, main CI run 38534478703 success; test-only, not deployed).
   - Template PRs: #264 (the same fixture fix) and #265 (CSP nonce for the React host).
