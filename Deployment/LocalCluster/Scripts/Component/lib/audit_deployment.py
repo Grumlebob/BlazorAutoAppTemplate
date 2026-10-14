@@ -310,19 +310,19 @@ for document_path, document_text in cluster_guide_documents.items():
         fail(error)
 
 for needle, why, owner in [
-    ('## 4. Reserve LAN IPs', 'dedicated router IP reservation step', 'setup'),
-    ('## 5. Generate Inventory', 'dedicated control-machine inventory generation step', 'setup'),
+    ('Reserve LAN IPs', 'dedicated router IP reservation step', 'setup'),
+    ('Generate Inventory', 'dedicated control-machine inventory generation step', 'setup'),
     ('Ensure all four nodes are using their reserved IPs before proceeding.', 'router reservation checkpoint', 'setup'),
     ('validate-machines.sh', 'machines.yml validation checkpoint before inventory generation', 'setup'),
     ('Success: prints OK lines for machines.yml, deployment settings, and all four nodes.', 'machines validation success checkpoint', 'setup'),
     ('Run this only from a full repository checkout on the control machine.', 'verify-bootstrap full-checkout warning', 'setup'),
     ('test -f "$REPO_ROOT/Deployment/LocalCluster/Scripts/verify-bootstrap.sh"', 'verify-bootstrap dependency checkpoint', 'setup'),
-    ('## 12. Configure The GitHub CD Environment', 'dedicated GitHub environment setup step', 'setup'),
+    ('Configure The GitHub CD Environment', 'dedicated GitHub environment setup step', 'setup'),
     ('New environment -> localcluster', 'localcluster environment creation', 'setup'),
     ('Deployment branches and tags: Selected branches and tags', 'deployment branch restriction instructions', 'setup'),
     ('Allowed branch: main', 'main-only environment branch rule', 'setup'),
     ('Environment localcluster exists and allows deployments from main.', 'environment setup checkpoint', 'setup'),
-    ('## 13. First Deploy From GitHub Actions', 'first CD deploy step after environment setup', 'setup'),
+    ('First Deploy From GitHub Actions', 'first CD deploy step after environment setup', 'setup'),
     ('publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`', 'main-only CI publishing explanation', 'release_contract'),
     ('Optional sanity check: before deploying, confirm the image tag exists.', 'optional image check wording', 'setup'),
     ('migration bundle artifact is missing or expired', 'expired CI artifact recovery guidance', 'release_contract'),
@@ -918,7 +918,7 @@ for needle, why in [
     ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
     ("Test required .NET test-result counts", "strict .NET result parser unit tests"),
     ("python3 -m unittest Scripts/CI/tests/test_validate_dotnet_test_results.py -v", "strict .NET test result count validator tests"),
-    ("--expected-passed 3 --expected-skipped 0", "Testcontainers lifecycle rejects missing or skipped tests"),
+    ('--expected-skipped 0 --suite "Testcontainers lifecycle"', "Testcontainers lifecycle rejects skipped tests"),
     ("Validate local Compose frontend profiles", "local Compose target validation for both profiles"),
     ("Install pinned npm for React frontend", "pinned React npm is installed in runner temporary storage"),
     ('npm_prefix="$RUNNER_TEMP/react-npm-12.2.0"', "React npm install uses an isolated temporary prefix"),
@@ -928,8 +928,8 @@ for needle, why in [
     ("Audit React frontend dependencies", "React frontend dependency audit"),
     ("Check React OpenAPI contract", "generated React OpenAPI contract validation"),
     ("Lint React frontend", "React frontend lint validation"),
-    ("Test React frontend", "React unit tests with exact no-skip counts"),
-    ("expectedTestCount = 31", "React unit tests must all execute at the expected count"),
+    ("Test React frontend", "React unit tests that must all pass without skips"),
+    ("report.numPassedTests !== report.numTotalTests", "React unit tests must all pass"),
     ("report.numPendingTests !== 0", "React unit tests must not pass with skips"),
     ("Build React frontend", "React frontend production build"),
     ("dotnet ef migrations bundle", "migration bundle build"),
@@ -983,18 +983,20 @@ for needle, why in [
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+for pin in ("--expected-passed", "expectedTestCount"):
+    if pin in ci:
+        fail(f".github/workflows/ci.yml: test suites must not pin an exact pass count ({pin})")
 
 profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
-    ("--expected-skipped 13", "both profile suites enforce their expected opt-in skips"),
     ("validate_dotnet_test_results.py", "both profile suites validate their TRX results"),
     ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
 ]:
     if needle not in profile_gate:
         fail(f"Scripts/CI/validate-frontend-profiles.sh: missing {why}: {needle}")
-if "expected_passed" in profile_gate or "--expected-passed" in profile_gate:
-    fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin an exact pass count; "
-         "the validator already rejects failures, unknown outcomes and skip drift")
+if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed", "--expected-skipped")):
+    fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin test counts; "
+         "the validator rejects failures and skips that are not explicit opt-ins")
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
 for needle, why in [

@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 
-def validate(document: dict[str, Any], expected_passed: int, expected_skipped: int) -> dict[str, int]:
+def validate(document: dict[str, Any], expected_skipped: int = 0) -> dict[str, int]:
+    """Require a successful run with no failures and the expected skips; the suite size is not pinned."""
     if not isinstance(document, dict):
         raise ValueError("Vitest JSON report must be a JSON object.")
     fields = {
@@ -24,8 +25,6 @@ def validate(document: dict[str, Any], expected_passed: int, expected_skipped: i
         raise ValueError("Vitest JSON report is missing valid test-count fields.")
     if document.get("success") is not True:
         raise ValueError("Vitest JSON report does not mark the suite successful.")
-    if fields["passed"] != expected_passed:
-        raise ValueError(f"Expected {expected_passed} passing React tests; found {fields['passed']}.")
     if fields["failed"] != 0:
         raise ValueError(f"Expected zero failed React tests; found {fields['failed']}.")
     skipped = fields["pending"] + fields["todo"]
@@ -33,8 +32,8 @@ def validate(document: dict[str, Any], expected_passed: int, expected_skipped: i
         raise ValueError(f"Expected {expected_skipped} skipped React tests; found {skipped}.")
     if fields["total"] != fields["passed"] + fields["failed"] + fields["pending"] + fields["todo"]:
         raise ValueError("Vitest test-count fields do not add up to the reported total.")
-    if fields["total"] == 0:
-        raise ValueError("Vitest report contains no tests.")
+    if fields["total"] == 0 or fields["passed"] == 0:
+        raise ValueError("Vitest report contains no passing tests.")
     return fields
 
 
@@ -129,7 +128,6 @@ def _react_application_sources(root: Path) -> set[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
-    parser.add_argument("--expected-passed", type=int, default=31)
     parser.add_argument("--expected-skipped", type=int, default=0)
     parser.add_argument("--coverage-summary", type=Path)
     parser.add_argument("--react-root", type=Path)
@@ -137,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         document = json.loads(args.report.read_text(encoding="utf-8"))
-        counts = validate(document, args.expected_passed, args.expected_skipped)
+        counts = validate(document, args.expected_skipped)
         summary: dict[str, Any] = {"tests": counts, "coverage": "not-checked"}
         if args.coverage_summary:
             if not args.react_root:

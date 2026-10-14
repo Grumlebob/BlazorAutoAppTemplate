@@ -4,7 +4,7 @@ Use the full local gate for code, configuration, and other non-Markdown changes.
 
 ## Normal run
 
-Run `dotnet test` for the selected frontend profile; E2E tests stay skipped unless `RUN_E2E=1`. To validate both frontend compositions, run the profile script below. It restores separate profile inputs and verifies test result categories (no failures, no unexpected outcomes, the expected opt-in skips); the number of passing tests is not pinned:
+Run `dotnet test` for the selected frontend profile; E2E tests stay skipped unless `RUN_E2E=1`. To validate both frontend compositions, run the profile script below. It restores separate profile inputs and verifies test result categories (no failures, no unexpected outcomes, and skips only for explicit `Set RUN_…=1` opt-ins); no test count is pinned:
 
 ```bash
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results

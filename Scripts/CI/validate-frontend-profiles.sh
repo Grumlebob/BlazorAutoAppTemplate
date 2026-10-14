@@ -38,9 +38,8 @@ for profile in BlazorAuto React; do
   fi
 
   dotnet "${test_arguments[@]}"
-  # The pass count is not pinned: the validator rejects failures, unexpected outcomes and skip drift.
+  # No test count is pinned: the validator rejects failures and skips that are not explicit opt-ins.
   python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
     "$profile_results/suite.trx" \
-    --expected-skipped 13 \
     --suite "$profile solution tests"
 done

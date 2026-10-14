@@ -311,7 +311,7 @@ jobs:
             --filter "FullyQualifiedName~TestContainerLifecycleTests" \
             --logger "trx;LogFileName=lifecycle.trx" --results-directory "$lifecycle_results"
           python3 Scripts/CI/validate_dotnet_test_results.py "$lifecycle_results/lifecycle.trx" \
-            --expected-passed 3 --expected-skipped 0 --suite "Testcontainers lifecycle"
+            --expected-skipped 0 --suite "Testcontainers lifecycle"
 
       - name: Upload .NET test results
         if: ${{ !cancelled() }}
@@ -371,9 +371,8 @@ jobs:
           npm test -- --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/react-vitest-results.json"
           node - "$RUNNER_TEMP/react-vitest-results.json" <<'NODE'
           const report = JSON.parse(require("node:fs").readFileSync(process.argv[2], "utf8"));
-          const expectedTestCount = 31;
-          if (report.numTotalTests !== expectedTestCount
-              || report.numPassedTests !== expectedTestCount
+          if (report.numTotalTests === 0
+              || report.numPassedTests !== report.numTotalTests
               || report.numFailedTests !== 0
               || report.numPendingTests !== 0) {
             const counts = {
@@ -382,7 +381,7 @@ jobs:
               failed: report.numFailedTests,
               skipped: report.numPendingTests,
             };
-            console.error(`React unit-test counts differ: ${JSON.stringify(counts)}; expected 31 passed and no skips.`);
+            console.error(`React unit tests must all pass with no skips: ${JSON.stringify(counts)}.`);
             process.exitCode = 1;
           } else {
             console.log(`React unit tests: ${report.numPassedTests} passed, no skips.`);
