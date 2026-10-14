@@ -1,7 +1,17 @@
 # Downstream clone readiness after Portfolio
 
-Status: complete on 2026-10-14 once the PR in C8 is merged and verified; the merge record is in that PR's description.
-Owner request (2026-10-14): after the Portfolio delivery, clean up leftovers (A), make `gh` safe in the Portfolio checkout (B), and write the clone lessons into the template (C) before the next product is cloned.
+Status: workstreams A, B and C are **complete** (template PR #262, merge `d8357cd3a50f080fec633d256ad1345b3f9c4c4c`). Workstream D (§ 10) is **pending**. Run D with [DownstreamCloneReadinessGoal.md](DownstreamCloneReadinessGoal.md).
+
+Owner requests (2026-10-14):
+
+1. After the Portfolio delivery, clean up leftovers (A), make `gh` safe in the Portfolio checkout (B), and write the clone lessons into the template (C) before the next product is cloned.
+2. Then carry out the follow-up recommendations (D):
+   - fix the test fixture that leaked a git identity;
+   - port the Cloudflare CSP nonce to the template;
+   - finish Portfolio's standalone cleanup and record the owner's decisions;
+   - make the clone guides exact.
+
+> **How to use this plan.** Do not repeat A, B or C; their record is in § 9. Start at § 10, step D0. Follow the steps in order unless a step says it is independent. When a step's expected output differs from what you see, stop that step, record what you saw in § 10's record, and continue only with steps that do not depend on it.
 
 ## 1. Outcome
 
@@ -11,6 +21,10 @@ When this plan is complete:
 - Plain `gh` commands in the Portfolio checkout act on Grumlebob/Portfolio, not on the template.
 - The template documents how to turn a fork into a standalone product, how to remove the Blazor profile from a clone, and the two process rules that cost the Portfolio delivery time.
 - The documentation PR is merged with `[skip ci]`, its content is verified on `origin/main`, and the merge commit is recorded in the PR description.
+- **D:** test fixtures cannot write into the real repository, in the template and in Portfolio.
+- **D:** the template's React host lets Cloudflare JavaScript detections run under its strict CSP.
+- **D:** Portfolio carries only its own plans and records the owner's Lighthouse decision. The template mirror matches.
+- **D:** the standalone-product and React-only clone guides contain exact commands, verified node-sharing mechanics and a complete inventory.
 
 ## 2. Scope
 
@@ -21,13 +35,19 @@ In scope:
 - Local `gh` configuration for the Portfolio checkout.
 - Template Markdown: one new plan, two new guides, the fork guide and `AGENTS.md`.
 
+Workstream D adds:
+
+- three code PRs: the template fixture fix, the template CSP nonce, and the Portfolio fixture fix;
+- two docs-only PRs: Portfolio's plan cleanup and decisions, and the template's guides and mirror.
+
+Each code PR uses the full local gate and exact-head CI.
+
 Out of scope. Do not do these, even if they look related:
 
-- Planning or building the next product (for example CarbonCalculator). Its delivery starts from its own prompt.
-- Any code, workflow, script or configuration change. This is a docs-only plan; a non-Markdown change turns it into a code PR with the full gate.
-- Any deployment, node, Cloudflare or runner change.
-- Portfolio repository content. Portfolio keeps its own plans until its owner decides otherwise (see § 8).
-- Branches, folders or repositories this plan does not list. Report them instead.
+- **The CarbonCalculator delivery.** That means no CarbonCalculator repository content, mockups, plans, settings, runner, node setup, Cloudflare resource or deployment. It starts from the colleague's own prompt. The only CarbonCalculator material here is the private prep note `Plans.local/CarbonCalculator/NodeDemoAndOwnerDecisions.md`, which D may read but must not act on.
+- **Any deployment or workflow dispatch:** no CD, maintenance or readiness runs, for any app. Merging to `main` is not a deployment.
+- **Any change on a node:** node-demo, portfolio-node or any other. The same applies to Cloudflare and to runners.
+- **Branches, folders or repositories this plan does not list.** Report them instead.
 
 ## 3. Executor rules
 
@@ -38,9 +58,12 @@ Read these before every workstream. They apply to any agent, including a less ca
 3. **Record before removing.** Write each branch's full 40-character SHA into § 9 before deleting it. A recorded SHA can be restored with `git branch <name> <sha>` while the commit is still reachable on GitHub or in a local clone.
 4. **Squash merges hide ancestry.** A squash-merged branch is never an ancestor of `main`. Prove integration with `gh pr view` (state `MERGED` and `headRefOid` equal to the branch tip), not with `git branch --merged`.
 5. **Use Git Bash** for the commands below. Paths use `/c/Users/jgrum/...`. In PowerShell, translate the syntax instead of mixing shells.
-6. **`gh` needs an explicit repository** until workstream B is done: pass `-R Grumlebob/<repo>` on every `gh` command.
+6. **Always name the repository:** pass `-R Grumlebob/<repo>` on every `gh` command, even though B fixed the Portfolio default. It costs nothing and never targets the wrong repository.
 7. **Docs-only PR rules** come from `AGENTS.md`: no build or test run is required, but run `git diff --check` and the deployment audit (step C7), put `[skip ci]` in commit messages and the squash title, and verify the integrated content on `origin/main` afterwards.
-8. **Do not touch:** `ImprovedDb*` folders, `JDForecasting`, `KinoJoin`, `BlazorTusReliableUpload`, the Portfolio `Plans.local/` folder and any `Plans.local/` content in the template.
+8. **Do not touch:** `ImprovedDb*` folders, `JDForecasting`, `KinoJoin`, `BlazorTusReliableUpload`, the Portfolio `Plans.local/` folder and any `Plans.local/` content in the template. The exceptions are the archive files A wrote and reading the CarbonCalculator prep note.
+9. **Code PRs** follow procedures G (gate) and M (merge) in § 10. Never skip the gate, never merge on a red or queued check, and never use `--admin`.
+10. **Two strikes.** If the same command fails twice for a reason you cannot explain from its output, stop that step and record the command and the safe part of its output.
+11. **Long commands** (the gate, CI watches) can run longer than a tool timeout. Run them in the background, write their output to a log file, and check the log. A stopped watcher is not a failure: re-query the same run ID and never re-dispatch or re-push because of it.
 
 ## 4. Baseline verified on 2026-10-14
 
@@ -57,7 +80,7 @@ Read these before every workstream. They apply to any agent, including a less ca
 | Three empty folders `ReactFrontendDelivery-{P5-ReactScaffold,P7-AcceptanceContract,P7-CI};C` | Path-conversion artifacts from 2026-10-11 |
 | Template has 62 remote and 52 local branches | `git ls-remote --heads origin`, `git branch` |
 
-## 5. Workstream A: cleanup
+## 5. Workstream A: cleanup (complete)
 
 ### A1. Remove the nested Portfolio clone
 
@@ -141,14 +164,14 @@ From `/c/Users/jgrum/Documents/Programming/Csharp` run `rmdir` (not `rm -r`) on 
 - `ls /c/Users/jgrum/Documents/Programming/Csharp` no longer shows the removed folders.
 - Record the results in § 9.
 
-## 6. Workstream B: make `gh` target the right repository
+## 6. Workstream B: make `gh` target the right repository (complete)
 
 1. In the Portfolio checkout: `gh repo set-default Grumlebob/Portfolio`.
 2. Verify: `gh repo view --json nameWithOwner -q .nameWithOwner` → `Grumlebob/Portfolio`, and `gh pr list` shows Portfolio PRs (currently none).
 3. In the template checkout: `gh repo view --json nameWithOwner -q .nameWithOwner` → `Grumlebob/BlazorAutoAppTemplate`. It has no `upstream` remote, so it needs no change. If it ever gets one, run `gh repo set-default Grumlebob/BlazorAutoAppTemplate`.
 4. Record both outputs in § 9. The setting is stored in the checkout's `.git/config` (`remote.<name>.gh-resolved = base`), so it is local and not committed.
 
-## 7. Workstream C: write the clone lessons into the template
+## 7. Workstream C: write the clone lessons into the template (complete)
 
 Branch: `docs/downstream-clone-readiness` from `origin/main`. Every changed file must be Markdown, so this is a docs-only PR.
 
@@ -304,18 +327,19 @@ Fill § 9 as work happens. Mark this plan complete only after C8.
 3. Review the complete PR diff (`gh pr diff`).
 4. Merge with `gh pr merge <n> -R Grumlebob/BlazorAutoAppTemplate --squash --delete-branch --match-head-commit <head>`. Keep `[skip ci]` in the squash subject.
 5. `git fetch --prune origin` and verify the integrated content: `git diff <head> origin/main -- <files>` is empty for the changed files.
-6. Edit the PR description to add the merge commit and the verification. Record the deleted branch SHA in § 9 through a follow-up only if a later docs PR happens anyway. The PR description is the authoritative record of the merge.
+6. Edit the PR description to add the merge commit, the verification and the deleted branch's tip SHA. The PR description is the authoritative merge record, because the plan cannot contain its own merge commit.
 
-## 8. Known gaps left for later (not this plan)
+## 8. Known gaps and their disposition
 
-| Gap | Why it matters | Suggested owner/next step |
+| Gap | Why it matters | Disposition |
 | --- | --- | --- |
-| `Deployment/LocalCluster/Scripts/install-github-runner.sh`, `check-github-runner.sh`, `cleanup-renamed-localcluster-app.sh` and `Deployment/Cloud/Scripts/configure-github-environment.sh` use plain `gh repo view`, which resolves to `upstream` in a clone | A clone that keeps those targets could register a runner or environment on the template | Code PR: resolve the repository from `origin` the way `Deployment/LocalSingleNode/Scripts/lib/setup_status.py` does |
-| No tested route for a second **repository** on a node that already serves another app | The next product may share a node | Prove it with the read-only readiness check first; document after a real run |
-| The CSP nonce for Cloudflare JavaScript detections lives only in Portfolio | A template deployment behind the same zone shows a console CSP error | Owner decision; port only if a template deployment needs it |
-| `Scripts/Quality` still names the Blazor client in clones | Noise in React-only clones | Handle in the clone or in a tooling PR |
-| `Deployment/Common/Scripts/Tests/test_operation_source.py` `repository()` runs `git -C <temp> init` and `git config user.*` without clearing inherited `GIT_DIR`/`GIT_WORK_TREE` | Run under an exported `GIT_DIR` (hooks, some gate wrappers), it writes into the real repository's `.git/config`: on 2026-10-14 the template checkout had `user.name=Fixture`, and on 2026-10-13 a stray `core.worktree` was removed | Code PR: run fixture git commands with `GIT_*` variables removed from the environment, and add a test that the real repository's config is unchanged |
-| Portfolio still carries about 13 template-era plans and a provenance README | It is not a fully standalone product | Portfolio owner decision |
+| `test_operation_source.py` runs `git init` and `git config user.*` without clearing inherited `GIT_*` variables. The Quality tests have similar fixtures | Under an exported `GIT_DIR` (from a hook or a wrapper) it writes into the real `.git/config`. On 2026-10-14 the template had `user.name=Fixture`; on 2026-10-13 a stray `core.worktree` was removed | **D1** (template), **D2** (Portfolio) |
+| The CSP nonce for Cloudflare JavaScript detections exists only in Portfolio | A template deployment behind a zone with detections logs a CSP console error. The owner accepts Lighthouse 81 for keeping detections (2026-10-14) | **D3** |
+| Portfolio carries about 13 template-era plans and has an undecided Lighthouse item | Not a standalone product; open item in Progress | **D4**, owner decided 2026-10-14 |
+| Guides say a second repository on an existing node has "no tested route", give the clone step only in prose, and the React-only inventory has not been rehearsed | A weaker agent cannot follow them exactly | **D5**: bootstrap mechanics were verified by reading the code and a read-only node probe on 2026-10-14 |
+| `Deployment/LocalCluster/Scripts/install-github-runner.sh`, `check-github-runner.sh`, `cleanup-renamed-localcluster-app.sh` and `Deployment/Cloud/Scripts/configure-github-environment.sh` use plain `gh repo view`, which resolves to `upstream` in a clone | A clone that keeps those targets could register a runner or environment on the template | Not in this plan. The standalone guide's `gh repo set-default` step mitigates it, and single-node clones delete these scripts. A later code PR can resolve the repository from `origin`, as `Deployment/LocalSingleNode/Scripts/lib/setup_status.py` does |
+| `Scripts/Quality` still names the Blazor client in clones | Noise in React-only clones | Not in this plan; the React-only guide tells clones to handle it |
+| A second repository on a real node has not been exercised | The first such run may surface a defect | Belongs to the first product that does it; record the outcome in that product's plan |
 
 ## 9. Execution record
 
@@ -357,7 +381,7 @@ A6 local: 48 deleted (44 equal to a merged PR head; fix/p14-cloudflared-service-
 A7: removed a leaked local identity from the template's .git/config (user.name=Fixture, user.email=fixture@example.invalid, written by the test fixture in § 8); no commit by that identity exists on any ref. Template worktree list shows only the primary checkout; local main equals origin/main 6e8750de before this PR. Other folders (ImprovedDb*, JDForecasting, KinoJoin, BlazorTusReliableUpload) untouched; a new ImprovedDb-quality-plan-20261014 folder belongs to another active session.
 B: Portfolio checkout: gh repo set-default Grumlebob/Portfolio; gh repo view prints Grumlebob/Portfolio (remote.origin.gh-resolved=base). Template checkout prints Grumlebob/BlazorAutoAppTemplate; no change needed.
 C7: git diff --check clean; only .md files changed; relative links resolve (the plan's own code block matches the link pattern and is a known false positive); deployment audit passed in WSL Ubuntu-24.04. Words: StandaloneProduct 852, ReactOnlyClone 660, fork guide 566, AGENTS 837 (was 792), README 251.
-C8: see the PR description for head, merge commit and origin/main verification.
+C8: PR #262. Final head 42aeb0c43af26c95ed471953790727e7b96ad4ab, squash-merged as d8357cd3a50f080fec633d256ad1345b3f9c4c4c with --match-head-commit. git diff <head> origin/main is empty. Branch docs/downstream-clone-readiness deleted locally and on origin (tip 42aeb0c4…). A, B and C are complete.
 ```
 
 Deleted template branches (full tips):
@@ -470,4 +494,345 @@ fix/p14-cloudflared-service-path c84bf2177c4f4f33e932904d929506de4fd3ed42 ancest
 review/localsinglenode-senior-review 1bd71f73b151e68f1ab40720840704fba9261afa ancestor-of-main
 upgrade/plan-main-pc-node-demo fba2df2a8779e7f97eb00850d3212a0c20f166d9 ancestor-of-main
 HullImages 47fdfe754eb3c612c023bc9a608136471cc60042 ancestor-of-main
+```
+
+## 10. Workstream D: owner follow-ups (2026-10-14)
+
+Owner answers recorded on 2026-10-14:
+
+- The account is on GitHub Free. A private repository's `build-test-push` is a working rule, not an enforced check.
+- `carboncalculator.jacobgrum.com` may reuse the jacobgrum.com Cloudflare token. CarbonCalculator runs on node-demo; Portfolio runs on portfolio-node.
+- Portfolio keeps Cloudflare JavaScript detections and accepts Lighthouse best practices 81. Portfolio drops its template-era plans.
+- Carry out the recommended follow-ups.
+
+The CarbonCalculator facts live in the private, untracked note `Plans.local/CarbonCalculator/NodeDemoAndOwnerDecisions.md`. Workstream D only uses its verified mechanics in D5's guide text, without host values.
+
+Order: D0, then D1, D2, D3 and D4, which are independent of each other but run one at a time because each gate is long; then D5, which needs D1, D3 and D4 merged; then D6.
+
+| Step | Repository | Kind | Branch |
+| --- | --- | --- | --- |
+| D1 | template | code PR | `fix/test-fixture-git-env` |
+| D2 | Portfolio | code PR | `fix/test-fixture-git-env` |
+| D3 | template | code PR | `feat/react-csp-nonce` |
+| D4 | Portfolio | docs-only PR | `docs/standalone-plans-cleanup` |
+| D5 | template | docs-only PR | `docs/clone-guides-exact` |
+
+Paths: `T=/c/Users/jgrum/Documents/Programming/Csharp/BlazorAutoApp` (template, Grumlebob/BlazorAutoAppTemplate) and `P=/c/Users/jgrum/Documents/Programming/Csharp/Portfolio` (Grumlebob/Portfolio). Every branch is created in that repository's primary checkout. The gate reads branches from the primary checkout, so do not use worktrees.
+
+### Procedure G: full local gate (code PRs only)
+
+1. Commit every change on the branch. `git status --short` must be empty, because the gate tests committed content only.
+2. Start the gate in the background. Use the template or the Portfolio command:
+   ```bash
+   MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'GATE_SRC=/mnt/c/Users/jgrum/Documents/Programming/Csharp/BlazorAutoApp GATE_WORK=$HOME/template-gate ~/bin/repo-gate.sh <branch> > /tmp/gate-template.log 2>&1; tail -3 /tmp/gate-template.log'
+   MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'GATE_SRC=/mnt/c/Users/jgrum/Documents/Programming/Csharp/Portfolio GATE_WORK=$HOME/portfolio-gate ~/bin/repo-gate.sh <branch> > /tmp/gate-portfolio.log 2>&1; tail -3 /tmp/gate-portfolio.log'
+   ```
+3. **Pass** means the last line is `GATE RESULT: PASS for <sha>`, and `<sha>` equals `git rev-parse <branch>`. Anything else is a failure.
+4. On failure, find the newest log folder, then read the failing step's log by its literal path. The folder name is the gate's short SHA. Do not loop over variables inside the `wsl.exe` command.
+   ```bash
+   MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'ls -t ~/gate-logs | head -3'
+   MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'ls ~/gate-logs/<folder>/ && tail -60 ~/gate-logs/<folder>/<step>.log'
+   ```
+   Fix the cause, commit and rerun the whole gate.
+5. Run only one gate per `GATE_WORK` at a time. If `~/bin/repo-gate.sh` is missing, run the [Local Gate](../docs/Test.md#local-gate) commands in WSL in a fresh clone instead, and record that in the record.
+
+### Procedure M: pull request and merge
+
+1. Push the branch with `git push -u origin <branch>` and set `H=$(git rev-parse <branch>)`.
+2. Create the PR: `gh pr create -R <repo> --base main --head <branch> --title "<title>" --body-file <file>`.
+   - The body states what and why, the gate result with its SHA (code PRs) or the docs checks (docs PRs), and what was not done.
+   - It ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+3. **Code PR only:** find the CI run for the exact head with `gh run list -R <repo> -w CI -b <branch> -L 5 --json databaseId,headSha,status,conclusion`, and pick the run whose `headSha` equals `H`.
+   - Watch it in the background with `gh run watch <id> -R <repo> --exit-status`. It must conclude `success`.
+   - On failure, read `gh run view <id> -R <repo> --log-failed | tail -80`, fix, commit, rerun G, push, and repeat this step for the new head.
+4. Merge with `gh pr merge <n> -R <repo> --squash --delete-branch --match-head-commit "$H"`.
+   - Docs-only titles contain `[skip ci]`.
+   - Never use `--admin`, and never merge while the head check is queued or red.
+5. Sync and verify:
+   1. `git fetch --prune origin && git switch main && git merge --ff-only origin/main`.
+   2. `M=$(gh pr view <n> -R <repo> --json mergeCommit -q .mergeCommit.oid)`.
+   3. `git diff "$H" origin/main -- <changed files>` must print nothing.
+6. **Code PR only:** run `gh run list -R <repo> -w CI -b main -L 10 --json databaseId,headSha,conclusion,status`, find the run whose `headSha` equals `M`, and wait for `success`.
+7. Delete the local branch (`git branch -D <branch>`).
+   - Record the PR number, `H`, `M`, the CI run IDs (code) and the deleted branch tip (`H`) in the D record below.
+   - Append the same lines to the PR description with `gh pr edit <n> -R <repo> --body-file <file>`.
+
+### Docs-only checks (D4, D5)
+
+Run these before step 1 of M:
+
+1. `git diff --check origin/main...HEAD` prints nothing.
+2. `git diff --name-only origin/main...HEAD` lists only `.md` files.
+3. Every relative link resolves. Matches inside code blocks are false positives.
+   ```bash
+   for f in $(git diff --name-only --diff-filter=AM origin/main...HEAD); do grep -oE '\]\([^)#]+' "$f" | sed 's/](//' | grep -vE '^https?:' | while read l; do [ -e "$(dirname "$f")/$l" ] || echo "BROKEN $f -> $l"; done; done
+   ```
+4. Run the deployment audit, which reads Markdown:
+   - template: `bash Deployment/LocalCluster/Scripts/audit-deployment.sh`;
+   - Portfolio: `bash Deployment/Common/Scripts/audit-deployment.sh`.
+
+   Run it through `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/... && bash ...'`. It must print that the audit passed.
+5. Use commit subjects that start with `[skip ci]`.
+
+### D0. Preflight (start of every session)
+
+1. Sync the template: `cd $T && git fetch --prune origin && git switch main && git merge --ff-only origin/main && git status --short`. The status must be empty. Otherwise stop: the changes are someone else's work.
+2. Do the same in `$P`.
+3. Check both repositories for a leaked identity: `git -C $T config --local --get-regexp 'user\.|core\.worktree'` and the same for `$P` must print nothing.
+   - If `Fixture` or `core.worktree` appears, remove it with `git config --local --unset <key>`.
+   - Record it: the leak recurred.
+4. `gh auth status` must show `Grumlebob`.
+5. List open PRs with `gh pr list -R Grumlebob/BlazorAutoAppTemplate` and `gh pr list -R Grumlebob/Portfolio`.
+   - Dependabot PRs are expected; leave them alone.
+   - If a non-Dependabot PR changes a file that a D step changes, skip that step and record why.
+6. Check main CI with `gh run list -R <repo> -w CI -b main -L 1 --json headSha,conclusion`. Each must be `success`. If one is not, do no code PR in that repository; docs PRs may continue.
+7. Check the tools: `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'test -x ~/bin/repo-gate.sh && dotnet --version && docker info --format ok'`.
+8. Resume support: for each D branch, run `gh pr list -R <repo> --state all --head <branch> --json number,state`.
+   - A `MERGED` PR means that step is done. Fill its record from the PR and skip it.
+   - An `OPEN` PR means continue at M step 3.
+
+### D1. Template: keep fixture git commands out of the real repository
+
+1. `cd $T && git switch -c fix/test-fixture-git-env origin/main`.
+2. Read `Deployment/Common/Scripts/Tests/test_operation_source.py` completely.
+3. Below the imports, add this helper; `os` and `patch` are already imported:
+   ```python
+   def isolated_git_environment():
+       """Environment for fixture git commands. Inherited GIT_* variables, such as GIT_DIR from a
+       hook, would otherwise redirect `git -C <temporary> init/config` into the caller's repository."""
+       return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+   ```
+4. In `repository()`, change the inner `git()` call to `subprocess.check_output([...], stderr=subprocess.DEVNULL, text=True, env=isolated_git_environment())`.
+   - Run `grep -n "subprocess\." Deployment/Common/Scripts/Tests/test_operation_source.py`.
+   - Add the same `env=` to every other fixture call that runs `git`.
+   - Do not edit the module under test.
+5. Add a `setUp` to `OperationSourceTests`, so code under test also runs without inherited `GIT_*` variables. If a `setUp` already exists, put these lines first:
+   ```python
+   def setUp(self):
+       environment = patch.dict(os.environ, isolated_git_environment(), clear=True)
+       environment.start()
+       self.addCleanup(environment.stop)
+   ```
+6. Add this regression test to the class:
+   ```python
+   def test_fixture_repository_ignores_inherited_git_directory(self):
+       with tempfile.TemporaryDirectory() as temporary:
+           root = Path(temporary)
+           sentinel, work = root / "sentinel", root / "work"
+           sentinel.mkdir()
+           work.mkdir()
+           subprocess.run(["git", "init", "-q", str(sentinel)], check=True, env=isolated_git_environment())
+           before = (sentinel / ".git" / "config").read_text()
+           with patch.dict(os.environ, {"GIT_DIR": str(sentinel / ".git"), "GIT_WORK_TREE": str(sentinel)}):
+               git = self.repository(work)
+           self.assertEqual(before, (sentinel / ".git" / "config").read_text())
+           self.assertTrue((work / ".git").is_dir())
+           self.assertEqual("Fixture", git("config", "user.name"))
+   ```
+7. Prove the test detects the defect:
+   1. Temporarily remove `env=isolated_git_environment()` from `git()`.
+   2. Run `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/Users/jgrum/Documents/Programming/Csharp/BlazorAutoApp && python3 -m unittest Deployment/Common/Scripts/Tests/test_operation_source.py -k ignores_inherited'`. The new test must **fail**.
+   3. Restore the `env=` argument. Rerun: it must pass.
+   4. Run the whole file: every test must pass.
+8. Edit `Scripts/Quality/tests/test_run_quality_audit.py`:
+   - Add the same helper under its imports, named `fixture_git_environment`.
+   - Pass `env=fixture_git_environment()` to each fixture `subprocess.run(["git", ...])` call. Find them with `grep -n '"git"' Scripts/Quality/tests/test_run_quality_audit.py`.
+   - Leave the existing test of the module's own `GIT_*` stripping unchanged.
+   - Run `python3 -m unittest Scripts/Quality/tests/test_run_quality_audit.py` the same way; it must pass.
+9. Edit `Scripts/Quality/tests/Test-SonarQualityAuditContract.ps1`. Immediately before the first fixture `& $git ... init` line, add:
+   ```powershell
+   # Fixture git commands must not follow inherited GIT_* variables into the caller's repository.
+   Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { Remove-Item -Path "Env:$($_.Name)" }
+   ```
+   - The script runs in its own `pwsh` process, so no restore is needed.
+   - **Before** editing it, run it once on Windows with `pwsh -NoProfile -File Scripts/Quality/tests/Test-SonarQualityAuditContract.ps1` and note whether it passes. That is the baseline.
+   - After the edit, run it again. It must give the same result as the baseline. If the baseline already failed, record that and do not block on it.
+10. Leak proof:
+    ```bash
+    MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu-24.04 -- bash -lc 'rm -rf /tmp/leakcheck && git init -q /tmp/leakcheck && cp /tmp/leakcheck/.git/config /tmp/leakcheck.before && cd /mnt/c/Users/jgrum/Documents/Programming/Csharp/BlazorAutoApp && GIT_DIR=/tmp/leakcheck/.git python3 -m unittest Deployment/Common/Scripts/Tests/test_operation_source.py Scripts/Quality/tests/test_run_quality_audit.py; cmp /tmp/leakcheck.before /tmp/leakcheck/.git/config && echo NO-LEAK'
+    ```
+    It must print `NO-LEAK`. Afterwards `git -C $T config --local --get-regexp 'user\.'` must print nothing.
+11. Stage the three files explicitly and commit with the subject `fix(test): keep fixture git commands out of the caller's repository` plus the `Co-Authored-By` trailer. Then run G and M with the title `Keep test fixture git commands out of the caller's repository`.
+
+### D2. Portfolio: the same fixture fix
+
+1. `cd $P && git switch -c fix/test-fixture-git-env origin/main`.
+2. Check which files exist: `git ls-files Deployment/Common/Scripts/Tests/test_operation_source.py Scripts/Quality/tests/test_run_quality_audit.py Scripts/Quality/tests/Test-SonarQualityAuditContract.ps1`.
+3. Portfolio's copies differ from the template's, so do not apply the template patch. Repeat D1 steps 2–10 by hand on each existing file, using `$P` paths. For a missing file, skip it and record that.
+4. Commit, then run G (Portfolio) and M with the title `Keep test fixture git commands out of the caller's repository`.
+5. **Do not deploy.** It changes tests only, like #35. Record "test-only, not deployed".
+
+### D3. Template: CSP nonce so Cloudflare JavaScript detections can run
+
+1. `cd $T && git switch -c feat/react-csp-nonce origin/main`.
+2. Read `BlazorAutoApp/Frontend/ReactFrontendHosting.cs` completely. Read the reference with `git -C $P show b35f065 -- Portfolio/Frontend/ReactFrontendHosting.cs Portfolio.Test/Infrastructure/Hosting/ReactFrontendHostingTests.cs`.
+3. Run `git grep -n "UseSecurityHeaders"`. It must list only `BlazorAutoApp/Frontend/FrontendComposition.React.cs`, the method itself and the hosting tests. Otherwise stop and record.
+4. Copy Portfolio's `WithScriptNonce(string policy)` method into `ReactFrontendHosting`, including its doc comment, unchanged.
+5. In `UseSecurityHeaders`, directly after `headers["Content-Security-Policy"] = contentSecurityPolicy;`, insert:
+   ```csharp
+   context.Response.OnStarting(() =>
+   {
+       // The shell and static HTML set their content type later in the pipeline.
+       if (context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true)
+       {
+           headers["Content-Security-Policy"] = WithScriptNonce(contentSecurityPolicy);
+       }
+
+       return Task.CompletedTask;
+   });
+   ```
+6. Tests, in `BlazorAutoApp.Test/Infrastructure/Hosting/ReactFrontendHostingTests.cs`:
+   1. Read the existing CSP tests (`grep -n "Content-Security-Policy\|script-src" BlazorAutoApp.Test -r`) and reuse their host setup.
+   2. Add one test modelled on Portfolio's. It must check that:
+      - two `GET /` requests with `Accept: text/html` each carry `'nonce-<value>'`, where `<value>` matches `[A-Za-z0-9+/]{22}==`;
+      - the two values differ;
+      - the HTML body does not contain the value;
+      - a non-HTML response (a static asset or `/api/...` JSON that the existing tests already request) has no `'nonce-`;
+      - no CSP contains `unsafe-inline`.
+   3. Update, never delete, an existing test that asserts the exact HTML CSP: assert the base policy with the nonce added.
+7. Docs: in `docs/FrontendProfiles.md`, replace the sentence `The production Content-Security-Policy (CSP) is self-only and blocks inline/eval scripts and framing.` with:
+
+   > The production Content-Security-Policy (CSP) is self-only and blocks eval, framing and inline scripts other than the shell's hashed ones. HTML responses add a fresh `'nonce-…'` to `script-src` so Cloudflare JavaScript detections can inject their script; the app's own markup never uses the nonce.
+8. Check the audit and test-count pins:
+   - `grep -nE "script-src|nonce|expected-passed" Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py Scripts/CI/validate-frontend-profiles.sh .github/workflows/ci.yml`. On 2026-10-14 nothing pinned the CSP or the .NET test count.
+   - If something does now, update it to the new behaviour in this PR (AGENTS rule: replace the rule, never only delete it).
+9. Optional fast check: on Windows, if `dotnet --version` works there, run `dotnet test BlazorAutoApp.Test -c Release -p:FrontendProfile=React --filter "FullyQualifiedName~ReactFrontendHosting"`. Never run it while another `dotnet` command uses this checkout. The gate is the authority.
+10. Commit with explicit paths. Run G and M with the title `Let Cloudflare JavaScript detections run under the React CSP`.
+11. **Do not deploy** the template demo. That needs separate operator authorization, and this plan does not include it.
+
+### D4. Portfolio: standalone plans and the owner's decisions (docs-only)
+
+1. `cd $P && git switch -c docs/standalone-plans-cleanup origin/main`.
+2. Remove the template-era plans:
+   ```bash
+   git rm -q Plans/BlazorAutoAppTemplateUpgrade.md Plans/BlazorAutoAppTemplateUpgradeGoal.md Plans/GitHubActionsFreeSelfHostedAndStorage.md Plans/LocalSingleNodePublicDeployment.md Plans/QualityToolsAssessment.md Plans/ReactFrontendDeliveryAcceptance.md Plans/ReactFrontendDeliveryGoal.md Plans/ReactFrontendProfile.md Plans/ReactFrontendSingleRepository.md Plans/RemoveDefaultAdminSeed.md Plans/SonarQubeOnDemandQuality.md Plans/SonarQubeOnDemandQualityGoal.md Plans/TemplateCleanupAndFeatureRetirement.md Plans/TemplateCleanupAndFeatureRetirementGoal.md
+   git rm -rq Plans/Support/BlazorAutoAppTemplateUpgrade Plans/Support/SonarQubeOnDemandQuality
+   ```
+   Then `git ls-files Plans` must list only:
+   - `Plans/README.md`;
+   - `Plans/CodeQualityImprovements.md`;
+   - `Plans/PortfolioStudioImplementation.md`;
+   - `Plans/PortfolioStudioDeliveryGoal.md`;
+   - `Plans/Support/PortfolioStudio/*`.
+3. `Scripts/Quality/sonar_report.py` names `Plans/CodeQualityImprovements.md`, so keep that file but replace its whole content with:
+   ```markdown
+   # Code quality improvements
+
+   Bounded, evidence-based quality work for Portfolio, created from SonarQube reports (`Scripts/Quality`). Read the source before classifying a finding.
+
+   Entries inherited from the template were removed on 2026-10-14; the template keeps their history.
+
+   ## Open items
+
+   None.
+   ```
+4. Repoint links to removed files.
+   - List the references with `git grep -nE "(BlazorAutoAppTemplateUpgrade|GitHubActionsFreeSelfHostedAndStorage|LocalSingleNodePublicDeployment|QualityToolsAssessment|ReactFrontendDelivery|ReactFrontendProfile|ReactFrontendSingleRepository|RemoveDefaultAdminSeed|SonarQubeOnDemandQuality|TemplateCleanupAndFeatureRetirement)" -- '*.md'`.
+   - Replace each Markdown **link** to a removed file with `https://github.com/Grumlebob/BlazorAutoAppTemplate/blob/main/Plans/<same file name and #anchor>`. Leave plain-text mentions as they are.
+   - Check each target with `git -C $T ls-files Plans/<file>`.
+   - On 2026-10-14 the links were in:
+     - `docs/FrontendProfiles.md` (about line 146);
+     - `docs/Quality/QualityTools.md` (about line 79);
+     - `Plans/PortfolioStudioImplementation.md` (line 58, three links);
+     - `Plans/Support/PortfolioStudio/Progress.md` (about line 117, two links);
+     - `Plans/Support/PortfolioStudio/ProjectInventory.md` (about line 40).
+5. Edit `Plans/Support/PortfolioStudio/Progress.md`, § Current checkpoint:
+   - **"Last updated":** change it to `Last updated: 2026-10-14, after the owner's Lighthouse decision and the standalone plan cleanup.` Keep the rest of that line.
+   - **"Where things stand", first paragraph:** replace `What remains: one owner decision about Lighthouse best practices, and owner-led story improvements.` with `What remains: owner-led story improvements.`
+   - **"Remaining work, in order":** replace item 1, including its two option bullets and the paragraph after them, with:
+
+     > 1. **Lighthouse versus bot detection: decided.** Owner decision 2026-10-14: keep Cloudflare JavaScript detections and accept best practices 81. No action. Do not add `'strict-dynamic'` or `unsafe-inline`.
+   - **After the "Template fixes from this first clone" bullet list:** add a bullet `**Standalone cleanup (2026-10-14):**`. It lists:
+     - the template-era plans removed by this PR;
+     - the `CodeQualityImprovements.md` stub;
+     - `gh repo set-default Grumlebob/Portfolio` in the checkout;
+     - the D2 fixture PR (number, merge, main CI; test-only, not deployed);
+     - template PRs D1 and D3 by number.
+   - **The "Checkouts:" bullet under "Working setup for the next agent":** replace its last sentence (`Template main is checked out in the DocsD2 worktree, so branch from origin/main.`) with `Template main is checked out in the primary template checkout; branch from origin/main.` Then add the sentence `` `gh` defaults to Grumlebob/Portfolio in this checkout; still pass `-R`. ``
+6. Edit `Plans/PortfolioStudioDeliveryGoal.md`. In the line starting `- Lighthouse best practices is 81, not above 92.`, replace the final sentence (`Whether to accept that ... recorded in Progress.`) with `On 2026-10-14 the owner decided to keep the detections and accept 81.`
+7. Run `git grep -n "Plans/" README.md AGENTS.md docs`. No link may point to a removed file. Keep the README's provenance link to the template.
+8. Run the docs-only checks with the Portfolio audit. Commit with the subject `[skip ci] docs: drop template-era plans and record the Lighthouse decision`. Run M with the same title.
+
+### D5. Template: make the clone guides exact, and mirror Portfolio
+
+Start only after D1, D3 and D4 are merged. Run `cd $T && git switch -c docs/clone-guides-exact origin/main`.
+
+1. **Mirror.**
+   1. Run `diff $P/Plans/Support/PortfolioStudio/Progress.md Plans/Support/PortfolioStudio/Progress.md` and note the lines that exist only in the template copy: the `> **Mirror.**` banner and the blank line after it.
+   2. Copy Portfolio's file over the template's. Re-insert exactly those banner lines at the same place, changing the banner date to `2026-10-14`.
+   3. Do the same for `Plans/PortfolioStudioDeliveryGoal.md`.
+   4. Rerun both diffs. They must show only the banner lines.
+2. **`docs/StandaloneProduct.md`, step 2 of "Create the repository".** Replace the step with:
+   ````markdown
+   2. Clone the template with its history and point the remotes at the product:
+
+      ```bash
+      git clone https://github.com/<template-owner>/<template-repo>.git <Product>
+      cd <Product>
+      git remote rename origin upstream
+      git remote add origin https://github.com/<owner>/<repo>.git
+      git push -u origin main
+      ```
+   ````
+3. **"Public site behind Cloudflare".** Replace the section body (keep the heading) with:
+
+   ```markdown
+   The React host sends a strict Content Security Policy. On HTML responses it adds a fresh `'nonce-…'` to `script-src` ([frontend profiles](FrontendProfiles.md)), so Cloudflare JavaScript detections can inject their script without `'unsafe-inline'` and the browser console stays clean. While detections run, Lighthouse best practices scores about 81, because Cloudflare's script calls a deprecated browser API; Portfolio accepted that to keep the bot signal. To trade the signal for the score, exclude the hostname from JavaScript detections in the zone. The live browser tests already ignore Cloudflare's own edge cookies.
+   ```
+4. **"Sharing a node with another product".** Replace the second paragraph (`A different repository ...`) with:
+   ```markdown
+   A different repository joins a node through the normal [AgentSetup](../Deployment/LocalSingleNode/AgentSetup.md), run from that repository's own checkout on the node:
+
+   - Use the node's existing name as `--node`; bootstrap renames the host when the name differs.
+   - The existing runner belongs to the other repository and cannot run this one's jobs. The root bootstrap step registers an app-specific runner for the checkout's `origin` repository.
+   - Bootstrap records each app separately in `/etc/localsinglenode/bootstrap.json`, and the shared root Caddyfile only imports one site file per app, so the other app's records and site stay in place.
+   - Choose an app name, ports, roots and Docker subnet that differ from every existing app. Setup's collision check (`Deployment/LocalSingleNode/Scripts/check-port-collisions.sh`) rejects overlaps before anything starts.
+   - The operator runs the one root command that setup prints. Never change the other app's resources, tunnel or DNS.
+
+   This route follows the bootstrap design but had not been run on a real node when it was written; record the first run's outcome in the product's plan.
+   ```
+5. **Favicon.** Add this row to the "Remove template material" table, after the README row:
+   ```markdown
+   | Favicon | The React app ships none, so browsers log a 404 for `/favicon.ico`. Add the product's icon under the React app's `public/` folder |
+   ```
+   First confirm that `git ls-files BlazorAutoApp.React/public` is still empty. If it is not, skip this row and record why.
+6. **React-only inventory rehearsal.**
+   1. Run:
+      ```bash
+      git grep -lIE "BlazorAuto|BlazorAutoApp\.Client|final-blazor|publish-blazor|\.razor|Blazor" -- ':!Plans' | sort > /tmp/react-only-inventory.txt
+      grep -oE '`[^`]+`' docs/Frontend/ReactOnlyClone.md | tr -d '`' | sort -u > /tmp/react-only-guide-paths.txt
+      while read f; do covered=no; while read g; do case "$f" in "$g"|"$g"*|*/"$g") covered=yes; break;; esac; done < /tmp/react-only-guide-paths.txt; [ $covered = no ] && echo "$f"; done < /tmp/react-only-inventory.txt
+      ```
+   2. Read each uncovered file's matches (`git grep -nIE "<same pattern>" -- <file>`). Add it to the guide's table under the closest existing area, or in a new row with an action.
+
+   Expected new groups:
+   - local tooling (`docker-compose.yml`, `Scripts/RunLocal.ps1`, `docker/observability/`);
+   - React dev scripts (`BlazorAutoApp.React/scripts/`);
+   - other deployment targets (`Deployment/LocalCluster/`, `Deployment/Cloud/`, LocalCluster workflows): handled by the single-node-only clone, or narrowed if kept;
+   - `.github/dependabot.yml`;
+   - `Scripts/Testing/`.
+
+   Rerun the loop until it prints nothing, and record the inventory size. Keep the guide under about 800 words (`wc -w`).
+7. **This plan.** Change the Status line to: `Status: A–D complete; D's final record is in the description of the D5 PR.` Fill the D record from the D1–D4 PR descriptions.
+8. Run the docs-only checks with the template audit. Commit with the subject `[skip ci] docs: make the clone guides exact and mirror Portfolio's checkpoint`, then run M.
+
+### D6. Closeout
+
+1. In `$T` and `$P`, run `git fetch --prune origin`. `main` must equal `origin/main`, and `git status --short` must be empty.
+2. `git -C $T branch` lists only `main`, `coord/node-inventory-handoff` and `preserve/shared-drafts-20261011`. `git -C $P branch` lists only `main`. `git -C $T worktree list` shows only the primary checkout.
+3. `git ls-remote --heads origin` contains none of the D branch names, in both repositories.
+4. The D0 step 3 identity check prints nothing in both repositories.
+5. Append the final D record to the D5 PR description. List anything skipped, with its reason. There are no deployments to report.
+
+### D record
+
+```text
+D0 preflight (date, main SHAs, open PRs, main CI):
+D1 template fixture: PR / head / merge / PR CI / main CI / failing-then-passing proof / leak proof:
+D2 Portfolio fixture: PR / head / merge / PR CI / main CI / not deployed (test-only):
+D3 CSP nonce: PR / head / merge / PR CI / main CI / tests added:
+D4 Portfolio docs: PR / head / merge / files removed / links repointed / audit:
+D5 template docs: PR / head / merge / mirror diff / inventory size / audit:
+D6 closeout:
+Skipped (step, reason):
 ```
