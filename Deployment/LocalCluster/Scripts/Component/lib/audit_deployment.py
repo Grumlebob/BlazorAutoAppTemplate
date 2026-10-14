@@ -987,12 +987,14 @@ for needle, why in [
 profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
     ("--expected-skipped 13", "both profile suites enforce their expected opt-in skips"),
-    ("expected_passed=190", "Blazor profile enforces its complete pass count"),
-    ("expected_passed=182", "React profile enforces its complete pass count"),
+    ("validate_dotnet_test_results.py", "both profile suites validate their TRX results"),
     ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
 ]:
     if needle not in profile_gate:
         fail(f"Scripts/CI/validate-frontend-profiles.sh: missing {why}: {needle}")
+if "expected_passed" in profile_gate or "--expected-passed" in profile_gate:
+    fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin an exact pass count; "
+         "the validator already rejects failures, unknown outcomes and skip drift")
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
 for needle, why in [

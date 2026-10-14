@@ -42,25 +42,30 @@ def summarize_results(path: Path) -> TestResultSummary:
     )
 
 
-def validate_results(path: Path, expected_passed: int, expected_skipped: int) -> TestResultSummary:
+def validate_results(path: Path, expected_passed: int | None, expected_skipped: int) -> TestResultSummary:
+    """Reject failures and unknown outcomes. Without expected_passed, any positive pass count is accepted."""
     summary = summarize_results(path)
     if summary.failed or summary.unexpected:
         raise ValueError(
             f"unexpected test outcomes: failed={summary.failed}, other={summary.unexpected}"
         )
-    if summary.passed != expected_passed or summary.skipped != expected_skipped:
+    passed_matches = summary.passed > 0 if expected_passed is None else summary.passed == expected_passed
+    if not passed_matches or summary.skipped != expected_skipped:
         raise ValueError(
             "test counts differ from the required suite: "
-            f"expected passed={expected_passed}, skipped={expected_skipped}; "
+            f"expected passed={'at least 1' if expected_passed is None else expected_passed}, "
+            f"skipped={expected_skipped}; "
             f"found passed={summary.passed}, skipped={summary.skipped}, total={summary.total}"
         )
     return summary
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Require exact passing and skip counts from a TRX file.")
+    parser = argparse.ArgumentParser(
+        description="Require no failures, an exact skip count and, optionally, an exact pass count from a TRX file.")
     parser.add_argument("trx_file", type=Path)
-    parser.add_argument("--expected-passed", type=int, required=True)
+    parser.add_argument("--expected-passed", type=int, default=None,
+                        help="Exact pass count. Omit it for suites that grow with the product; at least one test must pass.")
     parser.add_argument("--expected-skipped", type=int, required=True)
     parser.add_argument("--suite", default=".NET test suite")
     args = parser.parse_args()

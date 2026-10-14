@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using BlazorAutoApp.Features.Login;
 using BlazorAutoApp.Frontend;
 using Microsoft.AspNetCore.Builder;
@@ -133,6 +134,39 @@ public sealed class ReactFrontendHostingTests
     }
 
     [Fact]
+    public async Task HtmlDocuments_CarryAFreshScriptNonceForEdgeInjectedScripts()
+    {
+        await using var host = await ReactTestHost.CreateAsync();
+
+        using var firstRequest = CreateHtmlRequest(HttpMethod.Get, "/");
+        using var first = await host.Client.SendAsync(firstRequest);
+        using var secondRequest = CreateHtmlRequest(HttpMethod.Get, "/");
+        using var second = await host.Client.SendAsync(secondRequest);
+        using var asset = await host.Client.GetAsync("/assets/app.js");
+        using var apiResponse = await host.Client.GetAsync("/api/books");
+
+        var nonces = new[] { first, second }
+            .Select(response =>
+            {
+                var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+                var match = Regex.Match(policy, "script-src 'self' 'nonce-(?<nonce>[A-Za-z0-9+/]{22}==)'");
+                Assert.True(match.Success, "A document CSP must carry a 128-bit script nonce.");
+                Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
+                return match.Groups["nonce"].Value;
+            })
+            .ToArray();
+
+        Assert.NotEqual(nonces[0], nonces[1]);
+        Assert.DoesNotContain(nonces[0], await first.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        foreach (var response in new[] { asset, apiResponse })
+        {
+            var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+            Assert.DoesNotContain("'nonce-", policy, StringComparison.Ordinal);
+            Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public async Task SelectedProductionMiddleware_AddsHstsForHttpsRequests()
     {
         await using var host = await ReactTestHost.CreateAsync(
@@ -250,8 +284,12 @@ public sealed class ReactFrontendHostingTests
             Assert.Single(response.Headers.GetValues("Referrer-Policy")));
         Assert.Equal("local-network-access=()", Assert.Single(response.Headers.GetValues("Permissions-Policy")));
 
+        // HTML documents add a per-response script nonce to the base policy; every other response keeps it as is.
         var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
-        Assert.Equal(ReactFrontendHosting.ContentSecurityPolicy, policy);
+        var isHtml = response.Content.Headers.ContentType?.MediaType == "text/html";
+        Assert.Equal(isHtml, Regex.IsMatch(policy, "'nonce-[A-Za-z0-9+/]{22}=='"));
+        var basePolicy = Regex.Replace(policy, " 'nonce-[A-Za-z0-9+/]{22}=='", string.Empty);
+        Assert.Equal(ReactFrontendHosting.ContentSecurityPolicy, basePolicy);
         Assert.DoesNotContain("unsafe-inline", policy, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("unsafe-eval", policy, StringComparison.OrdinalIgnoreCase);
     }

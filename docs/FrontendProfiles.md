@@ -20,7 +20,7 @@ Build inputs and output are isolated by profile: BlazorAuto compiles the Blazor 
 
 The React host serves its selected static root. Only GET or HEAD requests accepting `text/html` fall back to `index.html`; never send API, health, missing assets, unsupported methods, or reserved account/provider paths to the SPA shell. `/Account`, `/account`, `/api/auth`, and provider callbacks are reserved case-insensitively and return 404. HEAD returns headers without a body. Public requests omit credentials; protected APIs keep returning JSON 401 to anonymous callers.
 
-The production Content-Security-Policy (CSP) is self-only and blocks inline/eval scripts and framing. Responses also set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy: local-network-access=()`. Production uses HSTS and HTTPS redirection. The shell and ordinary assets revalidate; fingerprinted assets are immutable. Keep these profile boundaries when extending the static client.
+The production Content-Security-Policy (CSP) is self-only and blocks eval, framing and inline scripts other than the shell's hashed ones. HTML responses add a fresh `'nonce-…'` to `script-src` so Cloudflare JavaScript detections can inject their script; the app's own markup never uses the nonce. Responses also set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy: local-network-access=()`. Production uses HSTS and HTTPS redirection. The shell and ordinary assets revalidate; fingerprinted assets are immutable. Keep these profile boundaries when extending the static client.
 
 ## Publish the other profile
 

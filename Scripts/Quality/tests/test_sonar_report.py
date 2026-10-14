@@ -298,6 +298,21 @@ class ReportCompletenessTests(unittest.TestCase):
         self.assertFalse(valid)
         self.assertIn("The approved .NET suite result counts are missing or invalid.", warnings)
 
+    def test_run_evidence_does_not_pin_the_dotnet_pass_count(self) -> None:
+        for passed in (1, 183):
+            with self.subTest(passed=passed):
+                evidence = json.loads(json.dumps(RUN_EVIDENCE))
+                evidence["tests"]["dotnet"].update({"passed": passed, "total": passed + 13})
+                valid, warnings = sr.validate_run_evidence("BlazorAuto", evidence)
+                self.assertTrue(valid, warnings)
+        for field, value in (("passed", 0), ("skipped", 12), ("failed", 1)):
+            with self.subTest(field=field):
+                evidence = json.loads(json.dumps(RUN_EVIDENCE))
+                evidence["tests"]["dotnet"][field] = value
+                valid, warnings = sr.validate_run_evidence("BlazorAuto", evidence)
+                self.assertFalse(valid)
+                self.assertIn("The approved .NET suite result counts are missing or invalid.", warnings)
+
     def test_invalid_nested_run_evidence_still_renders_incomplete_report(self) -> None:
         evidence = {"tests": None, "coverage": "invalid"}
         report = sr.build_report(

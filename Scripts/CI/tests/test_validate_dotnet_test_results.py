@@ -36,6 +36,23 @@ class DotnetTestResultValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "test counts differ"):
             validate_results(path, expected_passed=2, expected_skipped=0)
 
+    def test_without_a_pinned_pass_count_any_positive_number_passes(self) -> None:
+        for passed in (1, 7):
+            with self.subTest(passed=passed):
+                path = self.write_trx(("Passed",) * passed + ("NotExecuted",))
+
+                summary = validate_results(path, expected_passed=None, expected_skipped=1)
+
+                self.assertEqual(passed, summary.passed)
+
+    def test_without_a_pinned_pass_count_failures_empty_passes_and_skip_drift_still_fail(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unexpected test outcomes"):
+            validate_results(self.write_trx(("Passed", "Failed")), expected_passed=None, expected_skipped=0)
+        with self.assertRaisesRegex(ValueError, "test counts differ"):
+            validate_results(self.write_trx(("NotExecuted",)), expected_passed=None, expected_skipped=1)
+        with self.assertRaisesRegex(ValueError, "test counts differ"):
+            validate_results(self.write_trx(("Passed", "NotExecuted")), expected_passed=None, expected_skipped=2)
+
     def test_fails_on_failed_or_unexpected_test_outcomes(self) -> None:
         for outcome in ("Failed", "Inconclusive"):
             with self.subTest(outcome=outcome):
