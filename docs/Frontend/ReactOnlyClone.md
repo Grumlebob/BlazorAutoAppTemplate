@@ -1,0 +1,48 @@
+# Make a React-only clone
+
+Use this after forking when the product will ship only the React profile. The template keeps both profiles; this guide removes Blazor from a clone without leaving builds, CI, audit rules or docs that still expect it.
+
+Start only after the clone selects `React` as described in the [fork guide](../HowToForkThisRepo.md#choose-the-frontend-and-sample-feature) and that change has a green CI. If the clone will also drop deployment targets, do this guide first, then the [single-node-only clone](../../Deployment/LocalSingleNode/SingleNodeOnlyClone.md), then any rename. Deleted code is then never renamed first. Land each step as its own pull request. The [standalone product guide](../StandaloneProduct.md) gives the full order.
+
+## Inventory
+
+List every match outside `Plans/` and classify it as remove, rewrite or keep:
+
+```bash
+git grep -nIE "BlazorAuto|BlazorAutoApp\.Client|final-blazor|publish-blazor|\.razor|Blazor" -- ':!Plans'
+```
+
+Expect matches in these areas:
+
+| Area | Paths | Action |
+| --- | --- | --- |
+| Client | `BlazorAutoApp.Client/`, its solution and project references | Delete |
+| Host UI | `BlazorAutoApp/Components/`, Razor account pages under `BlazorAutoApp/Features/Login/Account/`, `BlazorAutoApp/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
+| Styles | `BlazorAutoApp/wwwroot/tailwind.css`, `app.css`, `BlazorAutoApp.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
+| Build | `Directory.Build.targets`, `BlazorAutoApp/BlazorAutoApp.csproj` | Accept only `React`; fail clearly on `BlazorAuto` |
+| Docker | `publish-blazor` and `final-blazor` stages in `BlazorAutoApp/Dockerfile` | Remove; keep `final-react` |
+| CI | `.github/workflows/ci.yml`, `Scripts/CI/validate-frontend-profiles.sh`, `Scripts/CI/publish_additional_frontend.sh`, `ADDITIONAL_FRONTEND_PROFILES` | Build, test and smoke React only; remove other-profile publication |
+| Additional app | `Deployment/LocalSingleNode/ApplicationInstances.md`, `.github/workflows/localsinglenode-app-setup.yml`, `prepare-additional-app.sh`, `verify-additional-app.py`, the `app_instance` inputs of CD and maintenance | It exists only to run the other profile; remove it with its tests. Keep the primary identity and ownership checks in `resolve-app-instance.py` |
+| Release tooling | `Scripts/Frontend/resolve_frontend_profile.py`, `Scripts/CI/write_release_manifest.py`, `Deployment/Common/Scripts/validate_release_manifest.py`, each kept target's `verify-release-identity.sh`, `Scripts/Test-DeployedSite.ps1` | Narrow to React profile and acceptance pairs, now or in a recorded follow-up |
+| Tests | `BlazorAutoApp.Test/E2E/Support/BlazorE2ETestBase.cs`, Blazor E2E, render-mode and head-asset hosting tests, architecture tests naming the client | Delete Blazor-only tests; make architecture and composition tests assert the React-only host |
+| Browser tools | `axe-core` and `lighthouse` in `BlazorAutoApp.Client/package.json`, used by `Scripts/RunLighthouse.ps1` and the axe tests | Move them to a test-only package with its own lockfile and Dependabot entry **before** deleting the client |
+| Quality tools | `Scripts/Quality`, `docker/sonarqube` | Optional; update exclusions or record a follow-up |
+| Docs and rules | `AGENTS.md` (Tailwind rebuild rule), README, [FrontendProfiles](../FrontendProfiles.md), [Blazor features](../Features/Blazor.md), [feature guide](../HowToAddANewFeature.md), Requirements, Test and Testing pages, [running locally](../HowToRunLocally.md) | Describe one frontend; delete the Blazor guide |
+
+## Safe removal sequence
+
+1. Branch from the clone's latest `main`.
+2. Move anything React or tests still need out of the client first, including the browser tools and shared assets.
+3. Change the entry points (MSBuild, Dockerfile, CI and profile validation) so nothing builds the Blazor profile. Then delete the client, Razor UI and Blazor composition.
+4. Delete Blazor-only tests and rewrite the shared ones. The React profile must now run the whole suite; record the new pass and skip counts.
+5. For every deployment-audit rule about a removed file or step, add a React-only rule, for example "no Blazor build path" or "no other-profile publication". Never only delete a rule.
+6. Update the docs and rules listed above.
+7. Run the inventory command again. Every remaining match must be intentional, such as provenance links, plan history or a recorded follow-up.
+8. Run the [local gate](../Test.md#local-gate), open a PR and merge only after `build-test-push` succeeds on its exact head.
+
+## Deliberate boundaries
+
+- Narrowing the release resolver and verifiers touches deployment machinery. It may be a separate PR, but record it as a follow-up so no build can produce or accept a Blazor release.
+- React is public-only and account-free. Removing the Razor account pages does not decide whether to keep PostgreSQL, Redis, Identity storage or the Books sample. Treat those as separate product changes.
+
+Worked example: [Portfolio #11](https://github.com/Grumlebob/Portfolio/pull/11) removed Blazor from the first clone, and its description lists each decision.
