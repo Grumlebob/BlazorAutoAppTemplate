@@ -57,6 +57,20 @@ public sealed class HostingResponseBehaviourTests(HostingResponseBehaviourFixtur
     }
 
     [Fact]
+    public async Task Responses_CarryTheSelectedFrontendsPermissionsPolicy()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/ready");
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", "203.0.113.14");
+
+        using var response = await fixture.Factory.HttpClient.SendAsync(request);
+
+        // Only the React host sets Cross-Origin-Opener-Policy; its wider Permissions-Policy must not be overwritten.
+        var reactHost = response.Headers.Contains("Cross-Origin-Opener-Policy");
+        var expected = reactHost ? Frontend.ReactFrontendHosting.PermissionsPolicy : "local-network-access=()";
+        Assert.Equal(expected, Assert.Single(response.Headers.GetValues("Permissions-Policy")));
+    }
+
+    [Fact]
     public async Task Api_AnonymousRequest_WithIdentityCookieChallenge_Returns401NotRedirect()
     {
         using var client = fixture.Factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions

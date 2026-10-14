@@ -55,7 +55,8 @@ app.UseAntiforgery();
 
 app.Use(async (ctx, next) =>
 {
-    ctx.Response.Headers["Permissions-Policy"] = "local-network-access=()";
+    // The React host sets its wider policy earlier in the pipeline; the Blazor profile keeps this one.
+    ctx.Response.Headers.TryAdd("Permissions-Policy", "local-network-access=()");
     await next();
 });
 
