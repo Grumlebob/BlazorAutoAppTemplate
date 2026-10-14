@@ -48,6 +48,8 @@ try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
         [IO.File]::WriteAllText($path, $(if ($relative -eq 'frontend-profile.txt') { 'React' } else { 'fixture' }))
     }
+    # Fixture git commands must not follow inherited GIT_* variables into the caller's repository.
+    Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { Remove-Item -Path "Env:$($_.Name)" }
     & $git -C $temporaryRoot init --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Could not initialize the temporary Quick-driver fixture repository.' }
     & $git -C $temporaryRoot config user.name 'Quality Test'

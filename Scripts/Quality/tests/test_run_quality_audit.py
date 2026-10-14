@@ -18,7 +18,18 @@ from Scripts.Quality import run_quality_audit as audit
 from Scripts.Quality import qlty_audit
 
 
+def fixture_git_environment():
+    """Environment for fixture git commands. Inherited GIT_* variables, such as GIT_DIR from a
+    hook, would otherwise redirect `git init/add` on a temporary path into the caller's repository."""
+    return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+
+
 class QualityAuditTests(unittest.TestCase):
+    def setUp(self):
+        environment = patch.dict(os.environ, fixture_git_environment(), clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_qlty_clears_git_overrides_and_disables_telemetry(self):
         with patch.dict(os.environ, {"GIT_DIR": "private-worktree", "GIT_WORK_TREE": "private-source",
                                      "git_config_count": "1", "QLTY_TELEMETRY": "on"}):
@@ -32,9 +43,9 @@ class QualityAuditTests(unittest.TestCase):
             repo, snapshot = root / "repo", root / "snapshot"
             repo.mkdir()
             snapshot.mkdir()
-            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, env=fixture_git_environment())
             (repo / "source.cs").write_text("original", encoding="utf-8")
-            subprocess.run(["git", "-C", str(repo), "add", "source.cs"], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "source.cs"], check=True, env=fixture_git_environment())
             (repo / "source.cs").write_text("working change", encoding="utf-8")
             (repo / ".env").write_text("private local value", encoding="utf-8")
             result = audit.snapshot_source(repo, snapshot)
