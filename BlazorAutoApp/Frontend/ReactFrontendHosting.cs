@@ -47,6 +47,16 @@ internal static class ReactFrontendHosting
         {
             var headers = context.Response.Headers;
             headers["Content-Security-Policy"] = contentSecurityPolicy;
+            context.Response.OnStarting(() =>
+            {
+                // The shell and static HTML set their content type later in the pipeline.
+                if (context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    headers["Content-Security-Policy"] = WithScriptNonce(contentSecurityPolicy);
+                }
+
+                return Task.CompletedTask;
+            });
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -100,6 +110,18 @@ internal static class ReactFrontendHosting
             "script-src 'self'",
             $"script-src 'self' {hashSources}",
             StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Adds a fresh random nonce to a document's script-src. Our own markup never uses it:
+    /// its inline scripts stay authorized by exact hashes. Cloudflare's JavaScript detections
+    /// read the nonce from this header and put it on the script they inject, so bot detection
+    /// runs without 'unsafe-inline'. A new nonce per response keeps it unpredictable.
+    /// </summary>
+    internal static string WithScriptNonce(string policy)
+    {
+        var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+        return policy.Replace("script-src 'self'", $"script-src 'self' 'nonce-{nonce}'", StringComparison.Ordinal);
     }
 
     public static void UseStaticFiles(IApplicationBuilder app, IFileProvider fileProvider)

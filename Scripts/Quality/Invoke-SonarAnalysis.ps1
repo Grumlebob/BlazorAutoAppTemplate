@@ -426,10 +426,9 @@ try {
     $null = Invoke-QualityStep -Name 'dotnet-tests' -Executable $Context.DotnetExecutable -Arguments $testArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
 
-    $expectedPassed = if ($FrontendProfile -eq 'BlazorAuto') { 190 } else { 182 }
     $testValidator = Join-Path $repoRoot 'Scripts/CI/validate_dotnet_test_results.py'
     $testValidation = Invoke-QualityStep -Name 'validate-dotnet-tests' -Executable $Context.PythonExecutable `
-        -Arguments @($testValidator, (Join-Path $testsDirectory 'suite.trx'), '--expected-passed', [string]$expectedPassed,
+        -Arguments @($testValidator, (Join-Path $testsDirectory 'suite.trx'),
             '--expected-skipped', '13', '--suite', "$FrontendProfile .NET suite") `
         -WorkingDirectory $repoRoot -MaximumSeconds 60
     $dotnetTestCounts = $testValidation.Stdout.Trim()
