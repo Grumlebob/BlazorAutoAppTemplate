@@ -1943,7 +1943,14 @@ workflow_paths = sorted(
 if not workflow_paths:
     fail(".github/workflows: no workflow files found")
 
+# Code scanning is the one workflow that runs on a GitHub-hosted runner. It has no secrets, no node access and no
+# deployment step, and free CodeQL exists only for public repositories, so it is exempt from the self-hosted rules
+# above and held to its own exact rule below.
+CODEQL_WORKFLOW = ".github/workflows/codeql.yml"
+
 for workflow in workflow_paths:
+    if workflow == CODEQL_WORKFLOW:
+        continue
     has_runs_on = False
     for line_number, line in enumerate(read(workflow).splitlines(), start=1):
         stripped = line.strip()
@@ -2003,6 +2010,28 @@ for workflow in workflow_paths:
             ):
                 if needle not in first:
                     fail(f"{workflow}: each deployment job must fail closed on an exact enabled-target match before other steps")
+if CODEQL_WORKFLOW in workflow_paths:
+    codeql = read(CODEQL_WORKFLOW)
+    for needle, why in (
+        ("    runs-on: ubuntu-latest\n", "the single GitHub-hosted runner of the code-scanning job"),
+        ("permissions:\n  contents: read\n", "a read-only default token"),
+        ("      security-events: write\n", "the code-scanning upload permission on the job"),
+        ("if: ${{ !github.event.repository.private }}", "the public-repository guard"),
+        ("github/codeql-action/init@", "the CodeQL init action"),
+        ("github/codeql-action/analyze@", "the CodeQL analyze action"),
+    ):
+        if needle not in codeql:
+            fail(f"{CODEQL_WORKFLOW}: missing {why}: {needle.strip()}")
+    for forbidden, why in (
+        ("secrets.", "secrets"),
+        ("vars.", "repository variables"),
+        ("pull_request_target", "a privileged fork trigger"),
+        ("workflow_dispatch", "a manual trigger"),
+    ):
+        if forbidden in codeql:
+            fail(f"{CODEQL_WORKFLOW}: must not use {why}: {forbidden}")
+    if len(re.findall(r"(?m)^\s*runs-on:", codeql)) != 1:
+        fail(f"{CODEQL_WORKFLOW}: exactly one job with one GitHub-hosted runner is allowed")
 require_contains(
     ".github/workflows/auto-merge-dependabot.yml",
     "Verify GitHub CLI",

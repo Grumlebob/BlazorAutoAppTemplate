@@ -25,7 +25,7 @@ bash ./Deployment/LocalCluster/Scripts/check-github-runner.sh
 bash ./Deployment/LocalCluster/Scripts/check-cloudflare-tunnel.sh
 ```
 
-Doctor checks prerequisites; preflight checks the selected deploy. Acceptance checks the app, data services and ingress. Runner policy: workflows use the configured self-hosted runner on node-main. External fork pull requests are skipped before runner allocation. Never run untrusted PR code there or add GitHub-hosted runner labels; the deployment audit rejects those labels.
+Doctor checks prerequisites; preflight checks the selected deploy. Acceptance checks the app, data services and ingress. Runner policy: workflows use the configured self-hosted runner on node-main. External fork pull requests are skipped before runner allocation. Never run untrusted PR code there or add GitHub-hosted runner labels; the deployment audit rejects those labels. The one exception is `.github/workflows/codeql.yml`: it has no secrets or node access, runs on a GitHub-hosted runner in public repositories only, and the audit pins its exact shape.
 
 ## Observe the stack
 
