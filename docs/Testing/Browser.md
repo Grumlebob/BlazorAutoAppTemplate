@@ -44,3 +44,5 @@ The client npm lockfile pins Lighthouse. Reports are generated under `TestResult
 ```
 
 For production, omit `-IgnoreCertificateErrors` and set `-BaseUrl` to the deployed origin. A fixture proxy can be passed with `-BrowserProxy`; it must be a loopback proxy and enforce the public-route allowlist. See `Scripts/RunLighthouse.ps1` for current options.
+
+Add `-Minimum "performance=90,accessibility=100,best-practices=100,seo=100"` to fail the run when a median score is below a minimum, or summarize earlier runs with `Scripts/Quality/summarize_lighthouse.py` ([details](../Quality/QualityTools.md#summarize-lighthouse-runs)).

@@ -98,7 +98,10 @@ Assert-Equal $contextWithoutReact.NodeExecutable $null 'default context does not
 Assert-Equal $contextWithoutReact.NpmCli $null 'default context does not resolve npm'
 
 $context = $contextWithoutReact
-Assert-Equal $context.RepositoryIdentity 'github.com/grumlebob/blazorautoapptemplate' 'resolved repository identity'
+# The identity comes from this checkout's origin remote, so assert its shape, not a particular repository.
+if ($context.RepositoryIdentity -notmatch '^github\.com/[a-z0-9_.-]+/[a-z0-9_.-]+$') {
+    throw "Resolved repository identity is not github.com/<owner>/<repo>: '$($context.RepositoryIdentity)'."
+}
 Assert-Equal $context.HostPort 9200 'default host port selection'
 $nodeRuntime = Get-QualityNodeRuntime -ToolVersions $context.ToolVersions -ConfiguredDirectory $context.NodeToolchainDirectory
 Assert-Equal $nodeRuntime.NodeVersion '24.21.0' 'resolved Node version'

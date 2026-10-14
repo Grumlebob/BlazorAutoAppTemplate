@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { Link, MemoryRouter, Route, Routes, useNavigate } from "react-router";
@@ -17,13 +17,18 @@ function CatalogPage() {
   );
 }
 
+// The test finishes the details page's "loading" itself, so it never depends on how fast the runner is.
+let finishLoading: (() => void) | undefined;
+
 function DetailsPage() {
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoaded(true), 50);
-    return () => window.clearTimeout(timer);
+    finishLoading = () => setLoaded(true);
+    return () => {
+      finishLoading = undefined;
+    };
   }, []);
 
   return (
@@ -56,6 +61,7 @@ describe("route focus management", () => {
     await user.click(screen.getByRole("link", { name: "Open book" }));
     expect(screen.getByRole("heading", { name: "Loading book details" })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Loading book details" })).toHaveFocus();
+    act(() => finishLoading?.());
     expect(await screen.findByRole("heading", { name: "Ship Inspections" })).toBeInTheDocument();
     const detailMain = screen.getByRole("main", { name: "Ship Inspections" });
     expect(detailMain).toHaveFocus();
@@ -67,6 +73,7 @@ describe("route focus management", () => {
     await user.click(screen.getByRole("button", { name: "Browser forward" }));
     expect(screen.getByRole("heading", { name: "Loading book details" })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Loading book details" })).toHaveFocus();
+    act(() => finishLoading?.());
     expect(await screen.findByRole("heading", { name: "Ship Inspections" })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: "Ship Inspections" })).toHaveFocus();
   });

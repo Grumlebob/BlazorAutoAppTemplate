@@ -41,8 +41,10 @@ PROJECT_METRICS = (
     "ncloc", "lines", "coverage", "lines_to_cover", "uncovered_lines", "duplicated_lines_density",
     "cognitive_complexity", "violations", "software_quality_reliability_issues",
     "software_quality_security_issues", "software_quality_maintainability_issues",
+    "software_quality_maintainability_rating", "software_quality_reliability_rating", "software_quality_security_rating",
     "new_violations", "new_coverage", "ncloc_language_distribution",
 )
+RATING_LETTERS = "ABCDE"
 FILE_METRICS = (
     "ncloc", "cognitive_complexity", "complexity", "coverage", "lines_to_cover", "uncovered_lines",
     "duplicated_lines", "duplicated_lines_density", "violations",
@@ -733,6 +735,15 @@ def validate_run_evidence(profile: str, evidence: dict[str, Any]) -> tuple[bool,
     return valid_dotnet and valid_frontend and valid_coverage, warnings
 
 
+def rating_letter(value: Any) -> str:
+    """Render a SonarQube rating value (1.0 is A, 5.0 is E) as its letter."""
+    try:
+        index = round(float(value)) - 1
+    except (TypeError, ValueError):
+        return "n/a"
+    return RATING_LETTERS[index] if 0 <= index < len(RATING_LETTERS) else "n/a"
+
+
 def _md_cell(text: Any) -> str:
     return str(text if text is not None else "").replace("|", "\\|").replace("\n", " ")
 
@@ -793,6 +804,9 @@ def _render_report_overview(report: dict[str, Any]) -> list[str]:
         f" (previous `{analysis.get('previousVersion') or 'none'}`)",
         f"- Server: `{report.get('serverVersion') or 'n/a'}`; settings digest: `{report.get('settingsDigest') or 'n/a'}`",
         f"- Report completeness: **{'complete' if report['complete'] else 'incomplete'}**; quality gate: **{gate.get('status') or 'unavailable'}** (informational)",
+        f"- Ratings: maintainability {rating_letter(measures.get('software_quality_maintainability_rating'))}, "
+        f"reliability {rating_letter(measures.get('software_quality_reliability_rating'))}, "
+        f"security {rating_letter(measures.get('software_quality_security_rating'))}",
         f"- ncloc: {measures.get('ncloc') or 'n/a'} ({language_text})",
         f"- Coverage: {coverage + ' %' if coverage is not None else 'n/a'} of {coverage_denominator or 'n/a'} coverable lines; duplication: "
         f"{measures.get('duplicated_lines_density') or 'n/a'} %",
