@@ -71,7 +71,7 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
   - The template's deployment audit was failing on `main` because two docs-only `[skip ci]` commits (`94933bfc`, `a8d16ef3`) removed required wording and referenced a script that exists only under `Cloud/`. Repaired by template #260 (`73a2593f`) with the audit passing on the head.
 - **Standalone cleanup (2026-10-14):**
   - The template-era plans and their support folders were removed; the template keeps their history, and links to them point there.
-  - `Plans/CodeQualityImprovements.md` is now a stub, because `Scripts/Quality/sonar_report.py` names it.
+  - The template's on-demand quality tooling (`Scripts/Quality`, `docker/sonarqube`, `docs/Quality`, `.qlty`) and its `Plans/CodeQualityImprovements.md` backlog were removed from this repository; the template keeps them.
   - `gh repo set-default Grumlebob/Portfolio` was run in this checkout.
   - Test fixtures no longer follow an inherited `GIT_DIR`: Portfolio #37 (merge `acc02a5`, main CI run 38534478703 success; test-only, not deployed).
   - Template PRs: #264 (the same fixture fix) and #265 (CSP nonce for the React host).
@@ -196,7 +196,7 @@ Exact next action:
 | --- | --- | --- |
 | React Router framework/SPA, Vite, Tailwind, TanStack Query | `BlazorAutoApp.React`: react-router 8.4.0, vite 8.3.4, tailwindcss 4.3.3, @tanstack/react-query 5.104.1, React 19.3.0, TypeScript 5.9.3; Node 24.21.0 / npm 12.2.0 engines | Available |
 | Generated API contracts | openapi-typescript 7.13.0 + openapi-fetch 0.17.0; `npm run api:generate` / `api:check` through a metadata-only host | Available |
-| Local HTTPS development | `npm run dev` (Vite + C# API), docs/FrontendProfiles.md | Available |
+| Local HTTPS development | `npm run dev` (Vite + C# API), docs/Frontend.md | Available |
 | C# production static hosting | React host profile; reserved-route, HEAD and 404 hosting tests | Available; Portfolio needs exact prerender hosting (P7.1) |
 | Release/profile labels and manifests | `Scripts/Frontend/resolve_frontend_profile.py`, `Scripts/CI/write_release_manifest.py`, `frontend-profile.txt` | Available |
 | CI validation/publishing | `.github/workflows/ci.yml` (`build-test-push`), self-hosted runner labels | Available; needs a Portfolio runner (B01) |
