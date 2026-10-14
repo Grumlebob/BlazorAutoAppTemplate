@@ -52,3 +52,7 @@ Read the [release contract](../Deployment/Common/ReleaseContract.md) before choo
 ## Make and verify the fork changes
 
 Make customization changes on a branch. Run the [local gate](Test.md#local-gate), open a pull request, and merge only after `build-test-push` succeeds on that exact head. Merging alone does not deploy; enter the selected target's guide after main CI publishes the release.
+
+## Make a standalone product
+
+When the fork becomes a product of its own rather than a configured copy, follow [Standalone product](StandaloneProduct.md). It orders the seed, the [React-only clone](Frontend/ReactOnlyClone.md), target removal, the rename and the template-material cleanup. If the clone keeps the template as an `upstream` remote, run `gh repo set-default <owner>/<repo>` first; otherwise `gh` acts on the template.

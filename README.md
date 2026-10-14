@@ -18,7 +18,7 @@ Run the local Docker stack:
 | Add a React public feature | [React feature guide](docs/Frontend/React.md#change-a-typed-public-feature) |
 | Select a frontend profile | [Frontend profiles](docs/FrontendProfiles.md) |
 | Run and verify checks | [Tests](docs/Test.md) |
-| Prepare a fork | [Fork guide](docs/HowToForkThisRepo.md) |
+| Prepare a fork or a standalone product | [Fork guide](docs/HowToForkThisRepo.md), [standalone product](docs/StandaloneProduct.md) |
 | Choose and operate a deployment target | [Deployment guide](Deployment/README.md) |
 | View or diagnose telemetry | [Observability guide](docs/ObservabilityGuide.md) |
 | Run optional quality audits | [Quality tools](docs/Quality/QualityTools.md), [SonarQube](docs/Quality/SonarQubeAnalysis.md) |
