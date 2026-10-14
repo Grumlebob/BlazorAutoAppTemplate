@@ -291,6 +291,23 @@ class ReportCompletenessTests(unittest.TestCase):
         self.assertTrue(report["scopeEvidence"]["testedApiModuleHasCoverage"])
         self.assertTrue(report["scopeEvidence"]["blazorImplementationExcluded"])
 
+    def test_quality_ratings_are_exported_and_rendered_as_letters(self) -> None:
+        client = FakeClient(standard_routes())
+        report = sr.build_report(client, report_request("BlazorAuto", RUN_EVIDENCE), CHURN_TEXT, path_exists=lambda path: True)
+        requested = next(params for path, params in client.calls
+                         if path == "api/measures/component")["metricKeys"].split(",")
+        for metric in ("software_quality_maintainability_rating", "software_quality_reliability_rating",
+                       "software_quality_security_rating"):
+            self.assertIn(metric, requested)
+        self.assertEqual(report["measures"]["software_quality_security_rating"], "4.0")
+        self.assertIn("Ratings: maintainability A, reliability C, security D", sr.render_markdown(report))
+
+    def test_missing_or_unusable_rating_renders_as_not_available(self) -> None:
+        self.assertEqual([sr.rating_letter(value) for value in ("1.0", "2.0", "5.0", 3)], ["A", "B", "E", "C"])
+        for value in (None, "", "n/a", "0.0", "6.0"):
+            with self.subTest(value=value):
+                self.assertEqual(sr.rating_letter(value), "n/a")
+
     def test_run_evidence_rejects_boolean_test_counts(self) -> None:
         evidence = json.loads(json.dumps(RUN_EVIDENCE))
         evidence["tests"]["dotnet"]["passed"] = True
