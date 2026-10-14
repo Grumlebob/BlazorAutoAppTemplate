@@ -75,19 +75,22 @@ public sealed class ReactFrontendHostingTests
     {
         await using var host = await ReactTestHost.CreateAsync(forceHttps: true);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/assets/app.css");
-        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
-        using var response = await host.Client.SendAsync(request);
+        foreach (var (path, content) in new[] { ("/assets/app.css", ReactTestHost.Stylesheet), ("/assets/mark.svg", ReactTestHost.Mark) })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+            using var response = await host.Client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("gzip", response.Content.Headers.ContentEncoding);
-        var compressed = await response.Content.ReadAsByteArrayAsync();
-        Assert.True(compressed.Length < Encoding.UTF8.GetByteCount(ReactTestHost.Stylesheet));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains("gzip", response.Content.Headers.ContentEncoding);
+            var compressed = await response.Content.ReadAsByteArrayAsync();
+            Assert.True(compressed.Length < Encoding.UTF8.GetByteCount(content));
 
-        await using var source = new MemoryStream(compressed);
-        await using var gzip = new GZipStream(source, CompressionMode.Decompress);
-        using var reader = new StreamReader(gzip, Encoding.UTF8);
-        Assert.Equal(ReactTestHost.Stylesheet, await reader.ReadToEndAsync());
+            await using var source = new MemoryStream(compressed);
+            await using var gzip = new GZipStream(source, CompressionMode.Decompress);
+            using var reader = new StreamReader(gzip, Encoding.UTF8);
+            Assert.Equal(content, await reader.ReadToEndAsync());
+        }
     }
 
     [Fact]
@@ -282,7 +285,13 @@ public sealed class ReactFrontendHostingTests
         Assert.Equal(
             "strict-origin-when-cross-origin",
             Assert.Single(response.Headers.GetValues("Referrer-Policy")));
-        Assert.Equal("local-network-access=()", Assert.Single(response.Headers.GetValues("Permissions-Policy")));
+        Assert.Equal(ReactFrontendHosting.PermissionsPolicy, Assert.Single(response.Headers.GetValues("Permissions-Policy")));
+        Assert.Equal(
+            ReactFrontendHosting.CrossOriginOpenerPolicy,
+            Assert.Single(response.Headers.GetValues("Cross-Origin-Opener-Policy")));
+        Assert.Equal(
+            ReactFrontendHosting.CrossOriginResourcePolicy,
+            Assert.Single(response.Headers.GetValues("Cross-Origin-Resource-Policy")));
 
         // HTML documents add a per-response script nonce to the base policy; every other response keeps it as is.
         var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
@@ -309,6 +318,9 @@ public sealed class ReactFrontendHostingTests
         public const string Secret = "outside-root-secret";
         public static readonly string Stylesheet = string.Concat(
             Enumerable.Repeat(".catalog-card { color: #123456; background: white; }\n", 128));
+        public static readonly string Mark = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\">"
+            + string.Concat(Enumerable.Repeat("<path d=\"M8 8h48v48H8z\" fill=\"#123456\"/>", 32))
+            + "</svg>";
 
         private readonly string _rootPath;
         private readonly string _outsideSecretPath;
@@ -342,6 +354,7 @@ public sealed class ReactFrontendHostingTests
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app.js"), "export {};");
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app-a1b2c3d4.js"), "export {}; ");
             await File.WriteAllTextAsync(Path.Combine(assetPath, "app.css"), Stylesheet);
+            await File.WriteAllTextAsync(Path.Combine(assetPath, "mark.svg"), Mark);
 
             var outsideSecretPath = Path.Combine(Path.GetDirectoryName(rootPath)!, $"{Path.GetFileName(rootPath)}-secret.txt");
             await File.WriteAllTextAsync(outsideSecretPath, Secret);

@@ -13,21 +13,31 @@ using Microsoft.Net.Http.Headers;
 
 namespace BlazorAutoApp.Frontend;
 
-internal static class ReactFrontendHosting
+internal static partial class ReactFrontendHosting
 {
     private const string SpaFallbackFileName = "__spa-fallback.html";
-    private static readonly Regex InlineScriptPattern = new(
+    private const int RegexTimeoutMilliseconds = 1000;
+
+    [GeneratedRegex(
         "<script\\b(?<attributes>[^>]*)>(?<body>.*?)</script\\s*>",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
-    private static readonly Regex ScriptSourcePattern = new(
-        "\\bsrc\\s*=",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    private static readonly Regex FingerprintedAssetPattern = new(
-        "-[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9]{1,10}$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant,
+        RegexTimeoutMilliseconds)]
+    private static partial Regex InlineScriptPattern();
+
+    [GeneratedRegex("\\bsrc\\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex ScriptSourcePattern();
+
+    // The request path is client-controlled, so the match is bounded.
+    [GeneratedRegex("-[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9]{1,10}$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex FingerprintedAssetPattern();
 
     internal const string ContentSecurityPolicy =
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'";
+
+    internal const string CrossOriginOpenerPolicy = "same-origin";
+    internal const string CrossOriginResourcePolicy = "same-site";
+    internal const string PermissionsPolicy =
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=(), local-network-access=()";
 
     public static void AddResponseCompression(IServiceCollection services)
     {
@@ -35,7 +45,7 @@ internal static class ReactFrontendHosting
         {
             options.EnableForHttps = true;
             options.MimeTypes = ResponseCompressionDefaults.MimeTypes
-                .Concat(["text/javascript"])
+                .Concat(["text/javascript", "image/svg+xml"])
                 .ToArray();
         });
     }
@@ -46,21 +56,23 @@ internal static class ReactFrontendHosting
         app.Use(async (context, next) =>
         {
             var headers = context.Response.Headers;
-            headers["Content-Security-Policy"] = contentSecurityPolicy;
+            headers.ContentSecurityPolicy = contentSecurityPolicy;
             context.Response.OnStarting(() =>
             {
                 // The shell and static HTML set their content type later in the pipeline.
                 if (context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    headers["Content-Security-Policy"] = WithScriptNonce(contentSecurityPolicy);
+                    headers.ContentSecurityPolicy = WithScriptNonce(contentSecurityPolicy);
                 }
 
                 return Task.CompletedTask;
             });
-            headers["X-Content-Type-Options"] = "nosniff";
-            headers["X-Frame-Options"] = "DENY";
+            headers.XContentTypeOptions = "nosniff";
+            headers.XFrameOptions = "DENY";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-            headers["Permissions-Policy"] = "local-network-access=()";
+            headers["Permissions-Policy"] = PermissionsPolicy;
+            headers["Cross-Origin-Opener-Policy"] = CrossOriginOpenerPolicy;
+            headers["Cross-Origin-Resource-Policy"] = CrossOriginResourcePolicy;
             if (context.Request.Path.StartsWithSegments("/api/books", StringComparison.OrdinalIgnoreCase))
             {
                 headers[HeaderNames.CacheControl] = "private, no-store";
@@ -89,9 +101,9 @@ internal static class ReactFrontendHosting
             using var stream = shell.CreateReadStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
             var html = reader.ReadToEnd();
-            foreach (Match match in InlineScriptPattern.Matches(html))
+            foreach (Match match in InlineScriptPattern().Matches(html))
             {
-                if (ScriptSourcePattern.IsMatch(match.Groups["attributes"].Value))
+                if (ScriptSourcePattern().IsMatch(match.Groups["attributes"].Value))
                 {
                     continue;
                 }
@@ -134,7 +146,7 @@ internal static class ReactFrontendHosting
             OnPrepareResponse = context =>
             {
                 var path = context.Context.Request.Path.Value ?? string.Empty;
-                context.Context.Response.Headers[HeaderNames.CacheControl] = FingerprintedAssetPattern.IsMatch(path)
+                context.Context.Response.Headers[HeaderNames.CacheControl] = FingerprintedAssetPattern().IsMatch(path)
                     ? "public,max-age=31536000,immutable"
                     : "no-cache";
             }
