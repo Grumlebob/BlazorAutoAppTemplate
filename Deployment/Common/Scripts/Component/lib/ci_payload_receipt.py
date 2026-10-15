@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import re
 import urllib.error
@@ -243,10 +243,19 @@ def receipts_from_step_log(
     step = matches[0]
     if step.get("status") != "completed" or step.get("conclusion") != "success":
         raise ReceiptError("immutable payload receipt step did not complete successfully")
+    completed_at = step.get("completed_at")
     start = _parse_timestamp(step.get("started_at"), "receipt step start")
-    end = _parse_timestamp(step.get("completed_at"), "receipt step completion")
+    end = _parse_timestamp(completed_at, "receipt step completion")
     if end < start:
         raise ReceiptError("receipt step time range is reversed")
+    # The Actions API reports step timestamps at whole-second precision while
+    # log lines may include fractions. Include that final reported second; the
+    # next ##[group] marker still closes this step's trusted command window.
+    end_exclusive = (
+        end + timedelta(seconds=1)
+        if isinstance(completed_at, str) and "." not in completed_at
+        else end
+    )
     if not isinstance(log_text, str) or not log_text:
         raise ReceiptError("selected CI job logs are unavailable or expired")
 
@@ -258,7 +267,7 @@ def receipts_from_step_log(
         if not match:
             continue
         timestamp = _parse_timestamp(match.group("timestamp"), "job log line")
-        if not start <= timestamp < end:
+        if not start <= timestamp < end_exclusive:
             continue
         message = match.group("message")
         if message.startswith(RECEIPT_COMMAND_MARKER):

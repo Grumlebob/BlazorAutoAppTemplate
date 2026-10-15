@@ -259,6 +259,50 @@ class CiPayloadReceiptTests(unittest.TestCase):
         )
         self.assertEqual(selected["payload_digest"], self.published["payload_digest"])
 
+    def test_reads_final_subsecond_receipt_with_whole_second_api_completion(self) -> None:
+        react = dict(self.receipt)
+        react["profile"] = "React"
+        react["acceptance_profile"] = "ReactPublicV1"
+        react["app_image"] = "ghcr.io/grumlebob/books-react"
+        react["payload_image"] = registry_payload.derive_release_payload_image(react["app_image"])
+        react["payload_ref"] = f"{react['payload_image']}@{react['payload_digest']}"
+        found = self.read(self.logs(
+            ("2026-10-15T10:00:00.500Z", MODULE.RECEIPT_COMMAND_MARKER),
+            ("2026-10-15T10:00:01Z", self.line()),
+            ("2026-10-15T10:00:05.500Z", self.line(react)),
+            ("2026-10-15T10:00:05.600Z", "##[group]Run an unrelated later step"),
+            ("2026-10-15T10:00:05.700Z", self.line()),
+            ("2026-10-15T10:00:06Z", self.line()),
+        ))
+
+        selected = MODULE.select_receipt(
+            found,
+            {
+                "kind": "final",
+                "repository": self.identity.repository,
+                "sha": self.identity.commit_sha,
+                "run_id": "123",
+                "run_attempt": "2",
+                "profile": "React",
+                "acceptance_profile": "ReactPublicV1",
+                "runtime": "linux-x64",
+                "payload_image": "ghcr.io/grumlebob/books-react-release-payload",
+            },
+        )
+        self.assertEqual(selected["profile"], "React")
+        self.assertEqual(selected["app_image"], "ghcr.io/grumlebob/books-react")
+        self.assertEqual(len(found), 2)
+
+    def test_fractional_api_completion_remains_an_exclusive_boundary(self) -> None:
+        step = {**self.job["steps"][0], "completed_at": "2026-10-15T10:00:05.500Z"}
+        job = {**self.job, "steps": [step]}
+        with patch.object(self, "job", job):
+            with self.assertRaisesRegex(MODULE.ReceiptError, "no valid payload receipt"):
+                self.read(self.logs(
+                    ("2026-10-15T10:00:00.500Z", MODULE.RECEIPT_COMMAND_MARKER),
+                    ("2026-10-15T10:00:05.500Z", self.line()),
+                ))
+
     def test_rejects_duplicate_missing_forged_and_wrong_profile_receipts(self) -> None:
         valid = self.line()
         with self.assertRaisesRegex(MODULE.ReceiptError, "duplicate"):
