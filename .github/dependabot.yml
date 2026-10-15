@@ -6,47 +6,127 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/BlazorAutoApp"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/Deployment/LocalCluster/compose/app-server"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/Deployment/LocalCluster/compose/node-db"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/BlazorAutoApp.Client"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/BlazorAutoApp.React"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "sunday"
+      time: "22:00"
+      timezone: "Europe/Copenhagen"
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
