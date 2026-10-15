@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "Scripts/Frontend"))
 sys.path.insert(0, str(ROOT / "Deployment/Common/Scripts/Component/lib"))
 from resolve_frontend_profile import acceptance_profile_for_frontend  # noqa: E402
-from release_settings import load_release_settings  # noqa: E402
+from release_settings import derive_release_payload_image, load_release_settings  # noqa: E402
 
 
 def release_plan(selected: str, additional: str, settings: dict[str, str]) -> dict[str, str]:
@@ -19,6 +19,7 @@ def release_plan(selected: str, additional: str, settings: dict[str, str]) -> di
         "additional_profile": "",
         "additional_acceptance_profile": "",
         "additional_image": "",
+        "additional_payload_image": "",
         "additional_artifact_name": "",
     }
     if not additional.strip():
@@ -37,6 +38,7 @@ def release_plan(selected: str, additional: str, settings: dict[str, str]) -> di
         additional_profile=profile,
         additional_acceptance_profile=acceptance_profile_for_frontend(profile),
         additional_image=f"{settings['app_image']}-{profile.lower()}",
+        additional_payload_image=derive_release_payload_image(f"{settings['app_image']}-{profile.lower()}"),
         additional_artifact_name=f"{settings['migration_artifact_name']}-{profile.lower()}",
     )
     return values

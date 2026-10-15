@@ -71,6 +71,7 @@ class ReleaseContractTests(unittest.TestCase):
             bundle_dir=self.bundle_dir,
             registry_payload=self.registry,
             image_labels=self.image_labels,
+            expected_bundle_runtime="linux-x64",
         )
 
     def test_valid_contract(self) -> None:
@@ -143,6 +144,11 @@ class ReleaseContractTests(unittest.TestCase):
     def test_rejects_bundle_checksum_mismatch(self) -> None:
         self.manifest["bundle"]["sha256"] = "b" * 64
         with self.assertRaises(MODULE.ManifestError):
+            self.validate()
+
+    def test_rejects_bundle_runtime_mismatch(self) -> None:
+        self.manifest["bundle"]["runtime"] = "linux-arm64"
+        with self.assertRaisesRegex(MODULE.ManifestError, "bundle runtime"):
             self.validate()
 
     def test_rejects_registry_digest_mismatch(self) -> None:

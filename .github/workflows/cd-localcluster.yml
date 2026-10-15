@@ -120,6 +120,7 @@ jobs:
           PUBLIC_HOSTNAME="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
           MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          MIGRATION_RUNTIME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           RUNNER_LABEL="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
           {
             echo "APP_NAME=${APP_NAME}"
@@ -127,6 +128,7 @@ jobs:
             echo "PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}"
             echo "MIGRATION_BUNDLE_NAME=${MIGRATION_BUNDLE_NAME}"
             echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
+            echo "MIGRATION_RUNTIME=${MIGRATION_RUNTIME}"
             echo "RUNNER_LABEL=${RUNNER_LABEL}"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             echo "APP_VERSION=${TARGET_SHA}"
@@ -142,38 +144,66 @@ jobs:
             printf '%s\n' "${RUNNER_LABEL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Selection and download use the same host lock as artifact retention.
-      # Once the exact bytes are in this job workspace, later cleanup cannot
-      # remove the release input that this run has already selected.
-      - name: Select and download the release artifact under the shared lock
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -c '
-            set -euo pipefail
-            ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
-              echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
-              exit 1
-            }
-            CI_RUN_ID="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"id\"])" "$ci_result")"
-            CI_RUN_ATTEMPT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"run_attempt\"])" "$ci_result")"
-            mkdir -p artifacts/migrations
-            gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
-            test -f artifacts/migrations/release-manifest.json
-            {
-              echo "CI_RUN_ID=${CI_RUN_ID}"
-              echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
-            } >> "$GITHUB_ENV"
-            echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
-          '
-
       - name: Login to GHCR
         uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Receipt selection, immutable pull and legacy download share the lock
+      # used by release retention.
+      - name: Select and retrieve the release payload under the shared lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -c '
+            set -euo pipefail
+            ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py \
+              --target-sha "$TARGET_SHA" --read-final-payload-receipt \
+              --payload-profile "$FRONTEND_PROFILE" \
+              --payload-acceptance-profile "$ACCEPTANCE_PROFILE" \
+              --payload-runtime "$MIGRATION_RUNTIME" \
+              --payload-app-image "$APP_IMAGE" --json)" || {
+              echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
+              exit 1
+            }
+            CI_RUN_ID="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"id\"])" "$ci_result")"
+            CI_RUN_ATTEMPT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"run_attempt\"])" "$ci_result")"
+            outcome="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"outcome\"])" "$ci_result")"
+            selection_file="${RUNNER_TEMP}/selected-release-payload.json"
+            printf "%s" "$ci_result" > "$selection_file"
+            case "$outcome" in
+              success)
+                payload_result="$(python3 Deployment/Common/Scripts/Component/lib/pull_release_payload.py \
+                  --selection-file "$selection_file" --output-dir artifacts/migrations \
+                  --repository "$SOURCE_REPO_URL" --profile "$FRONTEND_PROFILE" \
+                  --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
+                  --app-image "$APP_IMAGE" --bundle-name "$MIGRATION_BUNDLE_NAME")"
+                printf "%s" "$payload_result" > "${RUNNER_TEMP}/pulled-release-payload.json"
+                RELEASE_PAYLOAD_TRANSPORT="ghcr-container"
+                echo "Using immutable GHCR payload selected from the successful CI receipt." >> "$GITHUB_STEP_SUMMARY"
+                ;;
+              legacy_artifact)
+                mkdir -p artifacts/migrations
+                gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
+                test -f artifacts/migrations/release-manifest.json
+                RELEASE_PAYLOAD_TRANSPORT="actions-artifact"
+                echo "Selected CI attempt predates immutable receipts; using its exact legacy artifact." >> "$GITHUB_STEP_SUMMARY"
+                ;;
+              *)
+                echo "CI selector returned unsupported outcome: ${outcome}" >&2
+                exit 1
+                ;;
+            esac
+            {
+              echo "CI_RUN_ID=${CI_RUN_ID}"
+              echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
+              echo "RELEASE_PAYLOAD_TRANSPORT=${RELEASE_PAYLOAD_TRANSPORT}"
+            } >> "$GITHUB_ENV"
+            echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+          '
 
       - name: Capture registry release descriptor
         run: |
