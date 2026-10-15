@@ -14,9 +14,11 @@ Read with [the delivery plan](../../CarbonCalculatorDelivery.md), [implementatio
 - Material, Transport and Documents are direct links on each record. They select sections within one editable delivery workspace. Save delivery returns to Dashboard. Export report is contextual output.
 - About holds general explanations. Calculation/source inspection remains available for specific values. Future OCR is separate from attaching a document.
 
-### Persistence decision D02: recommendation awaiting the owner
+### Persistence decision D02: authentication investigation pending
 
-The earlier tab-only draft is insufficient for the ordinary meaning of Save delivery. The recommended account-free v1 stores saved projects, delivery records, local report snapshots and supporting originals in IndexedDB on the current browser/device. Server calculations remain authoritative; local storage does not approve imported results. Server report/upload copies expire after 24 hours. This is a proposal, not an approved requirement for cross-device synchronization.
+The earlier tab-only draft is insufficient for the ordinary meaning of Save delivery. The device-local alternative stores saved projects, delivery records, local report snapshots and supporting originals in IndexedDB on the current browser/device. Server calculations remain authoritative; local storage does not approve imported results. Server report/upload copies expire after 24 hours. This alternative has not been selected.
+
+Follow-up: the owner requested investigation of authentication in the template. The latest recommendation is shared ASP.NET Core Identity/cookies and authenticated server-owned projects; see [ReactAuthenticationFoundation.md](../../ReactAuthenticationFoundation.md). The device-local details below remain a fully specified fallback for comparison, not the current preferred architecture. After the owner selects the auth/ownership policy, update all dependent feature/packet/acceptance contracts together before implementation.
 
 Record the owner's answer before P08A implements persistence. If authenticated server projects across devices are required, replace this local ownership contract through a focused ADR and account/access slice before P08A/P12A. Do not implement both modes, invent public project CRUD, or remove working template authentication before that answer. Foundation cleanup, domain rules and source research can proceed independently.
 
@@ -258,7 +260,7 @@ Use a file picker and optional accessible drop target; picker remains available 
 
 Attachment never parses values, changes quantity, identifies dispatch or approves a source automatically. A user may explicitly reference an attachment/page while entering a fact. That records document-stated provenance, not independent authentication of its contents. Future extraction proposes fields for review under a separate packet.
 
-### Storage and limits under the recommended D02 contract
+### Storage and limits under the device-local D02 alternative
 
 Keep originals locally in IndexedDB. Save metadata/blob ownership atomically; local attachment readiness does not depend on uploading or a provider connection. Local files survive normal browser close under the same storage limitations as the project. A server upload is explicit and needed only when creating a server evidence copy associated with a report, not on every section open. Explain its 24-hour expiry before sending.
 
@@ -358,7 +360,7 @@ flowchart LR
     Snapshot --> Report[Local snapshot, print and JSON]
 ```
 
-This diagram uses the recommended D02 storage model. If cross-device ownership is selected, update it before implementing persistence. The React application displays server result nodes; it owns no second emissions calculator.
+This diagram shows the device-local D02 alternative. If authenticated server ownership is selected, update it before implementing persistence. The React application displays server result nodes; it owns no second emissions calculator.
 
 Keep small interfaces at actual boundaries: project local store, file store, source catalog, route provider, report store and snapshot signer. Use one feature handler per use case; avoid a generic CRUD repository, mediator package or event bus. Source matching, calculation nodes, aggregation and ledger are pure C# policies invoked by multiple handlers.
 
