@@ -120,6 +120,7 @@ jobs:
           PUBLIC_HOSTNAME="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh public_hostname)"
           MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          RELEASE_PAYLOAD_PREFIX="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
           MIGRATION_RUNTIME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           RUNNER_LABEL="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh runner_label)"
           {
@@ -128,6 +129,7 @@ jobs:
             echo "PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}"
             echo "MIGRATION_BUNDLE_NAME=${MIGRATION_BUNDLE_NAME}"
             echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
+            echo "RELEASE_PAYLOAD_PREFIX=${RELEASE_PAYLOAD_PREFIX}"
             echo "MIGRATION_RUNTIME=${MIGRATION_RUNTIME}"
             echo "RUNNER_LABEL=${RUNNER_LABEL}"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
@@ -165,7 +167,7 @@ jobs:
               --payload-profile "$FRONTEND_PROFILE" \
               --payload-acceptance-profile "$ACCEPTANCE_PROFILE" \
               --payload-runtime "$MIGRATION_RUNTIME" \
-              --payload-app-image "$APP_IMAGE" --json)" || {
+              --payload-app-image "$APP_IMAGE" --payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX" --json)" || {
               echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
               exit 1
             }
@@ -180,7 +182,8 @@ jobs:
                   --selection-file "$selection_file" --output-dir artifacts/migrations \
                   --repository "$SOURCE_REPO_URL" --profile "$FRONTEND_PROFILE" \
                   --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
-                  --app-image "$APP_IMAGE" --bundle-name "$MIGRATION_BUNDLE_NAME")"
+                  --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+                  --bundle-name "$MIGRATION_BUNDLE_NAME")"
                 printf "%s" "$payload_result" > "${RUNNER_TEMP}/pulled-release-payload.json"
                 RELEASE_PAYLOAD_TRANSPORT="ghcr-container"
                 echo "Using immutable GHCR payload selected from the successful CI receipt." >> "$GITHUB_STEP_SUMMARY"

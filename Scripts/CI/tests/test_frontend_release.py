@@ -35,6 +35,12 @@ class ReleasePlanTests(unittest.TestCase):
                              f"{SETTINGS['app_image']}-{additional.lower()}-release-payload")
             self.assertEqual(plan["additional_artifact_name"], f"{SETTINGS['migration_artifact_name']}-{additional.lower()}")
 
+    def test_additional_profile_uses_configured_private_payload_prefix(self):
+        settings = {**SETTINGS, "release_payload_prefix": "private-"}
+        plan = release_plan("BlazorAuto", "React", settings)
+        self.assertEqual(plan["additional_image"], "ghcr.io/example/app-react")
+        self.assertEqual(plan["additional_payload_image"], "ghcr.io/example/private-app-react-release-payload")
+
     def test_invalid_duplicate_and_injected_profiles_fail(self):
         for value in ("BlazorAuto", "React,React", "React,BlazorAuto", "React,", ",React", "react",
                       "Vue", "React\nadditional_image=evil", "$(touch evil)", "React;true"):

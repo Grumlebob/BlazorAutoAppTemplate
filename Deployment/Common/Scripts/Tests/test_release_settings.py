@@ -7,7 +7,13 @@ from pathlib import Path
 
 LIB = Path(__file__).resolve().parents[1] / "Component" / "lib"
 sys.path.insert(0, str(LIB))
-from release_settings import apply_defaults, derive_release_payload_image, validate, validate_profile_name  # noqa: E402
+from release_settings import (  # noqa: E402
+    apply_defaults,
+    derive_release_payload_image,
+    validate,
+    validate_profile_name,
+    validate_release_payload_image,
+)
 
 
 class ReleaseSettingsTests(unittest.TestCase):
@@ -24,6 +30,23 @@ class ReleaseSettingsTests(unittest.TestCase):
         self.assertEqual(resolved["migration_artifact_name"], "books-migrate-linux-x64")
         self.assertEqual(derive_release_payload_image("ghcr.io/grumlebob/books-react"),
                          "ghcr.io/grumlebob/books-react-release-payload")
+        self.assertEqual(derive_release_payload_image("ghcr.io/grumlebob/books", "private-"),
+                         "ghcr.io/grumlebob/private-books-release-payload")
+        self.assertEqual(validate_release_payload_image(
+            "ghcr.io/grumlebob/books", "ghcr.io/grumlebob/private-books-release-payload"
+        ), "ghcr.io/grumlebob/private-books-release-payload")
+
+    def test_configured_prefix_derives_private_replacement_without_overriding_image(self) -> None:
+        values = {
+            "app_image": "ghcr.io/grumlebob/books",
+            "migration_bundle_name": "books-migrate",
+            "migration_runtime": "linux-x64",
+            "release_payload_prefix": "private-",
+        }
+        self.assertEqual(validate(values), [])
+        resolved = apply_defaults(values)
+        self.assertEqual(resolved["release_payload_image"], "ghcr.io/grumlebob/private-books-release-payload")
+        self.assertEqual(resolved["release_payload_prefix"], "private-")
 
     def test_rejects_unsafe_or_tagged_image_paths(self) -> None:
         for image in (
@@ -47,6 +70,16 @@ class ReleaseSettingsTests(unittest.TestCase):
                 validate_profile_name(profile)
         self.assertEqual(validate_profile_name("BlazorAuto"), "BlazorAuto")
         self.assertEqual(validate_profile_name("React"), "React")
+
+    def test_rejects_unsafe_payload_prefixes(self) -> None:
+        for prefix in ("Private-", "private", "../", "private/tag-", "$(touch)-"):
+            with self.subTest(prefix=prefix):
+                self.assertTrue(any("release_payload_prefix" in error for error in validate({
+                    "app_image": "ghcr.io/grumlebob/books",
+                    "migration_bundle_name": "books-migrate",
+                    "migration_runtime": "linux-x64",
+                    "release_payload_prefix": prefix,
+                })))
 
     def test_derived_fields_cannot_be_configured(self) -> None:
         errors = validate({

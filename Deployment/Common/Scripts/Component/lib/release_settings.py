@@ -11,7 +11,9 @@ REQUIRED_KEYS = [
     "migration_bundle_name",
     "migration_runtime",
 ]
+OPTIONAL_KEYS = ["release_payload_prefix"]
 IMAGE_COMPONENT_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$")
+PAYLOAD_PREFIX_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,126}-$")
 PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
 
 
@@ -28,8 +30,27 @@ def validate_profile_name(profile: str) -> str:
     return profile
 
 
-def derive_release_payload_image(app_image: str) -> str:
-    return f"{validate_app_image(app_image)}-release-payload"
+def derive_release_payload_image(app_image: str, prefix: str = "") -> str:
+    validated = validate_app_image(app_image)
+    if prefix and (not isinstance(prefix, str) or not PAYLOAD_PREFIX_RE.fullmatch(prefix)):
+        raise ValueError("release_payload_prefix must be empty or a safe lowercase prefix ending in a hyphen")
+    parent, image_name = validated.rsplit("/", 1)
+    return validate_app_image(f"{parent}/{prefix}{image_name}-release-payload")
+
+
+def validate_release_payload_image(app_image: str, payload_image: str) -> str:
+    app = validate_app_image(app_image)
+    payload = validate_app_image(payload_image)
+    app_parent, app_name = app.rsplit("/", 1)
+    payload_parent, payload_name = payload.rsplit("/", 1)
+    marker = f"{app_name}-release-payload"
+    if payload_parent != app_parent or not payload_name.endswith(marker):
+        raise ValueError("release payload image is not derived from its application image")
+    prefix = payload_name[:-len(marker)]
+    expected = derive_release_payload_image(app, prefix)
+    if payload != expected:
+        raise ValueError("release payload image is not derived from its application image")
+    return payload
 
 
 def default_root() -> Path:
@@ -43,7 +64,7 @@ def default_release_path(root: Path | None = None) -> Path:
 
 def validate(values: dict[str, str]) -> list[str]:
     errors: list[str] = []
-    allowed = set(REQUIRED_KEYS)
+    allowed = set(REQUIRED_KEYS + OPTIONAL_KEYS)
 
     for key in REQUIRED_KEYS:
         if key not in values:
@@ -70,15 +91,21 @@ def validate(values: dict[str, str]) -> list[str]:
     if migration_runtime and not re.match(r"^linux-(x64|arm64)$", migration_runtime):
         errors.append("migration_runtime must be linux-x64 or linux-arm64")
 
+    payload_prefix = values.get("release_payload_prefix", "")
+    if payload_prefix and (not isinstance(payload_prefix, str) or not PAYLOAD_PREFIX_RE.fullmatch(payload_prefix)):
+        errors.append("release_payload_prefix must be empty or a safe lowercase prefix ending in a hyphen")
+
     return errors
 
 
 def apply_defaults(values: dict[str, str]) -> dict[str, str]:
     resolved = dict(values)
     app_image = resolved.get("app_image", "").strip()
+    payload_prefix = resolved.get("release_payload_prefix", "").strip()
+    resolved["release_payload_prefix"] = payload_prefix
     if app_image:
         try:
-            resolved["release_payload_image"] = derive_release_payload_image(app_image)
+            resolved["release_payload_image"] = derive_release_payload_image(app_image, payload_prefix)
         except ValueError:
             # Validation reports malformed configured paths with the source key.
             pass
