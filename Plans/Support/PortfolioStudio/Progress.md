@@ -91,7 +91,7 @@ The plan's product outcome is delivered, and PR #32 (CSP nonce for Cloudflare bo
    - deploy with CD;
    - verify acceptance.
 
-   Re-check `Plans.local/Portfolio/FactNotes/<slug>.md` before changing a story's claims.
+   Re-check `Private/FactNotes/<slug>.md` before changing a story's claims.
 3. **Optional operator clean-up** on the node, after the file-only switch: `/etc/portfolio/secrets.yml` and `/opt/portfolio-backups` are unused. Removing them is the operator's choice. Never prune volumes.
 
 ### Owner instructions and boundaries to keep
@@ -222,7 +222,7 @@ Exact next action:
 - `docs/design/studio/` holds eight clean captures of the approved Studio mockup (home and ImprovedDb story; desktop and mobile; light and dark) plus a decision/token/provenance record. Gallery review controls, abandoned alternatives, server scripts and prototype code are excluded.
 - The record lists the changes approved after the mockup that the captures don't show: the Technologies header link, the generated Techs section, and no breadcrumb requirement.
 - Rights note: the captures contain third-party poster/portrait imagery displayed by ImprovedDb. They are a design reference only; published story media gets its own P6.1 review.
-- Private source map: `Plans.local/Portfolio/ProjectSources.md` (copied in P0.2).
+- Private source map: `Private/ProjectSources.md` (copied in P0.2; tracked since 2026-10-15).
 
 ### P2 — React-only frontend (implemented 2026-10-12, #11)
 
@@ -292,9 +292,9 @@ Each cell requires real evidence. Source preparation from the existing inventory
 | P6.11 JobHunt | Private procedures `700c92f`; no applicant data | Merged draft (#23) | 2 SVGs, invented examples | Personal/assisted boundary | Published draft | Owner review; no source link |
 | P6.13 Template | Public template `c1dfd76`; fact note | Merged draft (#23) | 1 SVG | Own template | Published draft | Owner review |
 
-Launch set: all twelve stories, approved by the owner on 2026-10-13, to be improved after launch. Private evidence tables for every story are in the ignored `Plans.local/Portfolio/FactNotes/`. Initial launch does not close unfinished story packets.
+Launch set: all twelve stories, approved by the owner on 2026-10-13, to be improved after launch. Private evidence tables for every story are in `Private/FactNotes/` (tracked; the repository is private). Initial launch does not close unfinished story packets.
 
-Owner source update on 2026-10-11: `Grumlebob/GeckoBot` remains the sole active private source, with rename identity/history/privacy preserved; deleted MailDemo's complete history remains privately backed up. BestBets' preferred Exam/deck text now supplies final-design/prototype-limit evidence; selected figures still need visual/reuse review. Grumlebob uses only approved public explanation; restricted source inspection is unnecessary. Exact locations, backup evidence and publication boundaries remain in ignored `Plans.local/Portfolio/ProjectSources.md`.
+Owner source update on 2026-10-11: `Grumlebob/GeckoBot` remains the sole active private source, with rename identity/history/privacy preserved; deleted MailDemo's complete history remains privately backed up. BestBets' preferred Exam/deck text now supplies final-design/prototype-limit evidence; selected figures still need visual/reuse review. Grumlebob uses only approved public explanation; restricted source inspection is unnecessary. Exact locations, backup evidence and publication boundaries remain in `Private/ProjectSources.md`; the deleted MailDemo's history is `Private/RepositoryBackups/2026-10-11/MailDemo.bundle`.
 
 Execution enhancement: D01–D14 resolve dependency/compiler/media/runtime/copy/technology/catalog choices. ImplementationCheckpoints subdivides technical packets/story slices; VisualProduction specifies twelve project figure sets. Grumlebob's public explanation is supplied. Unknown roles/dates may be omitted; reuse permission and native/human authorization remain scoped inputs. This is planning evidence, not completed product work. Planning PR/head/merge/main evidence belongs in the refinement's PR description.
 
@@ -354,7 +354,7 @@ Decision D-EXEC-03 / 2026-10-12:
 Affected packet: all, template.
 Decision and reason: the owner asked (2026-10-12) to fix genuine template defects found by this first clone permanently upstream. Each one gets a separate template PR with its own gate and CI; Portfolio carries only its own fix.
 Evidence/source or applicable owner instruction: owner chat instruction, 2026-10-12.
-Follow-up impact: template PR #216 (clone-safe frontend-profile test and fork-guide profile step). The private clone-friction log is in Plans.local/Portfolio/CloneFrictionLog.md.
+Follow-up impact: template PR #216 (clone-safe frontend-profile test and fork-guide profile step). The private clone-friction log is in Private/CloneFrictionLog.md.
 ```
 
 A node/operator handoff can pause its dependent packet while independent content work remains available. If a live autonomous goal exists, follow the goal tool's status rules; this ledger alone does not authorize changing goal status. Never mark a required blocked packet complete to advance the plan.
