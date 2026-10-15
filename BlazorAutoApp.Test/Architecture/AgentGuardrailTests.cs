@@ -48,7 +48,7 @@ public sealed class AgentGuardrailTests
     {
         var workflow = ReadRepoFile(".github", "workflows", "cd-localcluster.yml");
 
-        Assert.Contains("find-successful-ci-run.py --target-sha \"$TARGET_SHA\"", workflow, StringComparison.Ordinal);
+        Assert.Matches(@"find-successful-ci-run\.py\s+\\\s+--target-sha ""\$TARGET_SHA""\s+--read-final-payload-receipt", workflow);
         Assert.Contains("validate_release_manifest.py", workflow, StringComparison.Ordinal);
         Assert.Contains("--expected-ci-run-attempt \"$CI_RUN_ATTEMPT\"", workflow, StringComparison.Ordinal);
         Assert.Contains("git merge-base --is-ancestor \"$TARGET_SHA\" \"$GITHUB_SHA\"", workflow, StringComparison.Ordinal);
