@@ -357,6 +357,7 @@ class RegistryPayloadTests(unittest.TestCase):
             if args[:2] == ["image", "inspect"]:
                 return self._inspect_result()
             if args[0] == "create":
+                self.assertEqual(args[-1], MODULE.PAYLOAD_CREATE_PLACEHOLDER_COMMAND)
                 return subprocess.CompletedProcess(args, 0, "a" * 64, "")
             if args[0] == "export":
                 output_path = Path(args[args.index("--output") + 1])
