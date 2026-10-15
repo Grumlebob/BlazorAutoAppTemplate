@@ -47,7 +47,11 @@
     {% if vault_ghcr_token | default('') | length > 0 %}
     echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
     {% endif %}
-    docker compose up -d --pull always --remove-orphans
+    pull_policy="always"
+    if [[ "{{ release_payload_transport | default('ghcr-container') }}" == local-pin ]]; then
+      pull_policy="never"
+    fi
+    docker compose up -d --pull "$pull_policy" --remove-orphans
   args:
     executable: /bin/bash
     chdir: "{{ deploy_root }}"

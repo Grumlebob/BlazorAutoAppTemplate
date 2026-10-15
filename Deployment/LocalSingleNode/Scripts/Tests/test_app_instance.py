@@ -48,6 +48,7 @@ class AppInstanceTests(unittest.TestCase):
     def test_primary_keeps_default_names_settings_and_profile(self):
         values = self.resolve("primary", "invalid unused additional configuration")
         self.assertEqual(values["APP_IMAGE"], self.release["app_image"])
+        self.assertEqual(values["DEPLOY_ROOT"], self.primary["deploy_root"])
         self.assertEqual(values["MIGRATION_ARTIFACT_NAME"], self.release["migration_artifact_name"])
         self.assertEqual(values["FRONTEND_PROFILE"], "BlazorAuto")
         self.assertEqual(values["LOCALSINGLENODE_SETTINGS_FILE"], "")
@@ -56,6 +57,7 @@ class AppInstanceTests(unittest.TestCase):
     def test_additional_settings_and_release_are_bound_independently(self):
         values = self.resolve()
         self.assertEqual(values["APP_NAME"], "catalog")
+        self.assertEqual(values["DEPLOY_ROOT"], self.candidate["deploy_root"])
         self.assertEqual(values["APP_IMAGE"], "ghcr.io/example/template-react")
         self.assertEqual(values["MIGRATION_ARTIFACT_NAME"], "app-migrate-linux-x64-react")
         self.assertEqual(values["FRONTEND_PROFILE"], "React")

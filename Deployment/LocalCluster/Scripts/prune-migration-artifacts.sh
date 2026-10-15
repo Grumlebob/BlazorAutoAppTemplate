@@ -55,3 +55,12 @@ bash "$COMMON/prune-actions-artifacts.sh" \
   --deployment-workflow-file cd-localcluster.yml \
   --deployment-workflow-file cd-localsinglenode.yml \
   "${protect_args[@]}"
+
+python3 "$COMMON/Component/lib/pin_release_payload.py" \
+  --prune-root "$DEPLOY_ROOT/release-payloads/${GITHUB_REPOSITORY//\//-}" \
+  --repository "${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}" \
+  --current-marker "$DEPLOY_ROOT/release.json" \
+  --recovery-marker "$DEPLOY_ROOT/release-state/previous.json" \
+  --max-candidates-per-profile 3 \
+  --max-unprotected-bytes 1073741824 \
+  --apply

@@ -121,6 +121,7 @@ required_files = [
     "Deployment/Common/Scripts/Tests/test_ci_provenance.py",
     "Deployment/Common/Scripts/Tests/test_target_gate.py",
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
+    "Deployment/Common/Scripts/Tests/test_pin_release_payload.py",
     "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh",
@@ -140,6 +141,7 @@ required_files = [
     "Deployment/Common/Scripts/install-ansible.sh",
     "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
+    "Deployment/Common/Scripts/Component/lib/pin_release_payload.py",
     "Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py",
     "Deployment/Common/Scripts/read-release-setting.sh",
     "Deployment/Common/Scripts/validate-common-release.sh",
@@ -1182,6 +1184,8 @@ for needle, why in [
     ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
     ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
+    ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
@@ -1468,7 +1472,7 @@ for needle, why in [
     ('--expected-ci-run-attempt "$CI_RUN_ATTEMPT"', "release manifest bound to the CI attempt"),
     ("release_image_digest=${RELEASE_IMAGE_DIGEST}", "digest-pinned deployment"),
     ('-e @"${GHCR_EXTRA_VARS_FILE}"', "workflow-token registry credentials"),
-    ("GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "workflow token instead of a stored PAT"),
+    ("GHCR_TOKEN: ${{ inputs.local_payload_pin_key == '' && secrets.GITHUB_TOKEN || '' }}", "workflow token is present only when restoring is not local"),
     ('rm -f "${GHCR_EXTRA_VARS_FILE}"', "registry credential file cleanup"),
     ("verify-release-identity.sh", "running release identity verification"),
     ('"${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"', "post-deploy identity checks source repository labels"),
@@ -1490,19 +1494,42 @@ for needle, why in [
 download_step = workflow_step_text(deploy_lan, "Select and retrieve the release payload under the shared lock")
 if not download_step or "if:" in download_step:
     fail(".github/workflows/cd-localcluster.yml: select and retrieve the release payload under the lock for every deploy")
+for needle, why in [
+    ("local_payload_pin_key:", "manual dispatch accepts an exact local pin key"),
+    ("if: inputs.local_payload_pin_key == ''", "local-pin recovery skips GHCR login"),
+    ("--restore \"$pin_dir\"", "local-pin recovery restores the named immutable pin"),
+    ('RELEASE_PAYLOAD_TRANSPORT="local-pin"', "local restore is identified to Ansible"),
+    ('release_payload_transport=${RELEASE_PAYLOAD_TRANSPORT}', "Ansible receives the frozen payload transport"),
+    ("without Actions or GHCR payload access", "offline restore is summarized as an offline path"),
+]:
+    if needle not in deploy_lan:
+        fail(f".github/workflows/cd-localcluster.yml: missing {why}")
+if "<<'LOCKED'" not in download_step:
+    fail(".github/workflows/cd-localcluster.yml: release selection must use a quoted lock-owned script heredoc")
 if "vault_ghcr_token" in read("Deployment/LocalCluster/inventory/prod/vault.example.yml").replace("# vault_ghcr_token", ""):
     fail("Deployment/LocalCluster/inventory/prod/vault.example.yml: GHCR credentials must stay optional")
 app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
 for needle, why in [
     ("Pull application image with command-owned registry credentials", "single command-owned registry login and pull"),
     ('export DOCKER_CONFIG="$docker_config"', "temporary registry credential store"),
-    ("docker compose up -d --pull always --remove-orphans", "pull and start the exact image"),
+    ('pull_policy="always"', "normal deployment pulls the selected image"),
+    ('pull_policy="never"', "offline restore never requests a registry pull"),
+    ('docker compose up -d --pull "$pull_policy" --remove-orphans', "pull or start the exact selected image"),
     ("no_log: true", "registry credentials kept out of logs"),
 ]:
     if needle not in app_tasks:
         fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
 if "- name: Log in to GHCR" in app_tasks:
     fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
+if "when: (release_payload_transport | default('ghcr-container')) != 'local-pin'" not in read("Deployment/LocalCluster/ansible/playbooks/site.yml"):
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: local-pin recovery must skip the network image pull before interruption")
+for needle, why in [
+    ("Publish LocalCluster release identity for local pin recovery", "current LocalCluster release marker"),
+    ("release_payload_pin_key", "LocalCluster release marker retains its exact local pin key"),
+    ("release-state/previous.json", "previous LocalCluster release remains available for recovery"),
+]:
+    if needle not in read("Deployment/LocalCluster/ansible/playbooks/site.yml"):
+        fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
 shared_route_rules = [
     (
         "Append the same scanned key only after the fingerprints match",
@@ -1695,7 +1722,7 @@ for path, checks in {
         ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
-        ("docker compose up -d --pull always", "pull and start requested image"),
+        ('docker compose up -d --pull "$pull_policy" --remove-orphans', "pull or start requested image"),
         ("http://127.0.0.1:{{ app_port }}/health/ready", "local readiness wait"),
     ],
     "Deployment/LocalCluster/ansible/roles/postgres/tasks/main.yml": [
@@ -2245,15 +2272,51 @@ for needle, why in [
     ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
     ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
+    ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
     ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
+    ("--restore \"$pin_dir\"", "local-pin recovery restores the named immutable pin"),
+    ('RELEASE_PAYLOAD_TRANSPORT="local-pin"', "local restore is identified to Ansible"),
+    ("without Actions or GHCR payload access", "offline restore is summarized as an offline path"),
 ]:
     if needle not in single_selection:
         fail(f".github/workflows/cd-localsinglenode.yml: missing locked artifact selection behavior: {why}")
+for needle, why in [
+    ("local_payload_pin_key:", "manual dispatch accepts an exact local pin key"),
+    ("if: inputs.local_payload_pin_key == ''", "local-pin recovery skips GHCR login"),
+    ("release_payload_transport=$RELEASE_PAYLOAD_TRANSPORT", "Ansible receives the frozen payload transport"),
+]:
+    if needle not in instance_cd:
+        fail(f".github/workflows/cd-localsinglenode.yml: missing {why}")
+single_instance_resolver = read("Deployment/LocalSingleNode/Scripts/resolve-app-instance.py")
+if '"DEPLOY_ROOT": config["deploy_root"]' not in single_instance_resolver:
+    fail("Deployment/LocalSingleNode/Scripts/resolve-app-instance.py: selected instance deploy root must be exported for local payload pins")
 if "actions/download-artifact@" in instance_cd:
     fail(".github/workflows/cd-localsinglenode.yml: release artifact selection and download must share the host lock")
+single_stack = read(single + "/ansible/roles/single_node_stack/tasks/main.yml")
+for needle, why in [
+    ("when: (release_payload_transport | default('ghcr-container')) != 'local-pin'", "local-pin recovery skips the network image pull"),
+    ("--pull never", "local-pin recovery starts the cached exact image without pulling"),
+    ("app_image_ref in ((staged_image.stdout | from_json)[0].RepoDigests | default([]))", "cached local image must match the pinned digest"),
+    ("release_payload_pin_key", "single-node release marker retains its exact local pin key"),
+    ("release-state/previous.json", "previous single-node release remains available for recovery"),
+]:
+    if needle not in single_stack:
+        fail(f"Deployment/LocalSingleNode/ansible/roles/single_node_stack/tasks/main.yml: missing {why}")
+for path, why in [
+    ("Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh", "LocalCluster local pin retention runs under the artifact maintenance owner"),
+    (single + "/Scripts/prune-release-artifacts.sh", "LocalSingleNode local pin retention runs under the artifact maintenance owner"),
+]:
+    for needle in ("pin_release_payload.py", "--prune-root", "--current-marker", "--recovery-marker", "--max-candidates-per-profile 3", "--max-unprotected-bytes 1073741824", "--apply"):
+        require_contains(path, needle, why)
+for path, needle in [
+    (".github/workflows/cd-localcluster.yml", '-e "release_payload_pin_key=${RELEASE_PAYLOAD_PIN_KEY}"'),
+    (".github/workflows/cd-localsinglenode.yml", '-e "release_payload_pin_key=$RELEASE_PAYLOAD_PIN_KEY"'),
+]:
+    require_contains(path, needle, "selected immutable pin key is passed into the deployed release marker")
 
 single_maintenance = read(".github/workflows/localsinglenode-maintenance.yml")
 single_artifact_job = single_maintenance.split("  prune-release-artifacts:", 1)[-1]

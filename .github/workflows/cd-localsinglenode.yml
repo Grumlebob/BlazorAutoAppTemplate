@@ -25,6 +25,11 @@ on:
         required: false
         default: ""
         type: string
+      local_payload_pin_key:
+        description: Optional exact local recovery pin key for this target SHA. Leave empty to select the successful CI release.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -143,6 +148,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Login to GHCR
+        if: inputs.local_payload_pin_key == ''
         uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
@@ -153,8 +159,28 @@ jobs:
       - name: Select and retrieve release payload under shared deployment lock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCAL_PAYLOAD_PIN_KEY: ${{ inputs.local_payload_pin_key }}
         run: |
           bash Deployment/Common/Scripts/with-deploy-lock.sh bash -euo pipefail <<'LOCKED'
+          RELEASE_PAYLOAD_PIN_KEY=""
+          if [[ -n "$LOCAL_PAYLOAD_PIN_KEY" ]]; then
+            [[ "$LOCAL_PAYLOAD_PIN_KEY" =~ ^ghcr-[0-9a-f]{64}-[0-9a-f]{64}$ ]] || { echo "local_payload_pin_key is malformed" >&2; exit 1; }
+            pin_dir="${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\//-}/${LOCAL_PAYLOAD_PIN_KEY}"
+            pin_result="$(python3 Deployment/Common/Scripts/Component/lib/pin_release_payload.py \
+              --restore "$pin_dir" --output-dir artifacts/migrations \
+              --repository "$SOURCE_REPO_URL" --target-sha "$TARGET_SHA" \
+              --profile "$FRONTEND_PROFILE" --acceptance-profile "$ACCEPTANCE_PROFILE" \
+              --runtime "$MIGRATION_RUNTIME" --app-image "$APP_IMAGE" \
+              --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" --bundle-name "$MIGRATION_BUNDLE_NAME")"
+            printf "%s" "$pin_result" > "${RUNNER_TEMP}/restored-release-payload.json"
+            CI_RUN_ID="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["run_id"])' "$pin_result")"
+            CI_RUN_ATTEMPT="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["run_attempt"])' "$pin_result")"
+            RELEASE_IMAGE_DIGEST="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["image_digest"])' "$pin_result")"
+            RELEASE_MANIFEST_SCHEMA_VERSION="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["manifest_schema_version"])' "$pin_result")"
+            RELEASE_PAYLOAD_TRANSPORT="local-pin"
+            RELEASE_PAYLOAD_PIN_KEY="$LOCAL_PAYLOAD_PIN_KEY"
+            echo "Restored exact local release pin ${LOCAL_PAYLOAD_PIN_KEY} without Actions or GHCR payload access." >> "$GITHUB_STEP_SUMMARY"
+          else
           export GH_TOKEN="$GITHUB_TOKEN"
           ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py \
             --target-sha "$TARGET_SHA" --read-final-payload-receipt \
@@ -179,6 +205,17 @@ jobs:
                 --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
                 --bundle-name "$MIGRATION_BUNDLE_NAME")"
               printf "%s" "$payload_result" > "${RUNNER_TEMP}/pulled-release-payload.json"
+              pin_result="$(python3 Deployment/Common/Scripts/Component/lib/pin_release_payload.py \
+                --staging artifacts/migrations --selection-file "$selection_file" \
+                --root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\//-}" \
+                --repository "$SOURCE_REPO_URL" --profile "$FRONTEND_PROFILE" \
+                --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
+                --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+                --bundle-name "$MIGRATION_BUNDLE_NAME")"
+              printf "%s" "$pin_result" > "${RUNNER_TEMP}/pinned-release-payload.json"
+              pin_key="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["pin_key"])' "$pin_result")"
+              RELEASE_PAYLOAD_PIN_KEY="$pin_key"
+              echo "Pinned exact GHCR release payload locally: ${pin_key}." >> "$GITHUB_STEP_SUMMARY"
               RELEASE_PAYLOAD_TRANSPORT="ghcr-container"
               echo "Using immutable GHCR payload selected from the successful CI receipt." >> "$GITHUB_STEP_SUMMARY"
               ;;
@@ -194,28 +231,40 @@ jobs:
               exit 1
               ;;
           esac
+          fi
           {
             echo "CI_RUN_ID=${CI_RUN_ID}"
             echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
             echo "RELEASE_PAYLOAD_TRANSPORT=${RELEASE_PAYLOAD_TRANSPORT}"
+            echo "RELEASE_PAYLOAD_PIN_KEY=${RELEASE_PAYLOAD_PIN_KEY}"
+            if [[ "$RELEASE_PAYLOAD_TRANSPORT" == local-pin ]]; then
+              echo "RELEASE_IMAGE_DIGEST=${RELEASE_IMAGE_DIGEST}"
+              echo "RELEASE_MANIFEST_SCHEMA_VERSION=${RELEASE_MANIFEST_SCHEMA_VERSION}"
+            fi
           } >> "$GITHUB_ENV"
           echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
           LOCKED
 
       - name: Capture registry release descriptor
         run: |
-          docker pull --quiet "${APP_IMAGE}:${TARGET_SHA}"
-          docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
-            --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-registry-repodigests.json"
-          docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
-            --format '{{json .Config.Labels}}' > "${RUNNER_TEMP}/release-image-labels.json"
-          echo "REGISTRY_MANIFEST_PATH=${RUNNER_TEMP}/release-registry-repodigests.json" >> "$GITHUB_ENV"
-          echo "IMAGE_LABELS_PATH=${RUNNER_TEMP}/release-image-labels.json" >> "$GITHUB_ENV"
+          if [[ "$RELEASE_PAYLOAD_TRANSPORT" != local-pin ]]; then
+            docker pull --quiet "${APP_IMAGE}:${TARGET_SHA}"
+            docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
+              --format '{{json .RepoDigests}}' > "${RUNNER_TEMP}/release-registry-repodigests.json"
+            docker image inspect "${APP_IMAGE}:${TARGET_SHA}" \
+              --format '{{json .Config.Labels}}' > "${RUNNER_TEMP}/release-image-labels.json"
+            echo "REGISTRY_MANIFEST_PATH=${RUNNER_TEMP}/release-registry-repodigests.json" >> "$GITHUB_ENV"
+            echo "IMAGE_LABELS_PATH=${RUNNER_TEMP}/release-image-labels.json" >> "$GITHUB_ENV"
+          fi
 
       - name: Validate release manifest
         run: |
           set -euo pipefail
           test -f artifacts/migrations/release-manifest.json
+          if [[ "$RELEASE_PAYLOAD_TRANSPORT" == local-pin ]]; then
+            chmod 0750 "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+            echo "Exact offline local pin validated for ${TARGET_SHA}, CI ${CI_RUN_ID}/${CI_RUN_ATTEMPT}, digest ${RELEASE_IMAGE_DIGEST}." >> "$GITHUB_STEP_SUMMARY"
+          else
           RELEASE_MANIFEST_SCHEMA_VERSION="$(python3 -c 'import json; print(json.load(open("artifacts/migrations/release-manifest.json", encoding="utf-8"))["schema_version"])')"
           if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]; then
             echo "Schema-v2 releases require frontend-profile.txt in the selected source commit." >&2
@@ -241,6 +290,7 @@ jobs:
           if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 1 ]]; then
             echo "Legacy release manifest v1 is explicitly treated as BlazorAuto/BlazorAutoV1." >> "$GITHUB_STEP_SUMMARY"
           fi
+          fi
 
       # Check only: CI/CD jobs never run apt. Provision on the control machine with
       # Deployment/LocalCluster/Scripts/install-ansible.sh --provision.
@@ -254,7 +304,7 @@ jobs:
       - name: Write GHCR deploy credentials
         env:
           GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ inputs.local_payload_pin_key == '' && secrets.GITHUB_TOKEN || '' }}
         run: |
           umask 077
           GHCR_EXTRA_VARS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/${APP_NAME}_ghcr_deploy_vars.XXXXXX")"
@@ -305,6 +355,8 @@ jobs:
             -e @"/etc/$APP_NAME/secrets.yml" -e @"$GHCR_EXTRA_VARS_FILE" \
             -e @"$PUBLIC_EXTRA_VARS_FILE" -e @"$INSTANCE_EXTRA_VARS_FILE" \
             -e "app_version=$TARGET_SHA" -e "release_image_digest=$RELEASE_IMAGE_DIGEST" \
+            -e "release_payload_transport=$RELEASE_PAYLOAD_TRANSPORT" \
+            -e "release_payload_pin_key=$RELEASE_PAYLOAD_PIN_KEY" \
             -e "release_frontend_profile=$FRONTEND_PROFILE" -e "release_acceptance_profile=$ACCEPTANCE_PROFILE" \
             -e "release_manifest_schema_version=$RELEASE_MANIFEST_SCHEMA_VERSION" \
             -e "release_source_sha=$TARGET_SHA" -e "release_ci_run_id=$CI_RUN_ID" -e "release_ci_run_attempt=$CI_RUN_ATTEMPT" \
