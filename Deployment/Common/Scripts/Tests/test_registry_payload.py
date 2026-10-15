@@ -261,9 +261,9 @@ class RegistryPayloadTests(unittest.TestCase):
         self.assertEqual(set(extracted), {"manifest"})
         self.assertEqual(extracted["manifest"].read_bytes(), manifest_bytes)
 
-    def test_publishes_legacy_improveddb_bundle_manifest_without_template_metadata(self) -> None:
-        app_image = "ghcr.io/grumlebob/improveddb"
-        bundle = self.root / "improveddb-migrate"
+    def test_publishes_legacy_bundle_manifest_without_profile_metadata(self) -> None:
+        app_image = "ghcr.io/grumlebob/sample-app"
+        bundle = self.root / "sample-app-migrate"
         bundle.write_bytes(b"legacy ImprovedDb migration bundle")
         bundle_sha = hashlib.sha256(bundle.read_bytes()).hexdigest()
         legacy_manifest = {

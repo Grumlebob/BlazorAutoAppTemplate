@@ -52,6 +52,19 @@ def require_not_contains(path: str, needle: str, why: str) -> None:
         fail(f"{path}: contains forbidden {why}: {needle}")
 
 
+def normalize_workflow_text(text: str) -> str:
+    return re.sub(r"\\\r?\n[ \t]*", " ", text)
+
+
+def workflow_step_text(workflow: str, step_name: str) -> str:
+    normalized = normalize_workflow_text(workflow)
+    match = re.search(
+        rf"(?ms)^      - name: {re.escape(step_name)}\r?\n.*?(?=^      - name: |\Z)",
+        normalized,
+    )
+    return match.group(0) if match else ""
+
+
 def tracked_files() -> set[str]:
     try:
         result = subprocess.run(
@@ -130,6 +143,7 @@ required_files = [
     "Deployment/Common/Scripts/validate-common-release.sh",
     "Deployment/Common/Scripts/Component/lib/read-release-setting.py",
     "Deployment/Common/Scripts/Component/lib/release_settings.py",
+    "Deployment/Common/Scripts/Component/lib/release_manifest.py",
     "Deployment/Common/Scripts/Component/lib/simple_yaml.py",
     "Deployment/Common/Scripts/Component/lib/validate-common-release.py",
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
@@ -1136,12 +1150,17 @@ for needle, why in [
     if needle not in prune_migration:
         fail(f"Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh: missing {why}")
 cd_localcluster = read(".github/workflows/cd-localcluster.yml")
-selection_download = cd_localcluster.split("Select and download the release artifact under the shared lock", 1)[-1].split("- name: Login to GHCR", 1)[0]
+selection_download = workflow_step_text(cd_localcluster, "Select and retrieve the release payload under the shared lock")
 for needle, why in [
     ("with-deploy-lock.sh", "release selection uses the shared deployment lock"),
-    ("find-successful-ci-run.py --target-sha", "release selection maps the requested SHA to successful CI"),
-    ('gh run download "$CI_RUN_ID"', "artifact download uses the exact CI run"),
-    ('--name "$MIGRATION_ARTIFACT_NAME"', "artifact download uses the configured name"),
+    ("find-successful-ci-run.py", "receipt selector is invoked"),
+    ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
+    ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
+    ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
+    ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
+    ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
 ]:
     if needle not in selection_download:
         fail(f".github/workflows/cd-localcluster.yml: missing locked artifact selection behavior: {why}")
@@ -1353,9 +1372,9 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         fail(".github/workflows/ci.yml: additional release artifact must exclude internal staging provenance")
 
 release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
+shared_release_validator = read("Deployment/Common/Scripts/Component/lib/release_manifest.py")
 for needle, why in [
-    ("schema_version not in (1, 2)", "only supported release manifest schemas"),
-    ("legacy schema v1 is supported only for verified BlazorAuto releases", "schema-v1 Blazor-only compatibility"),
+    ("validate_manifest_payload", "adapter uses the shared release identity validator"),
     ("expected_frontend_profile", "manifest bound to target source frontend profile"),
     ("expected_acceptance_profile", "manifest bound to target acceptance profile"),
     ("image_labels", "registry image labels required by manifest validation"),
@@ -1365,6 +1384,12 @@ for needle, why in [
 ]:
     if needle not in release_validator:
         fail(f"Deployment/Common/Scripts/validate_release_manifest.py: missing {why}")
+for needle, why in [
+    ("schema_version not in allowed_schema_versions", "only supported release manifest schemas"),
+    ("legacy schema v1 is supported only for verified BlazorAuto releases", "schema-v1 Blazor-only compatibility"),
+]:
+    if needle not in shared_release_validator:
+        fail(f"Deployment/Common/Scripts/Component/lib/release_manifest.py: missing {why}")
 
 deploy_lan = read(".github/workflows/cd-localcluster.yml")
 for needle, why in [
@@ -1386,7 +1411,9 @@ for needle, why in [
     ('TARGET_SHA="${INPUT_TARGET_SHA:-$GITHUB_SHA}"', "target SHA defaults to the dispatched main commit"),
     ('git merge-base --is-ancestor "$TARGET_SHA" "$GITHUB_SHA"', "only commits on main can deploy"),
     ("echo \"APP_VERSION=${TARGET_SHA}\"", "target commit image tag"),
-    ("find-successful-ci-run.py --target-sha \"$TARGET_SHA\" --json", "successful CI gate for the target commit"),
+    ("find-successful-ci-run.py", "successful CI selector for the target commit"),
+    ("--target-sha \"$TARGET_SHA\"", "successful CI gate binds the requested target commit"),
+    ("--read-final-payload-receipt", "new payload selection requires the final CI receipt"),
     ("CI_RUN_ID=", "CI run id export"),
     ("CI_RUN_ATTEMPT=", "CI run attempt export"),
     ("validate_release_manifest.py", "release manifest validation"),
@@ -1419,9 +1446,9 @@ for needle, why in [
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/cd-localcluster.yml: missing {why}")
-download_step = re.search(r"(?ms)^      - name: Select and download the release artifact under the shared lock\n.*?(?=^      - name: |\Z)", deploy_lan)
-if download_step is None or "if:" in download_step.group(0):
-    fail(".github/workflows/cd-localcluster.yml: select and download the release artifact under the lock for every deploy")
+download_step = workflow_step_text(deploy_lan, "Select and retrieve the release payload under the shared lock")
+if not download_step or "if:" in download_step:
+    fail(".github/workflows/cd-localcluster.yml: select and retrieve the release payload under the lock for every deploy")
 if "vault_ghcr_token" in read("Deployment/LocalCluster/inventory/prod/vault.example.yml").replace("# vault_ghcr_token", ""):
     fail("Deployment/LocalCluster/inventory/prod/vault.example.yml: GHCR credentials must stay optional")
 app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
@@ -2142,7 +2169,7 @@ for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_com
 if single_compose.count('"127.0.0.1:') != 3:
     fail("localsinglenode: all three service publications must bind loopback")
 require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled: "false"', "deployment account seeding disabled")
-for needle in ("find-successful-ci-run.py --target-sha", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "git show \"${TARGET_SHA}:frontend-profile.txt\"", "--legacy-blazor-default", "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", 'if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "--expected-frontend-profile \"$FRONTEND_PROFILE\"", "--expected-acceptance-profile \"$ACCEPTANCE_PROFILE\"", "--image-labels-json \"$IMAGE_LABELS_PATH\"", "--expected-ci-run-attempt", "verify-release-identity.sh \"$APP_IMAGE\" \"$RELEASE_IMAGE_DIGEST\" \"$FRONTEND_PROFILE\" \"$ACCEPTANCE_PROFILE\" \"$TARGET_SHA\" \"$RELEASE_MANIFEST_SCHEMA_VERSION\" \"$CI_RUN_ID\" \"$CI_RUN_ATTEMPT\" \"$SOURCE_REPO_URL\"", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode", "release_frontend_profile=$FRONTEND_PROFILE", "release_acceptance_profile=$ACCEPTANCE_PROFILE"):
+for needle in ("find-successful-ci-run.py", "--target-sha \"$TARGET_SHA\"", "--read-final-payload-receipt", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "git show \"${TARGET_SHA}:frontend-profile.txt\"", "--legacy-blazor-default", "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", 'if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "--expected-frontend-profile \"$FRONTEND_PROFILE\"", "--expected-acceptance-profile \"$ACCEPTANCE_PROFILE\"", "--image-labels-json \"$IMAGE_LABELS_PATH\"", "--expected-ci-run-attempt", "verify-release-identity.sh \"$APP_IMAGE\" \"$RELEASE_IMAGE_DIGEST\" \"$FRONTEND_PROFILE\" \"$ACCEPTANCE_PROFILE\" \"$TARGET_SHA\" \"$RELEASE_MANIFEST_SCHEMA_VERSION\" \"$CI_RUN_ID\" \"$CI_RUN_ATTEMPT\" \"$SOURCE_REPO_URL\"", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode", "release_frontend_profile=$FRONTEND_PROFILE", "release_acceptance_profile=$ACCEPTANCE_PROFILE"):
     require_contains(".github/workflows/cd-localsinglenode.yml", needle, "strict single-node release contract")
 
 instance_resolver = read(single + "/Scripts/resolve-app-instance.py")
@@ -2160,20 +2187,25 @@ for needle, why in [
 ]:
     if needle not in instance_resolver:
         fail(f"{single}/Scripts/resolve-app-instance.py: missing {why}")
-instance_cd = read(".github/workflows/cd-localsinglenode.yml")
+instance_cd = normalize_workflow_text(read(".github/workflows/cd-localsinglenode.yml"))
 for needle in ("default: primary", "vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT", "secrets.LOCALSINGLENODE_APP_INSTANCE",
                "python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py", '-e @"$INSTANCE_EXTRA_VARS_FILE"',
                'export PUBLIC_HOSTNAME="$INSTANCE_PUBLIC_HOSTNAME"', '"$RUNNER_TEMP/instance-settings.yml"', '"$RUNNER_TEMP/instance-vars.json"'):
     if needle not in instance_cd:
         fail(f".github/workflows/cd-localsinglenode.yml: missing app isolation {needle}")
-if instance_cd.find("resolve-app-instance.py") > instance_cd.find("Select and download release artifact under shared deployment lock"):
+if instance_cd.find("resolve-app-instance.py") > instance_cd.find("Select and retrieve release payload under shared deployment lock"):
     fail(".github/workflows/cd-localsinglenode.yml: validate instance identity before downloading release inputs")
-single_selection = instance_cd.split("Select and download release artifact under shared deployment lock", 1)[-1].split("- name: Login to GHCR", 1)[0]
+single_selection = workflow_step_text(instance_cd, "Select and retrieve release payload under shared deployment lock")
 for needle, why in [
     ("with-deploy-lock.sh", "release selection uses the shared deployment lock"),
-    ("find-successful-ci-run.py --target-sha", "release selection maps the requested SHA to successful CI"),
-    ('gh run download "$CI_RUN_ID"', "artifact download uses the exact CI run"),
-    ('--name "$MIGRATION_ARTIFACT_NAME"', "artifact download uses the configured name"),
+    ("find-successful-ci-run.py", "receipt selector is invoked"),
+    ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
+    ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
+    ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
+    ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
+    ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
 ]:
     if needle not in single_selection:
         fail(f".github/workflows/cd-localsinglenode.yml: missing locked artifact selection behavior: {why}")
