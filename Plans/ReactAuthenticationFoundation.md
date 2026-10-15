@@ -1,12 +1,12 @@
 # React authentication foundation: investigation and recommendation
 
-Status: investigated on 2026-10-15; the owner selected separate accounts for each cloned product. The production architecture below remains a recommendation, not an approved implementation or completed security audit. No authentication code, dependency, provider registration, email, infrastructure or deployment was changed.
+Status: investigated on 2026-10-15; the owner selected **ASP.NET Core Identity + app cookies**, with separate accounts for each cloned product. Credential policy and the detailed production scope below remain recommendations. This selection does not authorize authentication implementation and is not a completed security audit. No authentication code, dependency, provider registration, email, infrastructure or deployment was changed.
 
 The immediate consumer is [CarbonCalculator](CarbonCalculatorDelivery.md): private saved projects, invoice attachments and access across devices make authenticated server ownership a better long-term fit than device-only persistence. The template should provide reusable authentication; the product should own project/document authorization and retention.
 
 ## 1. Recommendation
 
-Extend the existing **ASP.NET Core Identity backend with same-origin cookie sessions**, a typed authentication API and a React account UI. Keep Blazor as another supported consumer of the shared backend while this repository is a template. Offer optional Google/Microsoft or standards-based OIDC sign-in through the backend. Retain public-only React behavior as an explicit supported mode.
+The owner selected the recommended **ASP.NET Core Identity backend with app cookies**. Extend it with same-origin cookie sessions, a typed authentication API and a React account UI. Keep Blazor as another supported consumer of the shared backend while this repository is a template. Offer optional Google/Microsoft or standards-based OIDC sign-in through the backend. Retain public-only React behavior as an explicit supported mode.
 
 This is an architectural recommendation from the inspected template and the requirements, not a claim that external-provider accounts or commercial hosted services have been configured. It requires no additional identity-server process, Node production server or paid authentication dependency. Email delivery and operational capacity still need an actual free/existing solution.
 
@@ -209,10 +209,10 @@ The production recommendation is A01–A03 for a self-contained local-account ba
 
 ## 11. Decision to retain
 
-Recommended: **template-first ASP.NET Core Identity + secure app cookies + React account UI**, with optional external sign-in and phased passkeys. Use server-owned private CarbonCalculator projects once that foundation and its account policy are selected.
+**Selected architecture:** ASP.NET Core Identity + app cookies. Recommended delivery: template-first shared backend and React account UI, with optional external sign-in and phased passkeys. Use server-owned private CarbonCalculator projects once that foundation and its account policy are selected.
 
 **Settled owner requirement:** separate accounts across cloned products; no shared cross-product identity or SSO. Each clone owns its user store, sessions, keys, product authorization and account lifecycle. Optional external login does not change that ownership boundary.
 
 **Production recommendation:** verified local email/password with real recovery, optional TOTP/recovery and phased passkeys, secure app cookies, and server-owned private projects/documents. Managed OIDC remains an alternative for a concrete operational/business requirement; a central identity service is outside the selected baseline.
 
-Still to select before implementation: the recommended local-account credential policy versus external-only sign-in, and explicit approval of authenticated CarbonCalculator ownership. Separate product accounts is already answered and must not be asked again. This document prepares the remaining choice without implementing or registering any alternative.
+Still to select before implementation: the recommended local-account credential policy versus external-only sign-in, and explicit approval of authenticated CarbonCalculator ownership. Identity + app cookies and separate product accounts are already answered and must not be asked again. This document prepares the remaining choice without implementing or registering any alternative.
