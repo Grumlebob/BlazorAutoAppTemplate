@@ -47,8 +47,6 @@ BUNDLE_LABEL = "io.github.release-payload.bundle-sha256"
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_BUNDLE_BYTES = 1024 * 1024 * 1024
 MAX_ARCHIVE_BYTES = MAX_BUNDLE_BYTES + 4 * 1024 * 1024
-DOCKER_EXPORT_METADATA_FILENAME = ".dockerenv"
-MAX_DOCKER_EXPORT_METADATA_BYTES = 64 * 1024
 
 
 class PayloadError(ValueError):
@@ -387,20 +385,20 @@ def extract_payload_archive(
     identity: ReleasePayloadIdentity,
     output_dir: Path,
 ) -> dict[str, Path]:
-    """Extract the two allowed regular files from a docker-export tar without running the image."""
+    """Extract the allowed regular files from a docker-copy tar without running the image."""
     _validate_identity(identity)
     if archive_path.is_symlink() or not archive_path.is_file():
-        raise PayloadError("container export archive is missing or not a regular file")
+        raise PayloadError("container copy archive is missing or not a regular file")
     if archive_path.stat().st_size <= 0 or archive_path.stat().st_size > MAX_ARCHIVE_BYTES:
-        raise PayloadError("container export archive has an invalid size")
+        raise PayloadError("container copy archive has an invalid size")
     if output_dir.exists() or output_dir.is_symlink():
         raise PayloadError("payload extraction output path must not already exist")
 
     expected_files = {
-        f"release/{MANIFEST_FILENAME}": (MANIFEST_FILENAME, identity.manifest_sha256, MAX_MANIFEST_BYTES),
+        MANIFEST_FILENAME: (MANIFEST_FILENAME, identity.manifest_sha256, MAX_MANIFEST_BYTES),
     }
     if identity.bundle_filename is not None and identity.bundle_sha256 is not None:
-        expected_files[f"release/{identity.bundle_filename}"] = (
+        expected_files[identity.bundle_filename] = (
             identity.bundle_filename,
             identity.bundle_sha256,
             MAX_BUNDLE_BYTES,
@@ -408,6 +406,7 @@ def extract_payload_archive(
     seen: set[str] = set()
     found: dict[str, Path] = {}
     total_bytes = 0
+    root_seen = False
     output_dir.mkdir(parents=True)
     try:
         with tarfile.open(archive_path, mode="r:") as archive:
@@ -415,49 +414,36 @@ def extract_payload_archive(
             for member in members:
                 raw_name = member.name
                 if not isinstance(raw_name, str) or "\\" in raw_name or raw_name.startswith("/"):
-                    raise PayloadError("container export contains an unsafe path")
+                    raise PayloadError("container copy archive contains an unsafe path")
                 normalized = raw_name
                 while normalized.startswith("./"):
                     normalized = normalized[2:]
                 normalized = normalized.rstrip("/")
                 if normalized in {"", "."}:
                     if not member.isdir():
-                        raise PayloadError("container export has an invalid root entry")
+                        raise PayloadError("container copy archive has an invalid root entry")
+                    if root_seen:
+                        raise PayloadError("container copy archive contains duplicate paths")
+                    root_seen = True
                     continue
                 parts = PurePosixPath(normalized).parts
                 if any(part in {"", ".", ".."} for part in parts):
-                    raise PayloadError("container export contains path traversal")
-                if normalized == "release":
-                    if not member.isdir():
-                        raise PayloadError("container payload root is not a directory")
-                    if normalized in seen:
-                        raise PayloadError("container export contains duplicate paths")
-                    seen.add(normalized)
-                    continue
-                if normalized == DOCKER_EXPORT_METADATA_FILENAME:
-                    if not member.isfile() or member.issym() or member.islnk():
-                        raise PayloadError("container export metadata entry is not a regular file: .dockerenv")
-                    if normalized in seen:
-                        raise PayloadError("container export contains duplicate paths")
-                    if member.size < 0 or member.size > MAX_DOCKER_EXPORT_METADATA_BYTES:
-                        raise PayloadError("container export metadata file exceeds the size limit: .dockerenv")
-                    seen.add(normalized)
-                    continue
+                    raise PayloadError("container copy archive contains path traversal")
                 expected = expected_files.get(normalized)
                 if expected is None:
-                    raise PayloadError(f"container export contains an unexpected path: {normalized}")
+                    raise PayloadError(f"container copy archive contains an unexpected path: {normalized}")
                 if not member.isfile() or member.issym() or member.islnk():
-                    raise PayloadError(f"container payload entry is not a regular file: {normalized}")
+                    raise PayloadError(f"container copy payload entry is not a regular file: {normalized}")
                 if normalized in seen:
-                    raise PayloadError("container export contains duplicate paths")
+                    raise PayloadError("container copy archive contains duplicate paths")
                 if member.size <= 0 or member.size > expected[2]:
-                    raise PayloadError(f"container payload file has an invalid size: {normalized}")
+                    raise PayloadError(f"container copy payload file has an invalid size: {normalized}")
                 total_bytes += member.size
                 if total_bytes > MAX_ARCHIVE_BYTES:
-                    raise PayloadError("container payload exceeds the size limit")
+                    raise PayloadError("container copy payload exceeds the size limit")
                 stream = archive.extractfile(member)
                 if stream is None:
-                    raise PayloadError(f"container payload entry cannot be read: {normalized}")
+                    raise PayloadError(f"container copy payload entry cannot be read: {normalized}")
                 destination = output_dir / expected[0]
                 digest = hashlib.sha256()
                 written = 0
@@ -468,7 +454,7 @@ def extract_payload_archive(
                             break
                         written += len(chunk)
                         if written > expected[2]:
-                            raise PayloadError(f"container payload file exceeds the size limit: {normalized}")
+                            raise PayloadError(f"container copy payload file exceeds the size limit: {normalized}")
                         digest.update(chunk)
                         output.write(chunk)
                 if digest.hexdigest() != expected[1]:
@@ -477,9 +463,9 @@ def extract_payload_archive(
                 found[normalized] = destination
         if set(found) != set(expected_files):
             missing = sorted(set(expected_files).difference(found))
-            raise PayloadError(f"container export is missing required payload files: {missing}")
+            raise PayloadError(f"container copy archive is missing required payload files: {missing}")
         try:
-            manifest = json.loads(found[f"release/{MANIFEST_FILENAME}"].read_text(encoding="utf-8"))
+            manifest = json.loads(found[MANIFEST_FILENAME].read_text(encoding="utf-8"))
             manifest_digest = validate_manifest_payload(
                 manifest,
                 expected_repository=identity.repository,
@@ -500,16 +486,33 @@ def extract_payload_archive(
             raise PayloadError(f"extracted release manifest failed validation: {error}") from error
         if manifest_digest != identity.app_image_digest:
             raise PayloadError("extracted manifest application image digest does not match the payload identity")
-        result = {"manifest": found[f"release/{MANIFEST_FILENAME}"]}
+        result = {"manifest": found[MANIFEST_FILENAME]}
         if identity.bundle_filename is not None:
-            result["bundle"] = found[f"release/{identity.bundle_filename}"]
+            result["bundle"] = found[identity.bundle_filename]
         return result
     except (tarfile.TarError, OSError) as error:
         shutil.rmtree(output_dir, ignore_errors=True)
-        raise PayloadError("container export archive could not be safely read") from error
+        raise PayloadError("container copy archive could not be safely read") from error
     except Exception:
         shutil.rmtree(output_dir, ignore_errors=True)
         raise
+
+
+def _copy_release_directory(container_id: str, archive_path: Path) -> None:
+    """Stream only /release from the stopped payload container into a tar archive."""
+    try:
+        with archive_path.open("xb") as output_stream:
+            result = subprocess.run(
+                ["docker", "cp", f"{container_id}:/release/.", "-"],
+                check=False,
+                stdout=output_stream,
+                stderr=subprocess.PIPE,
+                timeout=600,
+            )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise PayloadError("docker cp failed while reading the payload directory") from error
+    if result.returncode != 0:
+        raise PayloadError("docker cp failed while reading the payload directory")
 
 
 def pull_and_extract_release_payload(
@@ -519,7 +522,7 @@ def pull_and_extract_release_payload(
     *,
     kind: str = PAYLOAD_KIND,
 ) -> dict[str, Path]:
-    """Pull an immutable payload, inspect its identity, create but never start a container, then export it."""
+    """Pull an immutable payload, inspect its identity, create but never start a container, then copy /release."""
     _validate_identity(identity)
     if not isinstance(payload_digest, str) or not DIGEST_RE.fullmatch(payload_digest):
         raise PayloadError("payload digest must be a lowercase sha256 digest")
@@ -543,9 +546,9 @@ def pull_and_extract_release_payload(
         container_id = created.stdout.strip()
         if not re.fullmatch(r"[a-f0-9]{12,64}", container_id):
             raise PayloadError("docker create returned an invalid container ID")
-        with tempfile.TemporaryDirectory(prefix="release-payload-export-") as temporary:
-            archive_path = Path(temporary) / "container-export.tar"
-            _docker(["export", "--output", str(archive_path), container_id])
+        with tempfile.TemporaryDirectory(prefix="release-payload-copy-") as temporary:
+            archive_path = Path(temporary) / "release-copy.tar"
+            _copy_release_directory(container_id, archive_path)
             return extract_payload_archive(archive_path, identity=identity, output_dir=output_dir)
     finally:
         if created_container:

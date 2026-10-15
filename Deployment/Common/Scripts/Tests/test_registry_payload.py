@@ -101,10 +101,9 @@ class RegistryPayloadTests(unittest.TestCase):
         self._write_archive(
             path,
             [
-                ("release/", None, b""),
-                (".dockerenv", b"file", b"container runtime metadata"),
-                ("release/release-manifest.json", b"file", self.manifest_bytes),
-                ("release/books-migrate", b"file", self.bundle.read_bytes()),
+                ("./", None, b""),
+                ("./release-manifest.json", b"file", self.manifest_bytes),
+                ("./books-migrate", b"file", self.bundle.read_bytes()),
             ],
         )
 
@@ -249,10 +248,10 @@ class RegistryPayloadTests(unittest.TestCase):
         self.assertEqual(receipt["payload_digest"], digest)
         self.assertEqual([args[0] for args in commands], ["build", "push", "image"])
 
-        archive = self.root / "portfolio-export.tar"
+        archive = self.root / "portfolio-copy.tar"
         self._write_archive(
             archive,
-            [("release/", None, b""), ("release/release-manifest.json", b"file", manifest_bytes)],
+            [("./", None, b""), ("./release-manifest.json", b"file", manifest_bytes)],
         )
         extracted = MODULE.extract_payload_archive(
             archive,
@@ -324,27 +323,21 @@ class RegistryPayloadTests(unittest.TestCase):
 
     def test_rejects_extra_duplicate_traversal_link_and_corrupt_entries(self) -> None:
         valid_entries: list[tuple[str, bytes | None, bytes]] = [
-            ("release/", None, b""),
-            (".dockerenv", b"file", b"container runtime metadata"),
-            ("release/release-manifest.json", b"file", self.manifest_bytes),
-            ("release/books-migrate", b"file", self.bundle.read_bytes()),
+            ("./", None, b""),
+            ("./release-manifest.json", b"file", self.manifest_bytes),
+            ("./books-migrate", b"file", self.bundle.read_bytes()),
         ]
         bad_cases = [
-            ("extra", valid_entries + [("release/readme.txt", b"file", b"unexpected")], "unexpected path"),
+            ("nested", valid_entries + [("./nested/readme.txt", b"file", b"unexpected")], "unexpected path"),
             ("unexpected-root", valid_entries + [("readme.txt", b"file", b"unexpected")], "unexpected path"),
             ("duplicate", valid_entries + [valid_entries[-1]], "duplicate paths"),
-            ("duplicate-dockerenv", valid_entries + [(".dockerenv", b"file", b"duplicate")], "duplicate paths"),
-            ("dockerenv-symlink", valid_entries + [(".dockerenv", b"symlink", b"")], "regular file"),
-            (
-                "dockerenv-too-large",
-                [entry for entry in valid_entries if entry[0] != ".dockerenv"]
-                + [(".dockerenv", b"file", b"x" * (MODULE.MAX_DOCKER_EXPORT_METADATA_BYTES + 1))],
-                "size limit",
-            ),
-            ("traversal", [("../release/release-manifest.json", b"file", self.manifest_bytes)], "traversal"),
-            ("symlink", [valid_entries[0], valid_entries[1], ("release/books-migrate", b"symlink", b"")], "regular file"),
-            ("hardlink", [valid_entries[0], valid_entries[1], ("release/books-migrate", b"hardlink", b"")], "regular file"),
-            ("corrupt", [valid_entries[0], valid_entries[1], ("release/books-migrate", b"file", b"bad")], "checksum mismatch"),
+            ("duplicate-root", valid_entries + [("./", None, b"")], "duplicate paths"),
+            ("docker-metadata", valid_entries + [(".dockerenv", b"file", b"runtime metadata")], "unexpected path"),
+            ("docker-device-path", valid_entries + [("./dev/console", b"file", b"")], "unexpected path"),
+            ("traversal", [("../release-manifest.json", b"file", self.manifest_bytes)], "traversal"),
+            ("symlink", [valid_entries[0], valid_entries[1], ("./books-migrate", b"symlink", b"")], "regular file"),
+            ("hardlink", [valid_entries[0], valid_entries[1], ("./books-migrate", b"hardlink", b"")], "regular file"),
+            ("corrupt", [valid_entries[0], valid_entries[1], ("./books-migrate", b"file", b"bad")], "checksum mismatch"),
         ]
         for name, entries, message in bad_cases:
             with self.subTest(case=name):
@@ -356,9 +349,10 @@ class RegistryPayloadTests(unittest.TestCase):
                 self.assertFalse(output.exists())
 
     def test_pull_uses_frozen_digest_and_never_starts_payload(self) -> None:
-        archive = self.root / "export.tar"
+        archive = self.root / "release-copy.tar"
         self._valid_archive(archive)
         commands: list[list[str]] = []
+        external_commands: list[list[str]] = []
 
         def docker(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
             commands.append(args)
@@ -370,27 +364,34 @@ class RegistryPayloadTests(unittest.TestCase):
             if args[0] == "create":
                 self.assertEqual(args[-1], MODULE.PAYLOAD_CREATE_PLACEHOLDER_COMMAND)
                 return subprocess.CompletedProcess(args, 0, "a" * 64, "")
-            if args[0] == "export":
-                output_path = Path(args[args.index("--output") + 1])
-                output_path.write_bytes(archive.read_bytes())
-                return subprocess.CompletedProcess(args, 0, "", "")
             self.fail(f"unexpected docker command: {args}")
 
+        def external(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            external_commands.append(command)
+            if command[:2] == ["docker", "cp"]:
+                output = kwargs["stdout"]
+                output.write(archive.read_bytes())
+                return subprocess.CompletedProcess(command, 0, None, b"")
+            if command[:2] == ["docker", "rm"]:
+                return subprocess.CompletedProcess(command, 0, "", "")
+            self.fail(f"unexpected external command: {command}")
+
         with patch.object(MODULE, "_docker", side_effect=docker), patch.object(
-            MODULE.subprocess, "run", return_value=subprocess.CompletedProcess(["docker", "rm"], 0, "", "")
-        ) as cleanup:
+            MODULE.subprocess, "run", side_effect=external
+        ):
             result = MODULE.pull_and_extract_release_payload(
                 self.identity, self.payload_digest, self.root / "pulled"
             )
 
         self.assertEqual(result["bundle"].read_bytes(), self.bundle.read_bytes())
-        self.assertEqual([args[0] for args in commands], ["pull", "image", "create", "export"])
-        self.assertFalse(any(args[0] in {"run", "start", "exec"} for args in commands))
-        cleanup.assert_called_once()
+        self.assertEqual([args[0] for args in commands], ["pull", "image", "create"])
+        self.assertEqual(external_commands[0], ["docker", "cp", f"{'a' * 64}:/release/.", "-"])
+        self.assertEqual(external_commands[1][:2], ["docker", "rm"])
+        self.assertFalse(any(args[0] in {"run", "start", "exec", "export"} for args in commands))
 
     def test_cleanup_failure_does_not_mask_extraction_error(self) -> None:
-        archive = self.root / "bad-export.tar"
-        self._write_archive(archive, [("release/books-migrate", b"file", b"bad")])
+        archive = self.root / "bad-copy.tar"
+        self._write_archive(archive, [("./", None, b""), ("./books-migrate", b"file", b"bad")])
 
         def docker(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
             if args[0] == "pull":
@@ -399,15 +400,18 @@ class RegistryPayloadTests(unittest.TestCase):
                 return self._inspect_result()
             if args[0] == "create":
                 return subprocess.CompletedProcess(args, 0, "a" * 64, "")
-            if args[0] == "export":
-                Path(args[args.index("--output") + 1]).write_bytes(archive.read_bytes())
-                return subprocess.CompletedProcess(args, 0, "", "")
             self.fail(f"unexpected docker command: {args}")
 
+        def external(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command[:2] == ["docker", "cp"]:
+                kwargs["stdout"].write(archive.read_bytes())
+                return subprocess.CompletedProcess(command, 0, None, b"")
+            if command[:2] == ["docker", "rm"]:
+                return subprocess.CompletedProcess(command, 1, "", "failed")
+            self.fail(f"unexpected external command: {command}")
+
         with patch.object(MODULE, "_docker", side_effect=docker), patch.object(
-            MODULE.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(["docker", "rm"], 1, "", "failed"),
+            MODULE.subprocess, "run", side_effect=external
         ):
             with self.assertRaisesRegex(MODULE.PayloadError, "checksum mismatch"):
                 MODULE.pull_and_extract_release_payload(
