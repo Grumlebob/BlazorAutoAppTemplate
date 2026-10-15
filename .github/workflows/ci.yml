@@ -210,7 +210,14 @@ jobs:
         run: python3 -m unittest Scripts/CI/tests/test_migration_staging_artifact.py
 
       - name: Test release provenance and manifest contract
-        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_ci_provenance.py Deployment/Common/Scripts/Tests/test_release_contract.py
+        run: |
+          python3 -m unittest \
+            Deployment/Common/Scripts/Tests/test_ci_provenance.py \
+            Deployment/Common/Scripts/Tests/test_release_contract.py \
+            Deployment/Common/Scripts/Tests/test_registry_payload.py \
+            Deployment/Common/Scripts/Tests/test_ci_payload_receipt.py \
+            Deployment/Common/Scripts/Tests/test_pull_release_payload.py \
+            Deployment/Common/Scripts/Tests/test_release_settings.py
 
       - name: Test deployment target gates and CI runner profiles
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_target_gate.py
@@ -605,18 +612,21 @@ jobs:
           set -euo pipefail
           python3 Scripts/CI/frontend_release_plan.py
           app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
+          release_payload_image="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)"
           migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           migration_artifact_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
           ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           {
             echo "APP_IMAGE=${app_image}"
+            echo "RELEASE_PAYLOAD_IMAGE=${release_payload_image}"
             echo "CI_IMAGE_TAG=${ci_image_tag}"
             echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
             echo "MIGRATION_RUNTIME=${migration_runtime}"
             echo "MIGRATION_ARTIFACT_NAME=${migration_artifact_name}"
           } >> "$GITHUB_ENV"
           {
+            echo "release_payload_image=${release_payload_image}"
             echo "migration_bundle_name=${migration_bundle_name}"
             echo "migration_artifact_name=${migration_artifact_name}"
           } >> "$GITHUB_OUTPUT"
@@ -745,6 +755,43 @@ jobs:
             artifacts/additional-migrations/release-manifest.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Emit immutable release payload receipt
+        env:
+          FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
+          FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
+          PRIMARY_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.release_payload_image }}
+          ADDITIONAL_PROFILE: ${{ steps.release_settings.outputs.additional_profile }}
+          ADDITIONAL_ACCEPTANCE_PROFILE: ${{ steps.release_settings.outputs.additional_acceptance_profile }}
+          ADDITIONAL_IMAGE: ${{ steps.release_settings.outputs.additional_image }}
+          ADDITIONAL_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.additional_payload_image }}
+        run: |
+          python3 Scripts/CI/emit_release_payload_receipt.py \
+            --manifest artifacts/migrations/release-manifest.json \
+            --bundle "artifacts/migrations/${MIGRATION_BUNDLE_NAME}" \
+            --repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --commit-sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --profile "${FRONTEND_PROFILE}" \
+            --acceptance-profile "${FRONTEND_ACCEPTANCE_PROFILE}" \
+            --runtime "${MIGRATION_RUNTIME}" \
+            --app-image "${APP_IMAGE}" \
+            --payload-image "${PRIMARY_PAYLOAD_IMAGE}"
+          if [[ -n "${ADDITIONAL_PROFILE}" ]]; then
+            python3 Scripts/CI/emit_release_payload_receipt.py \
+              --manifest artifacts/additional-migrations/release-manifest.json \
+              --bundle "artifacts/additional-migrations/${MIGRATION_BUNDLE_NAME}" \
+              --repository "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+              --commit-sha "${GITHUB_SHA}" \
+              --run-id "${GITHUB_RUN_ID}" \
+              --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+              --profile "${ADDITIONAL_PROFILE}" \
+              --acceptance-profile "${ADDITIONAL_ACCEPTANCE_PROFILE}" \
+              --runtime "${MIGRATION_RUNTIME}" \
+              --app-image "${ADDITIONAL_IMAGE}" \
+              --payload-image "${ADDITIONAL_PAYLOAD_IMAGE}"
+          fi
 
       # Keep :<sha> for fast redeploys; remove only the per-run build tag.
       - name: Remove this run's build tag

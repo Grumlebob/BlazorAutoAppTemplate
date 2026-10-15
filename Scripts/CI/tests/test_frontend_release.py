@@ -31,6 +31,8 @@ class ReleasePlanTests(unittest.TestCase):
             self.assertEqual(plan["additional_profile"], additional)
             self.assertEqual(plan["additional_acceptance_profile"], acceptance)
             self.assertEqual(plan["additional_image"], f"{SETTINGS['app_image']}-{additional.lower()}")
+            self.assertEqual(plan["additional_payload_image"],
+                             f"{SETTINGS['app_image']}-{additional.lower()}-release-payload")
             self.assertEqual(plan["additional_artifact_name"], f"{SETTINGS['migration_artifact_name']}-{additional.lower()}")
 
     def test_invalid_duplicate_and_injected_profiles_fail(self):

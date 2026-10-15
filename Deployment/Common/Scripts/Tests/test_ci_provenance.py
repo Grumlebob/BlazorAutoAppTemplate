@@ -5,9 +5,15 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
 import urllib.error
 import email.message
 import unittest
+from unittest.mock import patch
+
+LIB = pathlib.Path(__file__).resolve().parents[1] / "Component" / "lib"
+sys.path.insert(0, str(LIB))
+import ci_payload_receipt as RECEIPTS  # noqa: E402
 
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "Component/lib/find-successful-ci-run.py"
@@ -166,6 +172,141 @@ class CiSelectionTests(unittest.TestCase):
         for values in ({"run_id": 8}, {"run_attempt": 2}, {"head_sha": "b" * 40}):
             with self.subTest(values=values):
                 self.assertEqual(self.verify_jobs([self.publishing_job(**values)])["outcome"], "invalid_provenance")
+
+
+    def test_final_payload_selection_requires_receipt_from_exact_publisher_step(self) -> None:
+        bundle_sha = "b" * 64
+        manifest_sha = "a" * 64
+        app_image = "ghcr.io/grumlebob/books"
+        payload_image = "ghcr.io/grumlebob/books-release-payload"
+        payload_digest = "sha256:" + "d" * 64
+        identity = RECEIPTS.ReleasePayloadIdentity(
+            repository="https://github.com/owner/repo",
+            commit_sha=self.target,
+            run_id="9",
+            run_attempt="1",
+            profile="BlazorAuto",
+            acceptance_profile="BlazorAutoV1",
+            runtime="linux-x64",
+            app_image=app_image,
+            app_image_digest="sha256:" + "c" * 64,
+            bundle_filename="books-migrate",
+            manifest_sha256=manifest_sha,
+            bundle_sha256=bundle_sha,
+        )
+        published = {
+            "kind": "final",
+            "payload_image": payload_image,
+            "payload_tag": "run-9-attempt-1-kind-final-profile-blazorauto",
+            "payload_digest": payload_digest,
+            "payload_ref": f"{payload_image}@{payload_digest}",
+            "repository": identity.repository,
+            "commit_sha": identity.commit_sha,
+            "run_id": identity.run_id,
+            "run_attempt": identity.run_attempt,
+            "profile": identity.profile,
+            "acceptance_profile": identity.acceptance_profile,
+            "runtime": identity.runtime,
+            "content_sha256": RECEIPTS.content_checksum({
+                "release-manifest.json": manifest_sha,
+                "books-migrate": bundle_sha,
+            }),
+            "manifest_sha256": manifest_sha,
+            "bundle_filename": "books-migrate",
+            "bundle_sha256": bundle_sha,
+            "app_image": app_image,
+            "app_image_digest": identity.app_image_digest,
+        }
+        line = RECEIPTS.format_receipt_line(RECEIPTS.final_receipt(identity, published))
+        log_text = (
+            f"2026-10-15T10:00:00Z {RECEIPTS.RECEIPT_COMMAND_MARKER}\n"
+            f"2026-10-15T10:00:01Z {line}\n"
+        )
+        job = self.publishing_job(id=44, steps=[
+            {
+                "name": MODULE.PAYLOAD_RECEIPT_STEP,
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-10-15T10:00:00Z",
+                "completed_at": "2026-10-15T10:00:05Z",
+            }
+        ])
+        selection = self.select([run(9, "2026-09-24T11:00:00Z")])
+        with patch.object(MODULE, "download_job_logs", return_value=log_text) as fetch_logs:
+            result = MODULE.verify_payload_receipt(
+                selection,
+                [job],
+                repository="owner/repo",
+                token="test-token",
+                profile="BlazorAuto",
+                acceptance_profile="BlazorAutoV1",
+                runtime="linux-x64",
+                app_image=app_image,
+            )
+        self.assertEqual(result["outcome"], "success")
+        self.assertEqual(result["payload_receipt"]["payload_digest"], payload_digest)
+        rechecked = MODULE.verify_current_run(
+            result, run(9, "2026-09-24T11:00:00Z"), "owner/repo", self.target, self.workflow
+        )
+        self.assertEqual(rechecked["payload_receipt"]["payload_digest"], payload_digest)
+        fetch_logs.assert_called_once_with("owner/repo", 44, "test-token", api_root=MODULE.API_ROOT)
+
+    def test_payload_receipt_lookup_rejects_missing_or_expired_receipts(self) -> None:
+        selection = self.select([run(9, "2026-09-24T11:00:00Z")])
+        job = self.publishing_job(id=44, steps=[
+            {
+                "name": MODULE.PAYLOAD_RECEIPT_STEP,
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-10-15T10:00:00Z",
+                "completed_at": "2026-10-15T10:00:05Z",
+            }
+        ])
+        with patch.object(MODULE, "download_job_logs", return_value="ordinary logs"):
+            result = MODULE.verify_payload_receipt(
+                selection,
+                [job],
+                repository="owner/repo",
+                token="test-token",
+                profile="BlazorAuto",
+                acceptance_profile="BlazorAutoV1",
+                runtime="linux-x64",
+                app_image="ghcr.io/grumlebob/books",
+            )
+        self.assertEqual(result["outcome"], "invalid_provenance")
+        self.assertIn("no valid final payload receipt", result["diagnostic"])
+
+        with patch.object(MODULE, "download_job_logs", side_effect=RECEIPTS.ReceiptError("HTTP 404")):
+            expired = MODULE.verify_payload_receipt(
+                selection,
+                [job],
+                repository="owner/repo",
+                token="test-token",
+                profile="BlazorAuto",
+                acceptance_profile="BlazorAutoV1",
+                runtime="linux-x64",
+                app_image="ghcr.io/grumlebob/books",
+            )
+        self.assertEqual(expired["outcome"], "invalid_provenance")
+        self.assertIn("HTTP 404", expired["diagnostic"])
+
+    def test_template_legacy_attempt_uses_actions_artifact_transport(self) -> None:
+        selection = self.select([run(9, "2026-09-24T11:00:00Z")])
+        job = self.publishing_job(id=44, steps=[])
+        with patch.object(MODULE, "download_job_logs") as fetch_logs:
+            result = MODULE.verify_payload_receipt(
+                selection, [job], repository="owner/repo", token="test-token",
+                profile="Template", acceptance_profile=None, runtime="linux-x64",
+                app_image="ghcr.io/grumlebob/template",
+            )
+        self.assertEqual(result["outcome"], "legacy_artifact")
+        self.assertEqual(result["transport"], "actions-artifact")
+        rechecked = MODULE.verify_current_run(
+            result, run(9, "2026-09-24T11:00:00Z"), "owner/repo", self.target, self.workflow
+        )
+        self.assertEqual(rechecked["outcome"], "legacy_artifact")
+        self.assertEqual(rechecked["transport"], "actions-artifact")
+        fetch_logs.assert_not_called()
 
 
 if __name__ == "__main__":

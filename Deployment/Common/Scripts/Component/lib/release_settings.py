@@ -11,6 +11,25 @@ REQUIRED_KEYS = [
     "migration_bundle_name",
     "migration_runtime",
 ]
+IMAGE_COMPONENT_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$")
+PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+
+
+def validate_app_image(app_image: str) -> str:
+    parts = app_image.split("/")
+    if len(parts) < 3 or parts[0] != "ghcr.io" or any(not IMAGE_COMPONENT_RE.fullmatch(part) for part in parts[1:]):
+        raise ValueError("app_image must be a lowercase GHCR image path like ghcr.io/<owner>/<image>")
+    return app_image
+
+
+def validate_profile_name(profile: str) -> str:
+    if not isinstance(profile, str) or not PROFILE_NAME_RE.fullmatch(profile) or profile in {".", ".."}:
+        raise ValueError("release profile must be a short safe name without path or tag separators")
+    return profile
+
+
+def derive_release_payload_image(app_image: str) -> str:
+    return f"{validate_app_image(app_image)}-release-payload"
 
 
 def default_root() -> Path:
@@ -37,8 +56,11 @@ def validate(values: dict[str, str]) -> list[str]:
             errors.append(f"unknown release setting: {key}")
 
     app_image = values.get("app_image", "")
-    if app_image and not re.match(r"^ghcr\.io/[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)+$", app_image):
-        errors.append("app_image must be a lowercase GHCR image path like ghcr.io/<owner>/<image>")
+    if app_image:
+        try:
+            validate_app_image(app_image)
+        except ValueError as error:
+            errors.append(str(error))
 
     migration_bundle_name = values.get("migration_bundle_name", "")
     if migration_bundle_name and not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", migration_bundle_name):
@@ -53,6 +75,13 @@ def validate(values: dict[str, str]) -> list[str]:
 
 def apply_defaults(values: dict[str, str]) -> dict[str, str]:
     resolved = dict(values)
+    app_image = resolved.get("app_image", "").strip()
+    if app_image:
+        try:
+            resolved["release_payload_image"] = derive_release_payload_image(app_image)
+        except ValueError:
+            # Validation reports malformed configured paths with the source key.
+            pass
     bundle = resolved.get("migration_bundle_name", "").strip()
     runtime = resolved.get("migration_runtime", "").strip()
     if bundle and runtime:
