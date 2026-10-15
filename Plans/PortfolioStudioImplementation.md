@@ -21,7 +21,7 @@ This is a multi-day delivery plan for an independent **Portfolio** product. Diff
 | [NodeHandoff.md](Support/PortfolioStudio/NodeHandoff.md) | Controller/node responsibilities, first bootstrap, SSH pairing, public launch and simple operator handoffs |
 | [PortfolioStudioDeliveryGoal.md](PortfolioStudioDeliveryGoal.md) | Prompt for later full-plan goal execution, capped at 3,500 characters |
 
-Machine-specific intent lives in ignored `Plans.local/Portfolio/OperatorIntent.md`. It records the supplied local checkout locations, fresh Linux Mint node, reserved address and node-name clarification. Copy it privately to the future Portfolio checkout. Tracked plans remain portable. The main PC is a development/controller machine; it must never be bootstrapped as the deployment node.
+Machine-specific intent lived in ignored `Plans.local/Portfolio/OperatorIntent.md` (deleted on 2026-10-15; the node is set up, and its facts are in the repository variables and `Plans/Support/PortfolioStudio/NodeHandoff.md`). It recorded the supplied local checkout locations, fresh Linux Mint node, reserved address and node-name clarification. Copy it privately to the future Portfolio checkout. Tracked plans remain portable. The main PC is a development/controller machine; it must never be bootstrapped as the deployment node.
 
 ## 0. Delivery outcome (2026-10-13)
 
@@ -160,7 +160,7 @@ The mockup's desktop section rail is approximately 165 px with a 40 px gap. Trea
 
 ### Portable design handover
 
-The approved gallery currently lives in ignored `Plans.local/PortfolioMockups/`. It is useful for local review but cannot be a future implementer's only reference.
+The approved gallery lived in ignored `Plans.local/PortfolioMockups/` and was deleted on 2026-10-15 once the design was implemented; the reference captures and decisions are in Portfolio's `docs/design/studio/`.
 
 Before layout implementation, preserve a small portable reference package in the portfolio repository, for example `docs/design/studio/`: home and project screenshots at desktop/mobile sizes in both themes, this decision record, and reusable source images with provenance. Capture the selected Studio surface without the gallery review controls. Do not commit server scripts/logs, browser state, abandoned alternatives or the large base64-embedded prototype as application source.
 
