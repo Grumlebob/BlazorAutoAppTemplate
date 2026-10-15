@@ -55,4 +55,7 @@ public sealed class WebAppFactoryOptions
     /// the test scheme, so tests can assert redirect versus 401 behaviour.
     /// </summary>
     public bool UseIdentityCookieChallenge { get; init; }
+
+    /// <summary>Use real Identity authentication and cookie jars; do not register the fake principal handler.</summary>
+    public bool UseRealIdentityCookies { get; init; }
 }
