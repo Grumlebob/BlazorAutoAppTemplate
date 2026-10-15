@@ -1,218 +1,279 @@
-# React authentication foundation: investigation and recommendation
+# React authentication foundation
 
-Status: investigated on 2026-10-15; the owner selected **ASP.NET Core Identity + app cookies**, with separate accounts for each cloned product. Credential policy and the detailed production scope below remain recommendations. This selection does not authorize authentication implementation and is not a completed security audit. No authentication code, dependency, provider registration, email, infrastructure or deployment was changed.
+Status: ready for implementation planning handoff, **implementation paused at the owner's request on 2026-10-15**. Selected: ASP.NET Core Identity with app cookies, separate accounts per cloned product, email/password account flows and optional environment-configured admin seeding. A partial implementation was started before the owner clarified the pause; preserve it and resume from section 10 rather than starting again. This change publishes the plan only. Wait for an explicit request to resume implementation in the new chat, then complete this template foundation before returning to CarbonCalculatorDelivery.md.
 
-The immediate consumer is [CarbonCalculator](CarbonCalculatorDelivery.md): private saved projects, invoice attachments and access across devices make authenticated server ownership a better long-term fit than device-only persistence. The template should provide reusable authentication; the product should own project/document authorization and retention.
+## 1. Scope
 
-## 1. Recommendation
+<a id="11-long-term-production-recommendation-after-the-account-isolation-decision"></a>
 
-The owner selected the recommended **ASP.NET Core Identity backend with app cookies**. Extend it with same-origin cookie sessions, a typed authentication API and a React account UI. Keep Blazor as another supported consumer of the shared backend while this repository is a template. Offer optional Google/Microsoft or standards-based OIDC sign-in through the backend. Retain public-only React behavior as an explicit supported mode.
+Build a frontend-independent Identity backend and React account UI. Reuse UserManager, SignInManager, EF stores and Data Protection. The ASP.NET host serves the SPA and API on the same HTTPS origin. Use app cookies and explicit antiforgery validation for JSON mutations. Do not implement password hashing, session tokens or recovery cryptography independently. [Microsoft SPA guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0).
 
-This is an architectural recommendation from the inspected template and the requirements, not a claim that external-provider accounts or commercial hosted services have been configured. It requires no additional identity-server process, Node production server or paid authentication dependency. Email delivery and operational capacity still need an actual free/existing solution.
+Included:
 
-For CarbonCalculator, prefer authenticated server-owned projects/documents after this foundation is available. That would replace the earlier recommended browser-only ownership design. The owner has asked for alternatives, not selected the final authentication/credential policy yet; D02 remains open until that decision is recorded.
+- Email/password login, logout, session status and session revocation.
+- Optional self-registration, confirmation, resend, forgot/reset password and email change through configured email delivery.
+- Account settings, password change, personal-data export and deletion with password reauthentication.
+- Optional operator-provisioned Admin through ordinary ASP.NET environment variables and the ignored root `.env` for local Compose.
+- An authenticated React Books example with owner-scoped create/list/update/delete.
+- Disabled mode preserving the existing public React baseline.
 
-### 1.1 Long-term production recommendation after the account-isolation decision
+MFA, passkeys and Google/other external login are excluded. Do not add their React UI, endpoints, configuration or delivery phases. Existing Blazor capabilities/schema remain supported; this task does not remove unrelated template behavior. No shared cross-product identity, SSO service, browser bearer tokens or additional production server.
 
-The owner explicitly wants **separate accounts across cloned products**, not a shared cross-product account or SSO. Keep this as a settled requirement. Reusing template code does not mean sharing a running identity service or account database.
+The template owns identity/session primitives. Product projects, invoices, retention, membership and permissions belong to the later product plan. Do not edit CarbonCalculatorDelivery.md during this task.
 
-For this requirement and the existing ASP.NET/React, self-hosted, initially free-only architecture, **ASP.NET Core Identity is the recommended long-term production foundation**. It is not a temporary system to replace merely because the product acquires paying users. The framework owns password hashing, credential verification and token primitives; the application must still implement and operate the complete supported account lifecycle. Browser cookies remain Microsoft's recommended mechanism for this browser topology. [Identity and SPA guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0).
+## 2. Inspected starting point
 
-Recommended initial credential policy, pending owner selection:
+- LoginFeatureExtensions already registers Identity cookies, EF stores, roles and framework token providers.
+- React deliberately omits credentials and account endpoints; Vite already proxies `/api` over HTTPS.
+- Blazor account email is a no-op; it cannot represent working delivery in the new feature.
+- Legacy Blazor demo seeding has published-account cleanup. Preserve that cleanup without overwriting the operator admin.
+- Books already filters by immutable user ID. Add explicit CSRF protection for enabled cookie-authenticated writes.
+- Data Protection persists through Redis/filesystem. Independent products need separate stable App:Name, session identity and storage/database access.
+- ReactPublicV1 remains the default disabled/public release baseline. Enabled accounts need additional evidence, not another frontend build target.
 
-1. Start with **verified email/password and working reset/recovery**, so users do not need a particular Google/Microsoft account. Support password managers and avoid arbitrary periodic password changes; require a change on evidence of compromise. Define the actual password, lockout and throttling policies in A01 before implementation. These usability/policy recommendations follow [NIST's current authentication guidance](https://pages.nist.gov/800-63-4/sp800-63b.html), without claiming formal NIST compliance for this app.
-2. Provide **optional authenticator-app TOTP with recovery codes** as the first strong-sign-in slice; require strong authentication for any privileged support/administration capability before exposing it. Do not create an admin interface just for authentication. Password reset must not silently bypass enabled MFA.
-3. Add **passkeys as an additional primary sign-in method**, with a usable backup/recovery method and credential management, in the next bounded slice. This is valuable on construction-site phones, but it is not required to turn the first account release into a passkey-only product. .NET 10 provides the underlying Identity support; the React ceremony still needs implementation. [Passkey support and recovery](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/passkeys/?view=aspnetcore-10.0).
-4. Treat Google/Microsoft as optional convenience methods after a real user need is established. They remain compatible with separate product accounts: each app maps the provider identity to its own local user and grants no access to sibling products. Do not build every provider in the first release.
+These are source observations, not a completed security audit.
 
-The per-product production boundary must include:
+## 3. Configuration contract
 
-- **Account and data isolation:** an independently migrated user store and stable app-local user IDs, with separate database credentials/access where applicable. An email address can register independently in several products without linking their accounts, deletion or permissions. Do not copy real template users, password hashes or external login mappings into a new clone.
-- **Session and credential isolation:** stable app-specific cookie names, host-only cookies, Data Protection application identity and protected key storage. Keep these identities stable across updates and replicas of the same app. Never copy another product's key ring; the same shared deployment host does not justify shared cookies. Configure passkey RP/origin scope per product rather than at a common parent domain.
-- **Provider isolation:** separate product/provider client registrations and callback configuration when external login is enabled. Users may already have a session at Google/Microsoft, but that does not sign them into another product automatically. Their password reset, export, deletion and product authorization remain app-local.
-- **Operational ownership:** durable account/project/file storage, protected backups with restore evidence, monitored email failures/limits, security updates and a documented recovery procedure. Free dependencies remove a licensing bill, not these operating responsibilities. Rate-limit email requests and use bounded delivery retry; do not silently pretend a reset email was delivered.
-- **User-visible completion:** real registration/confirmation/recovery and session-expiry behavior, accessible React account views, TOTP recovery when enabled, account export/deletion, and proof that two users cannot read or mutate each other's projects or invoices. Section 7 is the full readiness contract; no production claim rests on a login screen alone.
+Bind startup-validated options under `Accounts` through existing JSON/environment providers. Compose passes the ignored root `.env`. Direct `dotnet run` uses environment variables; use the existing secret/configuration mechanism rather than assuming user secrets take precedence after AddAppConfiguration. The React API development script reads only `Accounts__*` values from root `.env` with Node's standard parser, with existing process variables taking precedence. Do not import Docker service names/connection settings into host development. Never expose seed/SMTP secrets to Vite or browser builds. No runtime dotenv parser is needed in the web host. Changes to account capability/configuration require an app restart; do not hot-reload routing and security policy independently.
 
-Build and verify A01–A03 in the template first, with the local-account policy selected; schedule A05's TOTP/recovery scope before any privileged operations and optional passkeys as a distinct completion gate. A04 is optional, not a prerequisite for accounts. Then clone the verified foundation and implement CarbonCalculator ownership in C-A01. Preserve the accepted Dashboard/delivery flow; account settings belong in a small account menu rather than another product navigation section.
-
-Managed identity remains a serious alternative when reducing credential operations or buying enterprise identity capabilities becomes more valuable than avoiding recurring dependencies. It still needs app authorization, safe session integration, retention and account recovery configuration. For example, Auth0 documents an external email provider for its email workflows and its built-in provider for development. Hosted authentication does not automatically solve production email delivery. [Auth0 email setup](https://auth0.com/docs/customize/email).
-
-Reassess a managed OIDC provider for an actual requirement such as contracted identity support or enterprise federation. A stable internal user ID and contained provider adapters reduce migration impact, but credential/passkey migration is not automatically portable and must be assessed before a switch. Central Keycloak/authentik/OpenIddict is outside the selected baseline because shared cross-product identity is not required. These are recommendations tailored to this template and product, not claims that every production app should operate its own credentials.
-
-## 2. Three separate decisions
-
-1. **Account identity:** who the user is and how credentials are checked. Local Identity, an external sign-in provider and a central identity service are alternatives here.
-2. **Browser session:** how the browser calls this app. A secure app cookie is the recommended mechanism for the same-origin ASP.NET/React host, independent of where sign-in happened.
-3. **Data authorization:** which project/document that account may access. This is a product query/command policy, not something an identity provider supplies automatically.
-
-Do not frame cookies and Google/Keycloak/Auth0 as mutually exclusive choices. An external provider can authenticate the person while ASP.NET issues the app's cookie. Microsoft recommends browser cookies and documents backend OIDC/BFF flows; the same-origin template already supplies the relevant backend. [Identity for SPAs](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0), [backend OIDC](https://learn.microsoft.com/aspnet/core/security/authentication/configure-oidc-web-authentication).
-
-## 3. What the repository actually has
-
-These are source observations, not newly executed authentication tests.
-
-| Observed component | Evidence | Consequence |
+| Setting | Default | Meaning |
 | --- | --- | --- |
-| Shared Identity backend | [LoginFeatureExtensions.cs](../BlazorAutoApp/Features/Login/Account/LoginFeatureExtensions.cs) configures Identity application/external cookies, EF stores, roles, SignInManager and token providers | Reuse framework account logic; do not replace it with a custom password/JWT system |
-| Persisted passkeys | [AppDbContext.cs](../BlazorAutoApp/Infrastructure/Persistence/AppDbContext.cs) includes Identity's passkey entity; Blazor has registration/sign-in/management flows | Useful framework capability exists, but this does not provide a React ceremony |
-| Blazor-only account composition | [BlazorIdentityServiceCollectionExtensions.cs](../BlazorAutoApp/Features/Login/Account/BlazorIdentityServiceCollectionExtensions.cs) registers account UI and optional Google provider | Google registration is currently coupled to frontend composition and must move to shared backend composition |
-| Public-only React | [FrontendProfiles.md](../docs/FrontendProfiles.md) explicitly defines public-only behavior; [React composition](../BlazorAutoApp/Frontend/FrontendComposition.React.cs) maps no account endpoints | React authentication is an intentional new supported capability, not a missing login button |
-| Credential-free React API transport | [client.ts](../BlazorAutoApp.React/app/api/client.ts) uses `credentials: "omit"` | Add a separate credentialed same-origin private client; preserve intentionally public calls |
-| Reserved account/callback paths | [ReactFrontendHosting.cs](../BlazorAutoApp/Frontend/ReactFrontendHosting.cs) excludes `/account`, `/api` and provider callbacks from SPA fallback | Deliberately map auth endpoints/React routes; never turn unknown callbacks or API errors into HTML |
-| Incomplete production email lifecycle | [IdentityNoOpEmailSender.cs](../BlazorAutoApp/Features/Login/Account/IdentityNoOpEmailSender.cs) completes without sending; confirmed accounts are not required in Identity configuration | Existing forgot-password/confirmation screens do not prove actual recovery/email ownership |
-| Password failure lockout disabled in current UI | [Login.razor](../BlazorAutoApp/Features/Login/Account/Pages/Login.razor) passes `lockoutOnFailure: false` | Choose and enforce production abuse/lockout behavior before enabling local passwords publicly |
-| Logout bypasses antiforgery | [Identity endpoint extensions](../BlazorAutoApp/Features/Login/Account/IdentityComponentsEndpointRouteBuilderExtensions.cs) explicitly disables it on logout | Replace with a deliberate validated mutation contract; no exploit was tested in this investigation |
-| Auth limiter identifies the old route family | [AppRateLimiting.cs](../BlazorAutoApp/Infrastructure/Hosting/AppRateLimiting.cs) recognizes account writes under `/Account` | New `/api/auth` operations must receive the auth policy explicitly |
-| Useful owner scoping | [BooksServerService.cs](../BlazorAutoApp/Features/Books/Services/BooksServerService.cs) filters by current user and scopes cache keys | Retain this pattern for project/document queries; endpoint authorization alone is insufficient |
-| Existing Data Protection persistence | [AppCachingExtensions.cs](../BlazorAutoApp/Infrastructure/Hosting/AppCachingExtensions.cs) persists keys to Redis or filesystem | Keep app isolation/key persistence through restart/restore; Redis is not intrinsically required for single-node cookies |
-| Existing browser coverage is Blazor-specific | [IdentityE2ETests.cs](../BlazorAutoApp.Test/E2E/Features/Login/IdentityE2ETests.cs) derives from a Blazor test base | It is a useful starting inventory, not evidence that React login/passkeys work |
-| Development proxy is API-only | [vite.config.ts](../BlazorAutoApp.React/vite.config.ts) proxies `/api` | Development callback/cookie/passkey origins need a deliberate end-to-end policy |
+| Accounts:Enabled | false | Map new account APIs and enable their policies; disabled React remains public-only. |
+| Accounts:RegistrationEnabled | false | Self-registration; requires configured email delivery. Provisioned-account-only mode needs no mail service. |
+| Accounts:PublicOrigin | empty | Canonical HTTPS frontend origin for email links; required with email. Never construct links from untrusted Host headers. |
+| Accounts:Email:Host | empty | SMTP host; empty explicitly disables email/recovery capability. |
+| Accounts:Email:Port | 587 | TLS SMTP port. |
+| Accounts:Email:Security | StartTls | StartTls or SslOnConnect only; keep certificate verification. |
+| Accounts:Email:Username / Password | empty | Private SMTP credentials; both present together when used. |
+| Accounts:Email:From | empty | Valid sender mailbox required with SMTP. |
+| Accounts:AdminSeed:Enabled | false | Explicit startup provision after migrations. |
+| Accounts:AdminSeed:Email / Password | empty | Required when seeding is enabled; framework validation applies. No default credentials. |
 
-## 4. Alternatives that fit this template
+Use centrally pinned MailKit for SMTP. An existing SMTP service or suitable free tier works; no paid provider is mandatory. Validate setting names without printing full options or secrets. Send plain-text messages with encoded one-time tokens. Bound SMTP timeout; delivery failure returns temporary-unavailability without provider exceptions or recipient details. Do not claim an outbox or durable background retries.
 
-| Option | Fits the existing architecture | Free-operation implications | Main tradeoff | Recommendation |
-| --- | --- | --- | --- | --- |
-| **A. Local ASP.NET Core Identity + cookies** | Reuses current EF/user/SignInManager infrastructure; frontend stays React/Blazor and runtime stays ASP.NET | No per-user auth vendor bill; own database/key/recovery operations; real email delivery needed for email/password recovery | The app operates account security and recovery | **Default reusable foundation** |
-| **B. External sign-in + local app accounts/cookies** | ASP.NET handles Google/Microsoft/OIDC redirects, maps provider identity to stable local user ID and issues app cookie | No separate auth SaaS is required for direct provider integration; provider registration/terms and availability still apply | Users depend on a supported external account; safe linking/recovery still needs design | **Good optional sign-in method on A**; external-only is a valid product policy |
-| **C. Self-hosted central OIDC service** | Each app becomes an OIDC client with its own app cookie and database ownership | Open-source choices exist; extra services, DB, updates, TLS, key rotation, backups and node capacity | Central SSO is useful across many apps but expands operational scope | Add when shared SSO/central administration is an actual requirement |
-| **D. Managed identity service** | Standards-based hosted OIDC can terminate at ASP.NET; SDK/JWT-based vendors need a deliberate server integration | Current free tiers exist but caps, email/custom-domain rules and paid feature boundaries apply | Less credential infrastructure to operate, more external dependency and exit/cost planning | Reasonable optional provider, not mandatory template infrastructure |
+Validation must reject partial seed credentials, invalid sender/recipient formats, malformed canonical origins and mismatched SMTP username/password. Require a bare HTTPS origin with no userinfo, query, fragment or additional path. An enabled seed password must meet the same policy as a new ordinary account. Empty or disabled settings must never activate a default account. Keep configuration/secret names portable; no machine-specific deployment values belong in this plan.
 
-These are not four systems to implement. Build A's shared account/session/authorization boundary, then enable the credential/provider methods actually selected. B can reuse A's local user store without requiring users to create a local password.
+### Optional admin setup
 
-### A: native Identity, credential choices and endpoint choices
+Document this shape with empty credentials in `.env.example`:
 
-Email/password with confirmation, recovery and optional TOTP/recovery codes offers broad compatibility. Passkeys can be an additional primary sign-in method. Passkey-only signup is possible but must have a real enrollment/recovery design before release; simply removing the password UI can strand users.
-
-.NET 10 Identity supports passkeys; the template's existing Blazor implementation demonstrates the backend methods. Microsoft documents browser/HTTPS/origin, recovery and primary-factor limitations. React needs its own browser ceremony and endpoint adapter, without implementing cryptographic verification itself. [Passkey documentation](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/passkeys/?view=aspnetcore-10.0).
-
-`MapIdentityApi<TUser>` is a useful reference or starter for common account JSON operations. It is not a complete production React account feature. Its optional bearer tokens are proprietary Identity tokens, not standard JWTs or a full OIDC server. Also, passkey endpoint additions are tracked for .NET 11; do not mistake the repository's development branch for the template's pinned .NET 10 behavior. [Identity API contract](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0), [passkey endpoint issue](https://github.com/dotnet/aspnetcore/issues/62998).
-
-For this template, prefer thin feature endpoints using UserManager/SignInManager and generated contracts, with explicit enabled methods, antiforgery, rate policies and safe ProblemDetails. Avoid mapping an unused bearer-login path merely because a starter offers it. Do not implement hashing/token formats/recovery verification from scratch.
-
-UI alternatives are React-native account views or a small common ASP.NET account-page surface. Razor Pages are different from Blazor, so server-rendered login pages would not require a Blazor runtime in a React product. However, they introduce another maintained UI surface. React-native views over shared backend operations fit the current product direction best; existing Blazor views should call the same backend policies rather than duplicate account rules.
-
-### B: direct Google/Microsoft sign-in
-
-The existing Google handler can move into shared authentication composition. Provider callback handling stays in ASP.NET; React begins navigation and receives the resulting app session. Keep provider tokens off the browser and avoid storing them unless another real feature requires them. [Google setup](https://learn.microsoft.com/aspnet/core/security/authentication/social/google-logins), [external claim/token handling](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/social/additional-claims?view=aspnetcore-10.0).
-
-Prefer full-page provider redirects over popup flows so existing COOP/CSP protections can remain deliberate. Configure callback handling and development proxy origins explicitly; a successful provider screen is not proof that its callback/session works through the actual frontend host.
-
-Microsoft personal accounts and work/school Entra tenants are distinct audience/tenant choices. Validate the configured issuer/tenant/audience and account type; “Microsoft login” must not accidentally become one company's tenant-only login. Adding a provider button does not define business membership or project permissions.
-
-Link accounts using the provider's stable identifier and issuer/provider namespace, then map to a local immutable app user ID. Never merge two accounts merely because emails match. Linking requires an authenticated current session and fresh provider proof; unlinking the last usable recovery/sign-in method must be refused. Provider email claims require a documented trust policy if used for app email confirmation.
-
-External-only sign-in reduces the app's password/reset-email scope but transfers recovery dependence to the provider. It does not remove local user records, ownership checks, session lifecycle, export/deletion or account-linking responsibilities. Users without the selected provider need an explicit supported alternative or a clear product limitation.
-
-### C: central SSO choices (outside the selected account-isolation baseline)
-
-- **Keycloak:** mature standalone identity-server option. Production configuration includes database, host/TLS and capacity operations; its container guide recommends a 2 GB memory limit for smaller production-ready deployments. This is an additional shared service, not an app library. [Production guide](https://www.keycloak.org/server/configuration-production), [container requirements](https://www.keycloak.org/server/containers).
-- **authentik:** another credible self-hosted central option. Its supported Compose architecture includes server, worker and PostgreSQL. Use its supported deployment/update runbooks rather than building an improvised lightweight stack. [Installation](https://docs.goauthentik.io/install-config/install/docker-compose/), [first steps](https://docs.goauthentik.io/install-config/first-steps/).
-- **OpenIddict:** closest to the .NET ecosystem when a custom OIDC server is genuinely wanted. It is Apache-2.0 licensed, but supplies protocol infrastructure, not a turnkey complete identity product. The team still owns account UI, administration, issuer/key operations and recovery. [Introduction](https://documentation.openiddict.com/introduction), [license](https://openiddict.com/).
-
-Do not add a central issuer only to make one same-origin browser app sign in. If several products need the same account/SSO, prefer a supported issuer and standard app clients. Each app still owns its own session/permissions; sharing parent-domain cookies, Data Protection keys or user tables among independent apps is not the default SSO design.
-
-### D: managed free-tier examples
-
-Checked on 2026-10-15; recheck before adoption. These figures are not a promise of indefinitely free production operation.
-
-| Provider | Current published entry allowance | Fit/caveat |
-| --- | --- | --- |
-| [Auth0](https://auth0.com/pricing) | Free tier lists 25,000 monthly active users | Strong hosted-OIDC candidate. Custom-domain inclusion requires credit-card verification; the comparison marks cross-app SSO outside Free. Review actual plan limits before choosing it for shared login |
-| [Supabase Auth](https://supabase.com/pricing) | Free tier lists 50,000 monthly active users | Adds a hosted platform/auth dependency; free projects pause after one week of inactivity. Does not require moving the app's EF data, but that integration/ownership boundary must be designed |
-| [Clerk](https://clerk.com/pricing) | Free tier lists 50,000 monthly retained users | Convenient React-oriented offering, but retained-user billing differs from MAU. Production feature/organization limits and ASP.NET server validation must be reviewed |
-
-I would not select a service solely because its free headline is larger. Compare identity export, custom-domain requirements, email limits, recovery/MFA, availability, privacy and what happens at the cap. No automatic paid upgrade/card-required dependency is authorized by this investigation.
-
-Duende's BFF/IdentityServer products have production licensing conditions; do not assume “BFF pattern” requires a Duende package or that a development/trial license is an unconditional free commercial baseline. The ASP.NET cookie/OIDC architecture can use built-in middleware. [Duende licensing](https://docs.duendesoftware.com/general/licensing/).
-
-## 5. Recommended browser/session architecture
-
-```mermaid
-flowchart LR
-    React[React account and product UI] -->|same-origin HTTPS + CSRF on mutations| Backend[ASP.NET auth endpoints and cookie middleware]
-    Backend --> Identity[Identity account and session policies]
-    Identity --> Database[(Product or template database)]
-    Backend -. optional redirect and callback .-> Provider[Google, Microsoft or OIDC provider]
-    Backend -->|Secure HttpOnly app cookie| React
-    Backend --> Product[Owner-scoped feature queries and commands]
+```dotenv
+Accounts__Enabled=true
+Accounts__AdminSeed__Enabled=true
+Accounts__AdminSeed__Email=
+Accounts__AdminSeed__Password=
 ```
 
-The cookie is host-only and app-specific, Secure/HttpOnly, with deliberate SameSite behavior. Cross-origin redirect/correlation cookies use the provider middleware's appropriate policy; do not apply blanket SameSite Strict that breaks callbacks. Do not store access/refresh/session bearer tokens in localStorage. Same-origin private fetch uses credentials plus the antiforgery header; public fetch remains intentionally credential-free.
+Fill the ignored file or protected runtime environment, start after migrations, then use normal React login. Direct development uses the same variable names in the API process. No committed passwords and no automatic real admin creation during this task.
 
-An ASP.NET host that authenticates its own same-origin API does not need a new proxy process or gateway merely to call this architecture BFF. Bearer/OIDC access tokens become useful for separate API/native clients; design that boundary when such a consumer exists.
+Seeder contract:
 
-## 6. Authentication scope versus product scope
+1. Disabled means no account/role writes. Enabled while Accounts is disabled is invalid configuration.
+2. Validate complete email/password configuration and framework password rules before changing data. Even if an Admin already exists, validate supplied settings without replacing its credentials.
+3. Create the fixed Admin role and a new confirmed local user with that role atomically. Trusted operator provisioning supplies email ownership proof for this account.
+4. An existing Admin at that email is unchanged: no password reset, unlock, confirmation change or security-stamp change on restart.
+5. An existing ordinary account at that email causes a clear failure. Never promote it automatically.
+6. Serialize concurrent seeds for one database and roll back partial creation. Wrap the transaction in the existing EF execution strategy; use the current PostgreSQL transaction lock rather than a process-local semaphore.
+7. Disable/remove seed settings after provisioning. Deleting an account while seeding stays enabled intentionally recreates it on a later restart; document this.
+8. Log generic outcomes, never credentials. Admin does not bypass resource ownership. No administration dashboard is required.
 
-| Reusable template responsibility | CarbonCalculator responsibility |
+Admin here means the fixed Identity role and an authenticated account available to future product policies. The example's private Books remain owner-scoped. No special login form, password bypass or all-users management API is included. This seed is initial provisioning, not an ongoing password-reset mechanism. With email disabled, recovery is a deliberate operator procedure; document how to enable delivery or use a separately authorized framework-based recovery operation. Never reset or unlock an existing admin automatically because the environment password changed.
+
+## 4. HTTP and session contract
+
+Map `/api/auth` only when enabled. Metadata generation describes the real endpoints without opening a database or SMTP connection. Disabled runtime endpoints remain 404; React treats a 404 session probe as disabled capability.
+
+| Operation | Contract |
 | --- | --- |
-| Account lifecycle, local stable user ID and enabled sign-in methods | Project/receipt/document ownership and any future project memberships |
-| Current-user/session DTOs, cookie/CSRF transport and 401/403 behavior | Saved project APIs, concurrency and active-project access |
-| Confirm/reset/change credential, lockout, TOTP/recovery and passkey ceremonies when enabled | Private invoice storage, file quotas, retention and deletion |
-| Provider challenge/callback/linking and safe return URLs | Mapping existing guest/local drafts into the signed-in user's project after confirmation |
-| Data Protection/session recovery and provider configuration | Immutable calculation reports, source provenance and account deletion effects |
-| Public-mode compatibility and real auth acceptance profile | Product role/membership matrix and cross-owner/IDOR acceptance |
+| GET /session | Anonymous-safe capability/current-user DTO plus antiforgery token; no-store. Signed-in profile contains stable user ID, email and role names. |
+| POST /login | Email/password/remember-me; failed-password lockout enabled; generic 401 for invalid, unconfirmed, locked or unsupported credentials. |
+| POST /logout | Authenticated and CSRF validated; clear current app cookie. |
+| POST /logout-all | Authenticated and current password verified; rotate security stamp and clear current cookie. |
+| POST /register | Registration capability required; generic accepted response for existing email; framework validation for new input; send confirmation; no automatic login. |
+| POST /resend-confirmation | Email capability required; generic response regardless of existing/confirmed status. |
+| POST /confirm-email | Validate user/token through Identity; no automatic login. |
+| POST /forgot-password | Email capability required; generic response for unknown/unconfirmed users. |
+| POST /reset-password | Validate framework token and new password; revoke prior sessions; no automatic login. |
+| POST /change-password | Authenticate current password, rotate security stamp, sign out; require subsequent login. |
+| POST /change-email | Authenticate current password; send proof to new address without changing it yet. |
+| POST /confirm-email-change | Validate user/email/token, update email and username consistently, revoke sessions; no automatic login. |
+| POST /export | Authenticate current password; export profile and owned example records, excluding all credentials/keys/tokens. |
+| POST /delete | Authenticate current password; atomically delete owned example records and account, then sign out. |
 
-Keep authentication frontend-independent. Preserve current public React defaults unless a clone enables the new supported capability. Do not create ReactPublic/ReactAuthenticated source builds and duplicate deployment targets just to choose auth behavior; define an explicit runtime feature/acceptance contract and prove disabled mode denies account/private operations correctly. The actual setting/manifest schema belongs to the implementation design, not a speculative variable copied into deployment now.
+Use bounded annotated request DTOs, typed responses and safe ProblemDetails. Bound account bodies to 16 KiB before JSON binding; bound emails to 254 characters, IDs to 128 characters and tokens to 4096 characters. Every JSON mutation validates `X-CSRF-TOKEN`, including login and token-consumption endpoints. Private fetch is same-origin and never automatically retries mutations. Refresh the antiforgery token after session changes. Apply auth rate limiting to `/api/auth` independently of `/Account`, and retain the normal API/global protections. Start with an additional per-client limit of 20 account writes per five minutes; password lockout also bounds attacks distributed across client addresses. Document that in-process rate counters do not become a distributed limiter across replicas. Public author-book reads remain credential-free.
 
-Identity EF stores do not force a managed database. The template can retain its PostgreSQL infrastructure; a single-node CarbonCalculator can use a reviewed SQLite Identity schema/migration. Do not remove Identity while removing Blazor. Account data, business ownership and provider adapters should not be coupled to the UI framework.
+Protect enabled private Books writes too. When the shared policy is enabled for a Blazor build, adapt its WebAssembly Books transport to obtain a request token; do not break a retained consumer while securing React. Disabled mode must preserve existing Blazor behavior. If enabled Blazor registration consumes IEmailSender, bind actual configured delivery or make that capability honestly unavailable; a no-op email sender must not silently strand newly confirmation-required accounts. The future implementation must resolve this compatibility seam explicitly, not assume the React UI replaces all Blazor account paths.
 
-## 7. Required production behavior before claiming authentication is ready
+Enabled cookies are app-specific, host-only, Secure/HttpOnly and SameSite Lax, with a `__Host-` name, Path=/ and no Domain. Derive a safe stable cookie identifier from App:Name and the environment; never include a deployment version or replica ID. The antiforgery cookie is separately named, Secure/HttpOnly and host-only. Use eight-hour fixed expiry, or fourteen-day fixed expiry with remember-me; no sliding renewal. Validate security stamps on every authenticated request for prompt revocation, accepting the account-store lookup cost. Identity's stamp validator can request cookie renewal: explicitly preserve absolute expiry instead of accidentally extending tickets while refreshing claims. Password change/reset, logout-all and deletion invalidate old sessions on the next validation; in-flight requests are not retroactively cancelled. Confirmation/reset tokens last one hour.
 
-1. **Account lifecycle:** register, verify email if local email identity is used, login, logout, forgot/reset password, change email/password, current account, export and delete. Delete/credential-change actions need recent authentication. Disable unsupported methods honestly.
-2. **Recovery:** real email delivery/confirmation/reset proof, purpose-bound short-lived tokens, generic non-enumerating responses and rate limits. A no-op sender is allowed only in explicitly non-production/test mode. Authentication must not appear healthy with required recovery silently disabled.
-3. **Cookie/CSRF:** apply explicit validation to cookie-authenticated mutations including login/logout/linking; safe read-only bootstrap issues the request token. External callback state/correlation uses the authentication handler, not an arbitrary exemption for account endpoints.
-4. **Abuse:** route-independent auth rate policies, failed-password lockout policy, bounded resend/reset/passkey operations and account-enumeration review. Existing IP rate limiting alone does not replace credential abuse policy.
-5. **Session lifecycle:** choose idle/absolute/remember-me policies, security-stamp revalidation and sign-out/revocation behavior. State its actual revocation delay; clearing one browser cookie is not logout everywhere. Password reset/account disable must invalidate affected sessions according to that contract.
-6. **React isolation:** session query/private query caches are scoped to the signed-in user and cleared on logout/account change. Handle 401 expiry without losing an unsaved edit or retrying mutations indefinitely. No old user's private records remain visible after another user signs in.
-7. **Authorization:** require the stable local user ID and owner/membership filter in the database query/command, including downloads, exports and reports. Unpredictable IDs and hidden buttons are not access control. Test two actual users.
-8. **External identity:** validate provider configuration, issuer/audience/correlation and local return URL; never auto-link by email or accept a browser-posted external user ID as proof. Do not retain unused provider tokens.
-9. **Passkeys when enabled:** bounded challenges/credentials, protected enrollment, origin/RP policy and lost-device recovery. Use the Identity methods and browser APIs. Relying-party origin configuration must be reviewed for actual production/dev hosts; no parent-domain widening to share credentials accidentally.
-10. **Operations:** persist app-isolated Data Protection keys and account database across updates; restore them together, isolate cookie names across apps/localhost ports, validate forwarded hosts and keep private responses no-store at the app/edge. Do not copy another product's keys/cookies.
-11. **Sensitive flows:** suppress passwords/cookies/email-link tokens/PII in logs, traces, URLs emitted by the app and error responses. Framework confirmation/reset links necessarily carry one-time secrets; redact those query paths and remove consumed tokens from browser navigation. Do not leak them through telemetry or third-party resources.
-12. **Acceptance:** actual React register/confirm/login/private operation/logout/expiry/reset and cross-owner browser/API paths, plus Blazor regression and disabled public mode. A login form screenshot or mocked principal test alone is insufficient. These checks are proposed, not run in this investigation.
+Use minimum **15-character** new passwords, maximum 128 input characters, framework hashing, five failed attempts and fifteen-minute lockout. Do not require arbitrary character mixtures; allow spaces, password managers, paste and autofill. Use a bounded offline validator for known common/default passwords, with a reviewed versioned source/license; do not introduce an external call on each password submission. Keep length/input handling consistent across framework options, API DTOs, admin validation and both maintained UIs; do not silently trim/truncate passwords. Existing valid credentials can still sign in without satisfying the new-password length rule. No arbitrary periodic changes; require change on evidence of compromise. These are product policy choices informed by current NIST guidance, not a formal NIST compliance claim. Generic email responses reduce enumeration without claiming identical timing. Never log bodies, email-link secrets or cookies. Email callback secrets use URL fragments, removed from history before forms render; they do not enter HTTP query logs. [Antiforgery](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0), [Identity configuration](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-configuration?view=aspnetcore-10.0), [password guidance](https://pages.nist.gov/800-63-4/sp800-63b.html).
 
-## 8. Email and cost realism
+Framework-generated confirmation tokens are not automatically a complete one-use workflow. Refuse confirmation after the account is already confirmed; refuse an email-change replay after it is committed; verify that password reset invalidates its token through the updated security stamp. Confirmation/change/reset races must not create mismatched username/email state. Use the EF execution strategy and transactions for multi-write sensitive operations, with fresh tracked state on retry. Do not rely on process-local locks across replicas.
 
-Reuse an existing protected SMTP service if suitable. Otherwise a bounded free transactional provider is possible; [Resend's current pricing](https://resend.com/pricing) lists 3,000/month and 100/day. Recheck the actual selected account/terms before configuration. Domain/sender verification, delivery limits and abuse controls are real work. No new paid plan or SMS authentication is required by the recommendation.
+Anonymous private endpoints return 401 rather than login HTML. Set no-store on account/private responses including errors before endpoint execution. Preserve legacy Blazor behavior when the new Accounts feature is disabled.
 
-External-only login can use the provider's recovery instead, but requires an explicit product decision and safe alternative/linking policy. Magic links make every login depend on email delivery and token consumption; they are an optional credential policy, not a shortcut around recovery/spam/forwarded-link/session concerns. Passkey-only similarly needs a backup method.
+## 5. React experience
 
-The agent can prepare code/configuration/DNS records and use existing protected credentials during authorized execution. Only unavailable provider-console consent, domain proof/login and genuine inbox/device interaction need human involvement. No provider account, email credential or hardware action is assumed missing now.
+- Preserve public Home/Books and add compact account navigation only when enabled.
+- Routes: `/auth/login`, `/auth/register`, `/auth/confirm-email`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/confirm-email-change`, `/auth/settings`, `/my-books`. Existing `/Account` remains reserved for Blazor.
+- Keep account feature state in memory. Use the generated OpenAPI contract and a separate credentialed client; public calls still omit credentials.
+- Show labels, pending states, errors and honest disabled-capability messages. Prevent duplicate submits.
+- Cancel/remove private queries on account transitions. Keys include user ID; session changes broadcast across tabs without tokens/private data. Recheck session on focus and before private mutations.
+- A private 401 invalidates session and asks for login without retrying writes or exposing another user's cached data. Preserve unsaved form input until deliberate navigation. Allow only safe local return paths.
+- Ignore late session/query results after an account transition or unmount. A read/write initiated for one account must not be displayed or saved as another account's action if the shared cookie changes. Bind private request results to the expected user and recheck the server principal where needed; cancellation alone does not prove isolation. Keep an expired user's unsaved draft in memory, but hide it from a different newly signed-in user until explicitly discarded. Do not persist passwords or callback tokens in browser storage, query caches, analytics or broadcasts.
+- Settings provide password/email change, logout-all, export and explicitly confirmed deletion with current password. Seeded Admin is a role, not an ownership bypass.
+- My Books demonstrates existing owner-scoped CRUD. Keep the SPA SSR-disabled and production served by ASP.NET.
 
-## 9. Implementation sequence if this direction is selected
+## 6. Granular delivery packets
 
-| Slice | Complete visible outcome | Important gate |
+### A01 — Shared options and composition
+
+1. Inspect the preserved draft, current origin/main and the source map in section 10. Adopt useful code after review; do not blindly reapply its patch.
+2. Add startup-validated Accounts options and annotated contracts under Login; reconcile the draft's old password limits with the final 15-character policy.
+3. Extend Identity composition with configuration/environment inputs; keep disabled legacy behavior and review enabled Blazor compatibility.
+4. Configure cookie isolation, stamp validation without lifetime extension, token/password/lockout policy and the bounded offline password validator.
+5. Register feature services without live resource dependencies during metadata generation. OpenAPI must describe the actual enabled contract even though runtime mapping is optional.
+6. Add no-store/body-limit middleware, explicit JSON CSRF and auth route throttling.
+
+Exit: one documented startup capability controls real endpoint composition, valid configuration and consistent security policy; disabled/public and retained frontend behavior remain explicit.
+
+### A02 — Optional admin bootstrap
+
+1. Add scoped startup seeding after migrations, using UserManager/RoleManager and transactional database locking.
+2. Enforce create-only/idempotent/refuse-promotion behavior in section 3.
+3. Wire it independently of Blazor demo seeds.
+4. Add opt-in examples with empty credentials and local API `.env` loading.
+5. Document deployment through protected runtime environment, never tracked secrets.
+
+Exit: repeated/concurrent startup safely provisions one complete Admin, ordinary users cannot be promoted, and no SMTP service is required. Prove normal React sign-in when A03 is available; do not create an A02/A03 dependency cycle just to declare the seed complete.
+
+### A03 — Session and private vertical slice
+
+1. Implement session/login/logout/logout-all and regenerate real OpenAPI/TypeScript contracts.
+2. Add private client and session provider with fresh CSRF, 401 handling and tab coordination.
+3. Implement login, account navigation and protected My Books CRUD.
+4. Protect enabled Books writes; retain credential-free public catalog calls.
+5. Preserve disabled/public route and release behavior.
+
+Exit: two separate real accounts can maintain their private collections, and cookie/account changes cannot leak previous query results or save a draft under the wrong user. A fake principal or login screenshot alone does not satisfy this packet.
+
+### A04 — Account lifecycle and email
+
+1. Add TLS-only SMTP adapter, canonical link factory and explicit email capability.
+2. Implement register/resend/confirm and generic forgot/reset flows.
+3. Add password/email changes, revocation, export and transactional deletion.
+4. Build matching views; consume fragment secrets once and clear history.
+5. Keep provisioned-account mode honest when email is disabled; no silent no-op delivery.
+
+Exit: actual messages are captured by an isolated local SMTP fixture, account links work through the HTTPS frontend origin, and token/password/data failure cases leave consistent persisted state. No external messages or paid provider account are necessary to prove implementation behavior.
+
+### A05 — Runtime configuration through retained deployment targets
+
+1. Trace settings from inventory/private inputs through generated app.env, Compose/container environment and ASP.NET configuration for LocalSingleNode, LocalCluster and Cloud. Root `.env` is a local convenience; it is not automatically propagated to production containers.
+2. Add optional public account settings and optional private seed/SMTP inputs through each target's established configuration and secret mechanisms. Default to disabled and do not make new secrets mandatory for existing public/Blazor releases.
+3. Validate/escape newline, quote and interpolation characters when generating dotenv, JSON, YAML or environment files. SMTP/seed passwords must never be inserted through shell-built commands, logged diffs, command-line arguments or readable artifacts. Preserve an existing protected value unless deliberate rotation is authorized.
+4. Keep generated secret files protected and task-scoped. Document an idempotent provisioning/update procedure and how to disable seeding without destroying data. Do not add a second unmanaged host-level auth service.
+5. Extend render/audit/fixture coverage for disabled, provisioned-only and email-enabled configurations. Preserve app-isolated key persistence and same-app replica compatibility. Reuse scoped deployment scripts and locks; this task does not dispatch deployments or create real users on a shared node.
+
+Exit: all retained target configurations can carry the optional feature without hand-editing running containers, exposing secrets or breaking unchanged deployments.
+
+### A06 — Documentation, verification and integration
+
+1. Update Requirements, FrontendProfiles, React development and focused account operations docs.
+2. Keep the immutable public release pairing and document its limits; enabled authentication requires its own acceptance evidence. Existing public acceptance assumes /api/auth/login is inactive: retain that assertion in disabled mode and explicitly handle enabled mode rather than weakening all route checks or accepting login HTML as JSON.
+3. Update deployment audit rules if behavior they inspect changes; retain disabled/public checks.
+4. When implementation and verification are authorized, add/run authentication, seed, CSRF, revocation and ownership coverage and the full local gate. Keep dotnet build/test sequential. Tests were not authorized or run during the paused draft session.
+5. Review complete diff; stage explicit paths; open code PR; require green build-test-push on exact head; merge and verify exact-main CI.
+6. Record commits/evidence and remove finished task checkout/branches under AGENTS.md. Preserve other sessions.
+
+## 7. Acceptance inventory
+
+All pending until demonstrated.
+
+| ID | Required result |
+| --- | --- |
+| AUTH01 | Disabled routes stay 404, public React acceptance passes, private APIs deny anonymous access. |
+| AUTH02 | Provisioned Admin signs in through React; role exists and credentials remain private. |
+| AUTH03 | Disabled/partial/invalid seed settings behave correctly; restarts never change passwords/lockout. |
+| AUTH04 | Ordinary accounts cannot be promoted; concurrent starts create one complete Admin without partial records. |
+| AUTH05 | Cookie isolation/flags and fixed normal/remember-me lifetimes match section 4. |
+| AUTH06 | Missing/wrong CSRF rejects every account mutation and enabled private Books writes. |
+| AUTH07 | Invalid/unconfirmed/locked login is generic; failed-password policy and throttling work. |
+| AUTH08 | Two real users cannot access each other's records; Admin remains owner-scoped. |
+| AUTH09 | Expiry/account changes clear private caches across tabs without exposing stale user records. |
+| AUTH10 | Register/confirmation/resend/reset/email change work against controlled local SMTP; unknown addresses get generic responses. |
+| AUTH11 | Invalid/expired/replayed framework tokens fail; callback secrets stay out of HTTP queries and consumed history. |
+| AUTH12 | Wrong password permits no sensitive operation; credential changes, logout-all and deletion revoke old sessions. |
+| AUTH13 | Export excludes credentials; account/data deletion is atomic and owner-scoped. |
+| AUTH14 | Provisioned login works without SMTP; registration/recovery cannot pretend delivery works. |
+| AUTH15 | Metadata needs no database/email; schemas match endpoints; React typecheck/lint/build pass. |
+| AUTH16 | Both frontend profiles, required audits, exact-head and exact-main CI pass; Blazor remains supported. |
+| AUTH17 | Persistent user database and app-isolated keys are included in documented backup/restore boundaries. |
+| AUTH18 | Optional account/seed/SMTP settings flow safely through all retained deployment targets; disabled releases require no new secrets. |
+| AUTH19 | New password rules, failure throttling and absolute ticket expiry are consistent; claims/stamp renewal never extends the fixed lifetime. |
+| AUTH20 | Enabled shared policies do not break retained Blazor registration or WebAssembly Books writes; unavailable email is honest. |
+| AUTH21 | Late responses, cross-tab cookie changes and user transitions cannot expose another account's results or save its unsaved draft. |
+
+Authorization for tests/browser checks and actual external email follows session instructions. Local SMTP fixtures send nothing to real people. Do not claim live delivery, restored deployment state or an independent security audit from compilation/source inspection.
+
+## 8. Clone contract
+
+Each clone owns its user store, stable App:Name, cookie identity, Data Protection storage and permissions. Never copy template account data or real secrets. Replicas of one product share compatible keys; sibling products do not. The same email can have independent accounts/passwords/deletion in multiple products.
+
+Identity provides authentication. Products extend resource ownership, membership, retention, export and deletion. Admin claims do not imply unrestricted customer-data access.
+
+## 9. After completion
+
+Return to CarbonCalculatorDelivery.md only after this foundation is integrated and verified. Then reconcile saved-project and file contracts around authenticated server ownership while retaining the approved product journey. This task does not implement or deploy CarbonCalculator.
+
+## 10. Execution evidence
+
+### 10.1 Owner steering and present state
+
+The owner selected the simplified scope and requested the plan before implementation. A partial draft was started under the earlier wording, then paused when the owner clarified **do not implement yet**. The owner subsequently instructed that the small changes/draft must be kept and mentioned here so a new chat can continue. The current task therefore publishes only this Markdown plan. Do not interpret the draft's existence as permission to finish, merge, deploy or run authentication tests now.
+
+The draft is preserved as uncommitted changes in the registered worktree on branch `feat/react-authentication-foundation-20261015`, based on `8599ffa527239a699f888c4aceea808f9829573a`. Locate it with `git worktree list`; do not assume a machine-specific path. This checkout remains intentionally open, owned by the paused React authentication task and needed for the next chat. Do not clean, reset, overwrite or delete it. The separate documentation task branch/worktree can be closed after this plan is integrated.
+
+A second copy exists in the primary checkout's ignored `Plans.local/ReactAuthenticationFoundation/DeferredImplementation-20261015.patch`. Verified SHA-256: `DAC42AD1A33F1B5FBF3C956C4042A5DDAE181FCEC636A243E96F53CB6466B08A`. It contains the draft code/configuration/generated API changes, not this revised plan. The patch was restored into the paused worktree after its hash and applicability were checked. Do not apply it again on top of those changes. It is a recovery aid, not a verified implementation or retained repository artifact.
+
+### 10.2 What the preserved draft contains
+
+| Area | Existing draft paths and behavior | Remaining review |
 | --- | --- | --- |
-| A01 — Contract and composition | Shared auth feature, explicit public/enabled mode, typed session/error/CSRF contracts, mapped route/callback policy | Public React remains public-only when disabled; Blazor works; OpenAPI generation needs no live DB/email/provider |
-| A02 — First credentialed React slice | Secure session, login/logout/current-user UI and one existing owner-scoped Books operation | Real two-user separation, CSRF, 401/403 and cache isolation |
-| A03 — Account lifecycle | Register/confirm, real email adapter, reset/change credential, deletion/export and abuse policies | Actual delivery/recovery proof with controlled authorized accounts |
-| A04 — External sign-in | Shared optional Google/OIDC composition, local account mapping, callback and safe linking | No email-only linking, unsafe redirects or browser-held provider secrets |
-| A05 — Strong sign-in and sessions | TOTP/recovery and/or passkeys according to selected scope, bounded revocation contract | React ceremonies/recovery, correct RP/origin, no lockout-by-unlink |
-| A06 — Deployment and clone contract | Updated profile/acceptance/docs/audit, key/email/provider readiness, public-mode and Blazor regression | Full local gate, exact-head/main CI, restore evidence, all retained template targets and documented clone retention |
-| C-A01 — CarbonCalculator adoption | Server-owned projects/receipts/documents with user-scoped endpoints and local draft migration | Product two-user/IDOR tests and retained approved UI |
+| Backend | `BlazorAutoApp/Features/Login/Accounts/`: options, contracts, endpoints, operations, SMTP sender, request protection and transactional admin seed | Review every failure/race/authorization path against this final plan; draft uses the earlier 12-character minimum |
+| Composition | `Program.cs`, Books endpoints, AppRateLimiting and metadata-only OpenAPI host | Validate enabled/disabled wiring, actual auth limiter and frontend compatibility |
+| React | `BlazorAutoApp.React/app/features/accounts/`, `app/routes/account.tsx`, `app/routes/my-books.tsx`, root/routes/site shell | Review session races, cache/draft isolation, token consumption, accessibility and generated client behavior |
+| Blazor transport | `BlazorAutoApp.Client/Features/Books/BooksAntiforgeryHandler.cs` and client Program | Latest addition has not been built or exercised; review enabled behavior and avoid hidden compatibility regressions |
+| Local setup | `.env.example`, React `scripts/dev-api.mjs` | Empty opt-in seed/SMTP examples and API-only Accounts env loading; no real .env or credential was created |
+| Packages/contracts | MailKit 4.18.1, centrally pinned System.Security.Cryptography.Pkcs 10.0.13, generated OpenAPI/TypeScript files | Recheck exact dependency compatibility and advisories; regenerate contracts after final changes |
 
-Each slice includes backend, generated client, frontend, failures, persistence and relevant evidence. Implementation code requires PRs, local gates and exact-head/main CI under AGENTS.md. This investigation uses the Markdown-only exception and does not execute those code gates.
+The package pin was added because the first MailKit restore reported vulnerable transitive Pkcs 10.0.0. A subsequent React backend build had zero warnings/errors after the pin. This is evidence from that checkpoint, not a blanket dependency security claim.
 
-Template support remains portable across its retained deployment targets: replicas of the same app need compatible shared Data Protection state, while independent applications keep distinct stable application/cookie identities. Do not introduce LocalSingleNode-only assumptions into the shared template authentication kernel. CarbonCalculator narrows its own deployment targets later through its separate cleanup plan.
+### 10.3 Checks actually performed before the pause
 
-The production recommendation is A01–A03 for a self-contained local-account baseline, followed by the scoped strong-sign-in work in section 1.1. If the owner instead selects external-only, replace local-password portions with provider lifecycle/recovery. Do not build all credential/provider alternatives. Passkeys/TOTP/external providers need accurate capability flags until their complete slices pass.
+- An earlier React backend checkpoint compiled successfully, with zero warnings/errors after the dependency pin.
+- OpenAPI/TypeScript generation succeeded without live database or SMTP.
+- React typecheck and lint succeeded after initial issues were corrected.
+- A production React build succeeded, including its existing root prerender and SPA fallback.
+- Later changes to cookie renewal, Blazor transport, account draft ownership and development env loading were not all rebuilt together. Do not label the final preserved draft verified.
+- No tests were added or run. No browser sign-in, seeded account, database/runtime authentication, actual SMTP message, deployment, provider registration or production infrastructure change was performed. No implementation commit or PR was created.
 
-## 10. CarbonCalculator changes after account ownership is approved
+### 10.4 First actions in the next chat
 
-- Replace proposed browser-only project persistence with authenticated server project/receipt APIs. IndexedDB can remain a draft/cache aid, not the only saved copy.
-- Tie files and reports to project/user ownership; separate any future guest capability mode. Normal account documents must not inherit the earlier automatic 24-hour anonymous expiry by accident. Specify user-visible retention and deletion before implementing it.
-- Compute Dashboard aggregates from server-owned current assessments. The proposed HMAC client-contribution round trip is unnecessary for ordinary authenticated project queries; retain signed/imported snapshots only where an actual trust boundary needs them.
-- Keep immutable calculation/source snapshots and the approved direct Material/Transport/Documents navigation. A login system does not require adding a busy sidebar or review workflow.
-- Use a stable owner ID from the authenticated principal. Company/supplier names in invoices are not tenant membership or account identity.
-- Begin with private user-owned projects unless team sharing is explicitly promoted. Future organizations need memberships/roles/invitations and a separate product authorization slice; signing in is not team support.
-- Update D02, P04/P08A/P11B/P12/P12A/P12B and Acceptance.md together. Keep Identity during cleanup and reconsider only obsolete sample storage. Do not maintain two conflicting authoritative persistence models.
+1. Read this plan and AGENTS.md. Confirm the user's new request authorizes implementation; until then, keep planning only.
+2. Locate the paused branch with `git worktree list`. Inspect tracked, untracked and ignored files and any live processes. Resume its task binding using the local agent workflow if applicable. Preserve other sessions' work.
+3. Fetch origin/main and review changes since the recorded base. The primary plan on main is authoritative; the paused checkout may still contain the older investigation text. Bring the new plan into the implementation context without overwriting its uncommitted source changes or other sessions' files.
+4. Inspect the draft against this plan and the archive manifest/hash. Reuse sound portions; address known gaps before expanding. Do not apply the archive twice or assume generated files prove runtime behavior.
+5. Start A01, then A02/A03 as vertical outcomes, A04, A05 and A06. Carry backend, client, failure paths and relevant acceptance together. Ask for missing information only when it genuinely blocks progress.
+6. Follow the implementation gate and exact-head/main CI rules when authorized. Do not publish or deploy merely because the new chat resumes implementation. Return to CarbonCalculator only after this foundation is integrated and verified.
 
-## 11. Decision to retain
+### 10.5 Readiness and human inputs
 
-**Selected architecture:** ASP.NET Core Identity + app cookies. Recommended delivery: template-first shared backend and React account UI, with optional external sign-in and phased passkeys. Use server-owned private CarbonCalculator projects once that foundation and its account policy are selected.
+The plan is ready to start in a new chat. No unresolved product choice blocks A01–A03: independent email/password accounts, cookie sessions and optional create-once Admin are specified. Provisioned-account mode does not require SMTP. The implementer can use isolated generated credentials/database fixtures and local SMTP for authorized verification; do not ask the owner to provision external services just to begin.
 
-**Settled owner requirement:** separate accounts across cloned products; no shared cross-product identity or SSO. Each clone owns its user store, sessions, keys, product authorization and account lifecycle. Optional external login does not change that ownership boundary.
+Only enabling real public registration/recovery later needs a usable sender/SMTP account, its protected credentials and any sender-domain verification. Use existing authorized services/credentials if available; manual provider-console or inbox interaction is a blocker only if the agent cannot perform it safely. Actual deployment remains a separate authorized action. No manual blocker prevents continuing the implementation plan itself.
 
-**Production recommendation:** verified local email/password with real recovery, optional TOTP/recovery and phased passkeys, secure app cookies, and server-owned private projects/documents. Managed OIDC remains an alternative for a concrete operational/business requirement; a central identity service is outside the selected baseline.
+### 10.6 Suggested new-chat request
 
-Still to select before implementation: the recommended local-account credential policy versus external-only sign-in, and explicit approval of authenticated CarbonCalculator ownership. Identity + app cookies and separate product accounts are already answered and must not be asked again. This document prepares the remaining choice without implementing or registering any alternative.
+> Implement and verify Plans/ReactAuthenticationFoundation.md. Read section 10 first, resume the preserved draft, and finish the template foundation before returning to CarbonCalculatorDelivery.md.
