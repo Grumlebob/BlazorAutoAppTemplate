@@ -143,16 +143,19 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureTestServices(services =>
         {
-            services.AddAuthentication(options =>
+            if (!_options.UseRealIdentityCookies)
             {
-                options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
-                options.DefaultChallengeScheme = _options.UseIdentityCookieChallenge
-                    ? IdentityConstants.ApplicationScheme
-                    : TestAuthenticationHandler.SchemeName;
-            })
-            .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
-                TestAuthenticationHandler.SchemeName,
-                _ => { });
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
+                    options.DefaultChallengeScheme = _options.UseIdentityCookieChallenge
+                        ? IdentityConstants.ApplicationScheme
+                        : TestAuthenticationHandler.SchemeName;
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                    TestAuthenticationHandler.SchemeName,
+                    _ => { });
+            }
 
             _options.ConfigureTestServices?.Invoke(services);
         });
@@ -181,6 +184,11 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public HttpClient CreateAuthenticatedClient(string userName = "integration-user@example.test")
     {
+        if (_options.UseRealIdentityCookies)
+        {
+            throw new InvalidOperationException("Real-cookie fixtures must sign in through Identity; fake principal headers are disabled.");
+        }
+
         var client = CreateClient();
         client.Timeout = TimeSpan.FromMinutes(MaxWaitTimeMinutes);
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserHeader, userName);
@@ -209,7 +217,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // configuration callbacks can replace it. Keep these overrides scoped
             // and test parallelization disabled while this startup-time coupling exists.
             var redisAllowMissing = string.IsNullOrWhiteSpace(_options.RedisConnectionString);
-            _environmentOverrides = new EnvironmentVariableScope(new Dictionary<string, string?>
+            var environmentValues = new Dictionary<string, string?>
             {
                 [AppNameEnvironmentVariable] = _options.AppName ?? "BlazorAutoApp",
                 [ConnectionStringEnvironmentVariable] = _connectionString,
@@ -230,7 +238,14 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 [AuthenticationRateLimitEnvironmentVariable] = (_options.AuthenticationRateLimitPermitLimit ?? DefaultAuthenticationPermitLimit).ToString(),
                 [OpenTelemetryEnabledEnvironmentVariable] = (_options.OpenTelemetryEnabled ?? false).ToString(),
                 [OpenTelemetryEndpointEnvironmentVariable] = _options.OpenTelemetryEndpoint ?? "http://127.0.0.1:4317"
-            });
+            };
+            // Account composition is selected before the minimal-host configuration
+            // callbacks. Apply only this fixture's explicit overrides to that phase too.
+            foreach (var (key, value) in _options.ConfigurationOverrides)
+            {
+                environmentValues[key.Replace(":", "__", StringComparison.Ordinal)] = value;
+            }
+            _environmentOverrides = new EnvironmentVariableScope(environmentValues);
         }
 
         HttpClient = CreateClient();
