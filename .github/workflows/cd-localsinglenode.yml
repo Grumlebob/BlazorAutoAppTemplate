@@ -134,10 +134,12 @@ jobs:
           set -euo pipefail
           python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
+          release_payload_prefix="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
           {
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             echo "APP_VERSION=$TARGET_SHA"
             echo "MIGRATION_RUNTIME=${migration_runtime}"
+            echo "RELEASE_PAYLOAD_PREFIX=${release_payload_prefix}"
           } >> "$GITHUB_ENV"
 
       - name: Login to GHCR
@@ -158,7 +160,8 @@ jobs:
             --target-sha "$TARGET_SHA" --read-final-payload-receipt \
             --payload-profile "$FRONTEND_PROFILE" \
             --payload-acceptance-profile "$ACCEPTANCE_PROFILE" \
-            --payload-runtime "$MIGRATION_RUNTIME" --payload-app-image "$APP_IMAGE" --json)" || {
+            --payload-runtime "$MIGRATION_RUNTIME" --payload-app-image "$APP_IMAGE" \
+            --payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX" --json)" || {
             echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
             exit 1
           }
@@ -173,7 +176,8 @@ jobs:
                 --selection-file "$selection_file" --output-dir artifacts/migrations \
                 --repository "$SOURCE_REPO_URL" --profile "$FRONTEND_PROFILE" \
                 --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
-                --app-image "$APP_IMAGE" --bundle-name "$MIGRATION_BUNDLE_NAME")"
+                --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+                --bundle-name "$MIGRATION_BUNDLE_NAME")"
               printf "%s" "$payload_result" > "${RUNNER_TEMP}/pulled-release-payload.json"
               RELEASE_PAYLOAD_TRANSPORT="ghcr-container"
               echo "Using immutable GHCR payload selected from the successful CI receipt." >> "$GITHUB_STEP_SUMMARY"

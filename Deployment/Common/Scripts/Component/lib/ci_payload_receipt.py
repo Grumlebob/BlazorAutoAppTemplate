@@ -8,7 +8,12 @@ import urllib.parse
 import urllib.request
 from typing import Any, Iterable
 
-from release_settings import derive_release_payload_image, validate_app_image, validate_profile_name
+from release_settings import (
+    derive_release_payload_image,
+    validate_app_image,
+    validate_profile_name,
+    validate_release_payload_image,
+)
 from registry_payload import (
     DIGEST_RE,
     MANIFEST_FILENAME,
@@ -62,7 +67,7 @@ class ReceiptError(ValueError):
 def final_receipt(identity: ReleasePayloadIdentity, published: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(published, dict):
         raise ReceiptError("registry publication result must be an object")
-    expected_image = derive_release_payload_image(identity.app_image)
+    expected_image = derive_release_payload_image(identity.app_image, identity.payload_image_prefix)
     digest = published.get("payload_digest")
     payload_ref = f"{expected_image}@{digest}" if isinstance(digest, str) else ""
     content_files = {MANIFEST_FILENAME: identity.manifest_sha256}
@@ -163,8 +168,10 @@ def validate_receipt(receipt: Any) -> dict[str, Any]:
                 validate_profile_name(receipt["acceptance_profile"])
         except (AttributeError, TypeError, ValueError) as error:
             raise ReceiptError("final payload receipt application image or acceptance profile is invalid") from error
-        if payload_image != derive_release_payload_image(app_image):
-            raise ReceiptError("final payload image is not derived from its application image")
+        try:
+            validate_release_payload_image(app_image, payload_image)
+        except ValueError as error:
+            raise ReceiptError("final payload image is not derived from its application image") from error
         if not isinstance(receipt["app_image_digest"], str) or not DIGEST_RE.fullmatch(receipt["app_image_digest"]):
             raise ReceiptError("final payload application image digest is invalid")
         if not isinstance(receipt["manifest_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", receipt["manifest_sha256"]):
@@ -381,9 +388,10 @@ def expected_final_identity(
     acceptance_profile: str | None = None,
     runtime: str,
     app_image: str,
+    payload_image_prefix: str = "",
 ) -> dict[str, str]:
     try:
-        expected_image = derive_release_payload_image(app_image)
+        expected_image = derive_release_payload_image(app_image, payload_image_prefix)
         validate_profile_name(profile)
         if acceptance_profile is not None:
             validate_profile_name(acceptance_profile)

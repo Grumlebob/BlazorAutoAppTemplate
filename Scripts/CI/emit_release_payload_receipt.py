@@ -37,6 +37,7 @@ def emit_payload_receipt(
     runtime: str,
     app_image: str,
     payload_image: str,
+    payload_image_prefix: str = "",
 ) -> dict[str, Any]:
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -61,6 +62,7 @@ def emit_payload_receipt(
         bundle_filename=bundle_filename,
         manifest_sha256=sha256_file(manifest_path),
         bundle_sha256=sha256_file(bundle_path) if bundle_path is not None else None,
+        payload_image_prefix=payload_image_prefix,
     )
     if identity.payload_image != payload_image:
         raise PayloadError("configured release payload image does not match the derived application package")
@@ -81,6 +83,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runtime", required=True)
     parser.add_argument("--app-image", required=True)
     parser.add_argument("--payload-image", required=True)
+    parser.add_argument("--payload-image-prefix", default="")
     return parser.parse_args()
 
 
@@ -99,6 +102,7 @@ def main() -> int:
             runtime=args.runtime,
             app_image=args.app_image,
             payload_image=args.payload_image,
+            payload_image_prefix=args.payload_image_prefix,
         )
         print(format_receipt_line(receipt), flush=True)
     except (OSError, PayloadError, ReceiptError, ValueError) as error:

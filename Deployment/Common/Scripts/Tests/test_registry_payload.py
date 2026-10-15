@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+from dataclasses import replace
 import subprocess
 import sys
 import tarfile
@@ -65,6 +66,11 @@ class RegistryPayloadTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_private_payload_prefix_changes_only_payload_image(self) -> None:
+        identity = replace(self.identity, payload_image_prefix="private-")
+        self.assertEqual(identity.app_image, "ghcr.io/grumlebob/books")
+        self.assertEqual(identity.payload_image, "ghcr.io/grumlebob/private-books-release-payload")
 
     def _inspect_result(self, *, kind: str = "final", labels: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         image = {

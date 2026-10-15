@@ -931,6 +931,7 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix", "configured GHCR release payload package prefix"),
     ("Build and test both frontend profiles", "both-profile .NET validation gate"),
     ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
     ("Test required .NET test-result counts", "strict .NET result parser unit tests"),
@@ -1167,7 +1168,9 @@ for needle, why in [
     ("find-successful-ci-run.py", "receipt selector is invoked"),
     ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
     ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
@@ -1177,6 +1180,26 @@ for needle, why in [
         fail(f".github/workflows/cd-localcluster.yml: missing locked artifact selection behavior: {why}")
 if "actions/download-artifact@" in cd_localcluster:
     fail(".github/workflows/cd-localcluster.yml: release artifact selection and download must share the host lock")
+cd_cloud = read(".github/workflows/cd-cloud.yml")
+cloud_selection = workflow_step_text(cd_cloud, "Select successful CI receipt for this commit")
+for needle, why in [
+    ("find-successful-ci-run.py", "Cloud receipt selector is invoked"),
+    ('--target-sha "$GITHUB_SHA"', "Cloud selector binds the dispatched commit"),
+    ("--read-final-payload-receipt", "Cloud release requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "Cloud receipt selection uses the configured package prefix"),
+]:
+    if needle not in cloud_selection:
+        fail(f".github/workflows/cd-cloud.yml: missing immutable migration payload behavior: {why}")
+cloud_payload = workflow_step_text(cd_cloud, "Retrieve migration bundle from immutable payload")
+for needle, why in [
+    ("pull_release_payload.py", "Cloud migration payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "Cloud payload pull uses the configured package prefix"),
+    ('gh run download "$CI_RUN_ID"', "Cloud legacy fallback uses the exact CI run"),
+]:
+    if needle not in cloud_payload:
+        fail(f".github/workflows/cd-cloud.yml: missing immutable migration payload behavior: {why}")
+if "actions/download-artifact@" in cd_cloud:
+    fail(".github/workflows/cd-cloud.yml: legacy artifact fallback must use the exact CI run")
 artifact_pruner = read("Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py")
 for needle, why in [
     ("ACTIVE_STATUSES", "live deployment and producer protection"),
@@ -2212,7 +2235,9 @@ for needle, why in [
     ("find-successful-ci-run.py", "receipt selector is invoked"),
     ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
     ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),

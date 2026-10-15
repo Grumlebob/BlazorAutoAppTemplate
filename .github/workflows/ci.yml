@@ -613,6 +613,7 @@ jobs:
           python3 Scripts/CI/frontend_release_plan.py
           app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
           release_payload_image="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)"
+          release_payload_prefix="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
           migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           migration_artifact_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
@@ -620,6 +621,7 @@ jobs:
           {
             echo "APP_IMAGE=${app_image}"
             echo "RELEASE_PAYLOAD_IMAGE=${release_payload_image}"
+            echo "RELEASE_PAYLOAD_PREFIX=${release_payload_prefix}"
             echo "CI_IMAGE_TAG=${ci_image_tag}"
             echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
             echo "MIGRATION_RUNTIME=${migration_runtime}"
@@ -777,7 +779,8 @@ jobs:
             --acceptance-profile "${FRONTEND_ACCEPTANCE_PROFILE}" \
             --runtime "${MIGRATION_RUNTIME}" \
             --app-image "${APP_IMAGE}" \
-            --payload-image "${PRIMARY_PAYLOAD_IMAGE}"
+            --payload-image "${PRIMARY_PAYLOAD_IMAGE}" \
+            --payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"
           if [[ -n "${ADDITIONAL_PROFILE}" ]]; then
             python3 Scripts/CI/emit_release_payload_receipt.py \
               --manifest artifacts/additional-migrations/release-manifest.json \
@@ -790,7 +793,8 @@ jobs:
               --acceptance-profile "${ADDITIONAL_ACCEPTANCE_PROFILE}" \
               --runtime "${MIGRATION_RUNTIME}" \
               --app-image "${ADDITIONAL_IMAGE}" \
-              --payload-image "${ADDITIONAL_PAYLOAD_IMAGE}"
+              --payload-image "${ADDITIONAL_PAYLOAD_IMAGE}" \
+              --payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"
           fi
 
       # Keep :<sha> for fast redeploys; remove only the per-run build tag.

@@ -38,7 +38,9 @@ def release_plan(selected: str, additional: str, settings: dict[str, str]) -> di
         additional_profile=profile,
         additional_acceptance_profile=acceptance_profile_for_frontend(profile),
         additional_image=f"{settings['app_image']}-{profile.lower()}",
-        additional_payload_image=derive_release_payload_image(f"{settings['app_image']}-{profile.lower()}"),
+        additional_payload_image=derive_release_payload_image(
+            f"{settings['app_image']}-{profile.lower()}", settings.get("release_payload_prefix", "")
+        ),
         additional_artifact_name=f"{settings['migration_artifact_name']}-{profile.lower()}",
     )
     return values
