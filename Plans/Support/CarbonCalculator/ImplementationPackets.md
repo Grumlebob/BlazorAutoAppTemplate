@@ -16,7 +16,7 @@ This file splits the product work into reviewable changes. A numbered checkpoint
 
 ### D02 — Resolve saved-project ownership/lifetime
 
-1. Ask whether v1 saves only on the current browser/device or needs authenticated cross-device access. The recommended initial contract in FeatureSpecification.md is device-local persistent projects, account-free.
+1. Follow the owner's authentication investigation in [ReactAuthenticationFoundation.md](../../ReactAuthenticationFoundation.md). The current recommendation is a reusable Identity/cookie/React foundation and authenticated server-owned projects. Device-local storage in FeatureSpecification.md is an unselected alternative. Record the chosen credential/ownership policy before implementing either.
 2. Record the answer and storage/lifetime statement in Requirements and Privacy before P08A or P12A. The old tab-only design is superseded as a recommendation, not silently promoted to production.
 3. If device-local is approved, use IndexedDB and the local/server split below. If cross-device is chosen, prepare a focused account/ownership/migration packet, update the schema/access rules and revise authentication cleanup before implementing dependent storage. Do not ship anonymous server CRUD as a shortcut.
 4. Keep foundation import, profile cleanup, source QA, pure domain work and provider adapters progressing while the answer is pending.
