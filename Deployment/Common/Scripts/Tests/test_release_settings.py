@@ -10,6 +10,8 @@ sys.path.insert(0, str(LIB))
 from release_settings import (  # noqa: E402
     apply_defaults,
     derive_release_payload_image,
+    default_release_path,
+    load_release_settings,
     validate,
     validate_profile_name,
     validate_release_payload_image,
@@ -17,6 +19,11 @@ from release_settings import (  # noqa: E402
 
 
 class ReleaseSettingsTests(unittest.TestCase):
+    def test_template_release_settings_use_private_payload_package_names(self) -> None:
+        settings = load_release_settings(default_release_path())
+        self.assertEqual(settings["release_payload_prefix"], "private-")
+        self.assertEqual(settings["release_payload_image"], "ghcr.io/grumlebob/private-books-release-payload")
+
     def test_derives_payload_package_and_keeps_existing_release_names(self) -> None:
         values = {
             "app_image": "ghcr.io/grumlebob/books",

@@ -135,6 +135,8 @@ required_files = [
     "Scripts/CI/tests/test_deployed_site_acceptance.py",
     "Scripts/CI/migration_staging_artifact.py",
     "Scripts/CI/tests/test_migration_staging_artifact.py",
+    "Scripts/CI/ci_report_store.py",
+    "Scripts/CI/tests/test_ci_report_store.py",
     "Deployment/Common/Scripts/install-ansible.sh",
     "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
@@ -340,9 +342,9 @@ for needle, why, owner in [
     ('Allowed branch: main', 'main-only environment branch rule', 'setup'),
     ('Environment localcluster exists and allows deployments from main.', 'environment setup checkpoint', 'setup'),
     ('First Deploy From GitHub Actions', 'first CD deploy step after environment setup', 'setup'),
-    ('publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`', 'main-only CI publishing explanation', 'release_contract'),
+    ('Main CI publishes the application image, a digest-pinned GHCR payload', 'main-only CI publishing explanation', 'release_contract'),
     ('Optional sanity check: before deploying, confirm the image tag exists.', 'optional image check wording', 'setup'),
-    ('migration bundle artifact is missing or expired', 'expired CI artifact recovery guidance', 'release_contract'),
+    ('if the GHCR payload is missing or cannot be retrieved', 'missing immutable payload recovery guidance', 'release_contract'),
     ('pins PostgreSQL and Redis to exact versioned image tags', 'pinned database image guidance', 'settings'),
     ('If this is the only app on these four nodes, keep the default ports and continue.', 'single-site default guidance', 'settings'),
     ('If another LocalCluster app already runs on these nodes', 'side-by-side settings warning', 'fork_existing'),
@@ -359,7 +361,7 @@ for needle, why, owner in [
     ('git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml', 'deployment settings commit command', 'settings'),
     ('needs committed `all.yml` settings and committed `hosts.yml` inventory', 'committed settings and inventory explanation', 'settings'),
     ('git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml', 'pre-push deployment file clean-state check', 'settings'),
-    ('Workflow permissions: Read and write permissions', 'fork GitHub Actions package write prerequisite', 'release_contract'),
+    ('main publisher job needs `packages: write`', 'job-scoped GitHub Actions package write prerequisite', 'release_contract'),
     ('`app_image`', 'side-by-side app image uniqueness', 'settings'),
     ('`migration_bundle_name`', 'side-by-side migration bundle uniqueness', 'settings'),
     ('same machine IPs', 'side-by-side reused machine IP guidance', 'fork_existing'),
@@ -753,6 +755,12 @@ ci_provenance = read("Deployment/Common/Scripts/Component/lib/find-successful-ci
 for needle in ['ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "verify_publishing_job", "/attempts/{attempt}/jobs", 'job.get("run_attempt")', 'job.get("head_sha")']:
     if needle not in ci_provenance:
         fail(f"CI release provenance: missing publishing verification contract {needle}")
+release_settings_source = read("Deployment/Common/Scripts/Component/lib/release_settings.py")
+for needle in ("PAYLOAD_PREFIX_RE", "def derive_release_payload_image(app_image: str, prefix: str = \"\")", "validate_release_payload_image"):
+    if needle not in release_settings_source:
+        fail(f"CI release package settings: missing validated payload-prefix support {needle}")
+if "release_payload_prefix: private-" not in read("Deployment/Common/release.yml"):
+    fail("Deployment/Common/release.yml: final payload packages must use the prepared private package prefix")
 
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
@@ -930,7 +938,6 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
-    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix", "configured GHCR release payload package prefix"),
     ("Build and test both frontend profiles", "both-profile .NET validation gate"),
     ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
@@ -956,9 +963,12 @@ for needle, why in [
     ("--pull", "Docker build base image freshness"),
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
     ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
-    ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
-    ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
-    ("retention-days: 7", "short migration artifact retention"),
+    ("needs.validate.result == 'success'", "main publisher requires successful full validation"),
+    ("Store CI reports on this runner", "bounded runner-local test report storage"),
+    ("REPORT_STATUS: ${{ job.status }}", "report retention follows exact terminal job status"),
+    ("--job validate", "validation reports use a distinct store identity"),
+    ("--job publish-main", "publisher reports use a distinct store identity"),
+    ("Scripts/CI/tests/test_ci_report_store.py", "runner-local report store tests"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
     ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
@@ -1102,9 +1112,10 @@ if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
 if "cache: npm" in ci or "cache-dependency-path" in ci:
     fail(".github/workflows/ci.yml: CI must not use GitHub cloud npm cache on the self-hosted runner")
 push_pos = ci.find('docker push "${APP_IMAGE}:${GITHUB_SHA}"')
-upload_pos = ci.find("Upload migration bundle")
-if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
-    fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
+manifest_pos = ci.find("Resolve pushed image digest and write release manifest")
+receipt_pos = ci.find("Emit immutable release payload receipt")
+if push_pos < 0 or manifest_pos < push_pos or receipt_pos < manifest_pos:
+    fail(".github/workflows/ci.yml: GHCR payload receipt must follow the pushed image and verified manifest")
 # Artifact retention runs daily on the maintenance runner, while host and
 # Docker cleanup remain manual. Both selection/download and cleanup use the
 # shared deployment lock and retain live, successful, and active release IDs.
@@ -1325,33 +1336,28 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         fail(".github/workflows/ci.yml: publish-main must keep the build-test-push name on main and fail closed before checkout")
     if "docker/login-action@" in validate_job or "docker push" in validate_job:
         fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
-    if "dotnet ef migrations bundle" in publisher_job:
-        fail(".github/workflows/ci.yml: publish-main must not rebuild the migration bundle")
-    staging_upload = workflow_step("validate", "Upload migration staging artifact")
-    if (
-        "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in staging_upload
-        or "migration-provenance.json" not in staging_upload
-        or "retention-days: 1" not in staging_upload
-        or "if-no-files-found: error" not in staging_upload
-    ):
-        fail(".github/workflows/ci.yml: staging artifact must use a unique short-retention name and the provenance file")
+    if "dotnet ef migrations bundle" not in publisher_job:
+        fail(".github/workflows/ci.yml: publish-main must rebuild the bundle from its exact checked-out commit")
+    if "actions/upload-artifact@" in ci or "actions/download-artifact@" in ci:
+        fail(".github/workflows/ci.yml: routine reports and release payloads must not use Actions artifact storage")
+    staging_build = workflow_step("publish-main", "Build migration bundle for this exact publisher run")
+    staging_create = workflow_step("publish-main", "Create migration staging provenance")
     staging_validation = workflow_step("publish-main", "Validate migration staging artifact")
     if (
-        "migration_staging_artifact.py validate" not in staging_validation
-        or "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in publisher_job
+        "dotnet ef migrations bundle" not in staging_build
+        or "migration_staging_artifact.py create" not in staging_create
+        or "migration_staging_artifact.py validate" not in staging_validation
+        or publisher_job.find("Build migration bundle for this exact publisher run") > publisher_job.find("Create migration staging provenance")
+        or publisher_job.find("Create migration staging provenance") > publisher_job.find("Validate migration staging artifact")
         or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Build Docker image")
         or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Login to GHCR")
     ):
-        fail(".github/workflows/ci.yml: publish-main must verify the exact staging input before building or publishing")
+        fail(".github/workflows/ci.yml: publisher must rebuild, bind, and validate its exact migration bundle before image or registry work")
     if publisher_job.find("ci-docker-smoke.sh") < 0 or publisher_job.find("ci-docker-smoke.sh") > publisher_job.find("Push Docker image"):
         fail(".github/workflows/ci.yml: publish-main must smoke-test the image before pushing it")
-    final_upload = workflow_step("publish-main", "Upload migration bundle")
-    if (
-        "release-manifest.json" not in final_upload
-        or "migration-provenance.json" in final_upload
-        or "retention-days: 7" not in final_upload
-    ):
-        fail(".github/workflows/ci.yml: final release artifact must be the bundle plus release-manifest.json")
+    if any("ci_report_store.py save" not in workflow_step(job_id, "Store CI reports on this runner")
+           for job_id in ("validate", "publish-main")):
+        fail(".github/workflows/ci.yml: both terminal jobs must store bounded reports locally")
     manifest_step = workflow_step("publish-main", "Resolve pushed image digest and write release manifest")
     if "python3 Scripts/CI/write_release_manifest.py --directory artifacts/migrations" not in manifest_step:
         fail(".github/workflows/ci.yml: selected release must invoke the shared verified manifest writer")
@@ -1378,7 +1384,7 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     if "ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}" not in settings_step or "python3 Scripts/CI/frontend_release_plan.py" not in settings_step:
         fail(".github/workflows/ci.yml: optional publication must use the validated release plan")
     for needle in ('if not additional.strip():', 'seen = {selected}', 'acceptance_profile_for_frontend(profile)',
-                   "{settings['app_image']}-{profile.lower()}", "{settings['migration_artifact_name']}-{profile.lower()}"):
+                   "{settings['app_image']}-{profile.lower()}", 'settings.get("release_payload_prefix", "")'):
         if needle not in release_plan:
             fail(f"Scripts/CI/frontend_release_plan.py: missing default isolation or validation {needle}")
     additional_step = workflow_step("publish-main", "Publish additional frontend")
@@ -1397,13 +1403,14 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     additional_cleanup = workflow_step("publish-main", "Remove additional frontend resources after interruption")
     if "always()" not in additional_cleanup or "--cleanup-only" not in additional_cleanup or "outputs.additional_image" not in additional_cleanup:
         fail(".github/workflows/ci.yml: interrupted additional releases require scoped cleanup")
-    additional_upload = workflow_step("publish-main", "Upload additional migration bundle")
-    for needle in ("outputs.additional_artifact_name", "artifacts/additional-migrations/release-manifest.json",
-                   "retention-days: 7", "if-no-files-found: error", "steps.additional_release.outcome == 'success'"):
-        if needle not in additional_upload:
-            fail(f".github/workflows/ci.yml: missing additional release artifact check {needle}")
-    if "migration-provenance.json" in additional_upload:
-        fail(".github/workflows/ci.yml: additional release artifact must exclude internal staging provenance")
+    additional_receipt = workflow_step("publish-main", "Emit immutable release payload receipt")
+    for needle in ("ADDITIONAL_PAYLOAD_IMAGE", '--payload-image "${ADDITIONAL_PAYLOAD_IMAGE}"',
+                   '--payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"',
+                   "artifacts/additional-migrations/release-manifest.json"):
+        if needle not in additional_receipt:
+            fail(f".github/workflows/ci.yml: missing additional GHCR payload receipt check {needle}")
+    if "Upload additional migration bundle" in publisher_job or "Upload migration bundle" in publisher_job:
+        fail(".github/workflows/ci.yml: final migration payloads must not be uploaded as Actions artifacts")
 
 release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
 shared_release_validator = read("Deployment/Common/Scripts/Component/lib/release_manifest.py")
@@ -2256,6 +2263,8 @@ for needle, why in [
     ("prune-release-artifacts:", "artifact retention job"),
     ("template-artifact-retention", "retention concurrency group"),
     ("actions: write", "permission to delete old artifacts"),
+    ("ci_report_store.py prune", "bounded local CI report retention"),
+    ("with-deploy-lock.sh python3 Scripts/CI/ci_report_store.py prune", "local CI report pruning under the deployment lock"),
     ("bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh", "artifact pruning under the deployment lock"),
     ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
     ("Require green main CI for unchanged operation code", "verified operation source"),

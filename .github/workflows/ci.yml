@@ -217,7 +217,8 @@ jobs:
             Deployment/Common/Scripts/Tests/test_registry_payload.py \
             Deployment/Common/Scripts/Tests/test_ci_payload_receipt.py \
             Deployment/Common/Scripts/Tests/test_pull_release_payload.py \
-            Deployment/Common/Scripts/Tests/test_release_settings.py
+            Deployment/Common/Scripts/Tests/test_release_settings.py \
+            Scripts/CI/tests/test_ci_report_store.py
 
       - name: Test deployment target gates and CI runner profiles
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_target_gate.py
@@ -307,28 +308,19 @@ jobs:
       # Ryuk stays enabled as the backstop; the fixtures also dispose their
       # containers explicitly and label them with localcluster.ci.* labels.
       - name: Build and test both frontend profiles
-        run: bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/profiles"
+        run: bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
 
       - name: Prove Testcontainers lifecycle cleanup
         env:
           RUN_TESTCONTAINER_LIFECYCLE: "1"
         run: |
-          lifecycle_results="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/lifecycle"
+          lifecycle_results="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/lifecycle"
           mkdir -p "$lifecycle_results"
           dotnet test --configuration Release --no-build -p:FrontendProfile=React \
             --filter "FullyQualifiedName~TestContainerLifecycleTests" \
             --logger "trx;LogFileName=lifecycle.trx" --results-directory "$lifecycle_results"
           python3 Scripts/CI/validate_dotnet_test_results.py "$lifecycle_results/lifecycle.trx" \
             --expected-skipped 0 --suite "Testcontainers lifecycle"
-
-      - name: Upload .NET test results
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: dotnet-test-results-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/test-results/${{ github.run_id }}-${{ github.run_attempt }}/**/*.trx
-          if-no-files-found: ignore
-          retention-days: 3
 
       - name: Install frontend dependencies
         working-directory: BlazorAutoApp.Client
@@ -373,11 +365,12 @@ jobs:
         run: npm run lint
 
       - name: Test React frontend
-        id: react_unit
         working-directory: BlazorAutoApp.React
         run: |
-          npm test -- --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/react-vitest-results.json"
-          node - "$RUNNER_TEMP/react-vitest-results.json" <<'NODE'
+          react_report="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/react/react-vitest-results.json"
+          mkdir -p "$(dirname "$react_report")"
+          npm test -- --reporter=default --reporter=json --outputFile="$react_report"
+          node - "$react_report" <<'NODE'
           const report = JSON.parse(require("node:fs").readFileSync(process.argv[2], "utf8"));
           if (report.numTotalTests === 0
               || report.numPassedTests !== report.numTotalTests
@@ -396,15 +389,6 @@ jobs:
           }
           NODE
 
-      - name: Upload React unit-test report
-        if: ${{ always() && steps.react_unit.outcome != 'skipped' && steps.react_unit.outcome != '' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: react-test-results-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/react-vitest-results.json
-          if-no-files-found: warn
-          retention-days: 7
-
       - name: Build React frontend
         working-directory: BlazorAutoApp.React
         run: npm run build
@@ -412,23 +396,14 @@ jobs:
       - name: React public Chromium browser regression
         run: pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release -ReuseFrontendBuild
 
-      - name: Restore .NET tools
-        run: dotnet tool restore
-
       - name: Load release settings
-        id: release_settings
         run: |
           app_image="$(bash Deployment/Common/Scripts/read-release-setting.sh app_image)"
-          migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
-          migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
           ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           {
             echo "APP_IMAGE=${app_image}"
             echo "CI_IMAGE_TAG=${ci_image_tag}"
-            echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
-            echo "MIGRATION_RUNTIME=${migration_runtime}"
           } >> "$GITHUB_ENV"
-          echo "migration_bundle_name=${migration_bundle_name}" >> "$GITHUB_OUTPUT"
 
       # PR and non-main runs validate both profile targets without pushing.
       # publish-main receives only the tracked selection from the validate job.
@@ -484,44 +459,23 @@ jobs:
             fi
           done
 
-      - name: Build EF migration bundle
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p artifacts/migrations
-          dotnet ef migrations bundle \
-            --project BlazorAutoApp/BlazorAutoApp.csproj \
-            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
-            --configuration Release \
-            --self-contained \
-            --runtime "${MIGRATION_RUNTIME}" \
-            --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
-
-      - name: Create migration staging provenance
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: |
-          python3 Scripts/CI/migration_staging_artifact.py create \
-            --directory artifacts/migrations \
-            --bundle-filename "${MIGRATION_BUNDLE_NAME}" \
-            --runtime "${MIGRATION_RUNTIME}" \
-            --repository-root "${GITHUB_WORKSPACE}"
-
-      - name: Upload migration staging artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.release_settings.outputs.migration_bundle_name }}-staging-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            artifacts/migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
-            artifacts/migrations/migration-provenance.json
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Report runner capacity
         if: always()
         run: |
           df -h /opt
           df -Pi /opt
           echo "CI cleans only resources it owns; scoped maintenance handles the rest."
+
+      - name: Store CI reports on this runner
+        if: always()
+        env:
+          REPORT_STATUS: ${{ job.status }}
+        run: |
+          python3 Scripts/CI/ci_report_store.py save \
+            --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job validate \
+            --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
+            --runner-name "${RUNNER_NAME:-$(hostname)}"
 
   # Publishes the release for main: the image, the migration bundle and a
   # release manifest that binds them to this commit and CI run.
@@ -616,7 +570,6 @@ jobs:
           release_payload_prefix="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
           migration_bundle_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           migration_runtime="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
-          migration_artifact_name="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
           ci_image_tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           {
             echo "APP_IMAGE=${app_image}"
@@ -625,19 +578,32 @@ jobs:
             echo "CI_IMAGE_TAG=${ci_image_tag}"
             echo "MIGRATION_BUNDLE_NAME=${migration_bundle_name}"
             echo "MIGRATION_RUNTIME=${migration_runtime}"
-            echo "MIGRATION_ARTIFACT_NAME=${migration_artifact_name}"
           } >> "$GITHUB_ENV"
           {
             echo "release_payload_image=${release_payload_image}"
-            echo "migration_bundle_name=${migration_bundle_name}"
-            echo "migration_artifact_name=${migration_artifact_name}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Download exact migration staging artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ steps.release_settings.outputs.migration_bundle_name }}-staging-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/migrations
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Build migration bundle for this exact publisher run
+        run: |
+          mkdir -p artifacts/migrations
+          dotnet ef migrations bundle \
+            --project BlazorAutoApp/BlazorAutoApp.csproj \
+            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
+            --configuration Release \
+            --self-contained \
+            --runtime "${MIGRATION_RUNTIME}" \
+            --output "artifacts/migrations/${MIGRATION_BUNDLE_NAME}"
+
+      - name: Create migration staging provenance
+        run: |
+          python3 Scripts/CI/migration_staging_artifact.py create \
+            --directory artifacts/migrations \
+            --bundle-filename "${MIGRATION_BUNDLE_NAME}" \
+            --runtime "${MIGRATION_RUNTIME}" \
+            --repository-root "${GITHUB_WORKSPACE}"
 
       - name: Validate migration staging artifact
         run: |
@@ -715,16 +681,6 @@ jobs:
             --digests "${RUNNER_TEMP}/release-image-repodigests.json" \
             --labels "${RUNNER_TEMP}/release-image-labels.json"
 
-      - name: Upload migration bundle
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.release_settings.outputs.migration_artifact_name }}
-          path: |
-            artifacts/migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
-            artifacts/migrations/release-manifest.json
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Publish additional frontend
         id: additional_release
         if: ${{ steps.release_settings.outputs.additional_profile != '' }}
@@ -746,17 +702,6 @@ jobs:
           if docker image inspect "${APP_IMAGE}:${CI_IMAGE_TAG}" >/dev/null 2>&1; then
             docker image rm "${APP_IMAGE}:${CI_IMAGE_TAG}"
           fi
-
-      - name: Upload additional migration bundle
-        if: ${{ success() && steps.additional_release.outcome == 'success' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.release_settings.outputs.additional_artifact_name }}
-          path: |
-            artifacts/additional-migrations/${{ steps.release_settings.outputs.migration_bundle_name }}
-            artifacts/additional-migrations/release-manifest.json
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Emit immutable release payload receipt
         env:
@@ -811,6 +756,17 @@ jobs:
           df -h /opt
           df -Pi /opt
           echo "CI cleans only resources it owns; scoped maintenance handles the rest."
+
+      - name: Store CI reports on this runner
+        if: always()
+        env:
+          REPORT_STATUS: ${{ job.status }}
+        run: |
+          python3 Scripts/CI/ci_report_store.py save \
+            --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job publish-main \
+            --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
+            --runner-name "${RUNNER_NAME:-$(hostname)}"
 
   # After a dispatched CI run validates a refreshed Dependabot branch, hand the
   # exact tested commit back to the auto-merge workflow.
