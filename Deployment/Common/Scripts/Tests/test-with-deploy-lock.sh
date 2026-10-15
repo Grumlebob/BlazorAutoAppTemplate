@@ -48,6 +48,53 @@ else
   fail_test "non-zero command exit code propagates (got $status)"
 fi
 
+# 1a. Artifact retention and release selection share this lock: a second
+# operation waits until the first has finished its protected selection work.
+reset_lock
+first_ready="$WORK_DIR/first-ready"
+first_allow="$WORK_DIR/first-allow-exit"
+first_marker="$WORK_DIR/first-finished"
+second_marker="$WORK_DIR/second-started"
+first_log="$WORK_DIR/first-lock.log"
+second_log="$WORK_DIR/second-lock.log"
+bash "$LOCK_WRAPPER" bash -c '
+  touch "$1"
+  while [[ ! -f "$2" ]]; do sleep 0.05; done
+  touch "$3"
+' fixture-first "$first_ready" "$first_allow" "$first_marker" >"$first_log" 2>&1 &
+first_pid=$!
+for _ in $(seq 1 100); do
+  [[ -f "$first_ready" ]] && break
+  sleep 0.05
+done
+bash "$LOCK_WRAPPER" bash -c 'touch "$1"' fixture-second "$second_marker" >"$second_log" 2>&1 &
+second_pid=$!
+second_waiting=false
+for _ in $(seq 1 100); do
+  if grep -Fq "waiting for LocalCluster deployment lock" "$second_log"; then
+    second_waiting=true
+    break
+  fi
+  sleep 0.05
+done
+second_blocked=false
+if [[ "$second_waiting" == true && ! -e "$second_marker" && -d "$LOCK_DIR" ]]; then
+  second_blocked=true
+fi
+touch "$first_allow"
+set +e
+wait "$first_pid"
+first_status=$?
+wait "$second_pid"
+second_status=$?
+set -e
+if [[ "$second_blocked" == true && "$first_status" == 0 && "$second_status" == 0 \
+      && -f "$first_marker" && -f "$second_marker" && ! -e "$LOCK_DIR" ]]; then
+  pass "a second locked selection waits until the first operation releases the shared lock"
+else
+  fail_test "shared lock serializes two selection operations (first=$first_status second=$second_status)"
+fi
+
 # 2. A ten-hour-old lock owned by someone else is never reclaimed.
 reset_lock
 seed_foreign_lock

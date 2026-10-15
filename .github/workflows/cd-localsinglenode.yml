@@ -138,11 +138,14 @@ jobs:
             echo "APP_VERSION=$TARGET_SHA"
           } >> "$GITHUB_ENV"
 
-      - name: Require successful CI for this commit
+      # Resolve and download under the same lock used by artifact retention.
+      # The release artifact holds the migration bundle and release manifest.
+      - name: Select and download release artifact under shared deployment lock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -euo pipefail <<'LOCKED'
+          export GH_TOKEN="$GITHUB_TOKEN"
           ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
             echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
             exit 1
@@ -154,16 +157,9 @@ jobs:
             echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
           } >> "$GITHUB_ENV"
           echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
-
-      # The release artifact holds the migration bundle and the release manifest.
-      # It is needed for every deploy, with or without migrations.
-      - name: Download release artifact from CI
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
-          path: artifacts/migrations
-          run-id: ${{ env.CI_RUN_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mkdir -p artifacts/migrations
+          gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
+          LOCKED
 
       - name: Login to GHCR
         uses: docker/login-action@v4.6.0

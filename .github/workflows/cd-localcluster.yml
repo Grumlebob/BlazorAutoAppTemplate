@@ -142,32 +142,31 @@ jobs:
             printf '%s\n' "${RUNNER_LABEL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Require successful CI for this commit
+      # Selection and download use the same host lock as artifact retention.
+      # Once the exact bytes are in this job workspace, later cleanup cannot
+      # remove the release input that this run has already selected.
+      - name: Select and download the release artifact under the shared lock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
-            echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
-            exit 1
-          }
-          CI_RUN_ID="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["id"])' "$ci_result")"
-          CI_RUN_ATTEMPT="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["selected"]["run_attempt"])' "$ci_result")"
-          {
-            echo "CI_RUN_ID=${CI_RUN_ID}"
-            echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
-          } >> "$GITHUB_ENV"
-          echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
-
-      # The release artifact holds the migration bundle and the release manifest.
-      # It is needed for every deploy, with or without migrations.
-      - name: Download release artifact from CI
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
-          path: artifacts/migrations
-          run-id: ${{ env.CI_RUN_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -c '
+            set -euo pipefail
+            ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py --target-sha "$TARGET_SHA" --json)" || {
+              echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
+              exit 1
+            }
+            CI_RUN_ID="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"id\"])" "$ci_result")"
+            CI_RUN_ATTEMPT="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[\"selected\"][\"run_attempt\"])" "$ci_result")"
+            mkdir -p artifacts/migrations
+            gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
+            test -f artifacts/migrations/release-manifest.json
+            {
+              echo "CI_RUN_ID=${CI_RUN_ID}"
+              echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
+            } >> "$GITHUB_ENV"
+            echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+          '
 
       - name: Login to GHCR
         uses: docker/login-action@v4.6.0

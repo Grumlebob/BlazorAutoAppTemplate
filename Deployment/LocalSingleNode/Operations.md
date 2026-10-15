@@ -30,7 +30,7 @@ Use its reported checks to identify what needs attention. Run `acceptance-check.
 
 ## Maintenance
 
-The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance.
+The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; artifact-only retention runs daily at 03:17 UTC for the primary app and 03:27 UTC for a configured additional app, and also runs on manual dispatch. Artifact deletion stays in dry-run mode unless the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; leave it unset until current accepted/recovery pins and live operations are verified.
 
 Use these options only when needed:
 
