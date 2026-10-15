@@ -1,9 +1,9 @@
 # CarbonCalculator: product foundation, vertical slices and public delivery
 
-Status: implementation plan; product implementation and deployment have not started.
-Prepared: 2026-10-15. Owner decisions and provider conditions must be rechecked when execution starts.
+Status: detailed implementation contract; current direct-navigation design approved by the owner on 2026-10-15. Product implementation and deployment have not started.
+Revised: 2026-10-15 after a feature/acceptance audit. D02 saved-project ownership and public launch level still need owner decisions.
 
-Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. **Fieldwork colors and a combination of the progressive workspace (B) with route exploration (C) are selected.** The owner clarified that the user works at a construction site, records purchased/received materials from invoices or delivery notes, and needs help with transport carbon/A4 evidence. A supplier's invoice address can differ from the actual factory, warehouse or depot. Invoice scanning is a future feature. Review the current combined site-workspace mockup before final screen approval or launch-timing decisions. These decisions do not start native setup or deployment.
+Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. **Fieldwork colors and a combination of the progressive workspace (B) with route exploration (C) are selected.** The owner clarified that the user works at a construction site, records purchased/received materials from invoices or delivery notes, and needs help with transport carbon/A4 evidence. A supplier's invoice address can differ from the actual factory, warehouse or depot. Invoice scanning is a future feature. The owner has approved the current direct-navigation design. Do not reopen screen approval; saved-project ownership and public launch level remain decisions. Design approval does not start native setup or deployment.
 
 Latest screen refinement: use one **Dashboard** containing the scoped transport estimate, material breakdown and searchable delivery records. Put **Add delivery** beside the delivery-list heading. Each delivery provides direct **Material**, **Transport** and **Documents** links into the corresponding section of one editable delivery workspace. Remove the separate “To review” card and review/details/assessment sequence. Use **Save delivery** and **Export report** as concrete actions. Use a secondary **About** page for address, A4 and method explanations. Support invoice/delivery-note attachments separately from future scanning; the mockup uses sample files only. Omit promotional filler and future-feature controls.
 
@@ -19,10 +19,14 @@ This request authorizes planning, source inspection, local design previews and p
 
 Read in this order:
 
-1. This section, the preparation evidence and the three design directions in sections 2–3.
-2. Product boundaries, architecture, contracts and free-service decisions in sections 4–9.
-3. Packet protocol and ordered delivery work in sections 10–12.
-4. Acceptance, operator dependencies, progress ledger and continuation instructions in sections 13–17.
+1. This section, preparation evidence and the approved design brief in sections 2–3.
+2. [FeatureSpecification.md](Support/CarbonCalculator/FeatureSpecification.md): user behavior, data/state contracts, incomplete records, storage, attachments, totals and failure handling.
+3. Product boundaries, architecture, contracts and free-service decisions in sections 4–9.
+4. Packet protocol/order in sections 10–12 and [ImplementationPackets.md](Support/CarbonCalculator/ImplementationPackets.md): granular checkpoints inside each visible slice.
+5. [Acceptance.md](Support/CarbonCalculator/Acceptance.md): all 61 original handoff IDs and 40 added product criteria, with required proof.
+6. Acceptance, operator dependencies, progress and open decisions in sections 13–17.
+
+The main plan owns scope/authority/deployment; feature specification owns behavior; implementation checkpoints own substep detail; acceptance owns proof obligations. Update related documents together. These specifications are not competing progress ledgers.
 
 All proposed CarbonCalculator paths, endpoints, commands and acceptance profiles below are **design targets until implemented**. Existing template links describe the inspected baseline; replace them with retained downstream runbooks when cleanup changes paths.
 
@@ -65,110 +69,69 @@ Private preparation is under `Plans.local/CarbonCalculator/` in the controller's
 
 The previews are planning artifacts. The original color previews use fixed figures; the new journey previews have local illustrative state and simple sample arithmetic so edits and choices demonstrate the proposed flow. Neither is a production calculator or live integration. All sample routes are marked as fixture/schematic. The source bundle's `reviewedBy` text requests independent rechecking before external use; importing `approved` strings does not constitute a new numerical or rights review.
 
+### Follow-up audit for this revision
+
+The owner approved the final direct-navigation design. Template release-transport PR #290 was rechecked as merged at `a1274eb16e2e9085857029e5caa57670b40e4aa3`; it is no longer an open dependency. P01 still chooses a current successful exact-main baseline. Rechecked official standard-method, routing-options, browser-storage and structured-data sources for this revision. No key, live route, node mutation or product implementation was used. The three companion specifications now record 17 features, granular checkpoints and all 61 source IDs plus 40 added product criteria.
+
 ### Source review already performed
 
 Read the full handoff, routing notes, release checklist, supplied tests and data structure. Opened the five official EPD PDFs, provider migration notice, routing restrictions, OSM tile policy, GitHub runner/billing documentation and ÖKOBAUDAT data-user guidance. This establishes relevant source locations and current policy evidence. It does not grant data redistribution rights or replace the per-field review in P09/P15.
 
-## 3. Selected Fieldwork palette and user-journey review
+## 3. Approved design and feature audit
 
-The owner selected Fieldwork's light green palette. The original three visual previews below are historical styling references, not three adequate user journeys. Their layout is not approved by the palette choice. The current design decision concerns the interactive journey concepts described after these references. Do not mistake any schematic map for a geographically accurate basemap.
+The owner explicitly approved the latest direct-navigation mockup on 2026-10-15. Earlier color/journey explorations are archived references, not required screens or undecided alternatives.
 
-| Direction | Character and layout | Initial tokens | Tradeoff |
-| --- | --- | --- | --- |
-| **Fieldwork palette, selected** | Calm construction workspace; original composition remains a reference only | Background `#F4F6F2`, surface `#FFFFFF`, ink `#1E382E`, accent `#24734F`, tinted surface `#EDF4E9`, 12 px card radius | Use these colors across all journey concepts; validate actual usability separately |
-| **B — Route Desk** | Dark technical workspace; larger map, compact controls, route details emphasized | Background `#0E1A25`, surface `#172736`, ink `#E6EEF5`, accent `#4B82D4`, 7 px radius | Efficient for frequent routing; denser first impression |
-| **C — Material Ledger** | Warm report workspace; production and freight figures before map; editorial headings and clear source ledger | Background `#F5F0E7`, surface `#FFFCF7`, ink `#39382D`, accent `#6D7248`, 5 px radius | Strong report readability; route exploration receives less space |
+| Element | Implementation contract |
+| --- | --- |
+| Palette | Background `#F4F6F2`, surface `#FFFFFF`, ink `#1E382E`, accent `#24734F`, tint `#EDF4E9`; system fonts, calm spacing and restrained rounded cards |
+| Header | Brand, current project context/chooser, secondary About; no speculative primary tabs |
+| Dashboard | Compact scoped transport estimate and material breakdown above the material-delivery list |
+| List header | Material deliveries, count, Add delivery beside the heading, search and useful filters |
+| Delivery row | Material/supplier/reference, quantity, labelled estimate, factual missing-data status and direct Material/Transport/Documents links |
+| Delivery workspace | One editable record with freely selectable Material, Transport and Documents sections; preserve dirty inputs |
+| Estimate | Beside the active delivery section on desktop, after it on mobile; contextual calculation/source access |
+| Main actions | Save delivery commits the record and returns to Dashboard; Export report opens contextual immutable output |
+| Explanations | About contains general address/A4/method teaching; forms retain specific field help and source inspection |
+| Documents | Attach, preview or download, remove; fake files in mockup, actual private lifecycle in P12A |
+| Excluded patterns | No To review card, duplicate materials page, mandatory review/details/result sequence, large introduction, tutorial dropdowns or future scanner control |
 
-Portable composition briefs:
+Use “review” only when someone actually checks a source or future extracted suggestion. The receiver records arrivals, not outbound bookings. Invoice office, factory, warehouse dispatch and site destination remain distinct.
 
-```text
-A / Fieldwork
-  Header: brand | Calculator | Route explorer | Sources & method
-  Intro: product purpose + scenario-estimate qualification
-  Inputs 360–400 px | Route map, source legend, selected corridor
-                   | Three corridor cards; explicit provisional selection
-                   | Production A1–A3 card | Freight WTW card
-                   | Evidence summary and next useful improvement
+Implement at 320, 390, 768, 1024 and 1440 CSS px, 200% zoom, keyboard-only and reduced motion. Maps have equivalent text controls and attribution. Design approval does not prove accessibility or numerical behavior.
 
-B / Route Desk
-  Compact header and transport status
-  Dense input panel | Large map and per-leg sources
-                    | Selectable corridor table and ranking sensitivity
-                    | Production and freight inspector
+### Gaps closed by this specification revision
 
-C / Material Ledger
-  Editorial header and scenario title
-  Inputs | Production card | Freight card
-         | Boundary and source summary
-         | Supporting map and route alternatives
-         | Report actions and provenance ledger
-```
+| Earlier gap | Concrete contract now specified |
+| --- | --- |
+| Save meant tab-only state despite project-oriented UI | D02 explicitly resolves ownership/lifetime; recommended device-persistent projects and defined cross-device decision gate |
+| Saving required too much calculation readiness | Incomplete saves; separate current/stale/input-needed/coverage states |
+| Dashboard could hide stale/incompatible contributions | Server-owned grouped aggregation, signed retained snapshots, coverage and filter-independent project total |
+| Delivery/invoice identity was underspecified | Stable record/lot identity, document-line/physical-delivery refs and duplicate warnings without rejecting repeated invoices |
+| Edits and racing requests could contradict results | Numeric/routing/context fingerprints, dependency invalidation and edit-revision checks |
+| Source consent had no defined lifetime | Exact/proxy/metadata-only states with revision-bound consent and withdrawal behavior |
+| Standard-method quantity basis was implicit | Received versus incorporated quantity retained with category/edition eligibility |
+| Attachments lacked ownership/recovery detail | Local versus short-lived server originals, limits, private capabilities, safe retrieval/deletion and backup |
+| Report export was confused with project backup | Separate immutable Report JSON and editable Project backup/import with honest originals availability |
+| Acceptance lists were only referenced | Every T01–T30, R1–R7 and V3-01–V3-24 mapped, plus AC01–AC40 |
 
-### Prior interactive journey exploration
+The remaining product choices are D02 and public launch level. Source rights, terminal access and provider availability remain evidence tasks rather than assumed successes.
 
-All three new concepts use the same Fieldwork colors and sample data. They vary entry point, question order, progressive disclosure and editing behavior. Names A/B/C now refer to these **journeys**, not the historical color alternatives above.
+### Preview evidence and limits
 
-| Journey | Interaction sequence | Intended advantage | Tradeoff to review |
-| --- | --- | --- | --- |
-| **A — Guided estimate** | Material/amount, then delivery, then explicit source match, then results and report | One focused decision at a time, progress indicator and explanations beside each step | More navigation for repeat users editing several answers |
-| **B — Progressive workspace, recommended main calculator** | One small initial section; completed answers fold into editable summaries; delivery and source sections open in place; then results/report | Keeps context visible while avoiding an overwhelming initial form/map/results dashboard | Longer page; focus/scroll behavior and summary placement must work on mobile |
-| **C — Route first, recommended separate Route Explorer entry** | Select places, compare/select corridors, optionally add material/amount and source, then impact/report; route-only remains a valid outcome | Useful to logistics users without material data; adding impact preserves the selected corridor | Production-source understanding arrives later than in the material-led flows |
+Current retained preview: `Plans.local/CarbonCalculator/PreviewSite/site-workspace/`, served over loopback because the app rejected untrusted file links. Sources are `DashboardRefinement/workspace.*` and `delivery-flow.*`, composed by `build_site_workspace.py`. Preserve these ignored assets for downstream handoff; they are not runtime dependencies.
 
-The owner subsequently selected B and C combined: progressive information entry with route exploration integrated into the same assessment. A remains a historical alternative, not an extra mandatory implementation or a six-page wizard. The combined pattern and Fieldwork palette are settled; individual screens remain under review.
+Earlier automated prototype evidence has 49 interaction/layout entries, including 20 screenshots, with no uncaught browser errors in that revision. The approved direct-navigation refinement has 12 rendered desktop/mobile screenshots covering Dashboard, Material, Transport, Documents, sample attachment and saved delivery. Those were visually inspected; earlier automated journey checks were not rerun. No production feature is proven.
 
-The new prototypes demonstrate:
+Replace the prototype's in-memory storage, fixture routes/arithmetic/files, simplified validation and incomplete error/accessibility handling. Production Save delivery allows incomplete records even though the preview's simplified save validates quantity. Do not copy its mutable globals, function overrides, inline events or JavaScript emissions formulas into the React application.
 
-1. Empty starting state, short purpose statement, specific field labels and a clear next action.
-2. Example location search with candidate confirmation; unknown route is the default and does not require logistics expertise.
-3. An explicit source-match choice: use the declaration as a labelled estimate or continue with transport only.
-4. Missing quantity as a first-class path: per-unit production and per-tonne freight, with no invented shipment total.
-5. Results with production and freight kept separate, selectable sample corridors, actual sample formulas in explanation drawers and a next useful improvement.
-6. Back/edit without losing confirmed inputs; route-first material addition preserves corridor choice.
-7. A readable sample report and browser print path, plus an unavailable-service example that preserves answers and requires explicit sample selection.
-
-The preview search choices and routes are illustrative, not live. Advanced warehouse/truck controls describe intended behavior but are not full implementations. Do not copy preview calculations/state into production; implement the selected journey through the authoritative C# contracts and domain rules.
-
-Preparation evidence: 31 recorded browser checks/captures, including 21 screenshots, zero uncaught browser errors and no horizontal overflow in the checked desktop/390 px states. Checks cover each complete sample journey, input validation, preserved answers, source drawer, transport-only/unknown-quantity paths and unavailable state. They prove prototype interactions/layout only, not human friendliness, accessibility conformance or production acceptance.
-
-### Current combined site workspace
-
-The current mockup applies the owner's construction-site context to B+C rather than just joining two generic calculators:
-
-1. **Dashboard:** recorded deliveries and an estimated material-transport subtotal. Keep missing dispatch information on its delivery row and in the list filter, without a duplicate review card. Replace the old “In progress” tile with an estimate derived from actual receipt data. Keep its method and coverage clear; do not invent a complete project total or compliance score. The current two standard-value sample records give 148 + 45 = 193 kg CO₂e. Keep incompatible route WTW scenarios separate from this subtotal.
-2. **Record materials received:** product description, quantity received in this delivery, original unit, optional invoice/delivery-note reference and date. An invoice can cover multiple deliveries; invoice quantity is not automatically the quantity of this receipt.
-3. **Supplier and dispatch information:** supplier legal/contact identity and invoice address are distinct from the factory, warehouse/depot and actual dispatch evidence. “Only the office address” and “I don't know” are valid states.
-4. **Integrated transport assessment:** choose a versioned standard-value material transport basis, or explore known/explicitly assumed dispatch-to-site corridors alongside the progressive form. Do not make the user know the carrier's route or truck before starting.
-5. **Coverage-aware result:** selected method, material mass, source/formula and gaps. The example Berlin office address is not used as the confirmed origin of the Hamburg-to-Copenhagen scenario. Unknown finished-product factory-to-warehouse transport is shown as missing coverage, not already included in A1–A3.
-6. **Documentation:** retain receipt, site, supplier/invoice address, dispatch status, method/revision, result scope, evidence and assumptions. Print and JSON export demonstrate the record; a receipt line is not the whole project's A4/A5 result.
-
-The Dashboard is the single project workspace on desktop and mobile: compact estimate and material breakdown above the delivery list. Place **Add delivery** beside the list heading. Search by material/supplier/document reference and filter by unknown dispatch or route estimates. Each row links directly to **Material**, **Transport** and **Documents**, preserving delivery identity. These are useful sections of one editable delivery workspace; users can switch directly without completing a wizard or visiting a review page. Keep quantity/supplier fields under Material, dispatch/method/route under Transport and supporting files under Documents. Show the calculation beside the active section on desktop and after it on mobile. **Save delivery** updates that receipt and returns to Dashboard; **Export report** opens its contextual output. Reserve “review” for actual source verification or future extracted-field confirmation, not ordinary delivery navigation. Use a small secondary About link for general address, A4 and method explanations. Remove teaching-style dropdowns and the “Understanding the source information” card from the working forms. Retain specific source/formula access when inspecting a result. Do not add Documentation, Methods & sources, catalog or separate Materials received tabs.
-
-The dashboard has no large introductory/illustration banner, sidebar marketing text, future invoice-scanning shortcut or fabricated activity. The scanner remains in the expansion backlog rather than appearing as an available control. Counts/subtotals come from the same receipt records as the list; saving an existing record updates it without adding a duplicate. New receipt entry starts empty.
-
-The mockup includes a standard-material example from [BR18 Annex 2, Table 10](https://www.bygningsreglementet.dk/bilag/b2/bilag_2/?Layout=ShowAll): 20,000 kg construction timber × 0.0074 kg CO₂e/kg = 148 kg CO₂e for the material transport line. This is an alternative basis to the indicative route result, not an extra amount to add. Check the applicable regulation edition/material category and account for project-level additions separately before any reporting claim. The [official A4 guidance](https://www.bygningsreglementet.dk/tekniske-bestemmelser/11/brv/bygningers-klimapaavirkning-1-juli-2025/kap-1_7/) establishes the broader factory/storage/distribution-to-site boundary. The initial generic GLEC WTW route model must not be silently renamed a compliant A4 method.
-
-Prior preview evidence: 49 recorded interaction/layout checks and captures, including 20 screenshots, zero uncaught browser errors and no horizontal overflow in the then-current desktop/390 px states. The subsequent direct-navigation refinement was rendered into 12 desktop/mobile screenshots covering Dashboard, Material, Transport, Documents, an attached sample and the saved delivery. These screenshots were visually inspected; the earlier automated journey checks were not rerun against the revised flow. All evidence concerns the prototype, not product/live-provider acceptance.
-
-Supporting documents can be attached, previewed/downloaded and removed from a receipt; implement their private storage and lifecycle in P12A. The current mockup simulates these actions with fictional invoices, delivery notes and supplier confirmations. It accepts no real files. Attachment alone never changes quantities or verifies dispatch. Invoice scanning remains future work: it must propose editable draft fields with extraction provenance, and cannot establish dispatch from a billing address or verify an actual route. No scanner, OCR account or automatic supplier-site discovery is included in v1.
-
-### Journey decision gate
-
-1. Review the current combined site workspace before final component implementation. Preserve the approved Fieldwork palette and B+C pattern; collect screen/copy refinements rather than asking the owner to choose these again. Independent source, repo and contract work can continue while the owner reviews it.
-2. Produce the chosen calculator view, Route Explorer, result explanation, printable report and empty/error examples at desktop and mobile sizes.
-3. Use local system fonts initially. Establish CSS variables for color, spacing, type, focus, warnings and source status. Keep semantic components small and reusable.
-4. Validate at 320, 390, 768, 1024 and 1440 CSS px, including 200% text zoom. Mobile stacks inputs before results; a sticky action must not cover content or focus.
-5. Ensure keyboard operation, visible focus, accessible autocomplete selection, text alternatives to map controls and route line patterns. Status must never depend on color alone.
-6. Do not decorate a modelled route or proxy match with a general green “verified” badge. Distinguish source authenticity from product fit and route certainty.
-7. Archive selected screenshots and a compact design specification in the downstream product. Keep rejected previews out of production assets. This plan contains enough composition/tokens to reconstruct the directions if ignored files are unavailable.
-
-The first production UI is a calculator, not a marketing dashboard. No invented customers, savings percentages, certifications, shipment activity or carbon-neutral claims. Initial light theme uses Fieldwork colors; a complete dark theme is an expansion packet. The journey prototype named B does not imply selecting the old dark Route Desk theme.
+The reference standard-line example is timber 148 + brick 45 = 193 kg CO₂e under a reviewed category/method/basis, separate from route WTW and other project contributions. P11A reviews actual applicability; this is not a complete project A4/A5 result.
 
 ## 4. Product contract and scope
 
 ### Required for the complete first delivery
 
 - Real address/city search with candidate confirmation and explicit location precision.
-- Receiver-oriented site context and a material-receipt record with optional document reference and private supporting attachments; supplier invoice/contact addresses, dispatch evidence and production locations remain separate.
+- Receiver-oriented project/site context with saved material-delivery records, stable identity, optional document/line references, direct Material/Transport/Documents access, incomplete saves and private attachments. D02 chooses persistence/ownership before implementation; supplier invoice/contact addresses, dispatch evidence and production locations remain separate.
 - A reviewed/versioned standard-material A4 transport-line method for useful assessment when detailed origins are missing. Separate its regulatory source/eligibility/coverage from indicative route WTW. Never add both methods for the same movement or claim a complete project result from receipt lines alone.
 - Shared Route Explorer: arbitrary supported origin/destination, optional waypoints, HGV restrictions and ferry policy, usable without a material.
 - Default live HGV road routing through the backend. No key or provider failure produces a useful unavailable/setup state and an explicitly selected offline sample.
@@ -179,7 +142,7 @@ The first production UI is a calculator, not a marketing dashboard. No invented 
 - Live road/ferry comparison for both configured services and both eligible directions after terminal approval. Complete inference requires validated approaches, not fixture-only ferry cards.
 - Deterministic, explainable route recommendation, ambiguity and waiting-time sensitivity.
 - One shipment plus a known intermediate warehouse, typed movements and a lifecycle ledger. Show unknown upstream facts without fabricating suppliers.
-- Independent A1–A3 indicators and freight WTW estimates, source explanations, JSON export/import, immutable report and print view.
+- Independent A1–A3 indicators and freight WTW estimates, source explanations, immutable report/print/Report JSON and a distinct editable Project backup/import with honest attachment availability.
 - A reviewed, bounded ÖKOBAUDAT importer and at least one approved second-provider dataset. This retains the handoff's concrete data-expansion commitment.
 - Public SPA at the requested hostname, with provider quotas, privacy behavior, operational checks, update/rollback and app-data restore evidence.
 
@@ -197,7 +160,7 @@ A public road beta does not complete this plan. Do not silently drop ferry valid
 
 ### Deliberate expansion backlog
 
-Keep these outside v1 unless the owner promotes a packet: accounts and permanent cloud project storage; organizations and role permissions; shareable private reports; multi-material vehicle allocation; invoice scanning/OCR and automatic document extraction; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; complete building/site regulatory LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance. Private supporting attachments are included through P12A. A lightweight private site/receipt context does not imply multi-user project storage. Never let speculative supplier discovery replace evidence.
+Keep these outside v1 unless the owner promotes a packet: accounts and cross-device/server projects unless D02 promotes them; organizations and role permissions; report sharing; multi-material line editing and shared-vehicle allocation; invoice scanning/OCR and automatic document extraction; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; complete building/site regulatory LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance. Private supporting attachments are included through P12A. Recommended D02 uses durable device-local projects, not multi-user server storage. One saved delivery row is one homogeneous material receipt; shared invoice references do not imply shared vehicle allocation. Never let speculative supplier discovery replace evidence.
 
 ## 5. Selected architecture
 
@@ -218,7 +181,8 @@ CarbonCalculator.sln
 CarbonCalculator/
   Features/
     Capabilities/                   # safe operator-independent availability
-    SiteReceipts/                   # receipt context, document references and coverage
+    SiteReceipts/                   # receipt validation, aggregation and coverage
+    Attachments/                    # short-lived owned evidence copies
     RouteExplorer/
       SearchPlaces/                 # endpoint, request, handler, validation
       FindRoutes/
@@ -230,6 +194,7 @@ CarbonCalculator/
     Calculations/
       CreateEstimate/
       Recalculate/
+      AggregateProjectTransport/
     Reports/
       ReadSnapshot/
       DeleteSnapshot/
@@ -244,7 +209,8 @@ CarbonCalculator.Core/
   Calculations/                     # loads, indicator math and ledger
   Provenance/                       # source references, revisions, explanations
 CarbonCalculator.React/
-  app/features/{site-receipts,route-explorer,materials,calculator,reports,sources}/
+  app/features/{site-receipts,route-explorer,materials,calculator,reports,documents,sources}/
+  app/storage/                      # versioned local projects under approved D02
   app/routes/                       # thin route composition
   app/api/                          # generated contract/client/query keys
   app/components/                   # genuinely shared UI primitives
@@ -268,9 +234,9 @@ Cross-cutting concerns enter through a small composition root. Use direct depend
 
 ### Persistence decision
 
-Use EF Core SQLite for the single-node product, with one owned persistent volume. Keep immutable reviewed catalog/factor files in Git; persist short-lived provider cache entries, route-set envelopes and anonymous report snapshots. Add a simple hosted retention task. The initial schema needs these few records, not every speculative table in the handoff.
+Use EF Core SQLite for the single-node backend, with owned storage for snapshot/capability hashes, route/cache envelopes, request budgets and finalized server evidence metadata/bytes. Persist the snapshot-signing key ring under protected owned storage and include it in restore. Catalogs/factors remain versioned files. Add bounded retention/reconciliation. Under recommended D02, saved projects/receipts/local originals live in versioned browser IndexedDB and survive server-copy expiry. Resolve D02 before implementing storage; node backups do not cover browser data.
 
-Remove inherited PostgreSQL, Redis, Books, Identity, email, social login, passkeys, account migrations and their runtime dependencies together once product endpoints replace the sample. Remove obsolete health probes, dashboards, Compose services, secrets, packages, migration assumptions and acceptance fixtures too. Keep ASP.NET security, diagnostics and the migration/release interface needed by SQLite.
+Remove inherited PostgreSQL, Redis and Books once product endpoints replace the sample. Under account-free D02, remove unused Identity/email/social/passkey/account storage and dependencies together. If D02 requires authenticated projects, first specify retained/replacement ownership and migration; do not delete authentication by default. Remove obsolete health probes, dashboards, Compose services, secrets, packages, migration assumptions and acceptance fixtures too. Keep ASP.NET security, diagnostics and the migration/release interface needed by SQLite.
 
 SQLite rules: one application replica initially; WAL and finite busy timeout; short transactions; never hold a write transaction during a provider call; owned non-root writable data directory; bounded report/body/cache sizes; proper online SQLite backup or a documented quiesced backup. Copying an active `.db` without its consistency protocol is not a verified backup. More replicas or large collaboration needs trigger a database ADR, not shared SQLite over a network filesystem.
 
@@ -319,6 +285,9 @@ JSON uses validated finite numbers and ISO UTC times. Document hash canonicaliza
 13. A supplier invoice address is a document fact, not a confirmed factory or dispatch point. Raw-input A2 covered by A1–A3 differs from missing finished-product factory-to-warehouse transport, which can be part of A4. Preserve both distinctions.
 14. A document can refer to multiple receipts, and a delivery can have multiple supporting documents. Record the actual receipt allocation, prevent duplicate delivery/quantity counting and retain original document quantities separately when supplied. An invoice total or price cannot become material mass.
 15. Standard-material transport values and route-based freight scenarios are alternative bases for the same movement. Scope/tag each value; project-wide terminal processes and other additions are not multiplied once per receipt. No project compliance conclusion follows from summing partial receipts.
+16. Preserve received versus incorporated quantity basis and eligibility explicitly. A delivery amount is not silently converted into an approved reporting amount.
+17. Saving an incomplete record is valid. A calculation requiring missing inputs returns typed input-needed; missing/stale records do not enter current project totals.
+18. Retained local contribution envelopes must verify identity, signature and numeric fingerprint before server aggregation. Search/filter state does not change project-wide totals; imported/unverified claims require explicit recalculation.
 
 ### Initial source-based numerical acceptance
 
@@ -398,6 +367,7 @@ Use `/api/v1` with generated OpenAPI, cancellation propagation, bounded DTOs and
 | `POST /api/v1/routes` | Confirmed places, route knowledge, explicit live/demo mode, vehicle/cargo; returns route-set ID, fingerprint, expiry, candidates and recommendation |
 | `POST /api/v1/calculations` | User inputs, selected reviewed EPD/factors and server-issued route-set/selection; returns immutable snapshot plus short-lived report access capability |
 | `POST /api/v1/calculations/recalculate` | Prior report capability or validated imported inputs plus overrides; creates a new snapshot and never mutates the old one |
+| `POST /api/v1/calculations/aggregate` | Bounded signed contribution envelopes/current fingerprints; verifies identity/compatibility and returns grouped totals/coverage, never trusts submitted totals |
 | `GET /api/v1/reports/{id}` | Snapshot only, with capability header; no provider calls or recalculation |
 | `DELETE /api/v1/reports/{id}` | Delete this report with its capability; document retention/backup limits |
 | `POST /api/v1/receipt-evidence` | Create a bounded short-lived anonymous evidence container and return its independent receipt capability |
@@ -411,14 +381,14 @@ Suggested failures: 400 malformed JSON; 422 field/domain errors; 404 inaccessibl
 
 ### Anonymous report design
 
-The handoff's no-auth local database assumption is unsafe for public reports. Keep the initial product account-free, with bounded anonymous use:
+The handoff's no-auth local database assumption is unsafe for public reports. The recommended D02 contract is account-free with bounded capability access; authenticated cross-device ownership requires its explicit replacement slice:
 
-The site/receipt workspace initially uses tab-local private draft context and explicitly exported snapshots. Store needed site/supplier/receipt metadata inside each immutable report envelope. Do not add unauthenticated globally listable project CRUD or imply durable server project storage without access design. A project/receipt overview must distinguish drafts, partial assessments and method-compatible line subtotals; it must not sum indicative WTW with regulatory standard lines. Future accounts or invoice scanning require separate privacy, access, retention and extraction-review packets.
+Resolve D02 before P08A/P12A. Recommended v1: saved projects/receipts/local originals and safe signed snapshots persist in browser IndexedDB; unsaved buffers stay separate. Server report/evidence copies remain short-lived. Explain shared-device access, browser-storage loss and backup. No anonymous server project CRUD or cross-device promise. Keep supplier/notes local unless a requested report needs them. Dashboard distinguishes incomplete/stale/unverified assessments and compatible method groups. Future accounts/scanning need focused ownership/extraction packets; see FeatureSpecification.md.
 
 1. A report has a random ID and an independent cryptographically random capability of at least 256 bits. Store only its hash, compare safely, and require it in a dedicated header. Knowing an ID does not grant access. There is no report enumeration endpoint.
-2. Default capability/report-input state stays in the tab's `sessionStorage` or memory. Never put addresses, capabilities or whole scenarios in URLs, analytics, source maps, third-party query strings or logs. Explain that local browser scripts can access tab storage; enforce CSP and prevent injection.
+2. Server capabilities stay in the tab's `sessionStorage` or memory under recommended D02. Safe saved records/snapshots persist separately without server access tokens. Never put addresses, capabilities or whole scenarios in URLs, analytics, source maps, third-party query strings or logs. Explain that local browser scripts can access tab storage; enforce CSP and prevent injection.
 3. Server report retention defaults to 24 hours, bounded by configurable storage and request size limits. Expired reports are not served. Run deletion regularly and document backup expiry separately; do not promise instantaneous erasure from existing backups.
-4. No public share link or permanent project store in v1. Supporting uploads use P12A's capability access, quotas and short-lived retention; show expiry before upload. Explicit JSON export is the durable user-owned calculation copy, containing attachment metadata rather than original documents or access secrets. Original document download is a separate explicit action. Add “Clear this session” and report deletion with an explanation of remaining exports/backups.
+4. No public share link or permanent server project store under recommended D02; device-local projects have their own delete/export lifecycle. Supporting uploads use P12A's capability access, quotas and short-lived retention; show expiry before upload. Explicit JSON export is the durable user-owned calculation copy, containing attachment metadata rather than original documents or access secrets. Original document download is a separate explicit action. Add scoped Clear session, Delete project and server-report/evidence deletion actions explaining remaining local originals/exports/backups.
 5. Route/geocode caching uses a separate documented retention policy, initially up to seven days only if provider terms allow. A hash cache key does not anonymize a payload containing precise coordinates. Limit collected data and restrict volume/backup access.
 6. JSON import is untrusted: enforce schema/version, byte/count/depth limits, finite numbers and safe text/URLs; render no executable HTML. Imported values are labelled imported, not server-verified. Recalculate only after confirmation and new server validation.
 7. Reopening a snapshot must not fetch routing, quietly refresh factors or change any number. Recalculation creates a new ID with an explicit change summary.
@@ -492,26 +462,34 @@ Initial import into a genuinely empty repository follows the existing [standalon
 | --- | --- | --- | --- |
 | VS0 — Independent product | P01–P08; design work D01 | Safe own repo, React/LocalSingleNode only, meaningful CI and native capacity | Owner source/target intent |
 | VS1 — Explore a real route | P09–P10 | Confirm new places, live HGV polyline/km/time, honest errors, usable map/table | VS0 and provider key for live acceptance |
-| VS2 — Assess a site material receipt | P11, P11A, P12, P12A | Unified receipt workspace, separate route/standard bases, timber indicators, provenance, private report and supporting attachments | VS1; standard-method work can progress independently of live keys |
+| VS2 — Assess a site material receipt | P08A, P11, P11A, P11B, P12, P12A, P12B | Unified receipt workspace, separate route/standard bases, timber indicators, provenance, private report and supporting attachments | VS1; standard-method work can progress independently of live keys |
 | VS3 — Five useful materials | P13–P14 | All five scenarios, missing-info recovery, warehouse ledger and load checks | VS2 |
 | VS4 — Compare plausible corridors | P15–P16 | Reviewed live ferry approaches, deterministic recommendation/sensitivity and override | VS1; can research during VS2/VS3 |
 | VS5 — Add reviewed data without rewriting UI | P17 | Staged importer and second-provider dataset through same use case | VS3 and source/format evidence |
 | VS6 — Launch and sustain | P18–P21 | Native/private release, public HTTPS, acceptance, update/rollback/restore and handover | All required product slices, chosen design and operator access |
 
-D01 precedes final visual component work. P01/P02 preparation and source reviews can proceed while design choice is pending. P03 may move early for CI capacity. Terminal/source research can begin immediately; missing keys do not block pure domain, importer or design work. Do not create horizontal “all backend, then all frontend, then test everything” phases.
+D01 captures the approved design. D02 precedes dependent persistence/authentication decisions. P01/P02 preparation and source reviews can proceed while D02 is pending. P03 may move early for CI capacity. Terminal/source research can begin immediately; missing keys do not block pure domain, importer or design work. Do not create horizontal “all backend, then all frontend, then test everything” phases.
+
+Concrete product order: P08A after D02/P08; P09–P10 for real routes; P11/P11A for calculations; P12 for persistent snapshots/key storage; P11B for signed Dashboard aggregation; P12A for evidence; P12B for portability. P11B's pure rules can start earlier, but its shipping gate requires P12. Numbered packet labels group work; this dependency order prevents a signing/runtime completion cycle.
+
+Optional early publication uses the explicit beta gate in [Acceptance.md §7](Support/CarbonCalculator/Acceptance.md#7-release-evidence-rules), only after owner selection. Otherwise follow the complete-v1 path; no imaginary beta profile or skipped full-v1 gate.
 
 ## 12. Ordered granular packets
 
-### D01 — Design choice and implementation brief
+### D01 — Approved design implementation brief
 
-Inputs: section 3, approved Fieldwork colors, selected B+C pattern and the current site-workspace preview.
+Inputs: section 3 and the owner's explicit approval of the current direct-navigation mockup. Detailed checkpoints: ImplementationPackets.md §1.
 
-1. Review the combined site receipt-to-assessment-to-documentation task with the owner. Include office-versus-dispatch mismatch, incomplete origin, alternative assessment bases, an edit, missing quantity and a phone layout. Record screen/copy refinements; do not revisit approved colors or B+C.
+1. Capture the approved Dashboard/direct-delivery composition in the downstream brief, including office/dispatch mismatch, missing quantity, method choice, Documents and phone layout. Do not ask for another design selection.
 2. Refine selected empty/form/result/error/report views. Include no-key, quota, metadata-only EPD, stale result, no map and no clear preference states.
 3. Record spacing/type/color/focus/status tokens, component inventory and mobile behavior. Show production and freight as separate indicators. Use one Dashboard with estimate/breakdown, record search/filter and Add delivery beside the list. Specify direct Material/Transport/Documents row links, one editable delivery workspace, Save delivery and contextual report/source access. Include secondary About and attach/preview/remove interactions. Do not duplicate the record list, add a review queue or restore teaching dropdowns.
 4. Copy selected design artifacts into the downstream repo when available; exclude mockup scripts and invented sample activity from runtime.
 
-Exit: recorded owner direction plus a concrete UI brief. Foundation/source packets remain independent.
+Exit: approved direction retained as an implementation brief; no further screen approval gate.
+
+### D02 — Saved-project ownership and lifetime
+
+Resolve current-device persistence versus authenticated cross-device projects before P08A/P12A and authentication removal. The recommended account-free contract and replacement path are specified in FeatureSpecification.md §1 and ImplementationPackets.md §1. Record the answer; implement one ownership model, not both. Independent foundation/domain/source work can continue.
 
 ### P01 — Recheck baseline and execution prerequisites
 
@@ -596,11 +574,23 @@ Exit: a new contributor sees one production product and current commands, with n
 
 1. Add chosen design tokens/layout, route modules, accessible navigation and safe loading/error boundaries. Keep calculator placeholders clearly incomplete until VS1/VS2 land.
 2. Remove route prerendering; verify ASP.NET SPA shell, known deep links, GET/HEAD behavior, asset caching and reserved-path denial. Do not return HTML for missing API/assets.
-3. Define `React/CarbonCalculatorPublicV1` across resolver, manifest, labels, CI smoke, native setup/readiness and `Scripts/Test-DeployedSite.ps1`. Add a truthful capabilities/safe catalog probe, then expand acceptance as slices land.
+3. Define `React/CarbonCalculatorPublicV1` across resolver, manifest, labels, CI smoke, native setup/readiness and `Scripts/Test-DeployedSite.ps1`. Add truthful capabilities/catalog probes and expand acceptance with slices. If the owner selects early beta, add a separate real `React/CarbonCalculatorRoadBeta` pair with Acceptance.md's bounded scope; never weaken full-v1 checks.
 4. Do not retain Books as the final acceptance target or reduce acceptance to HTTP 200. Until product checks exist, call the shell incomplete and keep public launch gated.
 5. Verify React build output and strict CSP; select map dependency versions after compatibility review, not `latest` scaffold commands.
 
 Exit: product routes and release pairing work; acceptance explicitly detects missing product behavior. **Checkpoint C1** becomes eligible when VS0 and D01's required implementation brief are verified.
+
+### P08A — Durable project and incomplete-delivery workspace
+
+Prerequisites: P08, approved D01 and resolved D02. Detailed ten-step implementation: [ImplementationPackets.md §3](Support/CarbonCalculator/ImplementationPackets.md#3-p08a--project-and-delivery-persistence-through-the-approved-shell).
+
+1. Implement project create/select/site context and approved delivery section routes.
+2. Add versioned local persistence under D02, separate saved records/edit buffers, atomic save and failure recovery.
+3. Save incomplete records with stable identity; add open/update/delete, dirty-leave and revision conflicts.
+4. Add project isolation, two-tab behavior, direct section links and bounded search/filter/order.
+5. Prove browser reopen, partial saves, failed writes, cancelled deletion and no provider calls during record work.
+
+Exit: saved project/delivery behavior is real and honest about storage scope before calculations land.
 
 ### P09 — Source intake and real provider adapter through a thin slice
 
@@ -641,7 +631,7 @@ Exit: timber from input through real route, separated impacts and explanations w
 Inputs: D01, P11's validated receipt/mass and reviewed official method sources. Can proceed while live-routing keys or terminal research are pending.
 
 1. Verify the applicable official BR18 guidance/Annex 2 Table 10 edition and inspect material category definitions, units, source terms and project-level requirements. Record applicability and method status; do not infer the building's permit regime from today's date.
-2. Add a versioned registry and explicit material-category mapping. Preserve exclusions/unknown categories. Implement transport mass × category value through a separate pure handler, generated contract and shared receipt UI.
+2. Add a versioned registry, explicit material-category mapping and received/incorporated quantity-basis/eligibility state. Preserve exclusions/unknown categories. Implement normalized mass × category value through a separate pure handler, generated contract and shared receipt UI.
 3. Keep supplier/invoice/dispatch fields and their evidence even when the selected standard method does not require an exact route. Offer route exploration alongside it as another basis, not an additive component.
 4. Prove the initial 20 t construction-timber material transport line is 148 kg CO₂e for the reviewed 0.0074 source value. Scope the result to the material transport line; show project-wide terminal/other contributions as unassessed until their actual inputs/method are implemented.
 5. Implement basis selection, coverage states, method/source edition and immutable report provenance. Reject mixing two transport bases for the same receipt movement and refuse a whole-project pass/fail from partial or incompatible lines.
@@ -651,25 +641,50 @@ Exit: a receipt can produce a traceable standard-material transport line without
 
 ### P12 — Immutable anonymous reports and persistent runtime transition
 
-1. Add EF SQLite schema/migrations for route/cache envelopes, snapshot/capability hashes, expiry and persisted budgets. Treat catalog inputs as versioned files, not a public edit API.
+1. Add EF SQLite schema/migrations for route/cache envelopes, snapshot/capability hashes, evidence metadata, expiry and persisted budgets. Persist the contribution-signing key ring under protected owned storage. Catalog inputs remain versioned files, not a public edit API.
 2. Implement report access/deletion, token-safe client state, immutable read, JSON export/import and print layout. A report read/print/export must make zero provider calls.
 3. Keep schema/method/catalog/factor/terminal/route revisions and original source values in each snapshot. Recalculate creates a new snapshot with an explicit comparison to the previous version.
-4. Remove Books APIs/data and unused PostgreSQL/Redis/Identity/account/mail storage/services/secrets/migrations. Update dependency graph, local tooling, Docker, Compose, probes, operations, CI and audit together.
+4. Remove Books APIs/data and unused PostgreSQL/Redis storage/services/secrets/migrations. Remove Identity/account/mail only under approved account-free D02 or after a proven replacement identity migration. Update dependency graph, local tooling, Docker, Compose, probes, operations, CI and audit together.
 5. Update SQLite migration bundle/native dependencies, app volume ownership, doctor and backup/restore hooks. Do not deploy a PostgreSQL bundle against SQLite or pretend an empty/no-op artifact proves migration validation.
 6. Prove wrong/missing token denial, expiry, deletion, XSS-safe import, size limits, report restart persistence and immutable results after catalog/factor changes. Verify logs and error responses contain no capability/key/address.
 
-Exit: private reproducible reports and a product-owned persistent runtime, with no inherited sample/account database dependency. Complete P12A before claiming VS2 or **Checkpoint C2**; the live route gate also remains required.
+Exit: private reproducible reports and a product-owned persistent runtime, with no inherited sample/account database dependency. Complete P08A/P11B/P12A/P12B before claiming VS2 or **Checkpoint C2**; the live route gate also remains required.
+
+### P11B — Consistent Dashboard, calculation state and evidence
+
+Detailed nine-step implementation: [ImplementationPackets.md §7](Support/CarbonCalculator/ImplementationPackets.md#7-p11b--dashboard-totals-edit-invalidation-and-source-inspection).
+
+1. Implement numeric/routing/context fingerprints, staleness and late-response protection.
+2. Sign immutable contribution envelopes; persist/rotate/restore signing keys and verify inputs before aggregation.
+3. Aggregate compatible current non-overlapping assessments in C#, with groups, coverage and no JavaScript emissions engine.
+4. Render compact estimate/breakdown and existing useful filters; searching does not alter project-wide totals.
+5. Generate source/formula drawers from calculation nodes and keep historical reports immutable.
+6. Prove duplicate/stale/missing/forged inputs, mixed methods, rounding, edits and shared invoice references.
+
+Exit: Dashboard/list/delivery values agree without a review workflow.
 
 ### P12A — Private supporting documents, separate from scanning
 
-1. Add a vertical attachment feature: bounded multipart upload, attachment metadata, authorized download/removal, generated API contracts and React attach/list/preview/remove controls. Use an independent anonymous receipt capability, hashed server-side, for pre-assessment drafts; authorize every document operation through its receipt owner. Never treat a document ID or filename as access. Do not create public listing or sharing endpoints.
+1. Resolve D02; implement owned local originals/metadata before explicit short-lived server uploads. Add bounded multipart upload, private retrieval/removal, generated contracts and React attach/list/preview-or-download/remove controls. Use an independent anonymous receipt capability, hashed server-side, for pre-assessment drafts; authorize every document operation through its receipt owner. Never treat a document ID or filename as access. Do not create public listing or sharing endpoints.
 2. Store bytes in the product-owned persistent volume outside webroot; use generated storage IDs and SQLite metadata for receipt ownership, original display name, detected media type, byte length, SHA-256 and expiry. Never use the supplied filename as a filesystem path. Default to PDF/JPEG/PNG only, 10 MiB per file, three files per receipt and a configurable global disk budget. Enforce limits while streaming, validate signatures against allowed types, sanitize names and reject HTML/SVG/executables. Configure per-client upload limits and bounded anonymous receipt creation; return useful quota errors without leaking paths.
 3. Show upload progress, failure/retry, filename/type/size, explicit removal and expiry. Download through an authorized same-origin endpoint with safe content headers and `no-store`; use authenticated blob retrieval so capabilities never enter URLs. Default PDFs to download; only offer a sandboxed preview after validating the isolation policy. Render images through a safe bounded path. Do not execute embedded document content or fetch remote resources from uploaded files. Add a free malware-scanning adapter only if available capacity and operations support it; never label an unscanned file safe.
 4. Preserve attachment metadata/content hashes in immutable report snapshots, without exporting raw documents, capability tokens or public download URLs. A snapshot describes the evidence at calculation time; removal/expiry makes the original unavailable without rewriting that history. Linking a report to document bytes requires the receipt capability as well as report access. An imported JSON attachment description does not restore a file or grant access.
-5. Apply a 24-hour default expiry to anonymous receipt documents, display it before upload and do not imply permanent storage. Delete unreferenced/expired bytes and metadata with scoped cleanup; “Clear this session” offers deletion of its receipts/documents and reports before dropping local capabilities. Bound interrupted-upload staging. Extend the backup/restore runbook to cover both SQLite and document bytes consistently, with documented backup expiry. No paid storage service or account system is required.
+5. Apply a 24-hour default expiry to server document copies and display it before explicit upload. Under recommended D02, local saved originals remain until explicit deletion/browser-storage loss; server expiry does not remove them. Delete unreferenced/expired bytes and metadata with scoped cleanup; Clear session offers deletion of its server copies before dropping tab capabilities; Delete project separately removes local records/originals under D02. Bound interrupted-upload staging. Extend the backup/restore runbook to cover both SQLite and document bytes consistently, with documented backup expiry. No paid storage service or account system is required.
 6. Verify owner versus wrong/missing capability, expired/deleted documents, guessed IDs, filename traversal, spoofed types, oversized/count/global limits, interrupted uploads, storage failure, safe headers, no token/address logging, restart persistence and orphan cleanup. Exercise attach/preview or download/remove and report metadata in the browser. Prove attaching a document does not alter material quantity, confirm dispatch or run OCR.
 
-Exit: users can keep short-lived private invoice/delivery evidence with a receipt and retrieve/remove it under the same ownership boundary. Scanning and extracted-field review remain a later packet. The local design preview continues to use sample files only.
+Exit: local originals and short-lived server copies follow their explicit ownership/lifetime without confusing expiry and local deletion. Follow the twelve detailed checkpoints and limits in the companion documents. Scanning and extracted-field review remain a later packet. The local design preview continues to use sample files only.
+
+### P12B — Editable project backup and restore
+
+Detailed seven-step implementation: [ImplementationPackets.md §10](Support/CarbonCalculator/ImplementationPackets.md#10-p12b--portable-project-backup-and-restore).
+
+1. Separate Report JSON from versioned Project backup with clear export scope.
+2. Export editable records, safe snapshots and an originals manifest, excluding tokens/private URLs/raw files by default.
+3. Validate bounded untrusted imports, preview counts/missing originals and create a new project/fresh record IDs by default.
+4. Apply import atomically with duplicate warning and failure recovery; imported approval/signature claims are not trusted.
+5. Prove new-browser restore after server expiry and malformed/unsupported/duplicate imports without overwriting existing work.
+
+Exit: users can recover editable records without a false promise that ordinary JSON includes invoice bytes.
 
 ### P13 — Five material families through the same calculator
 
@@ -727,7 +742,7 @@ Exit: reviewed second-provider data works end to end without a new screen-specif
 
 ### P18 — Release readiness and final production acceptance
 
-1. Review all handoff T01–T30, R1–R7 and V3-01–V3-24 acceptance IDs against implemented tests/evidence; read the original list rather than reconstructing it from memory. Record gaps, never silently delete an ID.
+1. Reconcile Acceptance.md's T01–T30, R1–R7, V3-01–V3-24 and AC01–AC40 against actual tests/artifacts/exact SHAs. Read original requirements before changing an ID. Include non-ID importer obligations. Record gaps; no written row is a passed test.
 2. Finish `CarbonCalculatorPublicV1` acceptance with safe catalog/capability checks, deterministic five-material/route/ledger/report journey, reserved-route denial and release/data/method identity.
 3. Keep live integration checks separate and bounded. CI mock-provider success does not prove HeiGIT access; public readiness does not require spending a route call every health check.
 4. Review session/report privacy, retention, log redaction, proxy trust, provider budget, source rights and public notices using actual behavior. Verify no routing key in JS/source maps/image metadata.
@@ -766,7 +781,7 @@ Exit: intended HTTPS product passes external acceptance; a DNS record, screensho
 1. Publish a small compatible update through PR/local gate/exact-head CI/green main, deploy it, and prove expected behavior/identity.
 2. Roll back to a compatible prior image through retained scoped scripts and verify product/data identity; roll forward again. A code rollback does not undo an incompatible SQLite migration. Use expand/contract migrations or a reviewed restore procedure.
 3. Prove app restart and dedicated connector restart recovery without disturbing other apps. Do not reboot a shared node by default; only do so for an authorized concrete recovery concern.
-4. Create a consistent SQLite backup and restore it into an isolated owned test target. Verify schema/data/snapshot content and capabilities/expiry behavior without publishing or overwriting the production DB. Record checksum and restore evidence, not just backup-file existence.
+4. Create a consistent backup of SQLite, finalized server evidence and signing keys, then restore into an isolated owned target. Verify schema/data/snapshot signatures, attachment content and original capability/expiry behavior without publishing or overwriting production. Record checksums and restore evidence. Browser-local project/original backups are a separate P12B/user export concern, not covered by the node backup.
 5. Document app-scoped doctor, logs, budget exhaustion, secret rotation, source updates, catalog approval/import, retention, report expiry, backup/restore and compatible rollback. Use real commands from implemented tooling.
 6. Reconcile every required acceptance ID and pending owner question. Record explicit owner deferrals; a unilateral smaller release is not whole-plan completion.
 7. Fetch/prune, verify integrated content and no task/PR/process/lock dependency, then remove finished worktrees and local/remote branches. Record full deleted branch SHAs. Archive only unique necessary evidence/notes outside removed checkouts with verified SHA-256; never whole checkouts/build output.
@@ -793,7 +808,7 @@ Exit: public product, update/recovery/data-restore evidence, maintainable docume
 | Delivery | Exact-head CI, exact-main publication, digest/profile/revision and LAN/public browser acceptance | Green PR or DNS setup treated as live deployment |
 | Recovery | Compatible rollback/forward and isolated consistent SQLite restore | A backup file exists but has never been restored |
 
-Keep source acceptance IDs in a downstream `Acceptance.md` ledger with columns: original ID, packet, test/artifact path, last evidence, status and reason. Values are `pending`, `passed`, `blocked` or `owner-deferred`; never make “not applicable” a quiet scope deletion.
+Use the retained [Acceptance.md](Support/CarbonCalculator/Acceptance.md), already mapping all original IDs and AC01–AC40; extend it downstream with columns: original ID, packet, test/artifact path, last evidence, status and reason. Values are `pending`, `passed`, `blocked` or `owner-deferred`; never make “not applicable” a quiet scope deletion.
 
 ## 14. Operator dependencies and genuine manual work
 
@@ -801,7 +816,8 @@ These are dependencies of later execution, not reasons to stop planning. Reuse e
 
 | Input/action | Current state | Agent work first | Human involvement only when required |
 | --- | --- | --- | --- |
-| Screen review | Fieldwork colors and B+C selected; combined receiver-oriented site workspace prepared | Provide linked receipt/supplier/route/result/report views | Owner gives screen/copy feedback; no repeat question about colors or B+C |
+| Design | Current direct-navigation design explicitly approved | Capture brief and implement real responsive behavior | No further mockup/color/layout approval |
+| Saved-project ownership D02 | Current-device versus authenticated cross-device persistence unresolved | Recommend device-persistent projects; specify backup/access/lifetime and prepare independent slices | Owner chooses once before dependent storage/authentication work |
 | Runner interpretation | Additional CarbonCalculator registration approved on 2026-10-15; preserve current template runner | Verify current scope and prepare supported same-node setup when execution starts | No further confirmation of the registration choice is needed; any returned native human step still applies |
 | Native privileged setup | New app-specific runner/bootstrap is likely | Prepare checkout/identity and native status result | Run the exact `human` root command returned by the native runbook; never give a speculative sudo command now |
 | HeiGIT account/key | No key used by this planning task | Check protected existing configuration by presence only; implement adapter/tests/quota controls | If absent, owner registers/verifies a free account and enters the key through protected secret input, never chat |
@@ -824,12 +840,13 @@ Initial checkpoint:
 ```text
 Authoritative repository: template for planning; CarbonCalculator after P02
 Current packet: planning delivered; implementation not started
-Next action: review combined construction-site workspace screens; final screen
-  refinements and launch timing remain pending; Fieldwork colors, B+C pattern
-  and additional same-node runner are approved
+Next action: resolve D02 saved-project ownership and public launch level;
+  current direct-navigation design, Fieldwork colors, B+C pattern and additional
+  same-node runner are approved
 Completed preparation: source copy + SHA-256 manifest, 23 supplied tests,
   template/runner/remote inspection, original style references and three interactive
-  journey previews with browser interaction/layout evidence
+  journey previews with browser interaction/layout evidence; approved final direct
+  navigation; 17-feature specification, granular checkpoints and 101 mapped criteria
 Pending mandatory evidence: all product packets, live key/provider checks,
   source publication review, terminal approaches, public/recovery acceptance
 Live authorization: none transferred from Portfolio/template
@@ -875,12 +892,12 @@ Complete checks/integration/evidence/closeout for each packet before advancing.
 
 ## 16. Open product decisions
 
-Only these choices warrant asking now; technical defaults elsewhere are already specified:
+Only these choices warrant asking now; technical defaults and design are specified:
 
-1. **Screen refinements:** review the selected B+C construction-site workspace, especially how invoice/dispatch uncertainty, partial transport coverage and method choice are explained. The palette and combined interaction pattern are already selected; collect concrete feedback rather than asking those decisions again.
-2. **Public launch level:** after reviewing the mockups, decide whether to launch a clearly labelled road-only beta as soon as it is safe and useful, or wait for complete v1 ferry comparison and second-provider import. The owner explicitly deferred this decision until mockup review; no launch option is approved yet. The early-beta recommendation does not reduce complete-v1 requirements.
+1. **D02 saved-project ownership:** save only on the current browser/device, or include authenticated cross-device access? Recommend durable device-local IndexedDB initially, with explicit backup/privacy and short-lived server copies. This replaces the old tab-only recommendation but requires confirmation before dependent storage/authentication implementation. If cross-device is required, add the focused identity/ownership slice first; do not ship an anonymous permanent server database.
+2. **Public launch level:** publish a clearly labelled road-only beta after its useful/safe gates, or wait for complete v1 including ferry comparison and second-provider import? Design review is complete; no launch option is approved yet. An early beta never reduces complete-v1 requirements.
 
-Resolved: the owner approved a CarbonCalculator-specific runner registration on the existing node, selected Fieldwork colors and chose B+C combined on 2026-10-15. The construction-site receiver and invoice/delivery-note context supersedes outbound-shipping language. Invoice scanning remains future work. Preserve the current runner and do not ask the settled decisions again.
+Resolved: the owner approved the current direct-navigation design, a CarbonCalculator-specific runner registration on the existing node, Fieldwork colors and B+C combined on 2026-10-15. The construction-site receiver and invoice/delivery-note context supersedes outbound-shipping language. Invoice scanning remains future work. Preserve the current runner and do not ask the settled decisions again.
 
 No need to ask the owner to select an ORM, state library, validation framework, API versioning pattern or deployment ports. Revisit a default only when evidence or a new product requirement makes it unsuitable.
 
@@ -891,7 +908,7 @@ The **planning task** is complete when this detailed plan is reviewed, integrate
 The **implementation goal** is complete only when:
 
 1. CarbonCalculator is independent, private, React/ASP.NET and LocalSingleNode-only; cleanup and actual downstream gates are complete.
-2. All mandatory vertical slices have real evidence, including receiver-oriented site receipts, separate supplier/dispatch evidence, versioned standard-material transport assessment, five materials, real routing, reviewed ferry inference, private immutable reports, warehouse/load/boundary behavior and bounded second-provider import.
+2. All mandatory vertical slices have real evidence, including D02-consistent saved projects/incomplete deliveries, approved direct navigation, supplier/dispatch evidence, standard-material transport and compatible Dashboard aggregation, five materials, real routing, ferry inference, private documents, immutable reports/project backup, warehouse/load/boundary behavior and second-provider import.
 3. The requested HTTPS product serves the verified immutable release with correct method/data revisions and passes independent public acceptance.
 4. Free-only operation, scoped shared-node ownership, update/compatible rollback, consistent data restore and maintainable handover are proven.
 5. Required work is complete or explicitly deferred by the owner with recorded reason; workspace cleanup and authoritative next-work notes are finished.
