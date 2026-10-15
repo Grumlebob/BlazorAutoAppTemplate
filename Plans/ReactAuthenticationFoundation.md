@@ -1,6 +1,8 @@
 # React authentication foundation
 
-Status: ready for implementation planning handoff, **implementation paused at the owner's request on 2026-10-15**. Selected: ASP.NET Core Identity with app cookies, separate accounts per cloned product, email/password account flows and optional environment-configured admin seeding. A partial implementation was started before the owner clarified the pause; preserve it and resume from section 10 rather than starting again. This change publishes the plan only. Wait for an explicit request to resume implementation in the new chat, then complete this template foundation before returning to CarbonCalculatorDelivery.md.
+Status: reviewed for execution on 2026-10-15; implementation remains paused during this documentation task. Selected: ASP.NET Core Identity with app cookies, separate accounts per cloned product, email/password account flows and optional environment-configured admin seeding. Preserve the partial draft in section 10. In a fresh chat, invoking `/goal Plans/ReactAuthenticationFoundationGoal.md` authorizes implementation, tests, browser verification and gated repository integration described by that goal. It does not authorize live deployment or external email. Complete this template foundation before returning to CarbonCalculatorDelivery.md.
+
+Read this plan, [ExecutionSpecification.md](Support/ReactAuthentication/ExecutionSpecification.md) and [Progress.md](Support/ReactAuthentication/Progress.md). This plan owns scope and delivery order; the execution specification owns exact contracts and resolves ambiguity in older prose or draft code. Progress owns evidence and the next action. Implementation must satisfy all three; preserve security requirements when making a documented equivalent implementation choice. No unanswered product preference blocks execution.
 
 ## 1. Scope
 
@@ -11,7 +13,7 @@ Build a frontend-independent Identity backend and React account UI. Reuse UserMa
 Included:
 
 - Email/password login, logout, session status and session revocation.
-- Optional self-registration, confirmation, resend, forgot/reset password and email change through configured email delivery.
+- Optional self-registration, confirmation, resend, forgot/reset password and email change through configured email delivery and a bounded encrypted database outbox.
 - Account settings, password change, personal-data export and deletion with password reauthentication.
 - Optional operator-provisioned Admin through ordinary ASP.NET environment variables and the ignored root `.env` for local Compose.
 - An authenticated React Books example with owner-scoped create/list/update/delete.
@@ -29,7 +31,7 @@ The template owns identity/session primitives. Product projects, invoices, reten
 - Legacy Blazor demo seeding has published-account cleanup. Preserve that cleanup without overwriting the operator admin.
 - Books already filters by immutable user ID. Add explicit CSRF protection for enabled cookie-authenticated writes.
 - Data Protection persists through Redis/filesystem. Independent products need separate stable App:Name, session identity and storage/database access.
-- ReactPublicV1 remains the default disabled/public release baseline. Enabled accounts need additional evidence, not another frontend build target.
+- ReactPublicV1 remains the release acceptance identifier. Its public checks stay intact and gain a capability-aware enabled-mode branch; authenticated acceptance also needs actual browser/API evidence. There is no additional frontend build target.
 
 These are source observations, not a completed security audit.
 
@@ -41,16 +43,18 @@ Bind startup-validated options under `Accounts` through existing JSON/environmen
 | --- | --- | --- |
 | Accounts:Enabled | false | Map new account APIs and enable their policies; disabled React remains public-only. |
 | Accounts:RegistrationEnabled | false | Self-registration; requires configured email delivery. Provisioned-account-only mode needs no mail service. |
+| Accounts:WriteLimit:PermitLimit / WindowSeconds | 20 / 300 | Additional account-write limiter; no request queue; applies to both enabled account route families. |
 | Accounts:PublicOrigin | empty | Canonical HTTPS frontend origin for email links; required with email. Never construct links from untrusted Host headers. |
 | Accounts:Email:Host | empty | SMTP host; empty explicitly disables email/recovery capability. |
 | Accounts:Email:Port | 587 | TLS SMTP port. |
 | Accounts:Email:Security | StartTls | StartTls or SslOnConnect only; keep certificate verification. |
 | Accounts:Email:Username / Password | empty | Private SMTP credentials; both present together when used. |
 | Accounts:Email:From | empty | Valid sender mailbox required with SMTP. |
+| Accounts:Email:MaxAttempts | 3 | Bounded outbox attempts; delivery/lease rules are fixed in the execution specification. |
 | Accounts:AdminSeed:Enabled | false | Explicit startup provision after migrations. |
 | Accounts:AdminSeed:Email / Password | empty | Required when seeding is enabled; framework validation applies. No default credentials. |
 
-Use centrally pinned MailKit for SMTP. An existing SMTP service or suitable free tier works; no paid provider is mandatory. Validate setting names without printing full options or secrets. Send plain-text messages with encoded one-time tokens. Bound SMTP timeout; delivery failure returns temporary-unavailability without provider exceptions or recipient details. Do not claim an outbox or durable background retries.
+Use centrally pinned MailKit for SMTP. An existing SMTP service or suitable free tier works; no paid provider is mandatory. Validate setting names without printing full options or secrets. Send plain-text messages with encoded one-time tokens. Use the existing PostgreSQL database and an ASP.NET BackgroundService for a bounded encrypted outbox; no additional queue service is needed. Public email requests acknowledge processing uniformly with 202, never expose a recipient-specific SMTP error and never claim delivery. The worker records redacted failure metrics and bounded retries. This deliberately replaces the draft's synchronous SMTP/503 behavior: direct sending leaks account existence during recipient/provider failures and leaves account creation separate from delivery intent. Follow the exact schema, capacity, lease, retry and privacy rules in ExecutionSpecification.md §5.
 
 Validation must reject partial seed credentials, invalid sender/recipient formats, malformed canonical origins and mismatched SMTP username/password. Require a bare HTTPS origin with no userinfo, query, fragment or additional path. An enabled seed password must meet the same policy as a new ordinary account. Empty or disabled settings must never activate a default account. Keep configuration/secret names portable; no machine-specific deployment values belong in this plan.
 
@@ -82,7 +86,7 @@ Admin here means the fixed Identity role and an authenticated account available 
 
 ## 4. HTTP and session contract
 
-Map `/api/auth` only when enabled. Metadata generation describes the real endpoints without opening a database or SMTP connection. Disabled runtime endpoints remain 404; React treats a 404 session probe as disabled capability.
+Map `/api/auth` only when enabled. An always-available, credential-free `GET /api/client-config` returns `{ schemaVersion: 1, accountsEnabled: boolean, applicationId: string }` without issuing cookies. React uses that explicit capability before requesting a session. A missing/invalid configuration response, or a missing session endpoint when accounts are enabled, is an unavailable/misconfigured state; never interpret an arbitrary 404 as feature-disabled. Metadata generation describes the real endpoints without opening a database or SMTP connection. Disabled account runtime endpoints remain 404.
 
 | Operation | Contract |
 | --- | --- |
@@ -90,26 +94,30 @@ Map `/api/auth` only when enabled. Metadata generation describes the real endpoi
 | POST /login | Email/password/remember-me; failed-password lockout enabled; generic 401 for invalid, unconfirmed, locked or unsupported credentials. |
 | POST /logout | Authenticated and CSRF validated; clear current app cookie. |
 | POST /logout-all | Authenticated and current password verified; rotate security stamp and clear current cookie. |
-| POST /register | Registration capability required; generic accepted response for existing email; framework validation for new input; send confirmation; no automatic login. |
-| POST /resend-confirmation | Email capability required; generic response regardless of existing/confirmed status. |
-| POST /confirm-email | Validate user/token through Identity; no automatic login. |
-| POST /forgot-password | Email capability required; generic response for unknown/unconfirmed users. |
+| POST /register | Registration capability required; accept email only, return generic 202 for existing/new email, and atomically create an eligible pending account plus confirmation intent. Password is chosen after mailbox proof; no automatic login. |
+| POST /resend-confirmation | Email capability required; generic 202 regardless of existing/confirmed status, duplicates or recipient cooldown. |
+| POST /confirm-email | Validate user/token through Identity, then atomically set the user-chosen password and confirmed status. No automatic login. |
+| POST /forgot-password | Email capability required; generic 202 for unknown/unconfirmed/eligible users; durable intent for eligible users only. |
 | POST /reset-password | Validate framework token and new password; revoke prior sessions; no automatic login. |
 | POST /change-password | Authenticate current password, rotate security stamp, sign out; require subsequent login. |
-| POST /change-email | Authenticate current password; send proof to new address without changing it yet. |
+| POST /change-email | Authenticate current password; persist confirmation intent for the proposed address without changing the account yet. |
 | POST /confirm-email-change | Validate user/email/token, update email and username consistently, revoke sessions; no automatic login. |
 | POST /export | Authenticate current password; export profile and owned example records, excluding all credentials/keys/tokens. |
 | POST /delete | Authenticate current password; atomically delete owned example records and account, then sign out. |
 
 Use bounded annotated request DTOs, typed responses and safe ProblemDetails. Bound account bodies to 16 KiB before JSON binding; bound emails to 254 characters, IDs to 128 characters and tokens to 4096 characters. Every JSON mutation validates `X-CSRF-TOKEN`, including login and token-consumption endpoints. Private fetch is same-origin and never automatically retries mutations. Refresh the antiforgery token after session changes. Apply auth rate limiting to `/api/auth` independently of `/Account`, and retain the normal API/global protections. Start with an additional per-client limit of 20 account writes per five minutes; password lockout also bounds attacks distributed across client addresses. Document that in-process rate counters do not become a distributed limiter across replicas. Public author-book reads remain credential-free.
 
+Enabled private operations also require `X-Expected-User` containing the user ID observed by the UI/session bootstrap. Compare it against the authenticated principal before use-case execution; it never supplies identity or grants access. Missing/mismatched expected user returns the specified 409 session-change problem. Apply this to private Books reads/writes and authenticated account operations, including logout. Both React and the retained Blazor transport participate. This closes the cookie-change race between a client-side session precheck and the actual request. See ExecutionSpecification.md §3.
+
 Protect enabled private Books writes too. When the shared policy is enabled for a Blazor build, adapt its WebAssembly Books transport to obtain a request token; do not break a retained consumer while securing React. Disabled mode must preserve existing Blazor behavior. If enabled Blazor registration consumes IEmailSender, bind actual configured delivery or make that capability honestly unavailable; a no-op email sender must not silently strand newly confirmation-required accounts. The future implementation must resolve this compatibility seam explicitly, not assume the React UI replaces all Blazor account paths.
 
 Enabled cookies are app-specific, host-only, Secure/HttpOnly and SameSite Lax, with a `__Host-` name, Path=/ and no Domain. Derive a safe stable cookie identifier from App:Name and the environment; never include a deployment version or replica ID. The antiforgery cookie is separately named, Secure/HttpOnly and host-only. Use eight-hour fixed expiry, or fourteen-day fixed expiry with remember-me; no sliding renewal. Validate security stamps on every authenticated request for prompt revocation, accepting the account-store lookup cost. Identity's stamp validator can request cookie renewal: explicitly preserve absolute expiry instead of accidentally extending tickets while refreshing claims. Password change/reset, logout-all and deletion invalidate old sessions on the next validation; in-flight requests are not retroactively cancelled. Confirmation/reset tokens last one hour.
 
-Use minimum **15-character** new passwords, maximum 128 input characters, framework hashing, five failed attempts and fifteen-minute lockout. Do not require arbitrary character mixtures; allow spaces, password managers, paste and autofill. Use a bounded offline validator for known common/default passwords, with a reviewed versioned source/license; do not introduce an external call on each password submission. Keep length/input handling consistent across framework options, API DTOs, admin validation and both maintained UIs; do not silently trim/truncate passwords. Existing valid credentials can still sign in without satisfying the new-password length rule. No arbitrary periodic changes; require change on evidence of compromise. These are product policy choices informed by current NIST guidance, not a formal NIST compliance claim. Generic email responses reduce enumeration without claiming identical timing. Never log bodies, email-link secrets or cookies. Email callback secrets use URL fragments, removed from history before forms render; they do not enter HTTP query logs. [Antiforgery](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0), [Identity configuration](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-configuration?view=aspnetcore-10.0), [password guidance](https://pages.nist.gov/800-63-4/sp800-63b.html).
+Use minimum **15 Unicode code points** for new passwords and maximum 128, framework hashing, five failed attempts and fifteen-minute lockout. The execution specification pins the offline common-password source and defines consistent Unicode/DTO handling. Do not require arbitrary character mixtures; allow spaces, password managers, paste and autofill. Do not trim, truncate or silently change existing credentials. Existing valid credentials can still sign in without satisfying the new-password length rule. No arbitrary periodic changes; require change on evidence of compromise. These choices are informed by current guidance, without claiming formal NIST compliance. Generic email responses reduce enumeration without claiming identical timing. Never log bodies, email-link secrets or cookies. React email callback secrets use URL fragments and are removed from history before forms render. Retained Blazor callbacks need explicit query redaction and a clean redirect because they use existing server-rendered routes. [Antiforgery](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0), [Identity configuration](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-configuration?view=aspnetcore-10.0), [password guidance](https://pages.nist.gov/800-63-4/sp800-63b.html).
 
 Framework-generated confirmation tokens are not automatically a complete one-use workflow. Refuse confirmation after the account is already confirmed; refuse an email-change replay after it is committed; verify that password reset invalidates its token through the updated security stamp. Confirmation/change/reset races must not create mismatched username/email state. Use the EF execution strategy and transactions for multi-write sensitive operations, with fresh tracked state on retry. Do not rely on process-local locks across replicas.
+
+Email-first registration is deliberate: an attacker must not choose a password for somebody else's address and retain it when that person later confirms. A new public pending account has no usable password. Confirmation requires explicit mailbox proof and choosing a password; existing unconfirmed accounts also replace any old password only after that proof. Repeated registration never overwrites credentials, confirms users or clears lockout. Enabled Blazor registration/confirmation must use the same rule; preserve legacy disabled-mode behavior separately.
 
 Anonymous private endpoints return 401 rather than login HTML. Set no-store on account/private responses including errors before endpoint execution. Preserve legacy Blazor behavior when the new Accounts feature is disabled.
 
@@ -119,6 +127,7 @@ Anonymous private endpoints return 401 rather than login HTML. Set no-store on a
 - Routes: `/auth/login`, `/auth/register`, `/auth/confirm-email`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/confirm-email-change`, `/auth/settings`, `/my-books`. Existing `/Account` remains reserved for Blazor.
 - Keep account feature state in memory. Use the generated OpenAPI contract and a separate credentialed client; public calls still omit credentials.
 - Show labels, pending states, errors and honest disabled-capability messages. Prevent duplicate submits.
+- Registration first asks for email. The confirmation page asks for a new password after the emailed proof is opened. State the next step clearly; do not advertise public signup when registration is disabled.
 - Cancel/remove private queries on account transitions. Keys include user ID; session changes broadcast across tabs without tokens/private data. Recheck session on focus and before private mutations.
 - A private 401 invalidates session and asks for login without retrying writes or exposing another user's cached data. Preserve unsaved form input until deliberate navigation. Allow only safe local return paths.
 - Ignore late session/query results after an account transition or unmount. A read/write initiated for one account must not be displayed or saved as another account's action if the shared cookie changes. Bind private request results to the expected user and recheck the server principal where needed; cancellation alone does not prove isolation. Keep an expired user's unsaved draft in memory, but hide it from a different newly signed-in user until explicitly discarded. Do not persist passwords or callback tokens in browser storage, query caches, analytics or broadcasts.
@@ -126,6 +135,8 @@ Anonymous private endpoints return 401 rather than login HTML. Set no-store on a
 - My Books demonstrates existing owner-scoped CRUD. Keep the SPA SSR-disabled and production served by ASP.NET.
 
 ## 6. Granular delivery packets
+
+Execute the numbered checklist in ExecutionSpecification.md §8; each entry names its evidence and prerequisite. A00 recovers/reconciles the draft and establishes the verification fixtures. A01–A06 below group the work; they are not permission to postpone tests or accumulate a single unreviewed implementation. Use small coherent code PRs with all applicable gates. For a new, finer requirement in the execution specification, add the corresponding evidence rather than treating the shorter acceptance row as a waiver.
 
 ### A01 — Shared options and composition
 
@@ -135,6 +146,7 @@ Anonymous private endpoints return 401 rather than login HTML. Set no-store on a
 4. Configure cookie isolation, stamp validation without lifetime extension, token/password/lockout policy and the bounded offline password validator.
 5. Register feature services without live resource dependencies during metadata generation. OpenAPI must describe the actual enabled contract even though runtime mapping is optional.
 6. Add no-store/body-limit middleware, explicit JSON CSRF and auth route throttling.
+7. Implement credential-free client capability discovery and the expected-user guard before private use-case execution.
 
 Exit: one documented startup capability controls real endpoint composition, valid configuration and consistent security policy; disabled/public and retained frontend behavior remain explicit.
 
@@ -160,8 +172,8 @@ Exit: two separate real accounts can maintain their private collections, and coo
 
 ### A04 — Account lifecycle and email
 
-1. Add TLS-only SMTP adapter, canonical link factory and explicit email capability.
-2. Implement register/resend/confirm and generic forgot/reset flows.
+1. Add TLS-only SMTP adapter, canonical link factory, encrypted database outbox/migration/worker and explicit email capability.
+2. Implement register/resend/confirm and generic forgot/reset flows; commit account state and mail intent together and keep SMTP outside database transactions/retry delegates.
 3. Add password/email changes, revocation, export and transactional deletion.
 4. Build matching views; consume fragment secrets once and clear history.
 5. Keep provisioned-account mode honest when email is disabled; no silent no-op delivery.
@@ -181,7 +193,7 @@ Exit: all retained target configurations can carry the optional feature without 
 ### A06 — Documentation, verification and integration
 
 1. Update Requirements, FrontendProfiles, React development and focused account operations docs.
-2. Keep the immutable public release pairing and document its limits; enabled authentication requires its own acceptance evidence. Existing public acceptance assumes /api/auth/login is inactive: retain that assertion in disabled mode and explicitly handle enabled mode rather than weakening all route checks or accepting login HTML as JSON.
+2. Keep the immutable public release pairing and add explicit capability-aware checks plus mandatory enabled authentication browser/API acceptance. Disabled mode still requires /api/auth/login to be absent; enabled mode requires a genuine method error for GET on the POST-only route. Missing assets/callbacks and unknown API paths remain real 404s in both modes.
 3. Update deployment audit rules if behavior they inspect changes; retain disabled/public checks.
 4. When implementation and verification are authorized, add/run authentication, seed, CSRF, revocation and ownership coverage and the full local gate. Keep dotnet build/test sequential. Tests were not authorized or run during the paused draft session.
 5. Review complete diff; stage explicit paths; open code PR; require green build-test-push on exact head; merge and verify exact-main CI.
@@ -214,6 +226,21 @@ All pending until demonstrated.
 | AUTH19 | New password rules, failure throttling and absolute ticket expiry are consistent; claims/stamp renewal never extends the fixed lifetime. |
 | AUTH20 | Enabled shared policies do not break retained Blazor registration or WebAssembly Books writes; unavailable email is honest. |
 | AUTH21 | Late responses, cross-tab cookie changes and user transitions cannot expose another account's results or save its unsaved draft. |
+| AUTH22 | Explicit cookie-free capability discovery distinguishes disabled, unavailable and misconfigured states. |
+| AUTH23 | Server expected-user checks reject cookie-change races before private reads/writes; client never labels a response as another owner. |
+| AUTH24 | Registration and mail intent commit atomically; public email requests keep generic statuses during recipient failures. |
+| AUTH25 | Outbox leases, bounded retries, expiry, deduplication and replica contention operate without sending inside transactions. |
+| AUTH26 | Sensitive data/password proof is revalidated after account locks on retries; commit uncertainty cannot repeat destructive effects. |
+| AUTH27 | Duplicate legacy normalized-email preflight refuses unsafe enforcement; clean fixtures upgrade without automatic account merging or confirmation. |
+| AUTH28 | Pinned password-list/license/hash and code-point length policy work consistently across seed, DTOs and both frontends. |
+| AUTH29 | Errors have declared codes/statuses; validation does not expose email existence or raw Identity/provider exceptions. |
+| AUTH30 | Test/browser fixtures use real Identity cookies, isolated PostgreSQL, TLS SMTP and application-owned teardown; no fake-principal coverage substitution. |
+| AUTH31 | Enabled Blazor login/logout/register/reset/management follows shared policy and cannot bypass disabled registration or CSRF. |
+| AUTH32 | Enabled accounts use the selected PostgreSQL key store; legacy key import, outbox decryption, restart and isolated restore are proven. |
+| AUTH33 | Runtime settings round-trip special-character credentials through every retained target without printing or corrupting secrets. |
+| AUTH34 | Packaged React image passes enabled and disabled HTTP/browser checks; metadata/OpenAPI/gates run without production credentials. |
+| AUTH35 | Progress maps every acceptance ID and numbered step to final integrated commits and evidence; no required row is silently deferred. |
+| AUTH36 | Email-first registration cannot preserve an attacker-chosen password after mailbox confirmation; repeats never alter credentials before proof. |
 
 Authorization for tests/browser checks and actual external email follows session instructions. Local SMTP fixtures send nothing to real people. Do not claim live delivery, restored deployment state or an independent security audit from compilation/source inspection.
 
@@ -261,10 +288,10 @@ The package pin was added because the first MailKit restore reported vulnerable 
 
 ### 10.4 First actions in the next chat
 
-1. Read this plan and AGENTS.md. Confirm the user's new request authorizes implementation; until then, keep planning only.
+1. Read this plan, the execution specification, Progress and AGENTS.md. Activating the linked goal is the implementation/verification request; do not ask the owner to authorize those same actions again. Without activation or an equivalent request, keep planning only.
 2. Locate the paused branch with `git worktree list`. Inspect tracked, untracked and ignored files and any live processes. Resume its task binding using the local agent workflow if applicable. Preserve other sessions' work.
 3. Fetch origin/main and review changes since the recorded base. The primary plan on main is authoritative; the paused checkout may still contain the older investigation text. Bring the new plan into the implementation context without overwriting its uncommitted source changes or other sessions' files.
-4. Inspect the draft against this plan and the archive manifest/hash. Reuse sound portions; address known gaps before expanding. Do not apply the archive twice or assume generated files prove runtime behavior.
+4. Inspect the draft against this plan and the archive manifest/hash. Reuse sound portions; address known gaps before expanding. Do not apply the archive twice or assume generated files prove runtime behavior. If both private draft and archive are unavailable, implement from the tracked specification; their absence is not a product blocker.
 5. Start A01, then A02/A03 as vertical outcomes, A04, A05 and A06. Carry backend, client, failure paths and relevant acceptance together. Ask for missing information only when it genuinely blocks progress.
 6. Follow the implementation gate and exact-head/main CI rules when authorized. Do not publish or deploy merely because the new chat resumes implementation. Return to CarbonCalculator only after this foundation is integrated and verified.
 
@@ -272,8 +299,8 @@ The package pin was added because the first MailKit restore reported vulnerable 
 
 The plan is ready to start in a new chat. No unresolved product choice blocks A01–A03: independent email/password accounts, cookie sessions and optional create-once Admin are specified. Provisioned-account mode does not require SMTP. The implementer can use isolated generated credentials/database fixtures and local SMTP for authorized verification; do not ask the owner to provision external services just to begin.
 
-Only enabling real public registration/recovery later needs a usable sender/SMTP account, its protected credentials and any sender-domain verification. Use existing authorized services/credentials if available; manual provider-console or inbox interaction is a blocker only if the agent cannot perform it safely. Actual deployment remains a separate authorized action. No manual blocker prevents continuing the implementation plan itself.
+Only enabling real public registration/recovery later needs a usable sender/SMTP account, its protected credentials and any sender-domain verification. Those are optional deployment inputs, outside template-goal completion; prove delivery behavior using the local TLS fixture. Use existing authorized services/credentials if available in a later deployment task. Manual provider-console or inbox interaction is a blocker only if the agent cannot perform it safely. Actual deployment remains a separate authorized action. No manual blocker prevents completing this template implementation.
 
 ### 10.6 Suggested new-chat request
 
-> Implement and verify Plans/ReactAuthenticationFoundation.md. Read section 10 first, resume the preserved draft, and finish the template foundation before returning to CarbonCalculatorDelivery.md.
+> /goal Plans/ReactAuthenticationFoundationGoal.md
