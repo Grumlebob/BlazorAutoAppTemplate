@@ -32,6 +32,9 @@ PUSH_DIGEST_RE = re.compile(r"(?:^|\s)digest:\s*(sha256:[0-9a-f]{64})(?:\s|$)", 
 PAYLOAD_KIND = "final"
 PAYLOAD_KINDS = frozenset({"staging", "harness", "final"})
 PAYLOAD_IMAGE_SUFFIX = "-release-payload"
+# Payload images use FROM scratch and have no default command. Docker requires
+# a command to create a container, though this placeholder is never started.
+PAYLOAD_CREATE_PLACEHOLDER_COMMAND = "/__payload_not_started__"
 MANIFEST_FILENAME = "release-manifest.json"
 PROFILE_LABEL = "io.github.release-payload.profile"
 ACCEPTANCE_PROFILE_LABEL = "io.github.release-payload.acceptance-profile"
@@ -522,7 +525,9 @@ def pull_and_extract_release_payload(
     container_name = f"release-payload-extract-{uuid.uuid4().hex}"
     created_container = False
     try:
-        created = _docker(["create", "--name", container_name, frozen_ref])
+        created = _docker(
+            ["create", "--name", container_name, frozen_ref, PAYLOAD_CREATE_PLACEHOLDER_COMMAND]
+        )
         created_container = True
         container_id = created.stdout.strip()
         if not re.fullmatch(r"[a-f0-9]{12,64}", container_id):
