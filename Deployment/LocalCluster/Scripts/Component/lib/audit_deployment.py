@@ -110,6 +110,9 @@ required_files = [
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
     "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
+    "Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh",
+    "Deployment/LocalCluster/Scripts/Component/lib/read-live-release-ci-run-ids.py",
+    "Deployment/LocalCluster/Scripts/Tests/test_read_live_release_ci_run_ids.py",
     "Deployment/LocalSingleNode/Scripts/verify-release-identity.sh",
     "Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh",
     "Deployment/LocalSingleNode/Scripts/lib/acceptance_profile.sh",
@@ -972,6 +975,7 @@ for needle, why in [
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py", "CI residue safeguard tests"),
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
     ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v", "bounded documentation slice loader tests"),
+    ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_read_live_release_ci_run_ids.py -v", "live release identity protection tests"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
@@ -1086,26 +1090,71 @@ push_pos = ci.find('docker push "${APP_IMAGE}:${GITHUB_SHA}"')
 upload_pos = ci.find("Upload migration bundle")
 if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
     fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
-# Artifact retention and host cleanup belong to the maintenance workflow,
-# which runs under the deployment lock and protects deployed releases.
+# Artifact retention runs daily on the maintenance runner, while host and
+# Docker cleanup remain manual. Both selection/download and cleanup use the
+# shared deployment lock and retain live, successful, and active release IDs.
 maintenance = read(".github/workflows/localcluster-docker-maintenance.yml")
 for needle, why in [
     ("workflow_dispatch:", "manual maintenance trigger"),
-    ("# schedule:", "schedule shipped commented out for forks to enable"),
+    ("schedule:", "daily artifact retention schedule"),
+    ('cron: "17 3 * * *"', "daily artifact retention cron"),
     ("localcluster-books", "app-specific self-hosted runner label fallback"),
     ("bash Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh", "locked maintenance runner"),
     ("install-ansible.sh --check", "check-only Ansible activation"),
     ("prune-migration-artifacts:", "artifact retention job"),
     ("actions: write", "permission to prune old CI artifacts"),
-    ("bash Deployment/Common/Scripts/prune-actions-artifacts.sh", "shared artifact pruning script"),
-    ("--keep 2", "bounded migration artifact keep count"),
-    ("--protect-run-id", "deployed release artifacts are protected"),
-    ("find-successful-ci-run.py --target-sha", "deployed commits mapped to their CI runs"),
+    ("bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh", "artifact selection and deletion under the shared lock"),
 ]:
     if needle not in maintenance:
         fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
-if re.search(r"(?m)^\s+schedule:", maintenance):
-    fail(".github/workflows/localcluster-docker-maintenance.yml: ship the schedule commented out; forks enable it")
+host_maintenance_job = maintenance.split("  prune:", 1)[-1].split("  prune-migration-artifacts:", 1)[0]
+artifact_retention_job = maintenance.split("  prune-migration-artifacts:", 1)[-1]
+if "if: github.event_name == 'workflow_dispatch'" not in host_maintenance_job:
+    fail(".github/workflows/localcluster-docker-maintenance.yml: scheduled runs must not perform host or Docker cleanup")
+if "github.event.schedule == '17 3 * * *'" not in artifact_retention_job:
+    fail(".github/workflows/localcluster-docker-maintenance.yml: daily schedule must run artifact retention")
+for needle, why in [
+    ("Require main branch", "main-ref-only manual pruning"),
+    ("Require green main CI for unchanged operation code", "verified operation source"),
+    ("verify-operation-source.py", "green CI source gate"),
+]:
+    if needle not in artifact_retention_job:
+        fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
+prune_migration = read("Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh")
+for needle, why in [
+    ("LOCALCLUSTER_DEPLOY_LOCK_TOKEN", "shared deployment lock ownership check"),
+    ("read-live-release-ci-run-ids.py", "currently running CI release identity protection"),
+    ("--protect-run-id", "deployed release artifacts are protected"),
+    ("--keep 2", "bounded migration artifact keep count"),
+    ("--deployment-workflow-file cd-localcluster.yml", "active deployment protection"),
+    ("--deployment-workflow-file cd-localsinglenode.yml", "single-node deployment protection for shared artifacts"),
+    ("--max-unprotected-bytes 536870912", "fixed unprotected artifact cap"),
+    ("--max-deletions 100", "bounded artifact deletion batch"),
+    ("prune-actions-artifacts.sh", "shared exact-identity artifact pruning helper"),
+]:
+    if needle not in prune_migration:
+        fail(f"Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh: missing {why}")
+cd_localcluster = read(".github/workflows/cd-localcluster.yml")
+selection_download = cd_localcluster.split("Select and download the release artifact under the shared lock", 1)[-1].split("- name: Login to GHCR", 1)[0]
+for needle, why in [
+    ("with-deploy-lock.sh", "release selection uses the shared deployment lock"),
+    ("find-successful-ci-run.py --target-sha", "release selection maps the requested SHA to successful CI"),
+    ('gh run download "$CI_RUN_ID"', "artifact download uses the exact CI run"),
+    ('--name "$MIGRATION_ARTIFACT_NAME"', "artifact download uses the configured name"),
+]:
+    if needle not in selection_download:
+        fail(f".github/workflows/cd-localcluster.yml: missing locked artifact selection behavior: {why}")
+if "actions/download-artifact@" in cd_localcluster:
+    fail(".github/workflows/cd-localcluster.yml: release artifact selection and download must share the host lock")
+artifact_pruner = read("Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py")
+for needle, why in [
+    ("ACTIVE_STATUSES", "live deployment and producer protection"),
+    ('"success", max_runs=100', "bounded successful deployment recovery history"),
+    ("successful_shas", "two distinct successful deployment targets"),
+    ("the 100 most recent successful deployments", "fail-closed recovery history bound"),
+]:
+    if needle not in artifact_pruner:
+        fail(f"Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py: missing {why}")
 maintenance_runner = read("Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh")
 for needle, why in [
     ('exec bash "$COMMON_SCRIPT_DIR/with-deploy-lock.sh"', "maintenance runs under the deployment lock"),
@@ -1355,9 +1404,8 @@ for needle, why in [
     ("verify-release-identity.sh", "running release identity verification"),
     ('"${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"', "post-deploy identity checks source repository labels"),
     ("timeout-minutes: 60", "bounded deploy job"),
-    ("uses: actions/download-artifact@v8", "CI migration artifact download"),
-    ("name: ${{ env.MIGRATION_ARTIFACT_NAME }}", "shared migration artifact download name"),
-    ("run-id: ${{ env.CI_RUN_ID }}", "download artifact from matching CI run"),
+    ('gh run download "$CI_RUN_ID"', "CI migration artifact downloaded from exact run"),
+    ('--name "$MIGRATION_ARTIFACT_NAME"', "shared migration artifact download name"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
@@ -1370,9 +1418,9 @@ for needle, why in [
 ]:
     if needle not in deploy_lan:
         fail(f".github/workflows/cd-localcluster.yml: missing {why}")
-download_step = re.search(r"(?ms)^      - name: Download release artifact from CI\n.*?(?=^      - name: |\Z)", deploy_lan)
+download_step = re.search(r"(?ms)^      - name: Select and download the release artifact under the shared lock\n.*?(?=^      - name: |\Z)", deploy_lan)
 if download_step is None or "if:" in download_step.group(0):
-    fail(".github/workflows/cd-localcluster.yml: download the release artifact for every deploy; the manifest is always needed")
+    fail(".github/workflows/cd-localcluster.yml: select and download the release artifact under the lock for every deploy")
 if "vault_ghcr_token" in read("Deployment/LocalCluster/inventory/prod/vault.example.yml").replace("# vault_ghcr_token", ""):
     fail("Deployment/LocalCluster/inventory/prod/vault.example.yml: GHCR credentials must stay optional")
 app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
@@ -2084,7 +2132,7 @@ elif (
 
 # LocalSingleNode: a peer target with strict provenance and loopback-only services.
 single = "Deployment/LocalSingleNode"
-for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "Scripts/verify-release-identity.sh", "Scripts/Tests/test-verify-release-identity.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
+for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "Scripts/verify-release-identity.sh", "Scripts/prune-release-artifacts.sh", "Scripts/Tests/test-verify-release-identity.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
     require_file(single + "/" + path)
 single_compose = read(single + "/compose/docker-compose.yml")
 for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_compose):
@@ -2117,8 +2165,53 @@ for needle in ("default: primary", "vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT"
                'export PUBLIC_HOSTNAME="$INSTANCE_PUBLIC_HOSTNAME"', '"$RUNNER_TEMP/instance-settings.yml"', '"$RUNNER_TEMP/instance-vars.json"'):
     if needle not in instance_cd:
         fail(f".github/workflows/cd-localsinglenode.yml: missing app isolation {needle}")
-if instance_cd.find("resolve-app-instance.py") > instance_cd.find("Download release artifact from CI"):
+if instance_cd.find("resolve-app-instance.py") > instance_cd.find("Select and download release artifact under shared deployment lock"):
     fail(".github/workflows/cd-localsinglenode.yml: validate instance identity before downloading release inputs")
+single_selection = instance_cd.split("Select and download release artifact under shared deployment lock", 1)[-1].split("- name: Login to GHCR", 1)[0]
+for needle, why in [
+    ("with-deploy-lock.sh", "release selection uses the shared deployment lock"),
+    ("find-successful-ci-run.py --target-sha", "release selection maps the requested SHA to successful CI"),
+    ('gh run download "$CI_RUN_ID"', "artifact download uses the exact CI run"),
+    ('--name "$MIGRATION_ARTIFACT_NAME"', "artifact download uses the configured name"),
+]:
+    if needle not in single_selection:
+        fail(f".github/workflows/cd-localsinglenode.yml: missing locked artifact selection behavior: {why}")
+if "actions/download-artifact@" in instance_cd:
+    fail(".github/workflows/cd-localsinglenode.yml: release artifact selection and download must share the host lock")
+
+single_maintenance = read(".github/workflows/localsinglenode-maintenance.yml")
+single_artifact_job = single_maintenance.split("  prune-release-artifacts:", 1)[-1]
+for needle, why in [
+    ('cron: "17 3 * * *"', "daily primary artifact retention schedule"),
+    ('cron: "27 3 * * *"', "daily additional-app artifact retention schedule"),
+    ("prune-release-artifacts:", "artifact retention job"),
+    ("template-artifact-retention", "retention concurrency group"),
+    ("actions: write", "permission to delete old artifacts"),
+    ("bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh", "artifact pruning under the deployment lock"),
+    ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
+    ("Require green main CI for unchanged operation code", "verified operation source"),
+    ("verify-operation-source.py", "green CI source gate"),
+]:
+    if needle not in single_maintenance:
+        fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")
+for needle, why in [
+    ("Require main branch", "main-ref-only pruning"),
+    ("Require green main CI for unchanged operation code", "verified operation source"),
+    ("verify-operation-source.py", "green CI source gate"),
+]:
+    if needle not in single_artifact_job:
+        fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why} in the artifact job")
+single_pruner = read(single + "/Scripts/prune-release-artifacts.sh")
+for needle, why in [
+    ("read_release_acceptance.py", "exact live release identity protection"),
+    ("--ci-run-id", "accepted CI run identity"),
+    ("--expected-source-repo-url", "release marker repository binding"),
+    ("--deployment-workflow-file cd-localcluster.yml", "LocalCluster recovery history protection"),
+    ("--deployment-workflow-file cd-localsinglenode.yml", "LocalSingleNode recovery history protection"),
+    ("--protect-run-id", "exact live release artifact protection"),
+]:
+    if needle not in single_pruner:
+        fail(f"{single}/Scripts/prune-release-artifacts.sh: missing {why}")
 for role in ("single_node_stack", "single_node_public"):
     require_contains(single + f"/ansible/roles/{role}/tasks/main.yml", "LOCALSINGLENODE_SETTINGS_FILE: \"{{ instance_settings_file | default('') }}\"", "collision check uses selected instance settings through privilege elevation")
 require_contains(single + "/Scripts/lib/ls_settings.py", 'os.environ.get("LOCALSINGLENODE_SETTINGS_FILE")', "selected instance settings shared by runtime verification and acceptance")

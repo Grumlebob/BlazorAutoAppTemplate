@@ -6,7 +6,7 @@ from pathlib import Path
 
 LIB = Path(__file__).resolve().parents[1] / "lib"
 sys.path.insert(0, str(LIB))
-from read_release_acceptance import resolve_release_acceptance
+from read_release_acceptance import resolve_ci_run_id, resolve_release_acceptance
 
 
 class ReleaseAcceptanceTests(unittest.TestCase):
@@ -87,6 +87,40 @@ class ReleaseAcceptanceTests(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.resolve(value)
+
+    def test_accepted_marker_exposes_exact_ci_run_and_repository(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "release.json"
+            path.write_text(json.dumps({
+                "manifest_schema_version": 2,
+                "sha": "a" * 40,
+                "source_sha": "a" * 40,
+                "source_repo_url": "https://github.com/example/books",
+                "ci_run_id": "123456",
+                "ci_run_attempt": "2",
+            }), encoding="utf-8")
+            self.assertEqual("123456", resolve_ci_run_id(path, "https://github.com/example/books"))
+
+    def test_missing_or_foreign_ci_identity_fails_closed(self):
+        valid = {
+            "manifest_schema_version": 2,
+            "sha": "a" * 40,
+            "source_sha": "a" * 40,
+            "source_repo_url": "https://github.com/example/books",
+            "ci_run_id": "123456",
+            "ci_run_attempt": "2",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "release.json"
+            for field, value, message in (
+                ("ci_run_id", "0", "CI run ID"),
+                ("ci_run_attempt", "0", "CI run attempt"),
+                ("sha", "b" * 40, "source SHA"),
+                ("source_repo_url", "https://github.com/other/repo", "different source repository"),
+            ):
+                path.write_text(json.dumps({**valid, field: value}), encoding="utf-8")
+                with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+                    resolve_ci_run_id(path, "https://github.com/example/books")
 
 
 if __name__ == "__main__":

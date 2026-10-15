@@ -31,14 +31,18 @@ on:
         description: Restart this app's public connector and verify recovery; requires acceptance_only=true
         type: boolean
         default: false
+  schedule:
+    - cron: "17 3 * * *"
+    - cron: "27 3 * * *"
 permissions:
   contents: read
   actions: read
-concurrency:
-  group: localsinglenode-maintenance
-  cancel-in-progress: false
 jobs:
   maintenance:
+    if: github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: localsinglenode-maintenance
+      cancel-in-progress: false
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 30
     environment:
@@ -148,3 +152,89 @@ jobs:
         run: |
           rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json" \
             "$RUNNER_TEMP/maintenance-ci.json"
+
+  prune-release-artifacts:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *'
+    concurrency:
+      group: template-artifact-retention
+      cancel-in-progress: false
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 20
+    environment:
+      name: ${{ (github.event.schedule == '27 3 * * *' || inputs.app_instance == 'additional') && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localsinglenode
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Require main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require green main CI for unchanged operation code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+
+      - name: Check whether the optional additional app exists
+        id: instance
+        env:
+          APP_INSTANCE: ${{ github.event.schedule == '27 3 * * *' && 'additional' || inputs.app_instance || 'primary' }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+        run: |
+          if [[ "$APP_INSTANCE" == additional && -z "$APP_INSTANCE_CONFIG" ]]; then
+            echo "::notice::No protected additional-app configuration is present; no additional-app artifact was selected."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve protected application instance
+        if: steps.instance.outputs.configured == 'true'
+        env:
+          INPUT_APP_INSTANCE: ${{ github.event.schedule == '27 3 * * *' && 'additional' || inputs.app_instance || 'primary' }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Prune old release artifacts under the shared deployment lock
+        if: steps.instance.outputs.configured == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh
+
+      - name: Remove temporary app configuration
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
