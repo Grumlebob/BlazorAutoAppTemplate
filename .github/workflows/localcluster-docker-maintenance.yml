@@ -111,4 +111,5 @@ jobs:
       - name: Prune old migration bundle artifacts under the shared deployment lock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false' }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh

@@ -8,12 +8,14 @@ import importlib.util
 import io
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "Component/lib/prune-actions-artifacts.py"
+WRAPPER = Path(__file__).resolve().parents[1] / "prune-actions-artifacts.sh"
 SPEC = importlib.util.spec_from_file_location("prune_actions_artifacts", SCRIPT)
 assert SPEC and SPEC.loader
 prune = importlib.util.module_from_spec(SPEC)
@@ -238,6 +240,54 @@ class MainDeletionTests(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(SystemExit, "identity changed"):
             prune.main()
         self.assertEqual(["GET"], calls)
+
+
+class ArtifactRetentionGateTests(unittest.TestCase):
+    def test_wrapper_defaults_to_dry_run_and_requires_exact_enable_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            capture = root / "arguments.txt"
+            python = bin_dir / "python3"
+            python.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$CAPTURE_FILE"\n', encoding="utf-8")
+            python.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PATH"] = str(bin_dir) + os.pathsep + environment.get("PATH", "")
+            environment["CAPTURE_FILE"] = str(capture)
+            environment.pop("ACTIONS_ARTIFACT_RETENTION_ENABLED", None)
+            result = subprocess.run(
+                ["bash", str(WRAPPER), "--artifact-name", "fixture"],
+                capture_output=True,
+                text=True,
+                env=environment,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--dry-run", capture.read_text(encoding="utf-8").splitlines())
+
+            environment["ACTIONS_ARTIFACT_RETENTION_ENABLED"] = "false"
+            result = subprocess.run(
+                ["bash", str(WRAPPER), "--artifact-name", "fixture"],
+                capture_output=True,
+                text=True,
+                env=environment,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--dry-run", capture.read_text(encoding="utf-8").splitlines())
+
+            environment["ACTIONS_ARTIFACT_RETENTION_ENABLED"] = "true"
+            result = subprocess.run(
+                ["bash", str(WRAPPER), "--artifact-name", "fixture"],
+                capture_output=True,
+                text=True,
+                env=environment,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("--dry-run", capture.read_text(encoding="utf-8").splitlines())
 
 
 if __name__ == "__main__":

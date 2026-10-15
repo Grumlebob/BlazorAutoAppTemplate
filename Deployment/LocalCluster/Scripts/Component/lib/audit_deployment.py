@@ -1117,6 +1117,7 @@ for needle, why in [
     ("Require main branch", "main-ref-only manual pruning"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
     ("verify-operation-source.py", "green CI source gate"),
+    ("ACTIONS_ARTIFACT_RETENTION_ENABLED", "default-off artifact deletion gate"),
 ]:
     if needle not in artifact_retention_job:
         fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
@@ -2277,6 +2278,7 @@ for path in (".github/workflows/cd-localsinglenode.yml", ".github/workflows/loca
     workflow = read(path)
     if "vars.LOCALSINGLENODE_HOST" not in workflow or "test -n" not in workflow or "'localsinglenode-books'" not in workflow:
         fail("localsinglenode: workflow needs explicit host and app runner label")
+require_contains(".github/workflows/localsinglenode-maintenance.yml", "ACTIONS_ARTIFACT_RETENTION_ENABLED", "default-off single-node artifact deletion gate")
 for path in (ROOT / single).rglob("*"):
     if not path.is_file() or "__pycache__" in path.parts:
         continue

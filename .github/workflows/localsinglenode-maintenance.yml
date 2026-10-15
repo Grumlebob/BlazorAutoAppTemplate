@@ -232,6 +232,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false' }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh
 
       - name: Remove temporary app configuration
