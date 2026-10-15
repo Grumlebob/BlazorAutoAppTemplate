@@ -3,13 +3,15 @@
 Status: implementation plan; product implementation and deployment have not started.
 Prepared: 2026-10-15. Owner decisions and provider conditions must be rechecked when execution starts.
 
-Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. Review accessible mockups before choosing the visual direction or early-beta versus complete-v1 launch timing. This decision does not start native setup or product deployment.
+Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. **Fieldwork colors and a combination of the progressive workspace (B) with route exploration (C) are selected.** The owner clarified that the user works at a construction site, records purchased/received materials from invoices or delivery notes, and needs help with transport carbon/A4 evidence. A supplier's invoice address can differ from the actual factory, warehouse or depot. Invoice scanning is a future feature. Review the current combined site-workspace mockup before final screen approval or launch-timing decisions. These decisions do not start native setup or deployment.
 
 ## 1. Outcome, authority and reading order
 
 Deliver an independent, private [Grumlebob/CarbonCalculator](https://github.com/Grumlebob/CarbonCalculator) application at **https://carboncalculator.jacobgrum.com/**. Start from this template's ASP.NET Core backend and React frontend. Deploy only through LocalSingleNode on the owner's existing native Linux node. Reuse that machine and its installed infrastructure; verify runner scope before promising reuse of a registration. Preserve all existing applications.
 
-The product estimates construction-material production impacts and freight scenarios. Users can explore real HGV routes without choosing a material, then add quantities and reviewed EPD records. Every result explains its inputs, method, provenance and limitations. The first release serves a Danish construction purchaser through an English interface, with a structure that supports Danish translation.
+The primary user is a construction-site coordinator, contractor or person collecting material records for a project. They record materials received, usually using an invoice or delivery note, and need help assessing/documenting transport to site. The product separates what a document states from what is known about the actual material journey. It supports indicative freight scenarios and an explicitly versioned standard-value material-transport path; neither a single receipt nor a generic freight result is a complete building or site compliance decision. Related material production data remains separate. The first interface is English, structured for Danish translation.
+
+Use the receiver's language: “Materials received”, “Construction site”, “Supplier on the invoice”, “Invoice/company address”, “Dispatch location” with a plain-language explanation, and “Transport assessment”. Do not present the user as arranging outbound freight. The product retains standalone route exploration, but the main entry point is a site material receipt, not a route-planning dashboard.
 
 This request authorizes planning, source inspection, local design previews and preparation. It does not execute this product migration, register runners, alter the node, publish DNS or dispatch CD. A later instruction to execute this plan authorizes normal implementation and repository operations. Record its exact scope before live operations. Previous Portfolio or template deployment authority does not transfer automatically.
 
@@ -55,21 +57,23 @@ Private preparation is under `Plans.local/CarbonCalculator/` in the controller's
 - `SourceHandoff/`: byte-preserving source copy; `SourceManifest.json` records path, byte count and SHA-256 for every file.
 - `SourceInventory.json`: actual record IDs and current ferry approval state.
 - `Mockups/index.html`: three self-contained responsive previews; no external fonts, tiles, libraries or API requests.
+- `PreviewSite/journeys/index.html`: current interactive journey chooser with Guided estimate, Progressive workspace and Route first, all using Fieldwork colors. Serve through the local preview server rather than the app's rejected file links.
+- `PreviewSite/site-workspace/index.html`: current combined B+C construction-site workspace, including site overview, receipt entry, supplier/dispatch distinction, transport method/route workspace, assessment and documentation. This supersedes the earlier chooser as the current review target.
 - `OperatorIntent.md`: source locations, requested existing node, current runner observations and handover locations. Keep installation details here, not in tracked scripts.
 
-The previews are planning artifacts. Edited form fields do not recalculate numbers. All displayed sample routes are marked as fixture/schematic. The source bundle's `reviewedBy` text requests independent rechecking before external use; importing `approved` strings does not constitute a new numerical or rights review.
+The previews are planning artifacts. The original color previews use fixed figures; the new journey previews have local illustrative state and simple sample arithmetic so edits and choices demonstrate the proposed flow. Neither is a production calculator or live integration. All sample routes are marked as fixture/schematic. The source bundle's `reviewedBy` text requests independent rechecking before external use; importing `approved` strings does not constitute a new numerical or rights review.
 
 ### Source review already performed
 
 Read the full handoff, routing notes, release checklist, supplied tests and data structure. Opened the five official EPD PDFs, provider migration notice, routing restrictions, OSM tile policy, GitHub runner/billing documentation and ÖKOBAUDAT data-user guidance. This establishes relevant source locations and current policy evidence. It does not grant data redistribution rights or replace the per-field review in P09/P15.
 
-## 3. Early visual directions: choose before building the full UI
+## 3. Selected Fieldwork palette and user-journey review
 
-The three local previews deliberately use the same Hamburg timber fixture, so layout and hierarchy can be compared. They include desktop/mobile layouts and example explanation drawers. None is a working calculator. Do not mistake the schematic map for a geographically accurate basemap.
+The owner selected Fieldwork's light green palette. The original three visual previews below are historical styling references, not three adequate user journeys. Their layout is not approved by the palette choice. The current design decision concerns the interactive journey concepts described after these references. Do not mistake any schematic map for a geographically accurate basemap.
 
 | Direction | Character and layout | Initial tokens | Tradeoff |
 | --- | --- | --- | --- |
-| **A — Fieldwork, recommended** | Calm construction workspace; left input panel, map and corridor comparison, separate production/freight cards, evidence drawer | Background `#F4F6F2`, surface `#FFFFFF`, ink `#1E382E`, accent `#24734F`, tinted surface `#EDF4E9`, 12 px card radius | Easiest introduction for beginners; advanced users need expandable detail |
+| **Fieldwork palette, selected** | Calm construction workspace; original composition remains a reference only | Background `#F4F6F2`, surface `#FFFFFF`, ink `#1E382E`, accent `#24734F`, tinted surface `#EDF4E9`, 12 px card radius | Use these colors across all journey concepts; validate actual usability separately |
 | **B — Route Desk** | Dark technical workspace; larger map, compact controls, route details emphasized | Background `#0E1A25`, surface `#172736`, ink `#E6EEF5`, accent `#4B82D4`, 7 px radius | Efficient for frequent routing; denser first impression |
 | **C — Material Ledger** | Warm report workspace; production and freight figures before map; editorial headings and clear source ledger | Background `#F5F0E7`, surface `#FFFCF7`, ink `#39382D`, accent `#6D7248`, 5 px radius | Strong report readability; route exploration receives less space |
 
@@ -98,9 +102,52 @@ C / Material Ledger
          | Report actions and provenance ledger
 ```
 
-### Design decision gate
+### Prior interactive journey exploration
 
-1. Present A/B/C to the owner before final component implementation. Record selected direction and specific changes. **A is a recommendation, not approval.** Independent source, repo and contract work can continue while the owner considers it.
+All three new concepts use the same Fieldwork colors and sample data. They vary entry point, question order, progressive disclosure and editing behavior. Names A/B/C now refer to these **journeys**, not the historical color alternatives above.
+
+| Journey | Interaction sequence | Intended advantage | Tradeoff to review |
+| --- | --- | --- | --- |
+| **A — Guided estimate** | Material/amount, then delivery, then explicit source match, then results and report | One focused decision at a time, progress indicator and explanations beside each step | More navigation for repeat users editing several answers |
+| **B — Progressive workspace, recommended main calculator** | One small initial section; completed answers fold into editable summaries; delivery and source sections open in place; then results/report | Keeps context visible while avoiding an overwhelming initial form/map/results dashboard | Longer page; focus/scroll behavior and summary placement must work on mobile |
+| **C — Route first, recommended separate Route Explorer entry** | Select places, compare/select corridors, optionally add material/amount and source, then impact/report; route-only remains a valid outcome | Useful to logistics users without material data; adding impact preserves the selected corridor | Production-source understanding arrives later than in the material-led flows |
+
+The owner subsequently selected B and C combined: progressive information entry with route exploration integrated into the same assessment. A remains a historical alternative, not an extra mandatory implementation or a six-page wizard. The combined pattern and Fieldwork palette are settled; individual screens remain under review.
+
+The new prototypes demonstrate:
+
+1. Empty starting state, short purpose statement, specific field labels and a clear next action.
+2. Example location search with candidate confirmation; unknown route is the default and does not require logistics expertise.
+3. An explicit source-match choice: use the declaration as a labelled estimate or continue with transport only.
+4. Missing quantity as a first-class path: per-unit production and per-tonne freight, with no invented shipment total.
+5. Results with production and freight kept separate, selectable sample corridors, actual sample formulas in explanation drawers and a next useful improvement.
+6. Back/edit without losing confirmed inputs; route-first material addition preserves corridor choice.
+7. A readable sample report and browser print path, plus an unavailable-service example that preserves answers and requires explicit sample selection.
+
+The preview search choices and routes are illustrative, not live. Advanced warehouse/truck controls describe intended behavior but are not full implementations. Do not copy preview calculations/state into production; implement the selected journey through the authoritative C# contracts and domain rules.
+
+Preparation evidence: 31 recorded browser checks/captures, including 21 screenshots, zero uncaught browser errors and no horizontal overflow in the checked desktop/390 px states. Checks cover each complete sample journey, input validation, preserved answers, source drawer, transport-only/unknown-quantity paths and unavailable state. They prove prototype interactions/layout only, not human friendliness, accessibility conformance or production acceptance.
+
+### Current combined site workspace
+
+The current mockup applies the owner's construction-site context to B+C rather than just joining two generic calculators:
+
+1. **Site overview:** material receipt records, missing information and coverage status. Do not show an invented complete project total or compliance score.
+2. **Record materials received:** product description, quantity received in this delivery, original unit, optional invoice/delivery-note reference and date. An invoice can cover multiple deliveries; invoice quantity is not automatically the quantity of this receipt.
+3. **Supplier and dispatch review:** supplier legal/contact identity and invoice address are distinct from the factory, warehouse/depot and actual dispatch evidence. “Only the office address” and “I don't know” are valid states.
+4. **Integrated transport assessment:** choose a versioned standard-value material transport basis, or explore known/explicitly assumed dispatch-to-site corridors alongside the progressive form. Do not make the user know the carrier's route or truck before starting.
+5. **Coverage-aware result:** selected method, material mass, source/formula and gaps. The example Berlin office address is not used as the confirmed origin of the Hamburg-to-Copenhagen scenario. Unknown finished-product factory-to-warehouse transport is shown as missing coverage, not already included in A1–A3.
+6. **Documentation:** retain receipt, site, supplier/invoice address, dispatch status, method/revision, result scope, evidence and assumptions. Print and JSON export demonstrate the record; a receipt line is not the whole project's A4/A5 result.
+
+The mockup includes a standard-material example from [BR18 Annex 2, Table 10](https://www.bygningsreglementet.dk/bilag/b2/bilag_2/?Layout=ShowAll): 20,000 kg construction timber × 0.0074 kg CO₂e/kg = 148 kg CO₂e for the material transport line. This is an alternative basis to the indicative route result, not an extra amount to add. Check the applicable regulation edition/material category and account for project-level additions separately before any reporting claim. The [official A4 guidance](https://www.bygningsreglementet.dk/tekniske-bestemmelser/11/brv/bygningers-klimapaavirkning-1-juli-2025/kap-1_7/) establishes the broader factory/storage/distribution-to-site boundary. The initial generic GLEC WTW route model must not be silently renamed a compliant A4 method.
+
+Current preview evidence: 26 recorded interaction/layout checks and captures, including 14 screenshots, zero uncaught browser errors and no horizontal overflow in the checked desktop/390 px states. Checked missing quantity, office/dispatch separation, standard-value path without an origin, explicit route-assumption consent, factory-leg gap, corridor changes, buffer ambiguity, formula drawer, preserved edits and scanning remaining a future feature. This is prototype evidence only.
+
+Invoice scanning must later propose editable draft fields with extraction provenance. It cannot establish a dispatch address from a billing address or verify an actual route. No scanner, OCR account, document upload or automatic supplier-site discovery is included in v1 by this design clarification.
+
+### Journey decision gate
+
+1. Review the current combined site workspace before final component implementation. Preserve the approved Fieldwork palette and B+C pattern; collect screen/copy refinements rather than asking the owner to choose these again. Independent source, repo and contract work can continue while the owner reviews it.
 2. Produce the chosen calculator view, Route Explorer, result explanation, printable report and empty/error examples at desktop and mobile sizes.
 3. Use local system fonts initially. Establish CSS variables for color, spacing, type, focus, warnings and source status. Keep semantic components small and reusable.
 4. Validate at 320, 390, 768, 1024 and 1440 CSS px, including 200% text zoom. Mobile stacks inputs before results; a sticky action must not cover content or focus.
@@ -108,13 +155,15 @@ C / Material Ledger
 6. Do not decorate a modelled route or proxy match with a general green “verified” badge. Distinguish source authenticity from product fit and route certainty.
 7. Archive selected screenshots and a compact design specification in the downstream product. Keep rejected previews out of production assets. This plan contains enough composition/tokens to reconstruct the directions if ignored files are unavailable.
 
-The first production UI is a calculator, not a marketing dashboard. No invented customers, savings percentages, certifications, shipment activity or carbon-neutral claims. Initial light theme follows the selected design; a complete dark theme is an expansion packet unless the owner selects B as the primary direction.
+The first production UI is a calculator, not a marketing dashboard. No invented customers, savings percentages, certifications, shipment activity or carbon-neutral claims. Initial light theme uses Fieldwork colors; a complete dark theme is an expansion packet. The journey prototype named B does not imply selecting the old dark Route Desk theme.
 
 ## 4. Product contract and scope
 
 ### Required for the complete first delivery
 
 - Real address/city search with candidate confirmation and explicit location precision.
+- Receiver-oriented site context and a material-receipt record with optional document reference; supplier invoice/contact addresses, dispatch evidence and production locations remain separate.
+- A reviewed/versioned standard-material A4 transport-line method for useful assessment when detailed origins are missing. Separate its regulatory source/eligibility/coverage from indicative route WTW. Never add both methods for the same movement or claim a complete project result from receipt lines alone.
 - Shared Route Explorer: arbitrary supported origin/destination, optional waypoints, HGV restrictions and ferry policy, usable without a material.
 - Default live HGV road routing through the backend. No key or provider failure produces a useful unavailable/setup state and an explicitly selected offline sample.
 - Five genuinely usable EPD variants: sawn timber, SHT precast wall, RT247 brick, Thermocell loose wool and ThermoWhite WD100 floor insulation.
@@ -142,7 +191,7 @@ A public road beta does not complete this plan. Do not silently drop ferry valid
 
 ### Deliberate expansion backlog
 
-Keep these outside v1 unless the owner promotes a packet: accounts and cloud project storage; organizations and role permissions; shareable private reports; multi-material projects and mixed-load allocation; carrier documents/uploads; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; building-scale LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance. Never let speculative supplier discovery replace evidence.
+Keep these outside v1 unless the owner promotes a packet: accounts and permanent cloud project storage; organizations and role permissions; shareable private reports; multi-material vehicle allocation; invoice scanning/OCR and carrier document uploads; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; complete building/site regulatory LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance. A lightweight private site/receipt context is part of the main v1 flow; it does not imply multi-user project storage. Never let speculative supplier discovery replace evidence.
 
 ## 5. Selected architecture
 
@@ -163,6 +212,7 @@ CarbonCalculator.sln
 CarbonCalculator/
   Features/
     Capabilities/                   # safe operator-independent availability
+    SiteReceipts/                   # receipt context, document references and coverage
     RouteExplorer/
       SearchPlaces/                 # endpoint, request, handler, validation
       FindRoutes/
@@ -188,7 +238,7 @@ CarbonCalculator.Core/
   Calculations/                     # loads, indicator math and ledger
   Provenance/                       # source references, revisions, explanations
 CarbonCalculator.React/
-  app/features/{route-explorer,materials,calculator,reports,sources}/
+  app/features/{site-receipts,route-explorer,materials,calculator,reports,sources}/
   app/routes/                       # thin route composition
   app/api/                          # generated contract/client/query keys
   app/components/                   # genuinely shared UI primitives
@@ -228,6 +278,7 @@ Do not remove release manifest verification because database technology changes.
 | --- | --- |
 | Quantity | Original value/unit; normalized mass/volume; user/derived/assumed origin; conversion source |
 | Place selection | Coordinates, precision, role, user confirmation, provider/source revision; text and coordinates invalidate together |
+| Site/receipt context | Site destination, supplier/document identity, optional document line/reference, received quantity, dispatch evidence and quantity-allocation status; not a claimed invoice scanner |
 | Material lot | Product family/variant, quantity, product system, optional EPD selection and explicit proxy consent |
 | EPD variant | Operator, record/variant IDs, unit, standard, geography, validity, reviewed numeric fields and rights status |
 | Vehicle/load | Tare, payload, gross limit, dimensions, volume, source assumptions; individual allocations when split |
@@ -235,6 +286,7 @@ Do not remove release manifest verification because database technology changes.
 | Freight leg | Road/ferry mode; geometry, distance, duration, completeness; separate evidence and source timestamps |
 | Route set | Normalized input fingerprint, vehicle restrictions, candidate/exclusion list, provider versions and expiry |
 | Indicator result | Named method/module/indicator, quantity, unit, formula, source and assumption references |
+| Assessment basis | Indicative route WTW versus versioned standard-material transport line; eligibility, source edition, category and coverage; alternatives cannot be added for the same movement |
 | Boundary ledger | Counted/excluded/unresolved decision with reason, product system and movement IDs |
 | Calculation snapshot | Immutable input/result/source/geometry/revision snapshot with original and current method versions distinguished |
 
@@ -258,6 +310,9 @@ JSON uses validated finite numbers and ISO UTC times. Document hash canonicaliza
 10. Never sum material `GWP-fossil`, `GWP-total` and freight `WTW-CO2e` into one official A1–A4 total. Wood's negative A1–A3 total needs a biogenic/whole-life explanation, not a climate-negative headline.
 11. No unknown numerical field becomes zero. Negative EPD indicators can be valid; negative mass/distance/duration/factor cannot.
 12. Edits mark previous route/results stale. Server fingerprints prevent mixing a new mass, EPD, geometry or truck with old results.
+13. A supplier invoice address is a document fact, not a confirmed factory or dispatch point. Raw-input A2 covered by A1–A3 differs from missing finished-product factory-to-warehouse transport, which can be part of A4. Preserve both distinctions.
+14. A document can refer to multiple receipts, and a delivery can have multiple supporting documents. Record the actual receipt allocation, prevent duplicate delivery/quantity counting and retain original document quantities separately when supplied. An invoice total or price cannot become material mass.
+15. Standard-material transport values and route-based freight scenarios are alternative bases for the same movement. Scope/tag each value; project-wide terminal processes and other additions are not multiplied once per receipt. No project compliance conclusion follows from summing partial receipts.
 
 ### Initial source-based numerical acceptance
 
@@ -348,6 +403,8 @@ Suggested failures: 400 malformed JSON; 422 field/domain errors; 404 inaccessibl
 
 The handoff's no-auth local database assumption is unsafe for public reports. Keep the initial product account-free, with bounded anonymous use:
 
+The site/receipt workspace initially uses tab-local private draft context and explicitly exported snapshots. Store needed site/supplier/receipt metadata inside each immutable report envelope. Do not add unauthenticated globally listable project CRUD or imply durable server project storage without access design. A project/receipt overview must distinguish drafts, partial assessments and method-compatible line subtotals; it must not sum indicative WTW with regulatory standard lines. Future accounts or invoice scanning require separate privacy, access, retention and extraction-review packets.
+
 1. A report has a random ID and an independent cryptographically random capability of at least 256 bits. Store only its hash, compare safely, and require it in a dedicated header. Knowing an ID does not grant access. There is no report enumeration endpoint.
 2. Default capability/report-input state stays in the tab's `sessionStorage` or memory. Never put addresses, capabilities or whole scenarios in URLs, analytics, source maps, third-party query strings or logs. Explain that local browser scripts can access tab storage; enforce CSP and prevent injection.
 3. Server report retention defaults to 24 hours, bounded by configurable storage and request size limits. Expired reports are not served. Run deletion regularly and document backup expiry separately; do not promise instantaneous erasure from existing backups.
@@ -425,7 +482,7 @@ Initial import into a genuinely empty repository follows the existing [standalon
 | --- | --- | --- | --- |
 | VS0 — Independent product | P01–P08; design work D01 | Safe own repo, React/LocalSingleNode only, meaningful CI and native capacity | Owner source/target intent |
 | VS1 — Explore a real route | P09–P10 | Confirm new places, live HGV polyline/km/time, honest errors, usable map/table | VS0 and provider key for live acceptance |
-| VS2 — Explain a material shipment | P11–P12 | Timber production/freight split, provenance drawer, immutable private report | VS1; reviewed timber source |
+| VS2 — Assess a site material receipt | P11, P11A, P12 | Site/supplier/receipt context, separate route/standard bases, timber indicators, provenance and private report | VS1; standard-method work can progress independently of live keys |
 | VS3 — Five useful materials | P13–P14 | All five scenarios, missing-info recovery, warehouse ledger and load checks | VS2 |
 | VS4 — Compare plausible corridors | P15–P16 | Reviewed live ferry approaches, deterministic recommendation/sensitivity and override | VS1; can research during VS2/VS3 |
 | VS5 — Add reviewed data without rewriting UI | P17 | Staged importer and second-provider dataset through same use case | VS3 and source/format evidence |
@@ -437,9 +494,9 @@ D01 precedes final visual component work. P01/P02 preparation and source reviews
 
 ### D01 — Design choice and implementation brief
 
-Inputs: section 3 and the three prepared previews.
+Inputs: section 3, approved Fieldwork colors, selected B+C pattern and the current site-workspace preview.
 
-1. Review A/B/C with the owner, including at least one phone layout and one explanation drawer. Capture choice and requested differences; do not infer approval from silence.
+1. Review the combined site receipt-to-assessment-to-documentation task with the owner. Include office-versus-dispatch mismatch, incomplete origin, alternative assessment bases, an edit, missing quantity and a phone layout. Record screen/copy refinements; do not revisit approved colors or B+C.
 2. Refine selected empty/form/result/error/report views. Include no-key, quota, metadata-only EPD, stale result, no map and no clear preference states.
 3. Record spacing/type/color/focus/status tokens, component inventory and mobile behavior. Show production and freight as separate indicators.
 4. Copy selected design artifacts into the downstream repo when available; exclude mockup scripts and invented sample activity from runtime.
@@ -560,7 +617,7 @@ Exit: useful complete route exploration, exact-head/main gates and real integrat
 
 ### P11 — Complete the first material calculation journey
 
-1. Add reviewed timber catalog/search/match selection with explicit `Use as proxy` and `Continue transport only` actions. Separate production country from dispatch location.
+1. Establish the site/receipt context from D01: manual document fields, material quantity received, supplier identity, invoice address and separate dispatch knowledge. Keep local draft privacy and original-versus-derived fields. Then add reviewed timber catalog/search/match selection with explicit `Use as proxy` and `Continue transport only` actions. Separate production country from dispatch location; a known transport mass does not require an EPD before a transport-only estimate.
 2. Implement quantity normalization, vehicle-load checks, pure EPD/freight calculations and initial lifecycle ledger. Bind selected routes to the server-issued input fingerprint.
 3. Add calculation endpoint/generated contract, then calculator form, production/freight cards, selected route and actual substituted formulas in the evidence drawer.
 4. Preserve all four available timber GWP indicators, explain negative biogenic/total values, and show generic freight factors/load assumptions and sensitivity. Keep the demo's 0.080 arithmetic; explicitly disclose its load mismatch and show 0.101 sensitivity. Production results remain indicative, not decision-grade.
@@ -568,6 +625,19 @@ Exit: useful complete route exploration, exact-head/main gates and real integrat
 6. Test the actual C# engine through endpoint and browser against fixture goldens, quantity changes, no EPD, no quantity and stale result. Do not copy the handoff tests' private helper arithmetic as proof of production code.
 
 Exit: timber from input through real route, separated impacts and explanations works end to end; offline case remains reproducible and visibly distinct.
+
+### P11A — Add the versioned standard-material transport assessment path
+
+Inputs: D01, P11's validated receipt/mass and reviewed official method sources. Can proceed while live-routing keys or terminal research are pending.
+
+1. Verify the applicable official BR18 guidance/Annex 2 Table 10 edition and inspect material category definitions, units, source terms and project-level requirements. Record applicability and method status; do not infer the building's permit regime from today's date.
+2. Add a versioned registry and explicit material-category mapping. Preserve exclusions/unknown categories. Implement transport mass × category value through a separate pure handler, generated contract and shared receipt UI.
+3. Keep supplier/invoice/dispatch fields and their evidence even when the selected standard method does not require an exact route. Offer route exploration alongside it as another basis, not an additive component.
+4. Prove the initial 20 t construction-timber material transport line is 148 kg CO₂e for the reviewed 0.0074 source value. Scope the result to the material transport line; show project-wide terminal/other contributions as unassessed until their actual inputs/method are implemented.
+5. Implement basis selection, coverage states, method/source edition and immutable report provenance. Reject mixing two transport bases for the same receipt movement and refuse a whole-project pass/fail from partial or incompatible lines.
+6. Add meaningful engine/API/browser cases for missing origin, missing quantity, wrong category/unit, duplicate receipt allocation, source-version changes and unsupported regulatory claims. Preserve all original route/EPD goldens under their own method identifiers.
+
+Exit: a receipt can produce a traceable standard-material transport line without inventing its origin, while indicative live-route work remains independently required. This packet adds an alternative method; it does not replace mandatory live routing, ferry inference or source-backed material slices.
 
 ### P12 — Immutable anonymous reports and persistent runtime transition
 
@@ -710,7 +780,7 @@ These are dependencies of later execution, not reasons to stop planning. Reuse e
 
 | Input/action | Current state | Agent work first | Human involvement only when required |
 | --- | --- | --- | --- |
-| Visual direction | A/B/C prepared; no selection | Provide previews and recommendation | Owner chooses direction or requested combination |
+| Screen review | Fieldwork colors and B+C selected; combined receiver-oriented site workspace prepared | Provide linked receipt/supplier/route/result/report views | Owner gives screen/copy feedback; no repeat question about colors or B+C |
 | Runner interpretation | Additional CarbonCalculator registration approved on 2026-10-15; preserve current template runner | Verify current scope and prepare supported same-node setup when execution starts | No further confirmation of the registration choice is needed; any returned native human step still applies |
 | Native privileged setup | New app-specific runner/bootstrap is likely | Prepare checkout/identity and native status result | Run the exact `human` root command returned by the native runbook; never give a speculative sudo command now |
 | HeiGIT account/key | No key used by this planning task | Check protected existing configuration by presence only; implement adapter/tests/quota controls | If absent, owner registers/verifies a free account and enters the key through protected secret input, never chat |
@@ -733,10 +803,12 @@ Initial checkpoint:
 ```text
 Authoritative repository: template for planning; CarbonCalculator after P02
 Current packet: planning delivered; implementation not started
-Next action: review accessible mockups; design and launch timing remain pending;
-  additional same-node CarbonCalculator runner registration is approved
+Next action: review combined construction-site workspace screens; final screen
+  refinements and launch timing remain pending; Fieldwork colors, B+C pattern
+  and additional same-node runner are approved
 Completed preparation: source copy + SHA-256 manifest, 23 supplied tests,
-  template/runner/remote inspection, three local responsive design previews
+  template/runner/remote inspection, original style references and three interactive
+  journey previews with browser interaction/layout evidence
 Pending mandatory evidence: all product packets, live key/provider checks,
   source publication review, terminal approaches, public/recovery acceptance
 Live authorization: none transferred from Portfolio/template
@@ -784,10 +856,10 @@ Complete checks/integration/evidence/closeout for each packet before advancing.
 
 Only these choices warrant asking now; technical defaults elsewhere are already specified:
 
-1. **Visual direction:** Fieldwork A, Route Desk B, Material Ledger C, or a concrete combination. Recommended A with B's richer route inspector added later.
+1. **Screen refinements:** review the selected B+C construction-site workspace, especially how invoice/dispatch uncertainty, partial transport coverage and method choice are explained. The palette and combined interaction pattern are already selected; collect concrete feedback rather than asking those decisions again.
 2. **Public launch level:** after reviewing the mockups, decide whether to launch a clearly labelled road-only beta as soon as it is safe and useful, or wait for complete v1 ferry comparison and second-provider import. The owner explicitly deferred this decision until mockup review; no launch option is approved yet. The early-beta recommendation does not reduce complete-v1 requirements.
 
-Resolved: the owner approved a CarbonCalculator-specific runner registration on the existing node on 2026-10-15, preserving its current runner. Do not ask this question again.
+Resolved: the owner approved a CarbonCalculator-specific runner registration on the existing node, selected Fieldwork colors and chose B+C combined on 2026-10-15. The construction-site receiver and invoice/delivery-note context supersedes outbound-shipping language. Invoice scanning remains future work. Preserve the current runner and do not ask the settled decisions again.
 
 No need to ask the owner to select an ORM, state library, validation framework, API versioning pattern or deployment ports. Revisit a default only when evidence or a new product requirement makes it unsuitable.
 
@@ -798,7 +870,7 @@ The **planning task** is complete when this detailed plan is reviewed, integrate
 The **implementation goal** is complete only when:
 
 1. CarbonCalculator is independent, private, React/ASP.NET and LocalSingleNode-only; cleanup and actual downstream gates are complete.
-2. All mandatory vertical slices have real evidence, including five materials, real routing, reviewed ferry inference, private immutable reports, warehouse/load/boundary behavior and bounded second-provider import.
+2. All mandatory vertical slices have real evidence, including receiver-oriented site receipts, separate supplier/dispatch evidence, versioned standard-material transport assessment, five materials, real routing, reviewed ferry inference, private immutable reports, warehouse/load/boundary behavior and bounded second-provider import.
 3. The requested HTTPS product serves the verified immutable release with correct method/data revisions and passes independent public acceptance.
 4. Free-only operation, scoped shared-node ownership, update/compatible rollback, consistent data restore and maintainable handover are proven.
 5. Required work is complete or explicitly deferred by the owner with recorded reason; workspace cleanup and authoritative next-work notes are finished.
