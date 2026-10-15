@@ -47,6 +47,8 @@ BUNDLE_LABEL = "io.github.release-payload.bundle-sha256"
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_BUNDLE_BYTES = 1024 * 1024 * 1024
 MAX_ARCHIVE_BYTES = MAX_BUNDLE_BYTES + 4 * 1024 * 1024
+DOCKER_EXPORT_METADATA_FILENAME = ".dockerenv"
+MAX_DOCKER_EXPORT_METADATA_BYTES = 64 * 1024
 
 
 class PayloadError(ValueError):
@@ -430,6 +432,15 @@ def extract_payload_archive(
                         raise PayloadError("container payload root is not a directory")
                     if normalized in seen:
                         raise PayloadError("container export contains duplicate paths")
+                    seen.add(normalized)
+                    continue
+                if normalized == DOCKER_EXPORT_METADATA_FILENAME:
+                    if not member.isfile() or member.issym() or member.islnk():
+                        raise PayloadError("container export metadata entry is not a regular file: .dockerenv")
+                    if normalized in seen:
+                        raise PayloadError("container export contains duplicate paths")
+                    if member.size < 0 or member.size > MAX_DOCKER_EXPORT_METADATA_BYTES:
+                        raise PayloadError("container export metadata file exceeds the size limit: .dockerenv")
                     seen.add(normalized)
                     continue
                 expected = expected_files.get(normalized)

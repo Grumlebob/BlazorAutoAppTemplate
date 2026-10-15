@@ -102,6 +102,7 @@ class RegistryPayloadTests(unittest.TestCase):
             path,
             [
                 ("release/", None, b""),
+                (".dockerenv", b"file", b"container runtime metadata"),
                 ("release/release-manifest.json", b"file", self.manifest_bytes),
                 ("release/books-migrate", b"file", self.bundle.read_bytes()),
             ],
@@ -324,12 +325,22 @@ class RegistryPayloadTests(unittest.TestCase):
     def test_rejects_extra_duplicate_traversal_link_and_corrupt_entries(self) -> None:
         valid_entries: list[tuple[str, bytes | None, bytes]] = [
             ("release/", None, b""),
+            (".dockerenv", b"file", b"container runtime metadata"),
             ("release/release-manifest.json", b"file", self.manifest_bytes),
             ("release/books-migrate", b"file", self.bundle.read_bytes()),
         ]
         bad_cases = [
             ("extra", valid_entries + [("release/readme.txt", b"file", b"unexpected")], "unexpected path"),
+            ("unexpected-root", valid_entries + [("readme.txt", b"file", b"unexpected")], "unexpected path"),
             ("duplicate", valid_entries + [valid_entries[-1]], "duplicate paths"),
+            ("duplicate-dockerenv", valid_entries + [(".dockerenv", b"file", b"duplicate")], "duplicate paths"),
+            ("dockerenv-symlink", valid_entries + [(".dockerenv", b"symlink", b"")], "regular file"),
+            (
+                "dockerenv-too-large",
+                [entry for entry in valid_entries if entry[0] != ".dockerenv"]
+                + [(".dockerenv", b"file", b"x" * (MODULE.MAX_DOCKER_EXPORT_METADATA_BYTES + 1))],
+                "size limit",
+            ),
             ("traversal", [("../release/release-manifest.json", b"file", self.manifest_bytes)], "traversal"),
             ("symlink", [valid_entries[0], valid_entries[1], ("release/books-migrate", b"symlink", b"")], "regular file"),
             ("hardlink", [valid_entries[0], valid_entries[1], ("release/books-migrate", b"hardlink", b"")], "regular file"),
