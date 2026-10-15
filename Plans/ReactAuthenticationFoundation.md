@@ -1,16 +1,43 @@
 # React authentication foundation: investigation and recommendation
 
-Status: investigated on 2026-10-15; recommended direction, not an approved implementation or completed security audit. No authentication code, dependency, provider registration, email, infrastructure or deployment was changed.
+Status: investigated on 2026-10-15; the owner selected **ASP.NET Core Identity + app cookies**, with separate accounts for each cloned product. Credential policy and the detailed production scope below remain recommendations. This selection does not authorize authentication implementation and is not a completed security audit. No authentication code, dependency, provider registration, email, infrastructure or deployment was changed.
 
 The immediate consumer is [CarbonCalculator](CarbonCalculatorDelivery.md): private saved projects, invoice attachments and access across devices make authenticated server ownership a better long-term fit than device-only persistence. The template should provide reusable authentication; the product should own project/document authorization and retention.
 
 ## 1. Recommendation
 
-Extend the existing **ASP.NET Core Identity backend with same-origin cookie sessions**, a typed authentication API and a React account UI. Keep Blazor as another supported consumer of the shared backend while this repository is a template. Offer optional Google/Microsoft or standards-based OIDC sign-in through the backend. Retain public-only React behavior as an explicit supported mode.
+The owner selected the recommended **ASP.NET Core Identity backend with app cookies**. Extend it with same-origin cookie sessions, a typed authentication API and a React account UI. Keep Blazor as another supported consumer of the shared backend while this repository is a template. Offer optional Google/Microsoft or standards-based OIDC sign-in through the backend. Retain public-only React behavior as an explicit supported mode.
 
 This is an architectural recommendation from the inspected template and the requirements, not a claim that external-provider accounts or commercial hosted services have been configured. It requires no additional identity-server process, Node production server or paid authentication dependency. Email delivery and operational capacity still need an actual free/existing solution.
 
 For CarbonCalculator, prefer authenticated server-owned projects/documents after this foundation is available. That would replace the earlier recommended browser-only ownership design. The owner has asked for alternatives, not selected the final authentication/credential policy yet; D02 remains open until that decision is recorded.
+
+### 1.1 Long-term production recommendation after the account-isolation decision
+
+The owner explicitly wants **separate accounts across cloned products**, not a shared cross-product account or SSO. Keep this as a settled requirement. Reusing template code does not mean sharing a running identity service or account database.
+
+For this requirement and the existing ASP.NET/React, self-hosted, initially free-only architecture, **ASP.NET Core Identity is the recommended long-term production foundation**. It is not a temporary system to replace merely because the product acquires paying users. The framework owns password hashing, credential verification and token primitives; the application must still implement and operate the complete supported account lifecycle. Browser cookies remain Microsoft's recommended mechanism for this browser topology. [Identity and SPA guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0).
+
+Recommended initial credential policy, pending owner selection:
+
+1. Start with **verified email/password and working reset/recovery**, so users do not need a particular Google/Microsoft account. Support password managers and avoid arbitrary periodic password changes; require a change on evidence of compromise. Define the actual password, lockout and throttling policies in A01 before implementation. These usability/policy recommendations follow [NIST's current authentication guidance](https://pages.nist.gov/800-63-4/sp800-63b.html), without claiming formal NIST compliance for this app.
+2. Provide **optional authenticator-app TOTP with recovery codes** as the first strong-sign-in slice; require strong authentication for any privileged support/administration capability before exposing it. Do not create an admin interface just for authentication. Password reset must not silently bypass enabled MFA.
+3. Add **passkeys as an additional primary sign-in method**, with a usable backup/recovery method and credential management, in the next bounded slice. This is valuable on construction-site phones, but it is not required to turn the first account release into a passkey-only product. .NET 10 provides the underlying Identity support; the React ceremony still needs implementation. [Passkey support and recovery](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/passkeys/?view=aspnetcore-10.0).
+4. Treat Google/Microsoft as optional convenience methods after a real user need is established. They remain compatible with separate product accounts: each app maps the provider identity to its own local user and grants no access to sibling products. Do not build every provider in the first release.
+
+The per-product production boundary must include:
+
+- **Account and data isolation:** an independently migrated user store and stable app-local user IDs, with separate database credentials/access where applicable. An email address can register independently in several products without linking their accounts, deletion or permissions. Do not copy real template users, password hashes or external login mappings into a new clone.
+- **Session and credential isolation:** stable app-specific cookie names, host-only cookies, Data Protection application identity and protected key storage. Keep these identities stable across updates and replicas of the same app. Never copy another product's key ring; the same shared deployment host does not justify shared cookies. Configure passkey RP/origin scope per product rather than at a common parent domain.
+- **Provider isolation:** separate product/provider client registrations and callback configuration when external login is enabled. Users may already have a session at Google/Microsoft, but that does not sign them into another product automatically. Their password reset, export, deletion and product authorization remain app-local.
+- **Operational ownership:** durable account/project/file storage, protected backups with restore evidence, monitored email failures/limits, security updates and a documented recovery procedure. Free dependencies remove a licensing bill, not these operating responsibilities. Rate-limit email requests and use bounded delivery retry; do not silently pretend a reset email was delivered.
+- **User-visible completion:** real registration/confirmation/recovery and session-expiry behavior, accessible React account views, TOTP recovery when enabled, account export/deletion, and proof that two users cannot read or mutate each other's projects or invoices. Section 7 is the full readiness contract; no production claim rests on a login screen alone.
+
+Build and verify A01–A03 in the template first, with the local-account policy selected; schedule A05's TOTP/recovery scope before any privileged operations and optional passkeys as a distinct completion gate. A04 is optional, not a prerequisite for accounts. Then clone the verified foundation and implement CarbonCalculator ownership in C-A01. Preserve the accepted Dashboard/delivery flow; account settings belong in a small account menu rather than another product navigation section.
+
+Managed identity remains a serious alternative when reducing credential operations or buying enterprise identity capabilities becomes more valuable than avoiding recurring dependencies. It still needs app authorization, safe session integration, retention and account recovery configuration. For example, Auth0 documents an external email provider for its email workflows and its built-in provider for development. Hosted authentication does not automatically solve production email delivery. [Auth0 email setup](https://auth0.com/docs/customize/email).
+
+Reassess a managed OIDC provider for an actual requirement such as contracted identity support or enterprise federation. A stable internal user ID and contained provider adapters reduce migration impact, but credential/passkey migration is not automatically portable and must be assessed before a switch. Central Keycloak/authentik/OpenIddict is outside the selected baseline because shared cross-product identity is not required. These are recommendations tailored to this template and product, not claims that every production app should operate its own credentials.
 
 ## 2. Three separate decisions
 
@@ -76,7 +103,7 @@ Link accounts using the provider's stable identifier and issuer/provider namespa
 
 External-only sign-in reduces the app's password/reset-email scope but transfers recovery dependence to the provider. It does not remove local user records, ownership checks, session lifecycle, export/deletion or account-linking responsibilities. Users without the selected provider need an explicit supported alternative or a clear product limitation.
 
-### C: central SSO choices
+### C: central SSO choices (outside the selected account-isolation baseline)
 
 - **Keycloak:** mature standalone identity-server option. Production configuration includes database, host/TLS and capacity operations; its container guide recommends a 2 GB memory limit for smaller production-ready deployments. This is an additional shared service, not an app library. [Production guide](https://www.keycloak.org/server/configuration-production), [container requirements](https://www.keycloak.org/server/containers).
 - **authentik:** another credible self-hosted central option. Its supported Compose architecture includes server, worker and PostgreSQL. Use its supported deployment/update runbooks rather than building an improvised lightweight stack. [Installation](https://docs.goauthentik.io/install-config/install/docker-compose/), [first steps](https://docs.goauthentik.io/install-config/first-steps/).
@@ -168,7 +195,7 @@ Each slice includes backend, generated client, frontend, failures, persistence a
 
 Template support remains portable across its retained deployment targets: replicas of the same app need compatible shared Data Protection state, while independent applications keep distinct stable application/cookie identities. Do not introduce LocalSingleNode-only assumptions into the shared template authentication kernel. CarbonCalculator narrows its own deployment targets later through its separate cleanup plan.
 
-Start with A01–A03 for a self-contained local-account baseline, or explicitly select external-only and replace the local-password portions with provider lifecycle/recovery. Do not build all credential/provider alternatives. Passkeys/TOTP/external providers need accurate capability flags until their complete slices pass.
+The production recommendation is A01–A03 for a self-contained local-account baseline, followed by the scoped strong-sign-in work in section 1.1. If the owner instead selects external-only, replace local-password portions with provider lifecycle/recovery. Do not build all credential/provider alternatives. Passkeys/TOTP/external providers need accurate capability flags until their complete slices pass.
 
 ## 10. CarbonCalculator changes after account ownership is approved
 
@@ -182,8 +209,10 @@ Start with A01–A03 for a self-contained local-account baseline, or explicitly 
 
 ## 11. Decision to retain
 
-Recommended: **template-first ASP.NET Core Identity + secure app cookies + React account UI**, with optional external sign-in and phased passkeys. Use server-owned private CarbonCalculator projects once that foundation and its account policy are selected.
+**Selected architecture:** ASP.NET Core Identity + app cookies. Recommended delivery: template-first shared backend and React account UI, with optional external sign-in and phased passkeys. Use server-owned private CarbonCalculator projects once that foundation and its account policy are selected.
 
-A central self-hosted OIDC service becomes the stronger alternative when the owner wants one account/SSO across several independent products. Managed OIDC is viable if its external dependency/free-tier rules are acceptable. Neither is required for the present same-origin architecture.
+**Settled owner requirement:** separate accounts across cloned products; no shared cross-product identity or SSO. Each clone owns its user store, sessions, keys, product authorization and account lifecycle. Optional external login does not change that ownership boundary.
 
-Still to select before implementation: local email/password baseline versus external-only sign-in; whether shared cross-product SSO is an actual requirement; and explicit approval of the authenticated CarbonCalculator ownership model. This document prepares that choice without implementing or registering any alternative.
+**Production recommendation:** verified local email/password with real recovery, optional TOTP/recovery and phased passkeys, secure app cookies, and server-owned private projects/documents. Managed OIDC remains an alternative for a concrete operational/business requirement; a central identity service is outside the selected baseline.
+
+Still to select before implementation: the recommended local-account credential policy versus external-only sign-in, and explicit approval of authenticated CarbonCalculator ownership. Identity + app cookies and separate product accounts are already answered and must not be asked again. This document prepares the remaining choice without implementing or registering any alternative.
