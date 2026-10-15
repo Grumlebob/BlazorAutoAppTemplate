@@ -3,6 +3,8 @@
 Status: implementation plan; product implementation and deployment have not started.
 Prepared: 2026-10-15. Owner decisions and provider conditions must be rechecked when execution starts.
 
+Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. Review accessible mockups before choosing the visual direction or early-beta versus complete-v1 launch timing. This decision does not start native setup or product deployment.
+
 ## 1. Outcome, authority and reading order
 
 Deliver an independent, private [Grumlebob/CarbonCalculator](https://github.com/Grumlebob/CarbonCalculator) application at **https://carboncalculator.jacobgrum.com/**. Start from this template's ASP.NET Core backend and React frontend. Deploy only through LocalSingleNode on the owner's existing native Linux node. Reuse that machine and its installed infrastructure; verify runner scope before promising reuse of a registration. Preserve all existing applications.
@@ -471,7 +473,7 @@ Exit: independent private repository and local checkout, safe product identity, 
 ### P03 — Establish CI on the existing node without taking its runner away
 
 1. Confirm current runner owner/scope, labels, service paths and busy state. The observed personal-repository registration cannot be reused across repositories; see [GitHub runner scope](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners).
-2. Reuse an already eligible CarbonCalculator registration if it now exists. Otherwise obtain owner confirmation of an additional CarbonCalculator-specific registration on the same machine. Do not remove/re-register the template runner or move the repositories to an organization as an implicit workaround.
+2. Reuse an already eligible CarbonCalculator registration if it now exists. Otherwise use the owner's 2026-10-15 approval for an additional CarbonCalculator-specific registration on the same machine. Do not ask for this decision again. Do not remove/re-register the template runner or move the repositories to an organization as an implicit workaround.
 3. Use the retained native AgentSetup state machine from the CarbonCalculator checkout for app-specific runner/bootstrap work. The controller is Windows; do not run node setup here or in WSL. Confirm native hostname/address and preserve the existing hostname.
 4. Only the node's explicit setup instruction triggers the native runbook. Follow its returned `agent` actions; the operator performs any returned `human` root command. If there is no CI yet, use its documented capacity-first sequence rather than requiring impossible first PR CI.
 5. Set product-specific `CI_RUNNER_LABEL`, `CI_RUNNER_HOST`, `LOCALSINGLENODE_RUNNER_LABEL` and allowed target settings before enabling Actions. Confirm both CI and CD route to the expected repository/node.
@@ -709,7 +711,7 @@ These are dependencies of later execution, not reasons to stop planning. Reuse e
 | Input/action | Current state | Agent work first | Human involvement only when required |
 | --- | --- | --- | --- |
 | Visual direction | A/B/C prepared; no selection | Provide previews and recommendation | Owner chooses direction or requested combination |
-| Runner interpretation | Existing registration belongs to template; none in destination | Verify current scope and prepare supported same-node setup | Owner confirms an additional app registration is acceptable; literal reuse across personal repos is unavailable |
+| Runner interpretation | Additional CarbonCalculator registration approved on 2026-10-15; preserve current template runner | Verify current scope and prepare supported same-node setup when execution starts | No further confirmation of the registration choice is needed; any returned native human step still applies |
 | Native privileged setup | New app-specific runner/bootstrap is likely | Prepare checkout/identity and native status result | Run the exact `human` root command returned by the native runbook; never give a speculative sudo command now |
 | HeiGIT account/key | No key used by this planning task | Check protected existing configuration by presence only; implement adapter/tests/quota controls | If absent, owner registers/verifies a free account and enters the key through protected secret input, never chat |
 | Cloudflare authentication | Existing access not inspected for this product | Inspect usable protected controller access and owned DNS/tunnel | Only missing login/scoped credential authorization; agent creates/configures resources |
@@ -731,7 +733,8 @@ Initial checkpoint:
 ```text
 Authoritative repository: template for planning; CarbonCalculator after P02
 Current packet: planning delivered; implementation not started
-Next action: collect design/runner choices, then execute P01 when instructed
+Next action: review accessible mockups; design and launch timing remain pending;
+  additional same-node CarbonCalculator runner registration is approved
 Completed preparation: source copy + SHA-256 manifest, 23 supplied tests,
   template/runner/remote inspection, three local responsive design previews
 Pending mandatory evidence: all product packets, live key/provider checks,
@@ -782,8 +785,9 @@ Complete checks/integration/evidence/closeout for each packet before advancing.
 Only these choices warrant asking now; technical defaults elsewhere are already specified:
 
 1. **Visual direction:** Fieldwork A, Route Desk B, Material Ledger C, or a concrete combination. Recommended A with B's richer route inspector added later.
-2. **Runner intent:** permit a CarbonCalculator-specific registration on the existing node, preserving its current runner, or require literal reuse of the single existing registration? The latter requires a different repository/runner ownership arrangement and is not supported by the observed setup.
-3. **Public launch level:** launch a clearly labelled road-only beta as soon as it is safe and useful, or wait for complete v1 ferry comparison and second-provider import? Recommended early beta, with full-plan completion still gated on all required slices.
+2. **Public launch level:** after reviewing the mockups, decide whether to launch a clearly labelled road-only beta as soon as it is safe and useful, or wait for complete v1 ferry comparison and second-provider import. The owner explicitly deferred this decision until mockup review; no launch option is approved yet. The early-beta recommendation does not reduce complete-v1 requirements.
+
+Resolved: the owner approved a CarbonCalculator-specific runner registration on the existing node on 2026-10-15, preserving its current runner. Do not ask this question again.
 
 No need to ask the owner to select an ORM, state library, validation framework, API versioning pattern or deployment ports. Revisit a default only when evidence or a new product requirement makes it unsuitable.
 
