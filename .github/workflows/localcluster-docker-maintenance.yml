@@ -4,6 +4,12 @@ name: LocalCluster Docker Maintenance
 # daily under the shared deployment lock. See Deployment/LocalCluster/HowToDeployLocalCluster.md.
 on:
   workflow_dispatch:
+    inputs:
+      artifact_only:
+        description: Run artifact retention without host or Docker maintenance
+        type: boolean
+        required: false
+        default: false
   schedule:
     - cron: "17 3 * * *"
 
@@ -12,7 +18,7 @@ permissions:
 
 jobs:
   prune:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true
     concurrency:
       group: localcluster-docker-maintenance
       cancel-in-progress: false

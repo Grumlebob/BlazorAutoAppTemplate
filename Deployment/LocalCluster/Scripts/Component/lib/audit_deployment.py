@@ -1110,6 +1110,8 @@ if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
 maintenance = read(".github/workflows/localcluster-docker-maintenance.yml")
 for needle, why in [
     ("workflow_dispatch:", "manual maintenance trigger"),
+    ("artifact_only:", "manual artifact-only dispatch input"),
+    ("default: false", "artifact-only dispatch preserves existing manual behavior by default"),
     ("schedule:", "daily artifact retention schedule"),
     ('cron: "17 3 * * *"', "daily artifact retention cron"),
     ("localcluster-books", "app-specific self-hosted runner label fallback"),
@@ -1123,10 +1125,19 @@ for needle, why in [
         fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
 host_maintenance_job = maintenance.split("  prune:", 1)[-1].split("  prune-migration-artifacts:", 1)[0]
 artifact_retention_job = maintenance.split("  prune-migration-artifacts:", 1)[-1]
-if "if: github.event_name == 'workflow_dispatch'" not in host_maintenance_job:
-    fail(".github/workflows/localcluster-docker-maintenance.yml: scheduled runs must not perform host or Docker cleanup")
-if "github.event.schedule == '17 3 * * *'" not in artifact_retention_job:
-    fail(".github/workflows/localcluster-docker-maintenance.yml: daily schedule must run artifact retention")
+dispatch_configuration = maintenance.split("  workflow_dispatch:", 1)[-1].split("  schedule:", 1)[0]
+dispatch_expectations = [
+    ("\n      artifact_only:\n", "artifact-only input declaration"),
+    ("\n        type: boolean\n", "boolean artifact-only input"),
+    ("\n        default: false\n", "default-off artifact-only input"),
+]
+for needle, why in dispatch_expectations:
+    if needle not in dispatch_configuration:
+        fail(f".github/workflows/localcluster-docker-maintenance.yml: missing {why}")
+if "if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true" not in host_maintenance_job:
+    fail(".github/workflows/localcluster-docker-maintenance.yml: host or Docker cleanup must be skipped for artifact-only dispatches and schedules")
+if "if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'" not in artifact_retention_job:
+    fail(".github/workflows/localcluster-docker-maintenance.yml: manual and daily runs must run artifact retention")
 for needle, why in [
     ("Require main branch", "main-ref-only manual pruning"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
