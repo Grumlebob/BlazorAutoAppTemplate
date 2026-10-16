@@ -56,7 +56,7 @@ class ValidatedLiveRunIdsTests(unittest.TestCase):
     def test_remote_command_checks_app_root_and_avoids_ansible_jinja_templates(self):
         command = reader.remote_identity_command("books", "/opt/books")
         self.assertIn("test \"$root_app\" = books", command)
-        self.assertIn("docker compose ps -q web", command)
+        self.assertIn("docker compose --env-file .compose.env ps -q web", command)
         self.assertNotIn("--format '{{", command)
 
     def test_unsafe_deploy_root_is_rejected(self):

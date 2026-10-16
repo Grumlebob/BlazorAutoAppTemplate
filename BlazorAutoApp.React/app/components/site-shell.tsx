@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { AccountNavigation } from "../features/accounts/account-navigation";
 
 export function SiteShell({ children }: { children?: ReactNode }) {
   return (
@@ -29,6 +30,7 @@ export function SiteShell({ children }: { children?: ReactNode }) {
           </Link>
 
           <nav aria-label="Main navigation" className="flex items-center gap-2">
+            <AccountNavigation />
             <NavLink
               className={({ isActive }) =>
                 `rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700 ${

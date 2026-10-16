@@ -227,8 +227,8 @@ internal static class LocalLoginAccountSeedExtensions
             return;
         }
 
-        var errors = string.Join("; ", result.Errors.Select(error => error.Description));
-        throw new InvalidOperationException($"Failed to {action}: {errors}");
+        var errorCodes = string.Join("; ", result.Errors.Select(error => error.Code));
+        throw new InvalidOperationException($"Failed to {action}. Identity error codes: {errorCodes}");
     }
 
     private sealed record LocalSeedAccount(string Email, string Password, string Role);

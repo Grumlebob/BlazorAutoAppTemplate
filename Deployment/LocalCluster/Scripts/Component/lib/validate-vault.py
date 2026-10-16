@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import json
 import sys
 
 
@@ -11,6 +12,8 @@ REQUIRED_KEYS = [
     "vault_postgres_db",
     "vault_redis_password",
     "vault_cloudflare_tunnel_token",
+    "vault_data_protection_certificate_base64",
+    "vault_data_protection_certificate_password",
 ]
 
 # CD passes registry credentials from the workflow token. These keys are only
@@ -18,6 +21,9 @@ REQUIRED_KEYS = [
 OPTIONAL_KEYS = [
     "vault_ghcr_username",
     "vault_ghcr_token",
+    "vault_accounts_admin_seed_password",
+    "vault_accounts_email_username",
+    "vault_accounts_email_password",
 ]
 
 DOTENV_SAFE_PASSWORD = re.compile(r"^[A-Za-z0-9._@%+-]{16,128}$")
@@ -33,18 +39,28 @@ def parse_simple_yaml(text: str) -> tuple[dict[str, str], list[str]]:
             continue
         match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*?)\s*$", raw_line)
         if not match:
-            errors.append(f"line {line_number}: unsupported vault line: {raw_line}")
+            errors.append(f"line {line_number}: unsupported vault entry")
             continue
 
         key, value = match.groups()
         value = value.strip()
-        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-            value = value[1:-1]
+        if value.startswith('"') and value.endswith('"'):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                errors.append(f"line {line_number}: invalid quoted vault value")
+                continue
+            if not isinstance(decoded, str):
+                errors.append(f"line {line_number}: vault values must be strings")
+                continue
+            value = decoded
+        elif value.startswith("'") and value.endswith("'"):
+            value = value[1:-1].replace("''", "'")
 
         if key in values:
             errors.append(f"duplicate key: {key}")
             continue
-        values[key] = value.strip()
+        values[key] = value
 
     return values, errors
 
@@ -78,6 +94,18 @@ def validate(values: dict[str, str]) -> list[str]:
                 f"{key} must be 16-128 characters using only letters, numbers, dot, underscore, at, percent, plus, or hyphen"
             )
 
+    for key in [
+        "vault_accounts_admin_seed_password",
+        "vault_accounts_email_username",
+        "vault_accounts_email_password",
+    ]:
+        value = values.get(key, "")
+        if any(char in value for char in "\r\n\0"):
+            errors.append(f"{key} must be a single-line value")
+
+    if bool(values.get("vault_accounts_email_username")) != bool(values.get("vault_accounts_email_password")):
+        errors.append("vault_accounts_email_username and vault_accounts_email_password must be set together")
+
     if bool(values.get("vault_ghcr_username")) != bool(values.get("vault_ghcr_token")):
         errors.append("vault_ghcr_username and vault_ghcr_token must be set together or both omitted")
 
@@ -92,6 +120,19 @@ def validate(values: dict[str, str]) -> list[str]:
     tunnel_token = values.get("vault_cloudflare_tunnel_token", "")
     if tunnel_token and not re.match(r"^eyJ[A-Za-z0-9_.-]{100,5000}$", tunnel_token):
         errors.append("vault_cloudflare_tunnel_token must look like the long eyJ... Cloudflare tunnel token")
+
+    certificate = values.get("vault_data_protection_certificate_base64", "")
+    password = values.get("vault_data_protection_certificate_password", "")
+    if password and not re.fullmatch(r"[A-Fa-f0-9]{64}", password):
+        errors.append("vault_data_protection_certificate_password must be 64 hexadecimal characters")
+    if certificate:
+        import base64
+        try:
+            decoded = base64.b64decode(certificate, validate=True)
+            if b"-----BEGIN CERTIFICATE-----" not in decoded or b"-----BEGIN ENCRYPTED PRIVATE KEY-----" not in decoded:
+                errors.append("vault_data_protection_certificate_base64 must contain one encrypted PEM certificate and private key")
+        except (ValueError, base64.binascii.Error):
+            errors.append("vault_data_protection_certificate_base64 must be valid base64")
 
     return errors
 

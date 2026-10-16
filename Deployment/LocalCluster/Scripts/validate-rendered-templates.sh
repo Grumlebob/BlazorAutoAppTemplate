@@ -8,6 +8,7 @@ python3 - "$REPO_ROOT" <<'PY'
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ def ansible_bool(value: object) -> bool:
 
 
 JINJA.filters["bool"] = ansible_bool
+JINJA.filters["ternary"] = lambda value, when_true, when_false: when_true if value else when_false
 
 
 def fail(message: str) -> None:
@@ -151,6 +153,55 @@ def check_prometheus_config(config_path: Path) -> None:
         )
 
 
+def assert_runtime_account_environment(folder: Path, expected: dict[str, str]) -> None:
+    verifier = folder / "verify-account-env.yml"
+    keys = list(expected)
+    node_script = (
+        "console.log(JSON.stringify(Object.fromEntries("
+        f"{json.dumps(keys)}.map(key => [key, process.env[key]]))))"
+    )
+    verifier.write_text(
+        json.dumps(
+            {
+                "services": {
+                    "verify": {
+                        "image": "node:24.21.0-bookworm-slim",
+                        "network_mode": "none",
+                        "env_file": [{"path": "./.env", "format": "raw"}],
+                        "command": ["node", "-e", node_script],
+                    }
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    empty_interpolation = folder / "empty-interpolation.env"
+    empty_interpolation.write_text("", encoding="utf-8")
+    result = subprocess.check_output(
+        [
+            "docker",
+            "compose",
+            "--project-directory",
+            str(folder),
+            "--env-file",
+            str(empty_interpolation),
+            "-f",
+            str(verifier),
+            "run",
+            "--rm",
+            "--no-deps",
+            "-T",
+            "verify",
+        ],
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    lines = [line for line in result.splitlines() if line.startswith("{")]
+    if not lines or json.loads(lines[-1]) != expected:
+        fail("synthetic LocalCluster or Cloud app environment did not round-trip")
+
+
 docker_available = command_available("docker") and command_succeeds(["docker", "version"])
 
 apps = [
@@ -182,11 +233,26 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "vault_postgres_password": "db-password",
         "vault_postgres_db": "appdb",
         "vault_redis_password": "redis-password",
+        "vault_data_protection_certificate_password": "b" * 64,
+        "vault_data_protection_certificate_base64": "U1lOVEhFVElDX0VORFJZUFRFRF9QRU0=",
+        "data_protection_certificate_gid": "1001",
         "observability_enabled": "true",
         "observability_docker_network": "notes_observability",
         "observability_trace_sample_ratio": "0.25",
         "observability_postgres_exporter_port": "9187",
         "observability_redis_exporter_port": "9121",
+    }
+    groups = {
+        "all": ["node-main", "node-app1", "node-app2", "node-db"],
+        "load_balancer": ["node-main"],
+        "app_servers": ["node-app1", "node-app2"],
+        "node_db": ["node-db"],
+    }
+    hostvars = {
+        "node-main": {"ansible_host": "10.10.0.10"},
+        "node-app1": {"ansible_host": "10.10.0.11"},
+        "node-app2": {"ansible_host": "10.10.0.12"},
+        "node-db": {"ansible_host": "10.10.0.20"},
     }
     app_values = {
         **common,
@@ -194,24 +260,60 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "app_port": "8080",
         "postgres_port": "5432",
         "redis_port": "6379",
+        "groups": groups,
+        "hostvars": hostvars,
     }
-    app_env = render_env(ROOT / "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2", app_values)
-    db_env = render_env(ROOT / "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2", app_values)
+    cluster_compose_template = ROOT / "Deployment/LocalCluster/ansible/roles/app/templates/compose.env.j2"
+    cluster_compose_env = render_jinja(cluster_compose_template, app_values)
+    if "Accounts__" in cluster_compose_env:
+        fail("LocalCluster Compose interpolation allowlist must exclude account settings")
+    if "POSTGRES_PASSWORD=db-password" not in cluster_compose_env or "REDIS_PASSWORD=redis-password" not in cluster_compose_env:
+        fail("LocalCluster Compose interpolation allowlist must contain the validated database runtime inputs")
+    cluster_app_template = ROOT / "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2"
+    app_env = render_jinja(cluster_app_template, app_values)
+    db_env = render_env(
+        ROOT / "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2",
+        {key: value for key, value in app_values.items() if isinstance(value, str)},
+    )
     if "APP_NAME=notes" not in app_env or "APP_NAME=notes" not in db_env:
         fail("rendered env files are missing app identity marker")
     if "APP_NODE_NAME=node-app1" not in app_env:
         fail("rendered app env is missing stable app node name")
+    if "DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem" not in app_env:
+        fail("LocalCluster app env is missing Data Protection certificate path")
+    for expected in [
+        "DataProtection__LegacyKeyStore=None",
+        "DataProtection__LegacyRedisKey=",
+        "DataProtection__LegacyKeyStoragePath=",
+    ]:
+        if expected not in app_env:
+            fail(f"LocalCluster app env has unexpected legacy Data Protection defaults: {expected}")
+    filesystem_app_env = render_jinja(
+        cluster_app_template,
+        {**app_values, "data_protection_legacy_key_store": "FileSystem"},
+    )
+    if "DataProtection__LegacyKeyStoragePath=/run/legacy-data-protection" not in filesystem_app_env:
+        fail("LocalCluster FileSystem import must use the mounted legacy key directory")
     if "COMPOSE_PROJECT_NAME=notes" not in app_env or "COMPOSE_PROJECT_NAME=notes" not in db_env:
         fail("rendered env files are missing explicit Compose project names")
     if "APP_IMAGE_REF=ghcr.io/example/notes:abcdef123456" not in app_env:
         fail("rendered app env must fall back to the app_version tag when no release digest is set")
     release_digest = "sha256:" + "a" * 64
-    digest_env = render_env(
-        ROOT / "Deployment/LocalCluster/ansible/roles/app/templates/app.env.j2",
+    digest_env = render_jinja(
+        cluster_app_template,
         {**app_values, "release_image_digest": release_digest},
     )
     if f"APP_IMAGE_REF=ghcr.io/example/notes@{release_digest}" not in digest_env:
         fail("rendered app env must pin APP_IMAGE_REF to the release digest when one is set")
+    for expected in [
+        "Accounts__Enabled=false",
+        "Accounts__RegistrationEnabled=false",
+        "Accounts__AdminSeed__Enabled=false",
+        "Accounts__AdminSeed__Password=",
+        "Accounts__Email__Password=",
+    ]:
+        if expected not in app_env:
+            fail(f"LocalCluster app env must default accounts off and credentials blank: {expected}")
 
     compose_env = {
         "APP_IMAGE": "ghcr.io/example/notes",
@@ -235,17 +337,27 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
         "OBSERVABILITY_TRACE_SAMPLE_RATIO": "0.25",
         "OBSERVABILITY_DEPLOYMENT_TARGET": "localcluster",
         "OBSERVABILITY_DOCKER_NETWORK": "notes_observability",
+        "DATA_PROTECTION_CERT_HOST_PATH": "/etc/notes/data-protection/certificate.pem",
+        "DATA_PROTECTION_CERT_GID": "1001",
+        "DATA_PROTECTION_LEGACY_HOST_PATH": "/etc/notes/data-protection/legacy",
         "NODE_HOST": "10.10.0.20",
         "OBSERVABILITY_POSTGRES_EXPORTER_PORT": "9187",
         "OBSERVABILITY_REDIS_EXPORTER_PORT": "9121",
     }
     app_compose = tmp_path / "app-compose.yml"
     db_compose = tmp_path / "db-compose.yml"
+    (tmp_path / ".env").write_text(app_env, encoding="utf-8")
     app_compose.write_text(render_compose(ROOT / "Deployment/LocalCluster/compose/app-server/docker-compose.yml", compose_env), encoding="utf-8")
     if "hostname: node-app1" not in app_compose.read_text(encoding="utf-8"):
         fail("rendered app compose is missing stable container hostname")
     if "image: ghcr.io/example/notes@sha256:" + "a" * 64 not in app_compose.read_text(encoding="utf-8"):
         fail("rendered app compose must run the exact APP_IMAGE_REF")
+    if "format: raw" not in app_compose.read_text(encoding="utf-8") or "path: ./.env" not in app_compose.read_text(encoding="utf-8"):
+        fail("LocalCluster app compose must pass its raw environment file to the app service")
+    if "/run/secrets/data-protection.pem" not in app_compose.read_text(encoding="utf-8"):
+        fail("LocalCluster app compose must mount its protected Data Protection certificate")
+    if "/run/legacy-data-protection" not in app_compose.read_text(encoding="utf-8"):
+        fail("LocalCluster app compose must mount the read-only legacy Data Protection import source")
     db_compose_text = render_compose(ROOT / "Deployment/LocalCluster/compose/node-db/docker-compose.yml", compose_env)
     db_compose.write_text(db_compose_text, encoding="utf-8")
     for required in [
@@ -260,21 +372,187 @@ with tempfile.TemporaryDirectory(prefix="localcluster-render-") as tmp:
 
     docker_compose_available = docker_available and command_succeeds(["docker", "compose", "version"])
     if docker_compose_available:
-        subprocess.run(["docker", "compose", "-f", str(app_compose), "config"], check=True, stdout=subprocess.DEVNULL)
+        empty_interpolation = tmp_path / "empty-interpolation.env"
+        empty_interpolation.write_text("", encoding="utf-8")
+        (tmp_path / ".compose.env").write_text(cluster_compose_env, encoding="utf-8")
+        actual_app_compose = tmp_path / "docker-compose.yml"
+        actual_app_compose.write_text(
+            (ROOT / "Deployment/LocalCluster/compose/app-server/docker-compose.yml").read_text(encoding="utf-8-sig"),
+            encoding="utf-8",
+        )
+        actual_output = subprocess.check_output(
+            ["docker", "compose", "--project-directory", str(tmp_path), "--env-file", str(tmp_path / ".compose.env"), "-f", str(actual_app_compose), "config", "--format", "json"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
+        actual_config = json.loads(actual_output)
+        if actual_config["services"]["web"]["environment"]["Accounts__Email__Password"] != "":
+            fail("LocalCluster Compose must preserve raw app env values without account interpolation")
+        subprocess.run(
+            ["docker", "compose", "--project-directory", str(tmp_path), "--env-file", str(empty_interpolation), "-f", str(app_compose), "config"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
         subprocess.run(["docker", "compose", "-f", str(db_compose), "config"], check=True, stdout=subprocess.DEVNULL)
 
-    groups = {
-        "all": ["node-main", "node-app1", "node-app2", "node-db"],
-        "load_balancer": ["node-main"],
-        "app_servers": ["node-app1", "node-app2"],
-        "node_db": ["node-db"],
-    }
-    hostvars = {
-        "node-main": {"ansible_host": "10.10.0.10"},
-        "node-app1": {"ansible_host": "10.10.0.11"},
-        "node-app2": {"ansible_host": "10.10.0.12"},
-        "node-db": {"ansible_host": "10.10.0.20"},
-    }
+        cluster_secret_values = {
+            "Accounts__AdminSeed__Password": ' seed $dollar #hash = "double" \'single\' ',
+            "Accounts__Email__Username": ' smtp $dollar #hash = "double" ',
+            "Accounts__Email__Password": ' smtp-password $dollar #hash = "double" \'single\' ',
+            "DataProtection__LegacyKeyStore": "Redis",
+            "DataProtection__LegacyRedisKey": 'legacy:keys $dollar #hash = "quoted"',
+        }
+        cluster_enabled_context = {
+            **app_values,
+            "accounts_enabled": True,
+            "accounts_registration_enabled": True,
+            "accounts_admin_seed_enabled": True,
+            "accounts_admin_seed_email": "admin@example.invalid",
+            "accounts_public_origin": "https://notes.example.invalid",
+            "accounts_email_host": "smtp.example.invalid",
+            "accounts_email_port": 587,
+            "accounts_email_security": "StartTls",
+            "accounts_email_from": "accounts@example.invalid",
+            "data_protection_legacy_key_store": cluster_secret_values["DataProtection__LegacyKeyStore"],
+            "data_protection_legacy_redis_key": cluster_secret_values["DataProtection__LegacyRedisKey"],
+            "vault_accounts_admin_seed_password": cluster_secret_values["Accounts__AdminSeed__Password"],
+            "vault_accounts_email_username": cluster_secret_values["Accounts__Email__Username"],
+            "vault_accounts_email_password": cluster_secret_values["Accounts__Email__Password"],
+            "vault_data_protection_certificate_password": "b" * 64,
+        }
+        cluster_enabled_env = render_jinja(cluster_app_template, cluster_enabled_context)
+        (tmp_path / ".env").write_text(cluster_enabled_env, encoding="utf-8")
+        enabled_compose_env = render_jinja(cluster_compose_template, cluster_enabled_context)
+        if "Accounts__" in enabled_compose_env or "smtp-password" in enabled_compose_env:
+            fail("LocalCluster Compose interpolation allowlist must exclude enabled account credentials")
+        (tmp_path / ".compose.env").write_text(enabled_compose_env, encoding="utf-8")
+        enabled_actual_output = subprocess.check_output(
+            ["docker", "compose", "--project-directory", str(tmp_path), "--env-file", str(tmp_path / ".compose.env"), "-f", str(actual_app_compose), "config", "--format", "json"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
+        enabled_actual_config = json.loads(enabled_actual_output)
+        expected_config_secret = cluster_secret_values["Accounts__Email__Password"].replace("$", "$$")
+        if enabled_actual_config["services"]["web"]["environment"]["Accounts__Email__Password"] != expected_config_secret:
+            actual_value = enabled_actual_config["services"]["web"]["environment"]["Accounts__Email__Password"]
+            fail(f"LocalCluster Compose must not interpolate raw account credentials (actual length={len(actual_value) if actual_value is not None else 'null'})")
+        assert_runtime_account_environment(tmp_path, cluster_secret_values)
+
+        cloud_root = tmp_path / "cloud-app"
+        cloud_root.mkdir()
+        cloud_hostvars = {
+            "cloud-main": {"cloud_private_ip": "192.0.2.2"},
+            "cloud-app1": {"cloud_private_ip": "192.0.2.3"},
+            "cloud-db": {"cloud_private_ip": "192.0.2.5"},
+        }
+        cloud_groups = {"load_balancer": ["cloud-main"], "node_db": ["cloud-db"]}
+        cloud_context = {
+            "app_name": "fixture-books",
+            "app_image": "ghcr.io/example/fixture-books",
+            "app_version": "abcdef123456",
+            "inventory_hostname": "cloud-app1",
+            "cloud_private_ip": "192.0.2.3",
+            "app_port": "8080",
+            "groups": cloud_groups,
+            "hostvars": cloud_hostvars,
+            "postgres_port": "5432",
+            "cloud_postgres_user": "fixture_user",
+            "cloud_postgres_password": "FixtureDbPassword123",
+            "cloud_postgres_db": "fixture_db",
+            "redis_port": "6379",
+            "cloud_redis_password": "FixtureRedisPassword123",
+            "observability_enabled": True,
+            "observability_docker_network": "fixture_observability",
+            "cloud_data_protection_certificate_password": "c" * 64,
+            "cloud_data_protection_certificate_base64": "U1lOVEhFVElDX0VORFJZUFRFRF9QRU0=",
+            "data_protection_certificate_gid": "1002",
+            "data_protection_legacy_key_store": "None",
+            "data_protection_legacy_redis_key": "",
+            "observability_trace_sample_ratio": "0.1",
+        }
+        cloud_template = ROOT / "Deployment/Cloud/ansible/roles/app/templates/app.env.j2"
+        cloud_default_env = render_jinja(cloud_template, cloud_context)
+        if "DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem" not in cloud_default_env:
+            fail("Cloud app env is missing Data Protection certificate path")
+        if "DataProtection__LegacyKeyStore=None" not in cloud_default_env or "DataProtection__LegacyKeyStoragePath=" not in cloud_default_env:
+            fail("Cloud app env must default the legacy Data Protection import off")
+        cloud_filesystem_env = render_jinja(
+            cloud_template,
+            {**cloud_context, "data_protection_legacy_key_store": "FileSystem"},
+        )
+        if "DataProtection__LegacyKeyStoragePath=/run/legacy-data-protection" not in cloud_filesystem_env:
+            fail("Cloud FileSystem import must use the mounted legacy key directory")
+        for expected in ["Accounts__Enabled=false", "Accounts__RegistrationEnabled=false", "Accounts__AdminSeed__Enabled=false"]:
+            if expected not in cloud_default_env:
+                fail(f"Cloud app env must default accounts off: {expected}")
+        cloud_secret_values = {
+            "Accounts__AdminSeed__Password": ' cloud-seed $dollar #hash = "double" \'single\' ',
+            "Accounts__Email__Username": ' cloud-user $dollar #hash = "double" ',
+            "Accounts__Email__Password": ' cloud-password $dollar #hash = "double" \'single\' ',
+            "DataProtection__LegacyKeyStore": "Redis",
+            "DataProtection__LegacyRedisKey": 'legacy:keys $dollar #hash = "quoted"',
+        }
+        cloud_enabled_context = {
+            **cloud_context,
+            "accounts_enabled": True,
+            "accounts_registration_enabled": True,
+            "accounts_admin_seed_enabled": True,
+            "accounts_admin_seed_email": "admin@example.invalid",
+            "accounts_public_origin": "https://fixture-books.example.invalid",
+            "accounts_email_host": "smtp.example.invalid",
+            "accounts_email_port": 587,
+            "accounts_email_security": "StartTls",
+            "accounts_email_from": "accounts@example.invalid",
+            "data_protection_legacy_key_store": cloud_secret_values["DataProtection__LegacyKeyStore"],
+            "data_protection_legacy_redis_key": cloud_secret_values["DataProtection__LegacyRedisKey"],
+            "cloud_accounts_admin_seed_password": cloud_secret_values["Accounts__AdminSeed__Password"],
+            "cloud_accounts_email_username": cloud_secret_values["Accounts__Email__Username"],
+            "cloud_accounts_email_password": cloud_secret_values["Accounts__Email__Password"],
+        }
+        (cloud_root / ".env").write_text(render_jinja(cloud_template, cloud_enabled_context), encoding="utf-8")
+        cloud_compose_template = ROOT / "Deployment/Cloud/ansible/roles/app/templates/compose.env.j2"
+        cloud_interpolation = render_jinja(cloud_compose_template, cloud_enabled_context)
+        if "Accounts__" in cloud_interpolation or "cloud-password" in cloud_interpolation:
+            fail("Cloud Compose interpolation allowlist must exclude enabled account credentials")
+        (cloud_root / ".compose.env").write_text(cloud_interpolation, encoding="utf-8")
+        cloud_compose_env = {
+            "APP_IMAGE": cloud_context["app_image"],
+            "APP_VERSION": cloud_context["app_version"],
+            "APP_NODE_NAME": cloud_context["inventory_hostname"],
+            "APP_BIND_IP": cloud_context["cloud_private_ip"],
+            "APP_PORT": cloud_context["app_port"],
+            "APP_NAME": cloud_context["app_name"],
+            "FORWARDED_HEADERS_KNOWN_PROXY": cloud_hostvars["cloud-main"]["cloud_private_ip"],
+            "POSTGRES_HOST": cloud_hostvars["cloud-db"]["cloud_private_ip"],
+            "POSTGRES_PORT": cloud_context["postgres_port"],
+            "POSTGRES_DB": cloud_context["cloud_postgres_db"],
+            "POSTGRES_USER": cloud_context["cloud_postgres_user"],
+            "POSTGRES_PASSWORD": cloud_context["cloud_postgres_password"],
+            "REDIS_HOST": cloud_hostvars["cloud-db"]["cloud_private_ip"],
+            "REDIS_PORT": cloud_context["redis_port"],
+            "REDIS_PASSWORD": cloud_context["cloud_redis_password"],
+            "OBSERVABILITY_ENABLED": "true",
+            "OBSERVABILITY_OTLP_ENDPOINT": "http://alloy:4317",
+            "OBSERVABILITY_OTLP_PROTOCOL": "Grpc",
+            "OBSERVABILITY_TRACE_SAMPLE_RATIO": "0.1",
+            "OBSERVABILITY_DEPLOYMENT_TARGET": "cloud",
+            "OBSERVABILITY_DOCKER_NETWORK": "fixture_observability",
+            "DATA_PROTECTION_CERT_HOST_PATH": "/etc/fixture-books/data-protection/certificate.pem",
+            "DATA_PROTECTION_CERT_GID": "1002",
+            "DATA_PROTECTION_LEGACY_HOST_PATH": "/etc/fixture-books/data-protection/legacy",
+        }
+        cloud_compose = cloud_root / "docker-compose.yml"
+        cloud_compose_text = (ROOT / "Deployment/Cloud/compose/app-server/docker-compose.yml").read_text(encoding="utf-8-sig")
+        cloud_compose.write_text(cloud_compose_text, encoding="utf-8")
+        if "format: raw" not in cloud_compose_text or "path: ./.env" not in cloud_compose_text:
+            fail("Cloud app compose must pass its raw environment file to the app service")
+        subprocess.run(
+            ["docker", "compose", "--project-directory", str(cloud_root), "--env-file", str(cloud_root / ".compose.env"), "-f", str(cloud_compose), "config"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        assert_runtime_account_environment(cloud_root, cloud_secret_values)
+
     observability_context = {
         "app_name": "notes",
         "groups": groups,

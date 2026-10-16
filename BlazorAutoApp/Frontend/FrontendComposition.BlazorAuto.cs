@@ -3,6 +3,7 @@ using BlazorAutoApp.Client.Features.Books.UserBookcase;
 using BlazorAutoApp.Components;
 using BlazorAutoApp.Features.Books.AuthorBookcase.Seed;
 using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Features.Login.Accounts.Email;
 using BlazorAutoApp.Features.Login.Account.Seed;
 using BlazorAutoApp.Infrastructure.Hosting;
 using ClientImports = BlazorAutoApp.Client._Imports;
@@ -19,6 +20,7 @@ internal static class FrontendComposition
             .AddAuthenticationStateSerialization();
 
         services.AddBlazorIdentityUi(configuration);
+        services.AddSingleton<IAccountMailFrontend>(AccountMailFrontend.BlazorAuto);
         services.AddScoped<AuthorBookcaseState>();
         services.AddScoped<UserBookcaseState>();
     }

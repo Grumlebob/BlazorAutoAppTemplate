@@ -116,7 +116,9 @@ jobs:
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py -v
 
       - name: Test Cloud and LocalCluster settings validation parity
-        run: python3 -m unittest Deployment/Common/Scripts/Tests/test_settings_validation.py -v
+        run: |
+          python3 -m unittest Deployment/Common/Scripts/Tests/test_settings_validation.py -v
+          python3 -m unittest Deployment/Common/Scripts/Tests/test_account_deploy_settings.py -v
 
       # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
@@ -172,6 +174,9 @@ jobs:
             find Deployment/Common/observability/scripts -type f -name '*.sh' -print0
             find Scripts/CI -type f -name '*.sh' -print0
           } | xargs -0 shellcheck --severity=warning
+
+      - name: Test Cloud account environment loading
+        run: bash Deployment/Cloud/Scripts/Tests/test-cloud-account-env.sh
 
       - name: Test LocalCluster deployment lock
         run: bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh

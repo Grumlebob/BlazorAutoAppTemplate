@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -39,6 +41,31 @@ def latest(value):
     return result
 
 
+def validate_protected_source(path, expected_mode, label):
+    source = Path(path)
+    try:
+        metadata = source.lstat()
+    except OSError as error:
+        raise ValueError(f"{label} is missing or unsafe") from error
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != expected_mode:
+        raise ValueError(f"{label} must be a regular file with mode {expected_mode:04o}")
+    return source
+
+
+def publish_protected_copy(source, destination, gid):
+    temporary = destination.parent / f".{destination.name}-{uuid.uuid4().hex}.tmp"
+    try:
+        with source.open("rb") as input_file, temporary.open("xb") as output_file:
+            shutil.copyfileobj(input_file, output_file)
+            output_file.flush()
+            os.fsync(output_file.fileno())
+        temporary.chmod(0o640)
+        os.chown(temporary, -1, gid)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def backup(value):
     folder = Path(value["backup_root"])
     if folder.is_symlink() or not folder.is_dir():
@@ -47,6 +74,9 @@ def backup(value):
     destination = folder / f"{value['app_name']}-{stamp}.dump"
     temporary = destination.with_suffix(".partial")
     db = value["app_name"].replace("-", "_")
+    source = validate_protected_source(value["secrets_file"], 0o600, "runtime secrets")
+    certificate = validate_protected_source(
+        value["data_protection_certificate_file"], 0o440, "Data Protection certificate")
     with temporary.open("xb") as output:
         result = subprocess.run(["docker", "compose", "--project-directory", value["deploy_root"], "exec", "-T", "postgres", "pg_dump", "-U", db, "-d", db, "-Fc"], stdout=output, stderr=subprocess.PIPE, timeout=180)
     if result.returncode or not temporary.stat().st_size:
@@ -57,16 +87,8 @@ def backup(value):
     temporary.chmod(0o640)
     os.chown(temporary, -1, gid)
     temporary.replace(destination)
-    source = Path(value["secrets_file"])
-    if source.is_symlink() or source.stat().st_mode & 0o777 != 0o600:
-        raise ValueError("runtime secrets must be a regular 0600 file")
-    secret = folder / "secrets.yml"
-    # Atomic replacement never follows an existing secret symlink.
-    secret_tmp = folder / f".secrets-{uuid.uuid4().hex}.tmp"
-    secret_tmp.write_bytes(source.read_bytes())
-    secret_tmp.chmod(0o640)
-    os.chown(secret_tmp, -1, gid)
-    secret_tmp.replace(secret)
+    publish_protected_copy(source, folder / "secrets.yml", gid)
+    publish_protected_copy(certificate, folder / "data-protection.pem", gid)
     timestamp = folder / "last-success"
     timestamp.write_text(datetime.now(timezone.utc).isoformat() + "\n")
     timestamp.chmod(0o640)

@@ -46,6 +46,11 @@ services:
     image: ${APP_IMAGE_REF:?APP_IMAGE_REF is required}
     restart: unless-stopped
     logging: *logging
+    group_add:
+      - "${DATA_PROTECTION_CERT_GID:?DATA_PROTECTION_CERT_GID is required}"
+    env_file:
+      - path: ./.env
+        format: raw
     labels:
       localsinglenode.app: ${APP_NAME}
     ports:
@@ -69,6 +74,14 @@ services:
       Observability__OpenTelemetry__DeploymentTarget: localsinglenode
     volumes:
       - app_storage:/app/Storage
+      - type: bind
+        source: ${DATA_PROTECTION_CERT_HOST_PATH:?DATA_PROTECTION_CERT_HOST_PATH is required}
+        target: /run/secrets/data-protection.pem
+        read_only: true
+      - type: bind
+        source: ${DATA_PROTECTION_LEGACY_HOST_PATH:?DATA_PROTECTION_LEGACY_HOST_PATH is required}
+        target: /run/legacy-data-protection
+        read_only: true
 
 volumes:
   postgres_data:

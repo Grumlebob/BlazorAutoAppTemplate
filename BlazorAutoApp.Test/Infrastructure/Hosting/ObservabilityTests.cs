@@ -46,6 +46,21 @@ public sealed class ObservabilityTests
         Assert.Equal(LogEventLevel.Error, level);
     }
 
+    [Theory]
+    [InlineData("/Account/ConfirmEmail")]
+    [InlineData("/Account/ConfirmEmailChange")]
+    [InlineData("/Account/ResetPassword")]
+    public void HttpTracing_ExcludesBlazorProofRoutesWithSensitiveQueryStrings(string path)
+    {
+        Assert.True(ObservabilityExtensions.IsSensitiveAccountProofPath(path));
+    }
+
+    [Fact]
+    public void HttpTracing_KeepsOrdinaryAccountRoutes()
+    {
+        Assert.False(ObservabilityExtensions.IsSensitiveAccountProofPath("/Account/ForgotPassword"));
+    }
+
     [Fact]
     public async Task AppStarts_WhenOpenTelemetryIsDisabled()
     {

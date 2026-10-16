@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -8,6 +9,14 @@ VAULT="$REPO_ROOT/Deployment/LocalCluster/inventory/prod/vault.yml"
 
 command -v ansible-vault >/dev/null 2>&1 || {
   echo "ansible-vault is missing. Run Deployment/LocalCluster/Scripts/setup-control-machine.sh first." >&2
+  exit 1
+}
+command -v openssl >/dev/null 2>&1 || {
+  echo "openssl is missing. Install OpenSSL before creating the protected Data Protection key." >&2
+  exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+  echo "python3 is missing. Install Python 3 before creating the protected Data Protection key." >&2
   exit 1
 }
 
@@ -34,8 +43,11 @@ fi
 
 PASS_FILE="$(mktemp)"
 TMP_VAULT_CONTENT="$(mktemp)"
+KEY_DIRECTORY="$(mktemp -d)"
+TMP_ENCRYPTED_VAULT="$KEY_DIRECTORY/vault.ansible"
 cleanup() {
-  rm -f "$PASS_FILE" "$TMP_VAULT_CONTENT"
+  rm -f "$PASS_FILE" "$TMP_VAULT_CONTENT" "$TMP_ENCRYPTED_VAULT"
+  rm -rf "$KEY_DIRECTORY"
 }
 trap cleanup EXIT
 
@@ -45,9 +57,36 @@ export ANSIBLE_VAULT_PASSWORD_FILE="$PASS_FILE"
 
 if [[ -f "$VAULT" ]]; then
   echo "vault already exists: Deployment/LocalCluster/inventory/prod/vault.yml"
+  ansible-vault decrypt --output "$TMP_VAULT_CONTENT" "$VAULT"
 else
   cp "$EXAMPLE" "$TMP_VAULT_CONTENT"
+fi
+
+chmod 600 "$TMP_VAULT_CONTENT"
+DP_STATE="$(python3 "$SCRIPT_DIR/Component/lib/data_protection_vault.py" inspect "$TMP_VAULT_CONTENT")" || {
+  echo "Data Protection certificate vault entries are partial or invalid; no vault was changed." >&2
+  exit 1
+}
+
+if [[ "$DP_STATE" == "generate" ]]; then
+  openssl rand -hex 32 > "$KEY_DIRECTORY/password"
+  chmod 600 "$KEY_DIRECTORY/password"
+  openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 \
+    -keyout "$KEY_DIRECTORY/private-key.pem" \
+    -out "$KEY_DIRECTORY/public-certificate.pem" \
+    -subj "/CN=BlazorAutoApp LocalCluster Data Protection" \
+    -passout "file:$KEY_DIRECTORY/password" -aes256 >/dev/null 2>&1
+  cat "$KEY_DIRECTORY/public-certificate.pem" "$KEY_DIRECTORY/private-key.pem" > "$KEY_DIRECTORY/certificate.pem"
+  base64 < "$KEY_DIRECTORY/certificate.pem" | tr -d '\n' > "$KEY_DIRECTORY/certificate.b64"
+  python3 "$SCRIPT_DIR/Component/lib/data_protection_vault.py" update \
+    "$TMP_VAULT_CONTENT" "$KEY_DIRECTORY/certificate.b64" "$KEY_DIRECTORY/password"
+  ansible-vault encrypt --output "$TMP_ENCRYPTED_VAULT" "$TMP_VAULT_CONTENT"
+  chmod 600 "$TMP_ENCRYPTED_VAULT"
+  mv -f -- "$TMP_ENCRYPTED_VAULT" "$VAULT"
+  echo "generated and encrypted app Data Protection recovery key"
+elif [[ ! -f "$VAULT" ]]; then
   ansible-vault encrypt --output "$VAULT" "$TMP_VAULT_CONTENT"
+  chmod 600 "$VAULT"
   echo "created encrypted vault: Deployment/LocalCluster/inventory/prod/vault.yml"
 fi
 

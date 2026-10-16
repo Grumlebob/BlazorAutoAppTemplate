@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "./errors";
-import { queryClient } from "./query-client";
+import { createQueryClient } from "./query-client";
 
 describe("public query defaults", () => {
   it("uses bounded transient caching and explicit retry behavior", () => {
+    const queryClient = createQueryClient();
     const options = queryClient.getDefaultOptions().queries;
     const retry = options?.retry;
 
@@ -28,6 +29,7 @@ describe("public query defaults", () => {
   });
 
   it("uses a bounded server retry delay when one is supplied", () => {
+    const queryClient = createQueryClient();
     const retryDelay = queryClient.getDefaultOptions().queries?.retryDelay;
     expect(typeof retryDelay).toBe("function");
 

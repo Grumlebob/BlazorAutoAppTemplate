@@ -7,9 +7,12 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Account.Pages;
 using BlazorAutoApp.Features.Login.Account.Pages.Manage;
+using BlazorAutoApp.Features.Login.Accounts;
+using BlazorAutoApp.Infrastructure.Hosting;
 
 namespace Microsoft.AspNetCore.Routing;
 
@@ -21,6 +24,11 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         ArgumentNullException.ThrowIfNull(endpoints);
 
         var accountGroup = endpoints.MapGroup("/Account");
+        var accountsEnabled = endpoints.ServiceProvider.GetRequiredService<AccountOptions>().Enabled;
+        if (accountsEnabled)
+        {
+            accountGroup.RequireRateLimiting(AppRateLimiting.AccountWritePolicyName);
+        }
 
         accountGroup.MapPost("/PerformExternalLogin", (
             HttpContext context,
@@ -41,7 +49,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             return TypedResults.Challenge(properties, [provider]);
         });
 
-        accountGroup.MapPost("/Logout", async (
+        var logout = accountGroup.MapPost("/Logout", async (
             ClaimsPrincipal user,
             [FromServices] SignInManager<ApplicationUser> signInManager,
             [FromForm] string? returnUrl) =>
@@ -52,8 +60,11 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
                 : $"/{returnUrl.TrimStart('/')}";
             return TypedResults.LocalRedirect($"~{localReturnUrl}");
         })
-        .RequireAuthorization()
-        .DisableAntiforgery();
+        .RequireAuthorization();
+        if (!accountsEnabled)
+        {
+            logout.DisableAntiforgery();
+        }
 
         accountGroup.MapPost("/PasskeyCreationOptions", async (
             HttpContext context,
@@ -113,44 +124,76 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             return TypedResults.Challenge(properties, [provider]);
         });
 
-        var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
-        var downloadLogger = loggerFactory.CreateLogger("DownloadPersonalData");
-
-        manageGroup.MapPost("/DownloadPersonalData", async (
-            HttpContext context,
-            [FromServices] UserManager<ApplicationUser> userManager,
-            [FromServices] AuthenticationStateProvider authenticationStateProvider) =>
+        if (accountsEnabled)
         {
-            var user = await userManager.GetUserAsync(context.User);
-            if (user is null)
+            manageGroup.MapPost("/DownloadPersonalData", async (
+                HttpContext context,
+                [FromForm] AccountPasswordRequest request,
+                [FromServices] AccountOperations accounts) =>
             {
-                return Results.NotFound("Unable to load the current user.");
-            }
+                var operation = await accounts.ExportAsync(request);
+                await using var body = new MemoryStream();
+                var operationResponse = new DefaultHttpContext
+                {
+                    RequestServices = context.RequestServices
+                };
+                operationResponse.Response.Body = body;
+                await operation.ExecuteAsync(operationResponse);
 
-            var userId = await userManager.GetUserIdAsync(user);
-            downloadLogger.LogInformation("User with ID '{UserId}' asked for their personal data.", userId);
+                context.Response.StatusCode = operationResponse.Response.StatusCode;
+                context.Response.ContentType = operationResponse.Response.ContentType;
+                if (operationResponse.Response.StatusCode == StatusCodes.Status200OK)
+                {
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    context.Response.Headers.ContentDisposition = "attachment; filename=AccountExport.json";
+                }
 
-            // Only include personal data for download
-            var personalData = new Dictionary<string, string>();
-            var personalDataProps = typeof(ApplicationUser).GetProperties().Where(
-                prop => Attribute.IsDefined(prop, typeof(PersonalDataAttribute)));
-            foreach (var p in personalDataProps)
+                body.Position = 0;
+                await body.CopyToAsync(context.Response.Body, context.RequestAborted);
+                return TypedResults.Empty;
+            });
+        }
+        else
+        {
+            var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
+            var downloadLogger = loggerFactory.CreateLogger("DownloadPersonalData");
+
+            manageGroup.MapPost("/DownloadPersonalData", async (
+                HttpContext context,
+                [FromServices] UserManager<ApplicationUser> userManager,
+                [FromServices] AuthenticationStateProvider authenticationStateProvider) =>
             {
-                personalData.Add(p.Name, p.GetValue(user)?.ToString() ?? "null");
-            }
+                var user = await userManager.GetUserAsync(context.User);
+                if (user is null)
+                {
+                    return Results.NotFound("Unable to load the current user.");
+                }
 
-            var logins = await userManager.GetLoginsAsync(user);
-            foreach (var l in logins)
-            {
-                personalData.Add($"{l.LoginProvider} external login provider key", l.ProviderKey);
-            }
+                var userId = await userManager.GetUserIdAsync(user);
+                downloadLogger.LogInformation("User with ID '{UserId}' asked for their personal data.", userId);
 
-            personalData.Add("Authenticator Key", (await userManager.GetAuthenticatorKeyAsync(user))!);
-            var fileBytes = JsonSerializer.SerializeToUtf8Bytes(personalData);
+                // Only include personal data for download
+                var personalData = new Dictionary<string, string>();
+                var personalDataProps = typeof(ApplicationUser).GetProperties().Where(
+                    prop => Attribute.IsDefined(prop, typeof(PersonalDataAttribute)));
+                foreach (var p in personalDataProps)
+                {
+                    personalData.Add(p.Name, p.GetValue(user)?.ToString() ?? "null");
+                }
 
-            context.Response.Headers.TryAdd("Content-Disposition", "attachment; filename=PersonalData.json");
-            return TypedResults.File(fileBytes, contentType: "application/json", fileDownloadName: "PersonalData.json");
-        });
+                var logins = await userManager.GetLoginsAsync(user);
+                foreach (var l in logins)
+                {
+                    personalData.Add($"{l.LoginProvider} external login provider key", l.ProviderKey);
+                }
+
+                personalData.Add("Authenticator Key", (await userManager.GetAuthenticatorKeyAsync(user))!);
+                var fileBytes = JsonSerializer.SerializeToUtf8Bytes(personalData);
+
+                context.Response.Headers.TryAdd("Content-Disposition", "attachment; filename=PersonalData.json");
+                return TypedResults.File(fileBytes, contentType: "application/json", fileDownloadName: "PersonalData.json");
+            });
+        }
 
         return accountGroup;
     }

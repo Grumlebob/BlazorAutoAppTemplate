@@ -9,6 +9,7 @@ internal static class AppRateLimiting
 {
     public const string ApiPolicyName = "api";
     public const string AuthenticationPolicyName = "authentication";
+    public const string AccountWritePolicyName = "account-writes";
 
     // A WebAssembly boot downloads dozens of framework files. Counting them
     // against the per-client global limit makes ordinary page loads hit 429.
@@ -44,12 +45,14 @@ internal static class AppRateLimiting
     {
         var configuredOptions = new AppRateLimitingOptions();
         configuration.GetSection(AppRateLimitingOptions.SectionName).Bind(configuredOptions);
+        var accountsEnabled = configuration.GetValue<bool>("Accounts:Enabled");
 
         services.AddOptions<AppRateLimitingOptions>()
             .Bind(configuration.GetSection(AppRateLimitingOptions.SectionName))
             .ValidateDataAnnotations()
             .Validate(options => options.AllRulesAreValid(), "Rate limiting windows and permit limits must be greater than zero.")
             .ValidateOnStart();
+        services.AddSingleton<AccountWriteRateLimiterPolicy>();
 
         services.AddRateLimiter(options =>
         {
@@ -63,9 +66,12 @@ internal static class AppRateLimiting
                     return RateLimitPartition.GetNoLimiter("static-assets");
                 }
 
-                var isAccountWrite = IsAccountWriteRequest(context);
-                var policy = isAccountWrite ? AuthenticationPolicyName : "global";
-                var rule = isAccountWrite ? configuredOptions.Authentication : configuredOptions.Global;
+                // Enabled accounts have an independent named write policy. Keep the legacy
+                // authentication bucket only for the disabled template's existing /Account flow.
+                var isLegacyAccountWrite = !accountsEnabled
+                    && IsAccountWriteRequest(context);
+                var policy = isLegacyAccountWrite ? AuthenticationPolicyName : "global";
+                var rule = isLegacyAccountWrite ? configuredOptions.Authentication : configuredOptions.Global;
 
                 return RateLimitPartition.GetFixedWindowLimiter(
                     GetPartitionKey(context, policy),
@@ -76,6 +82,8 @@ internal static class AppRateLimiting
                 RateLimitPartition.GetSlidingWindowLimiter(
                     GetPartitionKey(context, ApiPolicyName),
                     _ => ToSlidingWindow(configuredOptions.Api)));
+
+            options.AddPolicy<AccountWriteLimiterPartition, AccountWriteRateLimiterPolicy>(AccountWritePolicyName);
 
         });
 
@@ -102,11 +110,12 @@ internal static class AppRateLimiting
         return new ValueTask(Results.Problem(
             statusCode: StatusCodes.Status429TooManyRequests,
             title: "Too many requests",
-            detail: "The request rate limit was exceeded. Try again later.")
+            detail: "The request rate limit was exceeded. Try again later.",
+            extensions: new Dictionary<string, object?> { ["code"] = "RateLimited" })
             .ExecuteAsync(context.HttpContext));
     }
 
-    private static string GetPartitionKey(HttpContext context, string policy)
+    internal static string GetPartitionKey(HttpContext context, string policy)
     {
         var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrWhiteSpace(userId))
@@ -119,7 +128,8 @@ internal static class AppRateLimiting
 
     private static bool IsAccountWriteRequest(HttpContext context)
     {
-        return context.Request.Path.StartsWithSegments("/Account")
+        return (context.Request.Path.StartsWithSegments("/Account", StringComparison.OrdinalIgnoreCase)
+            || context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase))
             && !HttpMethods.IsGet(context.Request.Method)
             && !HttpMethods.IsHead(context.Request.Method);
     }

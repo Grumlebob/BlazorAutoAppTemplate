@@ -123,8 +123,8 @@ ansible cloud -i "$INVENTORY" -m ansible.builtin.ping
 
 echo "checking app nodes"
 ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS http://127.0.0.1:${APP_PORT}/health/ready"
-ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
-ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps --services --filter status=running | grep -Fx web"
+ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose --env-file .compose.env ps"
+ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose --env-file .compose.env ps --services --filter status=running | grep -Fx web"
 ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS http://${APP1_PRIVATE}:${APP_PORT}/health/ready"
 ansible load_balancer -i "$INVENTORY" -m ansible.builtin.shell -a "curl -fsS http://${APP2_PRIVATE}:${APP_PORT}/health/ready"
 

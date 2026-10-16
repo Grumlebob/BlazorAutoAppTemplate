@@ -117,6 +117,8 @@ gzip -t "$HOME/cloud-backups/<backup-file>.sql.gz"
 
 Replace `<deploy-root>` and `<backup-file>` with the configured path and name printed by the backup script. The deployment workflow also creates a pre-migration backup. Neither backup is an off-host disaster-recovery copy until you transfer it.
 
+The database dump does not contain the Data Protection certificate private key. Keep the `CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64` and `CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD` environment secrets with protected off-host backups. Preserve both values across routine deployment and database restore. The same pair must be installed on every app server before restored users, cookies, or encrypted account-mail outbox rows can be read.
+
 Restore requires an operator-reviewed recovery plan with app writes stopped and an empty target schema. The [current SQL importer](Scripts/Component/cloud-db/restore-db.sh) does not clear existing objects, stop app writes, or use [ON_ERROR_STOP](https://www.postgresql.org/docs/18/app-psql.html); its exit code alone cannot prove recovery succeeded. Never run it against a populated database expecting a safe replacement or isolated test restore.
 
 The wrapper requires a dump under the configured deploy root's `backups/` directory and exact app/database confirmation. Once the recovery prerequisites are satisfied, copy an off-host dump back to `cloud-db` and import it:

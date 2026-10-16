@@ -24,8 +24,15 @@ require_command gh
 require_command openssl
 require_command tofu
 
+DATA_PROTECTION_TEMP_DIR="$(mktemp -d)"
+chmod 700 "$DATA_PROTECTION_TEMP_DIR"
+trap 'rm -rf -- "$DATA_PROTECTION_TEMP_DIR"' EXIT
+
 cloud_env_load_hcloud_token
 cloud_env_load_valid_cloudflare_tunnel_token
+cloud_env_load_missing_var CLOUD_ACCOUNTS_ADMIN_SEED_PASSWORD
+cloud_env_load_missing_var CLOUD_ACCOUNTS_EMAIL_USERNAME
+cloud_env_load_missing_var CLOUD_ACCOUNTS_EMAIL_PASSWORD
 
 [[ -f "$SSH_PRIVATE_KEY" ]] || fail "missing SSH private key: $SSH_PRIVATE_KEY"
 [[ -f "$TOFU_DIR/terraform.tfstate" ]] || fail "missing OpenTofu state. Run Step 7 first."
@@ -64,6 +71,18 @@ set_secret_if_missing_body() {
     set_secret_body "$name" "$body"
   fi
 }
+
+CERTIFICATE_SECRET_EXISTS=false
+CERTIFICATE_PASSWORD_SECRET_EXISTS=false
+if secret_exists CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64; then
+  CERTIFICATE_SECRET_EXISTS=true
+fi
+if secret_exists CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD; then
+  CERTIFICATE_PASSWORD_SECRET_EXISTS=true
+fi
+if [[ "$CERTIFICATE_SECRET_EXISTS" != "$CERTIFICATE_PASSWORD_SECRET_EXISTS" ]]; then
+  fail "Cloud Data Protection certificate secrets are partial. Restore or remove both secrets before setup."
+fi
 
 set_secret_interactive_if_missing() {
   local name="$1"
@@ -107,6 +126,35 @@ else
   set_secret_if_missing_body CLOUD_POSTGRES_DB "${CLOUD_POSTGRES_DB:-bookscloud}"
   set_secret_if_missing_body CLOUD_POSTGRES_PASSWORD "${CLOUD_POSTGRES_PASSWORD:-$(openssl rand -base64 36 | tr -d '\n')}"
   set_secret_if_missing_body CLOUD_REDIS_PASSWORD "${CLOUD_REDIS_PASSWORD:-$(openssl rand -base64 36 | tr -d '\n')}"
+fi
+
+for optional_secret in \
+  CLOUD_ACCOUNTS_ADMIN_SEED_PASSWORD \
+  CLOUD_ACCOUNTS_EMAIL_USERNAME \
+  CLOUD_ACCOUNTS_EMAIL_PASSWORD; do
+  if [[ -n "${!optional_secret:-}" ]]; then
+    set_secret_if_missing_body "$optional_secret" "${!optional_secret}"
+  else
+    echo "left optional ${optional_secret} unchanged"
+  fi
+done
+
+if [[ "$CERTIFICATE_SECRET_EXISTS" == "false" ]]; then
+  openssl rand -hex 32 | tr -d '\n' > "$DATA_PROTECTION_TEMP_DIR/password"
+  chmod 600 "$DATA_PROTECTION_TEMP_DIR/password"
+  openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 \
+    -keyout "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
+    -out "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" \
+    -subj "/CN=BlazorAutoApp Cloud Data Protection" \
+    -passout "file:$DATA_PROTECTION_TEMP_DIR/password" -aes256 >/dev/null 2>&1
+  cat "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
+    > "$DATA_PROTECTION_TEMP_DIR/certificate.pem"
+  base64 < "$DATA_PROTECTION_TEMP_DIR/certificate.pem" | tr -d '\n' \
+    > "$DATA_PROTECTION_TEMP_DIR/certificate.b64"
+  set_secret_file CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64 "$DATA_PROTECTION_TEMP_DIR/certificate.b64"
+  set_secret_file CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD "$DATA_PROTECTION_TEMP_DIR/password"
+else
+  echo "kept existing Cloud Data Protection certificate secrets"
 fi
 
 set_secret_interactive_if_missing \

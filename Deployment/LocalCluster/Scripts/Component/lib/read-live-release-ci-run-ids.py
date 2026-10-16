@@ -81,7 +81,7 @@ def remote_identity_command(app_name: str, deploy_root: str) -> str:
         "test -f .env; "
         "root_app=$(sed -n 's/^APP_NAME=//p' .env | tail -n 1); "
         f"test \"$root_app\" = {expected_app}; "
-        "containers=$(docker compose ps -q web); test -n \"$containers\"; "
+        "containers=$(docker compose --env-file .compose.env ps -q web); test -n \"$containers\"; "
         "format_image=$(printf '%s%s%s%s%s' '{' '{' '.Image' '}' '}'); "
         "format_labels=$(printf '%s%s%s%s%s' '{' '{' 'json .Config.Labels' '}' '}'); "
         "for container in $containers; do "

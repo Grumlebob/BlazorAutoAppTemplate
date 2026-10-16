@@ -10,3 +10,14 @@ lan_hostnames: []
 backup_root: /opt/books-backups
 backup_keep_days: 7
 observability_enabled: false
+accounts_enabled: false
+accounts_registration_enabled: false
+accounts_admin_seed_enabled: false
+accounts_admin_seed_email: ""
+accounts_public_origin: ""
+accounts_email_host: ""
+accounts_email_port: 587
+accounts_email_security: StartTls
+accounts_email_from: ""
+data_protection_legacy_key_store: None
+data_protection_legacy_redis_key: ""

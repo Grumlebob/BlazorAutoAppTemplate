@@ -13,7 +13,7 @@ import sys
 
 LIB = Path(__file__).resolve().parent / "lib"
 sys.path.insert(0, str(LIB))
-from ls_settings import ETC, ROOT, TARGET, settings
+from ls_settings import ACCOUNT_SETTING_DEFAULTS, DATA_PROTECTION_SETTING_DEFAULTS, ETC, ROOT, TARGET, settings
 
 sys.path.insert(0, str(ROOT / "Scripts/Frontend"))
 from resolve_frontend_profile import acceptance_profile_for_frontend
@@ -40,7 +40,17 @@ def validate_additional(config: dict, primary: dict, selected_profile: str) -> t
     if profile == selected_profile:
         raise ValueError("additional instance must use the other frontend")
     candidate = config["settings"]
-    if not isinstance(candidate, dict) or set(candidate) != set(primary):
+    if not isinstance(candidate, dict):
+        raise ValueError("instance settings keys differ from primary schema")
+    legacy_keys = set(primary) - set(ACCOUNT_SETTING_DEFAULTS) - set(DATA_PROTECTION_SETTING_DEFAULTS)
+    if set(candidate) == legacy_keys:
+        # Older per-app settings remain valid and default new features off.
+        candidate = {**ACCOUNT_SETTING_DEFAULTS, **DATA_PROTECTION_SETTING_DEFAULTS, **candidate}
+    elif set(candidate) == set(primary) - set(ACCOUNT_SETTING_DEFAULTS):
+        candidate = {**ACCOUNT_SETTING_DEFAULTS, **candidate}
+    elif set(candidate) == set(primary) - set(DATA_PROTECTION_SETTING_DEFAULTS):
+        candidate = {**DATA_PROTECTION_SETTING_DEFAULTS, **candidate}
+    elif set(candidate) != set(primary):
         raise ValueError("instance settings keys differ from primary schema")
     # Validate with the ordinary production parser; JSON literals are scalar YAML values.
     import tempfile

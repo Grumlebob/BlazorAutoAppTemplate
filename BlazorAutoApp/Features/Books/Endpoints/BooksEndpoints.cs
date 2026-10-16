@@ -7,6 +7,8 @@ using BlazorAutoApp.Core.Features.Books.UseCases.UpdateBook;
 using BlazorAutoApp.Features.Books;
 using BlazorAutoApp.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
+using BlazorAutoApp.Features.Login.Accounts;
+using BlazorAutoApp.Features.Login.Accounts.Security;
 
 namespace BlazorAutoApp.Features.Books.Endpoints;
 
@@ -18,6 +20,9 @@ public static class BookEndpoints
             .WithTags("Books")
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithMetadata(new ExpectedAccountUser())
+            .WithMetadata(new AccountRequestProtection())
             .WithPrivateNoStoreResponses();
 
         group.MapGet("/", ListBooksAsync)

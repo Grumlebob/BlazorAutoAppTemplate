@@ -145,6 +145,7 @@ required_files = [
     "Deployment/Common/Scripts/Component/lib/release_settings.py",
     "Deployment/Common/Scripts/Component/lib/release_manifest.py",
     "Deployment/Common/Scripts/Component/lib/simple_yaml.py",
+    "Deployment/Common/Scripts/Component/lib/account_deploy_settings.py",
     "Deployment/Common/Scripts/Component/lib/validate-common-release.py",
     "Deployment/LocalCluster/HowToDeployLocalCluster.md",
     ".github/workflows/ci.yml",
@@ -202,6 +203,16 @@ required_files = [
     "Deployment/LocalCluster/Scripts/Component/lib/read-deploy-setting.py",
     "Deployment/LocalCluster/Scripts/Component/lib/validate-deploy-settings.py",
     "Deployment/LocalCluster/Scripts/Component/lib/validate-vault.py",
+    "Deployment/Common/Scripts/Tests/test_account_deploy_settings.py",
+    "Deployment/Cloud/Scripts/Tests/test-cloud-account-env.sh",
+    "Deployment/Cloud/Scripts/Component/lib/cloud-env.sh",
+    "Deployment/Cloud/Scripts/Component/lib/cloud_settings.py",
+    "Deployment/Cloud/Scripts/deploy.sh",
+    "Deployment/Cloud/Scripts/configure-github-environment.sh",
+    "Deployment/Cloud/ansible/roles/app/tasks/main.yml",
+    "Deployment/Cloud/ansible/roles/app/templates/app.env.j2",
+    "Deployment/Cloud/compose/app-server/docker-compose.yml",
+    "Deployment/Cloud/inventory/prod/group_vars/all.yml",
     "Deployment/LocalCluster/Scripts/Component/node-db/backup-db.sh",
     "Deployment/LocalCluster/Scripts/Component/node-db/restore-db.sh",
     "Deployment/LocalCluster/Scripts/preflight.sh",
@@ -1009,12 +1020,17 @@ profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
     ("validate_dotnet_test_results.py", "both profile suites validate their TRX results"),
     ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
+    ("account_filter='FullyQualifiedName~Features.Login.Accounts'", "both profiles run the account integration tests explicitly"),
+    ("account_filter+='&FrontendProfile!=BlazorAuto'", "React excludes only account tests tagged for Blazor Auto"),
+    ('--filter "$account_filter"', "account integration gate uses its profile-aware filter"),
+    ("--expected-skipped 0", "account integration tests cannot silently skip"),
+    ('--suite "$profile account integration tests"', "account integration results have a distinct required suite label"),
 ]:
     if needle not in profile_gate:
         fail(f"Scripts/CI/validate-frontend-profiles.sh: missing {why}: {needle}")
-if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed", "--expected-skipped")):
+if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed")) or re.search(r"--expected-skipped(?!\s+0)", profile_gate):
     fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin test counts; "
-         "the validator rejects failures and skips that are not explicit opt-ins")
+         "the validator rejects failures and skips that are not explicit opt-ins; only the account suite pins zero skips")
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
 for needle, why in [
@@ -1466,7 +1482,7 @@ app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
 for needle, why in [
     ("Pull application image with command-owned registry credentials", "single command-owned registry login and pull"),
     ('export DOCKER_CONFIG="$docker_config"', "temporary registry credential store"),
-    ("docker compose up -d --pull always --remove-orphans", "pull and start the exact image"),
+    ("docker compose --env-file .compose.env up -d --pull always --remove-orphans", "pull and start the exact image with the Compose allowlist"),
     ("no_log: true", "registry credentials kept out of logs"),
 ]:
     if needle not in app_tasks:
@@ -1565,12 +1581,15 @@ for needle, why in [
     ("Create pre-migration database backup", "pre-migration backup"),
     ("./backup-db.sh", "verified backup helper use"),
     ("Run migration bundle", "migration execution"),
-    ("set -euo pipefail", "strict migration shell"),
+    ("ansible.builtin.command:", "migration bundle uses argv without shell evaluation"),
+    ("Host=localhost;Port={{ postgres_port }}", "migration connection uses explicit validated deployment inputs"),
     ("Write LocalCluster app ownership markers", "app ownership marker phase"),
     ("app_marker", "app ownership marker role"),
 ]:
     if needle not in site:
         fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
+if ". ./.env" in site:
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: migration must not source the raw app environment")
 stage_pos = site.find("Stage the exact app image before any app interruption")
 stop_pos = site.find("- name: Stop app containers before migration")
 apps_pos = site.find("- name: Deploy app servers")
@@ -1637,6 +1656,22 @@ for path, checks in {
         ("release_image_digest", "digest-pinned image reference"),
         ("POSTGRES_PORT={{ postgres_port }}", "PostgreSQL port env rendering"),
         ("REDIS_PORT={{ redis_port }}", "Redis port env rendering"),
+        ("Accounts__Enabled={{ accounts_enabled | default(false) | string | lower }}", "accounts disabled when settings are absent"),
+        ("Accounts__AdminSeed__Password={{ vault_accounts_admin_seed_password | default('') }}", "Admin seed password from the protected vault"),
+        ("Accounts__Email__Password={{ vault_accounts_email_password | default('') }}", "SMTP password from the protected vault"),
+        ("DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem", "read-only app Data Protection certificate path"),
+        ("DataProtection__KeyEncryptionCertificatePassword={{ vault_data_protection_certificate_password }}", "app Data Protection certificate passphrase from vault"),
+        ("DataProtection__LegacyKeyStore={{ data_protection_legacy_key_store | default('None') }}", "legacy Data Protection source selection"),
+        ("DataProtection__LegacyRedisKey={{ data_protection_legacy_redis_key | default('') }}", "legacy Redis repository key"),
+        ("/run/legacy-data-protection", "legacy Data Protection source mount path"),
+    ],
+    "Deployment/LocalCluster/ansible/roles/app/templates/compose.env.j2": [
+        ("APP_IMAGE_REF=", "Compose image interpolation input"),
+        ("POSTGRES_PASSWORD={{ vault_postgres_password }}", "validated database Compose input"),
+        ("REDIS_PASSWORD={{ vault_redis_password }}", "validated Redis Compose input"),
+        ("DATA_PROTECTION_CERT_HOST_PATH=/etc/{{ app_name }}/data-protection/certificate.pem", "app Data Protection certificate bind source"),
+        ("DATA_PROTECTION_CERT_GID={{ data_protection_certificate_gid }}", "restricted certificate reader group"),
+        ("DATA_PROTECTION_LEGACY_HOST_PATH=/etc/{{ app_name }}/data-protection/legacy", "legacy Data Protection bind source"),
     ],
     "Deployment/LocalCluster/ansible/roles/postgres/templates/node-db.env.j2": [
         ("COMPOSE_PROJECT_NAME={{ app_name }}", "explicit Compose project name"),
@@ -1665,8 +1700,14 @@ for path, checks in {
         ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
-        ("docker compose up -d --pull always", "pull and start requested image"),
+    ("docker compose --env-file .compose.env up -d --pull always", "pull and start requested image with the Compose allowlist"),
+        ("vault_data_protection_certificate_base64 | b64decode", "install encrypted app Data Protection certificate"),
+        ("mode: \"0440\"", "restrict certificate file to root and app group"),
         ("http://127.0.0.1:{{ app_port }}/health/ready", "local readiness wait"),
+        ("version('2.30.0', '>=', version_type='loose')", "raw env-file Compose minimum version"),
+        ("data_protection_legacy_key_store", "validated legacy Data Protection source selection"),
+        ("/data-protection/legacy", "protected legacy Data Protection source directory"),
+        ("no_log: true", "account secret validation output redaction"),
     ],
     "Deployment/LocalCluster/ansible/roles/postgres/tasks/main.yml": [
         ("compose/node-db/docker-compose.yml", "node-db compose source"),
@@ -1690,6 +1731,111 @@ for path, checks in {
     for needle, why in checks:
         if needle not in text:
             fail(f"{path}: missing {why}")
+
+for path in [
+    "Deployment/LocalCluster/compose/app-server/docker-compose.yml",
+    "Deployment/Cloud/compose/app-server/docker-compose.yml",
+]:
+    compose_text = read(path)
+    if "format: raw" not in compose_text or "path: ./.env" not in compose_text:
+        fail(f"{path}: app service must consume its protected env file in raw mode")
+    if re.search(r"^\s+Accounts__(?:AdminSeed__Password|Email__Username|Email__Password):", compose_text, re.MULTILINE):
+        fail(f"{path}: account credentials must not be duplicated in Compose interpolation")
+    if "target: /run/secrets/data-protection.pem" not in compose_text or "read_only: true" not in compose_text:
+        fail(f"{path}: app Data Protection certificate must be mounted read-only")
+    if "target: /run/legacy-data-protection" not in compose_text or "read_only: true" not in compose_text:
+        fail(f"{path}: legacy Data Protection source must be mounted read-only")
+    if "DATA_PROTECTION_CERT_GID" not in compose_text:
+        fail(f"{path}: app Data Protection certificate group must be explicit")
+
+for path, needles in {
+    "Deployment/Cloud/ansible/roles/app/templates/app.env.j2": [
+        ("Accounts__Enabled={{ accounts_enabled | default(false) | string | lower }}", "accounts disabled when settings are absent"),
+        ("Accounts__AdminSeed__Password={{ cloud_accounts_admin_seed_password | default('') }}", "Admin seed password from an optional workflow secret"),
+        ("Accounts__Email__Password={{ cloud_accounts_email_password | default('') }}", "SMTP password from an optional workflow secret"),
+        ("DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem", "read-only app Data Protection certificate path"),
+        ("DataProtection__KeyEncryptionCertificatePassword={{ cloud_data_protection_certificate_password }}", "app Data Protection certificate passphrase from workflow secret"),
+        ("DataProtection__LegacyKeyStore={{ data_protection_legacy_key_store | default('None') }}", "legacy Data Protection source selection"),
+        ("DataProtection__LegacyRedisKey={{ data_protection_legacy_redis_key | default('') }}", "legacy Redis repository key"),
+        ("/run/legacy-data-protection", "legacy Data Protection source mount path"),
+    ],
+    "Deployment/Cloud/ansible/roles/app/templates/compose.env.j2": [
+        ("APP_IMAGE={{ app_image }}", "Compose image interpolation input"),
+        ("POSTGRES_PASSWORD={{ cloud_postgres_password }}", "database Compose input"),
+        ("REDIS_PASSWORD={{ cloud_redis_password }}", "Redis Compose input"),
+        ("DATA_PROTECTION_CERT_HOST_PATH=/etc/{{ app_name }}/data-protection/certificate.pem", "app Data Protection certificate bind source"),
+        ("DATA_PROTECTION_CERT_GID={{ data_protection_certificate_gid }}", "restricted certificate reader group"),
+        ("DATA_PROTECTION_LEGACY_HOST_PATH=/etc/{{ app_name }}/data-protection/legacy", "legacy Data Protection bind source"),
+    ],
+    "Deployment/Cloud/ansible/roles/app/tasks/main.yml": [
+        ("version('2.30.0', '>=', version_type='loose')", "raw env-file Compose minimum version"),
+        ("data_protection_legacy_key_store", "validated legacy Data Protection source selection"),
+        ("/data-protection/legacy", "protected legacy Data Protection source directory"),
+        ("cloud_postgres_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')", "Compose-safe Cloud database password"),
+        ("cloud_redis_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')", "Compose-safe Cloud Redis password"),
+        ("cloud_data_protection_certificate_base64 | b64decode", "install encrypted app Data Protection certificate"),
+        ("cloud_data_protection_certificate_password is match('^[A-Fa-f0-9]{64}$')", "strong Cloud Data Protection passphrase"),
+        ("Render Compose interpolation allowlist", "account-free Compose input file"),
+        ("docker compose --env-file .compose.env up -d --pull always", "Compose runs without parsing raw account settings"),
+        ("no_log: true", "account secret validation output redaction"),
+    ],
+    "Deployment/Cloud/ansible/roles/data/tasks/main.yml": [
+        ("cloud_postgres_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')", "Compose-safe Cloud database password"),
+        ("cloud_redis_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')", "Compose-safe Cloud Redis password"),
+    ],
+    "Deployment/Cloud/Scripts/Component/lib/cloud_settings.py": [
+        ("ACCOUNT_SETTING_KEYS", "explicit account settings allowlist"),
+        ("validate_account_deploy_settings(values)", "shared account settings validation"),
+        ("LEGACY_DATA_PROTECTION_SETTING_KEYS", "explicit legacy Data Protection settings allowlist"),
+        ("validate_legacy_data_protection_settings(values)", "legacy Data Protection source validation"),
+    ],
+    "Deployment/LocalCluster/Scripts/Component/lib/deploy_settings.py": [
+        ("LEGACY_DATA_PROTECTION_SETTING_KEYS", "explicit legacy Data Protection settings allowlist"),
+        ("validate_legacy_data_protection_settings(values)", "legacy Data Protection source validation"),
+    ],
+    "Deployment/Common/Scripts/Component/lib/data_protection_deploy_settings.py": [
+        ("FileSystem", "FileSystem source support"),
+        ("Redis", "Redis source support"),
+        ("single-line value", "single-line Redis key validation"),
+    ],
+    "Deployment/Cloud/Scripts/deploy.sh": [
+        ("cloud_accounts_admin_seed_password", "optional Admin seed credential forwarding"),
+        ("cloud_accounts_email_password", "optional SMTP credential forwarding"),
+        ("cloud_data_protection_certificate_base64", "Cloud certificate secret forwarding"),
+        ("cloud_data_protection_certificate_password", "Cloud certificate passphrase forwarding"),
+    ],
+    "Deployment/Cloud/Scripts/configure-github-environment.sh": [
+        ("CLOUD_ACCOUNTS_ADMIN_SEED_PASSWORD", "optional Admin seed workflow secret"),
+        ("set_secret_if_missing_body", "preserve existing optional workflow secrets"),
+        ("CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64", "stable app certificate workflow secret"),
+        ("CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD", "stable app certificate passphrase workflow secret"),
+    ],
+    "Deployment/Cloud/Scripts/check-github-environment.sh": [
+        ("CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64", "required encrypted Data Protection certificate secret"),
+        ("CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD", "required Data Protection certificate passphrase secret"),
+    ],
+}.items():
+    text = read(path)
+    for needle, why in needles:
+        if needle not in text:
+            fail(f"{path}: missing {why}: {needle}")
+
+cloud_deploy_playbook = read("Deployment/Cloud/ansible/playbooks/deploy.yml")
+if ". ./.env" in cloud_deploy_playbook:
+    fail("Deployment/Cloud/ansible/playbooks/deploy.yml: migration must not source an environment file in a shell")
+for needle, why in [
+    ("docker compose --env-file .compose.env down", "app stop uses the Compose allowlist"),
+    ("ansible.builtin.command:", "migration bundle uses argv without shell evaluation"),
+    ("Host=127.0.0.1;Port={{ postgres_port }}", "migration connection uses explicit deployment inputs"),
+]:
+    if needle not in cloud_deploy_playbook:
+        fail(f"Deployment/Cloud/ansible/playbooks/deploy.yml: missing {why}")
+
+require_contains(
+    ".github/workflows/cd-cloud.yml",
+    "CLOUD_ACCOUNTS_EMAIL_PASSWORD: ${{ secrets.CLOUD_ACCOUNTS_EMAIL_PASSWORD }}",
+    "optional Cloud SMTP secret forwarding",
+)
 if "90-{{ app_name }}-deploy" in read("Deployment/Common/ansible/roles/mint_base/tasks/main.yml"):
     fail("Deployment/Common/ansible/roles/mint_base/tasks/main.yml: sudoers file must be cluster-neutral, not app-named")
 if "iptables -F DOCKER-USER" in read("Deployment/LocalCluster/ansible/roles/firewall/templates/app-docker-user-firewall.sh.j2"):
@@ -1928,6 +2074,8 @@ for needle, why in [
     ("DOTENV_SAFE_PASSWORD", "dotenv-safe DB/Redis password validation"),
     ("vault_cloudflare_tunnel_token", "Cloudflare token key validation"),
     ("vault_ghcr_token", "GHCR token key validation"),
+    ("vault_data_protection_certificate_base64", "encrypted app Data Protection certificate validation"),
+    ("vault_data_protection_certificate_password", "app Data Protection passphrase validation"),
     ("unknown key", "unknown vault key rejection"),
 ]:
     if needle not in validate_vault:
@@ -1939,6 +2087,8 @@ for needle, why in [
     ("could not set the GitHub repository secret automatically", "manual GitHub secret fallback"),
     ("ansible-vault edit", "vault editing"),
     ("check-vault.sh", "vault validation"),
+    ("data_protection_vault.py", "preserve-or-generate protected certificate vault update"),
+    ("openssl rand -hex 32", "high-entropy encrypted certificate passphrase generation"),
 ]:
     if needle not in setup_secrets:
         fail(f"Deployment/LocalCluster/Scripts/setup-secrets.sh: missing {why}")
@@ -2180,6 +2330,17 @@ for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_com
 if single_compose.count('"127.0.0.1:') != 3:
     fail("localsinglenode: all three service publications must bind loopback")
 require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled: "false"', "deployment account seeding disabled")
+require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem", "single-node app certificate path")
+require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__KeyEncryptionCertificatePassword={{ vault_data_protection_certificate_password }}", "single-node protected certificate passphrase")
+require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__LegacyKeyStore={{ data_protection_legacy_key_store | default('None') }}", "single-node legacy Data Protection source selection")
+require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__LegacyRedisKey={{ data_protection_legacy_redis_key | default('') }}", "single-node legacy Redis key")
+require_contains(single + "/ansible/templates/compose.env.j2", "DATA_PROTECTION_CERT_GID={{ data_protection_certificate_gid }}", "single-node certificate reader group")
+require_contains(single + "/ansible/templates/compose.env.j2", "DATA_PROTECTION_LEGACY_HOST_PATH=/etc/{{ app_name }}/data-protection/legacy", "single-node legacy source bind path")
+require_contains(single + "/compose/docker-compose.yml", "target: /run/secrets/data-protection.pem", "single-node read-only certificate mount")
+require_contains(single + "/compose/docker-compose.yml", "target: /run/legacy-data-protection", "single-node legacy source mount")
+require_contains(single + "/compose/docker-compose.yml", "read_only: true", "single-node read-only certificate mount")
+require_contains(single + "/Scripts/lib/backup.py", "data-protection.pem", "single-node backup preserves app certificate recovery key")
+require_contains(single + "/ansible/roles/single_node_stack/tasks/main.yml", "/data-protection/legacy", "single-node legacy source directory")
 for needle in ("find-successful-ci-run.py", "--target-sha \"$TARGET_SHA\"", "--read-final-payload-receipt", "validate_release_manifest.py", "release_image_digest", "with-deploy-lock.sh", "git merge-base --is-ancestor", "git show \"${TARGET_SHA}:frontend-profile.txt\"", "--legacy-blazor-default", "TARGET_PROFILE_FILE_PRESENT=${profile_file_present}", 'if [[ "$RELEASE_MANIFEST_SCHEMA_VERSION" == 2 && "$TARGET_PROFILE_FILE_PRESENT" != true ]]', "--expected-frontend-profile \"$FRONTEND_PROFILE\"", "--expected-acceptance-profile \"$ACCEPTANCE_PROFILE\"", "--image-labels-json \"$IMAGE_LABELS_PATH\"", "--expected-ci-run-attempt", "verify-release-identity.sh \"$APP_IMAGE\" \"$RELEASE_IMAGE_DIGEST\" \"$FRONTEND_PROFILE\" \"$ACCEPTANCE_PROFILE\" \"$TARGET_SHA\" \"$RELEASE_MANIFEST_SCHEMA_VERSION\" \"$CI_RUN_ID\" \"$CI_RUN_ATTEMPT\" \"$SOURCE_REPO_URL\"", "LOCALSINGLENODE_HOST", "TARGET: localsinglenode", "release_frontend_profile=$FRONTEND_PROFILE", "release_acceptance_profile=$ACCEPTANCE_PROFILE"):
     require_contains(".github/workflows/cd-localsinglenode.yml", needle, "strict single-node release contract")
 
@@ -2315,6 +2476,13 @@ for needle, why in [
 ]:
     if needle not in read(single + "/ansible/roles/single_node_stack/tasks/main.yml"):
         fail(f"{single}/ansible/roles/single_node_stack/tasks/main.yml: missing {why}")
+for needle in [
+    "Render protected Compose interpolation allowlist",
+    "docker compose --env-file .compose.env up -d postgres redis",
+    "docker compose --env-file .compose.env stop web",
+]:
+    if needle not in read(single + "/ansible/roles/single_node_stack/tasks/main.yml"):
+        fail(f"{single}/ansible/roles/single_node_stack/tasks/main.yml: missing Compose environment isolation {needle}")
 if "bash Deployment/LocalSingleNode/Scripts/Tests/test-verify-release-identity.sh" not in ci:
     fail(".github/workflows/ci.yml: LocalSingleNode release identity fixtures must run in CI")
 for path in (".github/workflows/cd-localsinglenode.yml", ".github/workflows/localsinglenode-maintenance.yml"):
@@ -2343,7 +2511,12 @@ for needle, why in [
     ('/api/author-books', "React image smoke reads the public seeded catalog"),
     ('^Cache-Control:[[:space:]]*public, ?max-age=31536000, ?immutable', "React image smoke verifies immutable fingerprinted assets"),
     ('^Cache-Control:[[:space:]]*private, ?no-store', "React image smoke verifies private API cache denial"),
-    ('for path in /Account /api/auth/login /assets/missing.js', "React image smoke verifies inactive and missing paths stay 404"),
+    ('/api/client-config', "React image smoke reads explicit capability before account-route expectations"),
+    ('payload["accountsEnabled"]', "React image smoke validates the account capability"),
+    ('if [[ "$accounts_enabled" == "true" ]]; then', "React image smoke selects enabled versus disabled route expectations"),
+    ("Allow:[[:space:]]*POST", "React image smoke verifies enabled POST-only reads return 405"),
+    ('/api/auth/not-a-real-operation', "React image smoke verifies unknown enabled routes remain 404"),
+    ('inactive_paths=(/Account /api/auth/not-a-real-operation /assets/missing.js)', "React image smoke verifies unknown API, React-only and missing paths stay 404"),
     ('test ! -e /app/wwwroot/_framework && test ! -e /app/wwwroot/_content', "React image smoke rejects inactive Blazor assets"),
     ('test ! -e /app/wwwroot/index.html && test ! -e /app/wwwroot/assets', "Blazor image smoke rejects inactive React assets"),
 ]:
@@ -2354,7 +2527,22 @@ react_smoke_end = smoke.index("\nelse\n", react_smoke_start)
 react_smoke = smoke[react_smoke_start:react_smoke_end]
 if "Test-DeployedSite.ps1" not in react_smoke or '-AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE"' not in react_smoke:
     fail("React Docker smoke must run ReactPublicV1 HTTP acceptance")
-if "BlazorAutoApp.Test" in react_smoke:
+for needle, why in [
+    ("Category=ReactPackagedDisabled", "disabled packaged React browser filter"),
+    ("Category=ReactPackagedEnabled", "enabled packaged React account browser filter"),
+]:
+    if needle not in smoke:
+        fail(f"React Docker smoke: missing {why}")
+for needle, why in [
+    ("$REACT_DISABLED_BROWSER_FILTER", "React Docker smoke runs disabled packaged browser acceptance"),
+    ("$REACT_ENABLED_BROWSER_FILTER", "React Docker smoke runs enabled packaged account browser acceptance"),
+    ("Packaged React disabled browser journey", "disabled packaged browser suite rejects skipped tests"),
+    ("Packaged React enabled account browser journey", "enabled packaged account browser suite rejects skipped tests"),
+    ("--expected-skipped 0", "React packaged browser suites reject skipped tests"),
+]:
+    if needle not in react_smoke:
+        fail(f"React Docker smoke: missing {why}")
+if any(needle in react_smoke for needle in ("BROWSER_SMOKE_FILTER", "Category=BlazorAuto", "Category=Blazor")):
     fail("React Docker smoke must not run Blazor browser/account acceptance")
 deployed_site_acceptance = read("Scripts/Test-DeployedSite.ps1")
 for needle, why in [
@@ -2362,16 +2550,34 @@ for needle, why in [
     ("[ValidateSet('BlazorAutoV1', 'ReactPublicV1')]", "validated acceptance contract input"),
     ("FrontendProfile and AcceptanceProfile do not match", "mismatched profile pair fails before network access"),
     ("function Invoke-ReactPublicAcceptance", "separate React public-only acceptance branch"),
+    ("function Get-ReactCapability", "explicit React capability discovery"),
+    ("/api/client-config", "capability endpoint checked before profile acceptance"),
+    ("function Invoke-ReactAccountSessionAcceptance", "enabled React anonymous session acceptance"),
     ("function Invoke-BlazorAccountAcceptance", "preserved Blazor account acceptance branch"),
     ("React-no-cookie", "React acceptance proves no session cookie was created"),
     ("RequestMethod 'HEAD'", "React acceptance includes safe HEAD checks"),
+    ("React-enabled-session-cache", "enabled account session is private and no-store"),
+    ("React-enabled-session-cookie", "enabled anonymous session does not issue an authentication cookie"),
 ]:
     if needle not in deployed_site_acceptance:
         fail(f"Scripts/Test-DeployedSite.ps1: missing {why}")
 react_acceptance_start = deployed_site_acceptance.index("function Invoke-ReactPublicAcceptance")
 react_acceptance_end = deployed_site_acceptance.index("function Invoke-BlazorAccountAcceptance", react_acceptance_start)
 react_acceptance = deployed_site_acceptance[react_acceptance_start:react_acceptance_end]
-if "Form " in react_acceptance or "Login " in react_acceptance or "'POST'" in react_acceptance:
+for needle, why in [
+    ("React-enabled-post-only-GET", "enabled POST-only GET rejection"),
+    ("React-enabled-post-only-HEAD", "enabled POST-only HEAD rejection"),
+    ("React-enabled-unknown-api", "unknown enabled API route remains a 404"),
+    ("/api/auth/not-a-real-operation", "explicit unknown API route probe"),
+    ("/assets/missing.js", "missing React asset remains a 404"),
+]:
+    if needle not in react_acceptance:
+        fail(f"Scripts/Test-DeployedSite.ps1: React acceptance lacks {why}")
+capability_request = deployed_site_acceptance.index("$capability = Get-ReactCapability")
+common_request = deployed_site_acceptance.index("Invoke-CommonAcceptance $anonymous $FrontendProfile", capability_request)
+if capability_request > common_request:
+    fail("React acceptance must read explicit capability before common or profile checks")
+if "Form " in react_acceptance or "Login " in react_acceptance or "RequestMethod 'POST'" in react_acceptance:
     fail("React public HTTP acceptance must not submit forms or credentials")
 require_contains(single + "/Scripts/lib/platform_check.py", '"WSL_DISTRO_NAME"', "native deployment boundary")
 require_contains(single + "/Scripts/lib/doctor.py", '"ip", "-j", "-4", "address", "show"', "mDNS check discovers the interface owning the deployment IPv4")

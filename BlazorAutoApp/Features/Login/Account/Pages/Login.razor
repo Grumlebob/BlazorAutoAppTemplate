@@ -9,6 +9,7 @@
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject AccountOptions AccountOptions
 
 <PageTitle>Log in</PageTitle>
 
@@ -23,15 +24,16 @@
                 <hr class="account-divider" />
                 <ValidationSummary class="account-text-danger" role="alert" />
                 <div class="account-field">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="@(AccountOptions.Enabled ? "username" : "username webauthn")" aria-required="true" placeholder="name@example.com" />
                     <label for="Input.Email" class="account-label">Email</label>
                     <ValidationMessage For="() => Input.Email" class="account-text-danger" />
                 </div>
                 <div class="account-field">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" aria-required="true" placeholder="password" />
+                    <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" maxlength="@(AccountOptions.Enabled ? "256" : null)" aria-required="true" placeholder="password" />
                     <label for="Input.Password" class="account-label">Password</label>
                     <ValidationMessage For="() => Input.Password" class="account-text-danger" />
                 </div>
+                <label><InputCheckbox @bind-Value="showPassword" /> Show password</label>
                 <div class="account-field">
                     <label class="account-label">
                         <InputCheckbox @bind-Value="Input.RememberMe" class="account-checkbox-input" />
@@ -41,12 +43,15 @@
                 <div>
                     <button type="submit" class="account-button-primary account-button-full">Log in</button>
                 </div>
-                <hr class="account-divider" />
-                <div class="account-stack account-center">
-                    <span class="account-divider-label">OR</span>
-                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="account-button-link">Log in with a passkey</PasskeySubmit>
-                </div>
-                <hr class="account-divider" />
+                @if (!AccountOptions.Enabled)
+                {
+                    <hr class="account-divider" />
+                    <div class="account-stack account-center">
+                        <span class="account-divider-label">OR</span>
+                        <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="account-button-link">Log in with a passkey</PasskeySubmit>
+                    </div>
+                    <hr class="account-divider" />
+                }
                 <div>
                     <p>
                         <a href="Account/ForgotPassword">Forgot your password?</a>
@@ -61,17 +66,21 @@
             </EditForm>
         </section>
     </div>
-    <div class="account-grid-aside">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr class="account-divider" />
-            <ExternalLoginPicker />
-        </section>
-    </div>
+    @if (!AccountOptions.Enabled)
+    {
+        <div class="account-grid-aside">
+            <section>
+                <h3>Use another service to log in.</h3>
+                <hr class="account-divider" />
+                <ExternalLoginPicker />
+            </section>
+        </div>
+    }
 </div>
 
 @code {
     private string? errorMessage;
+    private bool showPassword;
     private EditContext editContext = default!;
 
     [CascadingParameter]
@@ -98,9 +107,20 @@
 
     public async Task LoginUser()
     {
+        if (AccountOptions.Enabled && !string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
+        {
+            errorMessage = "This sign-in method is unavailable.";
+            return;
+        }
+
         if (!string.IsNullOrEmpty(Input.Passkey?.Error))
         {
-            errorMessage = $"Error: {Input.Passkey.Error}";
+            if (AccountOptions.Enabled)
+            {
+                errorMessage = "This sign-in method is unavailable.";
+                return;
+            }
+            errorMessage = "Passkey sign-in failed. Try another sign-in method.";
             return;
         }
 
@@ -118,9 +138,7 @@
                 return;
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: AccountOptions.Enabled);
         }
 
         if (result.Succeeded)
@@ -130,6 +148,11 @@
         }
         else if (result.RequiresTwoFactor)
         {
+            if (AccountOptions.Enabled)
+            {
+                errorMessage = "This sign-in method is unavailable.";
+                return;
+            }
             RedirectManager.RedirectTo(
                 "Account/LoginWith2fa",
                 new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });

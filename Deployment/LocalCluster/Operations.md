@@ -55,8 +55,10 @@ bash ./Deployment/LocalCluster/Scripts/report-nodes.sh
 
 Check service logs from the control machine:
 
+App Compose commands use the generated `.compose.env` allowlist. The app `.env` is passed to the container in raw mode and must not be used as Compose's interpolation file.
+
 ```bash
-ansible app_servers -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ansible.builtin.shell -a "cd <deploy-root> && docker compose logs --tail=100"
+ansible app_servers -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ansible.builtin.shell -a "cd <deploy-root> && docker compose --env-file .compose.env logs --tail=100"
 ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -m ansible.builtin.shell -a "cd <deploy-root> && docker compose logs --tail=100"
 ansible load_balancer -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "journalctl -u caddy --no-pager -n 100"
 ansible load_balancer -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "journalctl -u cloudflared --no-pager -n 100"
@@ -80,6 +82,8 @@ ansible node_db -i Deployment/LocalCluster/inventory/prod/hosts.yml -a "<deploy-
 ```
 
 Do not run a restore until the backup passes verify-backup.sh and the expected data-loss point is understood.
+
+The PostgreSQL dump does not contain the Data Protection certificate private key. Keep the encrypted vault for this app with protected off-host backups. `setup-secrets.sh` preserves the certificate and passphrase on ordinary runs; never replace them during routine deployment or recovery. Restore with the same vault values before starting the app, or cookies and encrypted account-mail outbox rows cannot be read.
 
 ## Rollback
 

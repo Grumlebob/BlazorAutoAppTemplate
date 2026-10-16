@@ -35,6 +35,8 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
 
     public string PostgresConnectionString => _dbContainer.GetConnectionString();
 
+    public string PostgresContainerId => _dbContainer.Id;
+
     public string RedisConnectionString =>
         $"127.0.0.1:{_redisContainer.GetMappedPublicPort(RedisPort)},password={RedisPassword},abortConnect=false";
 

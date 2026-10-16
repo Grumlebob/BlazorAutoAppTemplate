@@ -1,11 +1,12 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { isRouteErrorResponse, Links, Meta, Scripts, ScrollRestoration, useRouteError } from "react-router";
 import stylesheet from "./app.css?url";
-import { queryClient } from "./api/query-client";
+import { createQueryClient } from "./api/query-client";
 import { RouteErrorPage } from "./components/route-error-page";
 import { RouteFocusManager } from "./components/route-focus-manager";
 import { SiteShell } from "./components/site-shell";
+import { AccountProvider } from "./features/accounts/account-provider";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -38,9 +39,10 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
+  const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <SiteShell />
+      <AccountProvider><SiteShell /></AccountProvider>
     </QueryClientProvider>
   );
 }

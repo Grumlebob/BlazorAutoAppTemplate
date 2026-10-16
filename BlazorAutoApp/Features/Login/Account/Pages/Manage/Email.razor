@@ -10,53 +10,64 @@
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject AccountOptions AccountOptions
+@inject AccountOperations Accounts
 
 <PageTitle>Manage email</PageTitle>
 
 <h3>Manage email</h3>
-
-<StatusMessage Message="@message"/>
-<div class="account-grid">
-    <div class="account-grid-main">
-        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
-            <AntiforgeryToken />
-        </form>
-        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="account-text-danger" role="alert" />
-            @if (isEmailConfirmed)
+<StatusMessage Message="@message" />
+@if (AccountOptions.Enabled && !AccountOptions.EmailEnabled)
+{
+    <p role="status">Email account operations are unavailable.</p>
+}
+else
+{
+    <div class="account-grid">
+        <div class="account-grid-main">
+            @if (!isEmailConfirmed)
             {
+                <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit" class="account-button-link">Request a verification email</button>
+                </form>
+            }
+            <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="account-text-danger" role="alert" />
                 <div class="account-field">
-                    <input type="text" value="@email" id="email" class="account-input" placeholder="Enter your email" disabled />
-                    <div class="account-actions">
-                        <span class="account-text-success account-font-bold">✓</span>
+                    <input type="text" value="@email" id="email" class="account-input" disabled />
+                    <label for="email" class="account-label">Current email</label>
+                    @if (isEmailConfirmed)
+                    {
+                        <span class="account-text-success account-font-bold" aria-label="Email confirmed">✓</span>
+                    }
+                </div>
+                <div class="account-field">
+                    <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="account-input" autocomplete="email" maxlength="254" aria-required="true" placeholder="Enter a new email" />
+                    <label for="Input.NewEmail" class="account-label">New email</label>
+                    <ValidationMessage For="() => Input.NewEmail" class="account-text-danger" />
+                </div>
+                @if (AccountOptions.Enabled)
+                {
+                    <div class="account-field">
+                        <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" maxlength="256" aria-required="true" />
+                        <label for="Input.Password" class="account-label">Current password</label>
                     </div>
-                    <label for="email" class="account-label">Email</label>
-                </div>
-            }
-            else
-            {
-                <div class="account-field">
-                    <input type="text" value="@email" id="email" class="account-input" placeholder="Enter your email" disabled />
-                    <label for="email" class="account-label">Email</label>
-                    <button type="submit" class="account-button-link" form="send-verification-form">Send verification email</button>
-                </div>
-            }
-            <div class="account-field">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="account-input" autocomplete="email" aria-required="true" placeholder="Enter a new email" />
-                <label for="Input.NewEmail" class="account-label">New email</label>
-                <ValidationMessage For="() => Input.NewEmail" class="account-text-danger" />
-            </div>
-            <button type="submit" class="account-button-primary account-button-full">Change email</button>
-        </EditForm>
+                    <label><InputCheckbox @bind-Value="showPassword" /> Show password</label>
+                }
+                <button type="submit" class="account-button-primary account-button-full">Change email</button>
+            </EditForm>
+        </div>
     </div>
-</div>
+}
 
 @code {
     private string? message;
     private ApplicationUser? user;
     private string? email;
     private bool isEmailConfirmed;
+    private bool showPassword;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -67,7 +78,6 @@
     protected override async Task OnInitializedAsync()
     {
         Input ??= new();
-
         user = await UserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
@@ -77,46 +87,58 @@
 
         email = await UserManager.GetEmailAsync(user);
         isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
-
         Input.NewEmail ??= email;
     }
 
     private async Task OnValidSubmitAsync()
     {
-        if (Input.NewEmail is null || Input.NewEmail == email)
-        {
-            message = "Your email is unchanged.";
-            return;
-        }
-
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
+        if (AccountOptions.Enabled)
+        {
+            if (string.IsNullOrEmpty(Input.Password))
+            {
+                message = "Enter your current password.";
+                return;
+            }
+
+            var operation = await Accounts.ChangeEmailAsync(new AccountChangeEmailRequest
+            {
+                Password = Input.Password,
+                Email = Input.NewEmail ?? ""
+            });
+            var response = await AccountPageResultReader.ReadAsync(HttpContext, operation);
+            message = response.StatusCode == StatusCodes.Status202Accepted
+                ? "Request received. If this change can proceed, check the new address for a confirmation message."
+                : AccountPageResultReader.Message(response.Body, "Unable to process the request. Try again later.");
+            return;
+        }
+
+        if (Input.NewEmail is null || Input.NewEmail == email) return;
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
-
         await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
-
         message = "Confirmation link to change email sent. Please check your email.";
     }
 
     private async Task OnSendEmailVerificationAsync()
     {
-        if (email is null)
+        if (string.IsNullOrEmpty(email) || user is null) return;
+        if (AccountOptions.Enabled)
         {
-            return;
-        }
-
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            var operation = await Accounts.ResendAsync(new AccountEmailRequest { Email = email });
+            var response = await AccountPageResultReader.ReadAsync(HttpContext, operation);
+            message = response.StatusCode == StatusCodes.Status202Accepted
+                ? "Request received. Check your email if applicable; use resend if it does not arrive."
+                : AccountPageResultReader.Message(response.Body, "Unable to process the request. Try again later.");
             return;
         }
 
@@ -126,17 +148,16 @@
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-
         await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
-
         message = "Verification email sent. Please check your email.";
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
-        [Display(Name = "New email")]
+        [Required, EmailAddress, StringLength(254)]
         public string? NewEmail { get; set; }
+
+        [StringLength(256)]
+        public string Password { get; set; } = "";
     }
 }

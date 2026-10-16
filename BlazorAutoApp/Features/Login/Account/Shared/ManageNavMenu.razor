@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Identity
 
 @inject SignInManager<ApplicationUser> SignInManager
+@inject AccountOptions AccountOptions
 
 <ul class="account-nav">
     <li class="account-nav-item">
@@ -12,18 +13,21 @@
     <li class="account-nav-item">
         <NavLink class="account-nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
     </li>
-    @if (hasExternalLogins)
+    @if (!AccountOptions.Enabled && hasExternalLogins)
     {
         <li class="account-nav-item">
             <NavLink class="account-nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
         </li>
     }
-    <li class="account-nav-item">
-        <NavLink class="account-nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
-    </li>
-    <li class="account-nav-item">
-        <NavLink class="account-nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
-    </li>
+    @if (!AccountOptions.Enabled)
+    {
+        <li class="account-nav-item">
+            <NavLink class="account-nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
+        </li>
+        <li class="account-nav-item">
+            <NavLink class="account-nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
+        </li>
+    }
     <li class="account-nav-item">
         <NavLink class="account-nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
     </li>

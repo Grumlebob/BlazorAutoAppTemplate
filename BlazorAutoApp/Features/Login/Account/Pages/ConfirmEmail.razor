@@ -1,19 +1,56 @@
 @page "/Account/ConfirmEmail"
 
+@using System.ComponentModel.DataAnnotations
 @using System.Text
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
 
 @inject UserManager<ApplicationUser> UserManager
+@inject AccountOptions AccountOptions
+@inject AccountOperations Accounts
 @inject IdentityRedirectManager RedirectManager
 
 <PageTitle>Confirm email</PageTitle>
 
 <h1>Confirm email</h1>
 <StatusMessage Message="@statusMessage" />
+@if (AccountOptions.Enabled)
+{
+    @if (!AccountOptions.EmailEnabled)
+    {
+        <p role="status">This account operation is unavailable.</p>
+    }
+    else if (string.IsNullOrEmpty(Input.UserId) || string.IsNullOrEmpty(Input.Code))
+    {
+        <p role="alert">Open the full confirmation link from your email.</p>
+    }
+    else
+    {
+        <EditForm Model="Input" FormName="confirm-email" OnValidSubmit="ConfirmEnabledEmailAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="account-text-danger" role="alert" />
+            <input type="hidden" name="Input.UserId" value="@Input.UserId" />
+            <input type="hidden" name="Input.Code" value="@Input.Code" />
+            <div class="account-field">
+                <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.NewPassword" id="Input.NewPassword" class="account-input" autocomplete="new-password" maxlength="256" aria-required="true" />
+                <label for="Input.NewPassword">Choose a password</label>
+                <ValidationMessage For="() => Input.NewPassword" class="account-text-danger" />
+            </div>
+            <div class="account-field">
+                <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="account-input" autocomplete="new-password" maxlength="256" aria-required="true" />
+                <label for="Input.ConfirmPassword">Confirm password</label>
+                <ValidationMessage For="() => Input.ConfirmPassword" class="account-text-danger" />
+            </div>
+            <p class="account-muted">Use 15–128 Unicode characters. Avoid common or app-related passwords.</p>
+            <label><InputCheckbox @bind-Value="showPassword" /> Show password</label>
+            <button type="submit" class="account-button-primary">Confirm email and create account</button>
+        </EditForm>
+    }
+}
 
 @code {
     private string? statusMessage;
+    private bool showPassword;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -24,8 +61,31 @@
     [SupplyParameterFromQuery]
     private string? Code { get; set; }
 
+    [SupplyParameterFromForm(FormName = "confirm-email")]
+    private InputModel Input { get; set; } = default!;
+
     protected override async Task OnInitializedAsync()
     {
+        Input ??= new();
+        Input.SetAccountPasswordPolicy(AccountOptions.Enabled);
+        if (AccountOptions.Enabled)
+        {
+            if (UserId is null || Code is null) return;
+            try
+            {
+                Input.UserId = UserId;
+                Input.Code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+            }
+            catch (FormatException)
+            {
+                Input.UserId = "";
+                Input.Code = "";
+            }
+            return;
+        }
+
+        // Preserve the disabled template's legacy confirmation flow. Enabled accounts always
+        // require a POST so a mail-security scanner cannot consume the token on link preview.
         if (UserId is null || Code is null)
         {
             RedirectManager.RedirectTo("");
@@ -36,13 +96,52 @@
         if (user is null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            statusMessage = "Error loading user.";
+            statusMessage = "The confirmation link is invalid or unavailable.";
+            return;
         }
-        else
+
+        try
         {
             var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
             var result = await UserManager.ConfirmEmailAsync(user, code);
-            statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
+            statusMessage = result.Succeeded ? "Thank you for confirming your email." : "The confirmation link is invalid or unavailable.";
         }
+        catch (FormatException)
+        {
+            statusMessage = "The confirmation link is invalid or unavailable.";
+        }
+    }
+
+    private async Task ConfirmEnabledEmailAsync()
+    {
+        var result = await Accounts.ConfirmAsync(new AccountConfirmEmailRequest
+        {
+            UserId = Input.UserId,
+            Token = Input.Code,
+            NewPassword = Input.NewPassword
+        });
+        var response = await AccountPageResultReader.ReadAsync(HttpContext, result);
+        var status = response.StatusCode == StatusCodes.Status200OK
+            ? "Email confirmed. You can now sign in."
+            : "The confirmation link is invalid, expired or unavailable, or the password was rejected.";
+        RedirectManager.RedirectToWithStatus("Account/ConfirmEmail", status, HttpContext);
+    }
+
+    private sealed class InputModel : AccountPasswordPolicyInputModel
+    {
+        [Required, StringLength(128)]
+        public string UserId { get; set; } = "";
+
+        [Required, StringLength(4096)]
+        public string Code { get; set; } = "";
+
+        [Required]
+        [AccountPasswordLength]
+        [DataType(DataType.Password)]
+        public string NewPassword { get; set; } = "";
+
+        [Compare(nameof(NewPassword), ErrorMessage = "The password and confirmation password do not match.")]
+        [DataType(DataType.Password)]
+        public string ConfirmPassword { get; set; } = "";
     }
 }

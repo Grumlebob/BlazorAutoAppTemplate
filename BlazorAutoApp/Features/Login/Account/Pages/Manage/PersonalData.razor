@@ -2,6 +2,7 @@
 
 @using Microsoft.AspNetCore.Identity
 
+@inject AccountOptions AccountOptions
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
@@ -16,10 +17,24 @@
         <p>
             <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
         </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="account-button-primary" type="submit">Download</button>
-        </form>
+        @if (AccountOptions.Enabled)
+        {
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <div class="account-field">
+                    <label for="export-password" class="account-label">Confirm your password to download</label>
+                    <input id="export-password" name="Password" type="password" class="account-input" autocomplete="current-password" maxlength="256" required />
+                </div>
+                <button class="account-button-primary" type="submit">Download</button>
+            </form>
+        }
+        else
+        {
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <button class="account-button-primary" type="submit">Download</button>
+            </form>
+        }
         <p>
             <a href="Account/Manage/DeletePersonalData" class="account-button-danger">Delete</a>
         </p>

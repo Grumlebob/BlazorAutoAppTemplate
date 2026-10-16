@@ -1,4 +1,68 @@
 ---
+- name: Read Docker Compose plugin version
+  ansible.builtin.command:
+    argv: [docker, compose, version, --short]
+  register: docker_compose_version
+  changed_when: false
+- name: Require Docker Compose raw environment file support
+  ansible.builtin.assert:
+    that:
+      - docker_compose_version.stdout is version('2.30.0', '>=', version_type='loose')
+    fail_msg: "Docker Compose 2.30.0 or later is required for literal account environment values."
+- name: Validate account settings and secret values before staging the app
+  ansible.builtin.assert:
+    that:
+      - >-
+        (accounts_admin_seed_email | default('') ~ accounts_public_origin | default('') ~ accounts_email_host | default('') ~ accounts_email_from | default('') ~ vault_accounts_admin_seed_password | default('') ~ vault_accounts_email_username | default('') ~ vault_accounts_email_password | default(''))
+        | regex_search('[\r\n]') is none
+      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0)
+      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (accounts_admin_seed_email | default('') | length == 0) == (vault_accounts_admin_seed_password | default('') | length == 0)
+      - (vault_accounts_email_username | default('') | length == 0) == (vault_accounts_email_password | default('') | length == 0)
+      - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (vault_accounts_email_username | default('') | length == 0) and (vault_accounts_email_password | default('') | length == 0)
+      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (data_protection_legacy_key_store | default('None')) in ['None', 'Redis', 'FileSystem']
+      - (data_protection_legacy_redis_key | default('') | regex_search('[\r\n\0]')) is none
+      - ((data_protection_legacy_key_store | default('None')) == 'Redis') == ((data_protection_legacy_redis_key | default('') | length) > 0)
+    fail_msg: "Account deployment settings are incomplete or contain unsupported line breaks."
+  no_log: true
+- name: Validate encrypted Data Protection certificate inputs
+  ansible.builtin.assert:
+    that:
+      - vault_data_protection_certificate_password is match('^[A-Fa-f0-9]{64}$')
+      - vault_data_protection_certificate_base64 is match('^[A-Za-z0-9+/]+={0,2}$')
+    fail_msg: "The app Data Protection certificate settings are incomplete or invalid."
+  no_log: true
+- name: Ensure protected app Data Protection directory
+  ansible.builtin.file:
+    path: "/etc/{{ app_name }}/data-protection"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Install encrypted app Data Protection certificate
+  ansible.builtin.copy:
+    content: "{{ vault_data_protection_certificate_base64 | b64decode }}"
+    dest: "/etc/{{ app_name }}/data-protection/certificate.pem"
+    owner: root
+    group: deploy
+    mode: "0440"
+  no_log: true
+- name: Ensure legacy Data Protection import source directory
+  ansible.builtin.file:
+    path: "/etc/{{ app_name }}/data-protection/legacy"
+    state: directory
+    owner: root
+    group: deploy
+    mode: "0750"
+- name: Read deploy group ID for the read-only certificate mount
+  ansible.builtin.getent:
+    database: group
+    key: deploy
+- name: Record deploy group ID for Compose
+  ansible.builtin.set_fact:
+    data_protection_certificate_gid: "{{ ansible_facts.getent_group.deploy[1] }}"
+  changed_when: false
 - name: Require app_version
   ansible.builtin.assert:
     that:
@@ -37,6 +101,16 @@
     owner: deploy
     group: deploy
     mode: "0640"
+  no_log: true
+
+- name: Render Compose interpolation allowlist
+  ansible.builtin.template:
+    src: compose.env.j2
+    dest: "{{ deploy_root }}/.compose.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+  no_log: true
 
 - name: Pull application image with command-owned registry credentials
   ansible.builtin.shell: |
@@ -47,7 +121,7 @@
     {% if vault_ghcr_token | default('') | length > 0 %}
     echo "{{ vault_ghcr_token }}" | docker login ghcr.io -u "{{ vault_ghcr_username }}" --password-stdin
     {% endif %}
-    docker compose up -d --pull always --remove-orphans
+    docker compose --env-file .compose.env up -d --pull always --remove-orphans
   args:
     executable: /bin/bash
     chdir: "{{ deploy_root }}"

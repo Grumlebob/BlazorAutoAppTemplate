@@ -35,8 +35,8 @@ wait_for_public_health() {
 
 echo "checking app nodes"
 ansible app_servers -i "$INVENTORY" -a "curl --fail --silent --show-error --connect-timeout 5 --max-time 20 http://127.0.0.1:${APP_PORT}/health/ready"
-ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"
-ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps --services --filter status=running | grep -Fx web"
+ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose --env-file .compose.env ps"
+ansible app_servers -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose --env-file .compose.env ps --services --filter status=running | grep -Fx web"
 
 echo "checking database node"
 ansible node_db -i "$INVENTORY" -m ansible.builtin.shell -a "cd ${DEPLOY_ROOT} && docker compose ps"

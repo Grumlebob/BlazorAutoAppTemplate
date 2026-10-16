@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -61,6 +63,37 @@ PORTS = [
     ("Alloy", "ALLOY_HOST_PORT", 12345),
 ]
 
+COMPOSE_INTERPOLATION_KEYS = (
+    "COMPOSE_PROJECT_NAME",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_DB",
+    "POSTGRES_HOST_PORT",
+    "FRONTEND_DOCKER_TARGET",
+    "FRONTEND_PROFILE_OVERRIDE",
+    "APP_NODE_NAME",
+    "APP_VERSION",
+    "RateLimiting__Global__PermitLimit",
+    "RateLimiting__Api__PermitLimit",
+    "RateLimiting__Authentication__PermitLimit",
+    "OBSERVABILITY_ENABLED",
+    "OBSERVABILITY_OTLP_ENDPOINT",
+    "OBSERVABILITY_OTLP_PROTOCOL",
+    "OBSERVABILITY_TRACE_SAMPLE_RATIO",
+    "OBSERVABILITY_DEPLOYMENT_TARGET",
+    "APP_HTTPS_HOST_PORT",
+    "REDIS_HOST_PORT",
+    "REDIS_INSIGHT_HOST_PORT",
+    "GRAFANA_HOST_PORT",
+    "ALERTMANAGER_HOST_PORT",
+    "PROMETHEUS_HOST_PORT",
+    "LOKI_HOST_PORT",
+    "TEMPO_HOST_PORT",
+    "ALLOY_HOST_PORT",
+    "POSTGRES_EXPORTER_HOST_PORT",
+    "REDIS_EXPORTER_HOST_PORT",
+)
+
 
 failures: list[str] = []
 warnings: list[str] = []
@@ -104,6 +137,29 @@ def run_check(command: list[str], description: str) -> None:
         ok(description)
     except (subprocess.CalledProcessError, FileNotFoundError):
         fail(description)
+
+
+def run_compose_config_check(values: dict[str, str]) -> None:
+    environment = os.environ.copy()
+    for key in COMPOSE_INTERPOLATION_KEYS:
+        if key in values:
+            environment.setdefault(key, values[key])
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="blazorauto-compose-") as directory:
+            interpolation_file = Path(directory) / "empty.env"
+            interpolation_file.write_text("", encoding="utf-8")
+            subprocess.run(
+                ["docker", "compose", "--env-file", str(interpolation_file), "config", "--quiet"],
+                cwd=ROOT,
+                env=environment,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        ok("docker compose config is valid with account keys excluded from interpolation")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        fail("docker compose config is valid with account keys excluded from interpolation")
 
 
 def check_command_version(command: str, args: list[str], description: str) -> None:
@@ -258,7 +314,10 @@ def main() -> int:
 
     if command_exists("docker"):
         ok("docker command available")
-        run_check(["docker", "compose", "config", "--quiet"], "docker compose config is valid")
+        if ENV_PATH.exists():
+            run_compose_config_check(values)
+        else:
+            warn("Docker Compose config check skipped until the required raw .env runtime file exists")
     else:
         fail("docker command missing")
 

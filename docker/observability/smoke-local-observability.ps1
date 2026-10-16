@@ -64,6 +64,19 @@ function Test-PrometheusQuery {
 }
 
 Push-Location (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+$composeEnvFile = [IO.Path]::GetTempFileName()
+$previousComposeProjectName = [Environment]::GetEnvironmentVariable('COMPOSE_PROJECT_NAME', 'Process')
+$composeProjectName = $null
+if (Test-Path -LiteralPath '.env') {
+  foreach ($line in Get-Content -LiteralPath '.env') {
+    if ($line -match '^\s*(?:export\s+)?COMPOSE_PROJECT_NAME\s*=\s*(.*?)\s*$') {
+      $composeProjectName = $Matches[1].Trim().Trim('"').Trim("'")
+    }
+  }
+}
+if (-not (Test-Path Env:COMPOSE_PROJECT_NAME) -and -not [string]::IsNullOrWhiteSpace($composeProjectName)) {
+  [Environment]::SetEnvironmentVariable('COMPOSE_PROJECT_NAME', $composeProjectName, 'Process')
+}
 try {
   Write-Host "Generating local app telemetry..."
   for ($i = 0; $i -lt 8; $i++) {
@@ -159,7 +172,7 @@ try {
   }
   Write-Host "OK    Loki streams below threshold: $streamCount"
 
-  $containerIds = docker compose ps -q
+  $containerIds = docker compose --env-file $composeEnvFile ps -q
   foreach ($containerId in $containerIds) {
     if ([string]::IsNullOrWhiteSpace($containerId)) {
       continue
@@ -177,5 +190,12 @@ try {
   Write-Host "local observability smoke ok"
 }
 finally {
+  if ($null -eq $previousComposeProjectName) {
+    Remove-Item Env:COMPOSE_PROJECT_NAME -ErrorAction SilentlyContinue
+  }
+  else {
+    [Environment]::SetEnvironmentVariable('COMPOSE_PROJECT_NAME', $previousComposeProjectName, 'Process')
+  }
+  Remove-Item -LiteralPath $composeEnvFile -ErrorAction SilentlyContinue
   Pop-Location
 }
