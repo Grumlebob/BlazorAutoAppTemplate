@@ -289,6 +289,11 @@ jobs:
           python -m pip install --constraint "$CI_PYTHON_CONSTRAINTS" yamllint
           yamllint .github Deployment docker-compose.yml .yamllint.yml
 
+      - name: Audit workflow runner, cache, artifact, and report policies
+        run: |
+          python3 Scripts/CI/workflow_policy.py --repo-root .
+          python3 -m unittest Scripts/CI/tests/test_workflow_policy.py
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -474,7 +479,7 @@ jobs:
         run: |
           python3 Scripts/CI/ci_report_store.py save \
             --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate" \
-            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job validate \
+            --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job validate \
             --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
             --runner-name "${RUNNER_NAME:-$(hostname)}"
 
@@ -772,7 +777,7 @@ jobs:
         run: |
           python3 Scripts/CI/ci_report_store.py save \
             --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main" \
-            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job publish-main \
+            --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job publish-main \
             --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
             --runner-name "${RUNNER_NAME:-$(hostname)}"
 
