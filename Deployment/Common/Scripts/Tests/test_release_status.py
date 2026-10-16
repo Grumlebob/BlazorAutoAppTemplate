@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import hashlib
 import sys
+import tempfile
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -13,7 +16,9 @@ from release_status import (
     list_active_deployment_runs,
     pin_state,
     summarize_marker,
+    verify_offline_pin_restore,
 )
+import pin_release_payload
 
 
 class JsonResponse:
@@ -105,6 +110,131 @@ class ReleaseStatusTests(TestCase):
         self.assertEqual(pin_state(summary, {key}, key), "verified")
         with self.assertRaisesRegex(ReleaseStatusError, "not validated"):
             pin_state(summary, set(), key)
+
+    def test_offline_pin_restore_uses_no_github_or_registry_credentials_and_checks_restored_bytes(self):
+        summary = summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"])
+        manifest = b"verified manifest"
+        bundle = b"verified migration bundle"
+        metadata = {
+            "transport": "ghcr-container",
+            "repository": self.repository_url,
+            "target_sha": summary["source_sha"],
+            "run_id": summary["ci_run_id"],
+            "run_attempt": summary["ci_run_attempt"],
+            "profile": summary["frontend_profile"],
+            "acceptance_profile": summary["acceptance_profile"],
+            "runtime": "linux-x64",
+            "app_image": summary["image"],
+            "image_digest": summary["digest"],
+            "manifest_schema_version": summary["manifest_schema_version"],
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "bundle_filename": "books-migrate-linux-x64",
+            "bundle_sha256": hashlib.sha256(bundle).hexdigest(),
+        }
+        credential_state: list[dict[str, str | None]] = []
+
+        def restore(pin_dir, output_dir, **kwargs):
+            credential_state.append({name: os.environ.get(name) for name in (
+                "GITHUB_TOKEN", "GH_TOKEN", "GHCR_TOKEN", "GHCR_USERNAME", "DOCKER_CONFIG",
+            )})
+            output_dir.mkdir()
+            (output_dir / "release-manifest.json").write_bytes(manifest)
+            (output_dir / metadata["bundle_filename"]).write_bytes(bundle)
+            self.assertEqual(kwargs["target_sha"], summary["source_sha"])
+            self.assertEqual(kwargs["payload_image_prefix"], "private-books-")
+            return {"pin_key": pin_dir.name}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            temp_root = Path(temporary)
+            with patch.dict(os.environ, {
+                "GITHUB_TOKEN": "fixture-github-token",
+                "GH_TOKEN": "fixture-gh-token",
+                "GHCR_TOKEN": "fixture-ghcr-token",
+                "GHCR_USERNAME": "fixture-user",
+                "DOCKER_CONFIG": "fixture-docker-config",
+            }, clear=False), \
+                    patch.object(pin_release_payload, "_require_shared_lock"), \
+                    patch.object(pin_release_payload, "validate", return_value=metadata), \
+                    patch.object(pin_release_payload, "restore", side_effect=restore):
+                result = verify_offline_pin_restore(
+                    summary,
+                    temp_root / "pins",
+                    repository_url=self.repository_url,
+                    runtime="linux-x64",
+                    bundle_name=metadata["bundle_filename"],
+                    payload_image_prefix="private-books-",
+                    temp_root=temp_root,
+                )
+                self.assertEqual(os.environ["GITHUB_TOKEN"], "fixture-github-token")
+                self.assertEqual(os.environ["GHCR_TOKEN"], "fixture-ghcr-token")
+            self.assertEqual(list(temp_root.iterdir()), [])
+
+        self.assertEqual(credential_state, [{
+            "GITHUB_TOKEN": None,
+            "GH_TOKEN": None,
+            "GHCR_TOKEN": None,
+            "GHCR_USERNAME": None,
+            "DOCKER_CONFIG": None,
+        }])
+        self.assertEqual(result, {
+            "outcome": "verified",
+            "pin_key": self.marker["release_payload_pin_key"],
+            "transport": "ghcr-container",
+            "file_count": 2,
+        })
+
+    def test_offline_pin_restore_rejects_missing_pin_and_changed_restored_checksum(self):
+        summary = summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"])
+        with self.assertRaisesRegex(ReleaseStatusError, "no exact local pin"):
+            verify_offline_pin_restore(
+                {**summary, "release_payload_pin_key": None},
+                Path("unused"),
+                repository_url=self.repository_url,
+                runtime="linux-x64",
+                bundle_name="books-migrate-linux-x64",
+                payload_image_prefix="private-books-",
+                temp_root=Path("."),
+            )
+
+        manifest = b"verified manifest"
+        bundle = b"expected bundle"
+        metadata = {
+            "transport": "ghcr-container",
+            "repository": self.repository_url,
+            "target_sha": summary["source_sha"],
+            "run_id": summary["ci_run_id"],
+            "run_attempt": summary["ci_run_attempt"],
+            "profile": summary["frontend_profile"],
+            "acceptance_profile": summary["acceptance_profile"],
+            "runtime": "linux-x64",
+            "app_image": summary["image"],
+            "image_digest": summary["digest"],
+            "manifest_schema_version": summary["manifest_schema_version"],
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "bundle_filename": "books-migrate-linux-x64",
+            "bundle_sha256": hashlib.sha256(bundle).hexdigest(),
+        }
+
+        def corrupt_restore(pin_dir, output_dir, **kwargs):
+            output_dir.mkdir()
+            (output_dir / "release-manifest.json").write_bytes(manifest)
+            (output_dir / metadata["bundle_filename"]).write_bytes(b"corrupt bundle")
+            return {"pin_key": pin_dir.name}
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(pin_release_payload, "_require_shared_lock"), \
+                patch.object(pin_release_payload, "validate", return_value=metadata), \
+                patch.object(pin_release_payload, "restore", side_effect=corrupt_restore):
+            with self.assertRaisesRegex(ReleaseStatusError, "pinned payload checksums"):
+                verify_offline_pin_restore(
+                    summary,
+                    Path(temporary) / "pins",
+                    repository_url=self.repository_url,
+                    runtime="linux-x64",
+                    bundle_name=metadata["bundle_filename"],
+                    payload_image_prefix="private-books-",
+                    temp_root=Path(temporary),
+                )
 
     def test_lists_active_deployment_runs_and_freezes_dispatch_target_sha(self):
         target_sha = "e" * 40

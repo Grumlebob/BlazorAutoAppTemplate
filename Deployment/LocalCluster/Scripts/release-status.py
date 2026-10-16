@@ -22,7 +22,13 @@ sys.path.insert(0, str(ROOT / "Scripts/Frontend"))
 import pin_release_payload  # noqa: E402
 from deploy_settings import load_settings  # noqa: E402
 from release_settings import load_release_settings  # noqa: E402
-from release_status import ReleaseStatusError, list_active_deployment_runs, pin_state, summarize_marker  # noqa: E402
+from release_status import (  # noqa: E402
+    ReleaseStatusError,
+    list_active_deployment_runs,
+    pin_state,
+    summarize_marker,
+    verify_offline_pin_restore,
+)
 
 
 def ansible_results(module: str, arguments: str, destination: Path) -> list[dict[str, Any]]:
@@ -192,6 +198,29 @@ def snapshot() -> dict:
         )
 
     protected = set(inventory.get("protected", []))
+    current_pin = pin_state(current, protected, inventory.get("marker_pins", {}).get("current"))
+    recovery_pin = pin_state(recovery, protected, inventory.get("marker_pins", {}).get("recovery"))
+    offline_pin_restore: dict[str, Any] = {"outcome": "not-requested"}
+    if os.environ.get("VERIFY_OFFLINE_PINS", "false").casefold() == "true":
+        temp_root = Path(os.environ.get("RUNNER_TEMP", ""))
+        offline_pin_restore = {
+            "current": verify_offline_pin_restore(
+                current, pin_root,
+                repository_url=repository_url,
+                runtime=release_settings["migration_runtime"],
+                bundle_name=release_settings["migration_bundle_name"],
+                payload_image_prefix=release_settings["release_payload_prefix"],
+                temp_root=temp_root,
+            ),
+            "recovery": verify_offline_pin_restore(
+                recovery, pin_root,
+                repository_url=repository_url,
+                runtime=release_settings["migration_runtime"],
+                bundle_name=release_settings["migration_bundle_name"],
+                payload_image_prefix=release_settings["release_payload_prefix"],
+                temp_root=temp_root,
+            ),
+        }
     active = list_active_deployment_runs(
         repository,
         api_root=os.environ.get("GITHUB_API_URL", "https://api.github.com"),
@@ -215,9 +244,10 @@ def snapshot() -> dict:
         "shared_lock": "held",
         "mutation": "none",
         "current_release": current,
-        "current_pin": pin_state(current, protected, inventory.get("marker_pins", {}).get("current")),
+        "current_pin": current_pin,
         "recovery_release": recovery,
-        "recovery_pin": pin_state(recovery, protected, inventory.get("marker_pins", {}).get("recovery")),
+        "recovery_pin": recovery_pin,
+        "offline_pin_restore": offline_pin_restore,
         "live_identity": verify_live_identity(current, repository_url=repository_url),
         "active_deployments": active,
         "pin_inventory": pin_inventory,
