@@ -89,6 +89,17 @@ jobs:
         self.assertTrue(any("routine cloud artifact upload is forbidden" in str(item) for item in findings))
         self.assertFalse(any("download" in str(item).lower() for item in findings))
 
+    def test_generic_report_store_workflow_must_pass_repository(self) -> None:
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on: [self-hosted, linux]
+    steps:
+      - run: python3 Scripts/CI/ci_report_store.py save --run-id 123 --attempt 1
+"""})
+
+        self.assertTrue(any("must pass --repository explicitly" in str(item) for item in findings))
+
     def test_rejects_each_supported_cloud_cache_path(self) -> None:
         findings = self._audit({"ci.yml": """name: ci
 jobs:
@@ -169,6 +180,41 @@ jobs:
 
         self.assertTrue(any("FAILURE_RETENTION must retain reports for 7 days" in message for message in messages))
         self.assertTrue(any("local report manifest must validate repository, run, and attempt ownership" in message for message in messages))
+
+    def test_accepts_fixed_repository_report_store_without_cli_repository_flag(self) -> None:
+        static_store = '''from datetime import timedelta
+from pathlib import Path
+
+REPOSITORY = "Example/Project"
+DEFAULT_MAX_BYTES = 1024 * 1024 * 1024
+SUCCESS_RETENTION = timedelta(days=3)
+FAILURE_RETENTION = timedelta(days=7)
+
+def _validate_identity(run_id, attempt):
+    pass
+
+def default_root():
+    return Path.home() / ".local" / "state" / "reports" / "Project"
+
+def _read_manifest(entry):
+    required = {"repository", "run_id", "attempt"}
+    if set(value) != required or value.get("repository") != REPOSITORY:
+        return None
+    _validate_identity(value["run_id"], value["attempt"])
+
+def save_report(*, run_id, attempt):
+    _validate_identity(run_id, attempt)
+    return {"repository": REPOSITORY}
+'''
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on: [self-hosted, linux]
+    steps:
+      - run: python3 Scripts/CI/ci_report_store.py save --run-id "$RUN_ID" --attempt "$ATTEMPT"
+"""}, static_store)
+
+        self.assertEqual(findings, [])
 
 
 if __name__ == "__main__":

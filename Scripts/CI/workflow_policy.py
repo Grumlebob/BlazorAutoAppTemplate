@@ -50,6 +50,11 @@ def _assigned_value(tree: ast.Module, name: str) -> ast.expr | None:
     return None
 
 
+def _assigned_string(tree: ast.Module, name: str) -> str | None:
+    value = _assigned_value(tree, name)
+    return value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+
+
 def _integer_expression(node: ast.expr | None) -> int | None:
     if isinstance(node, ast.Constant) and type(node.value) is int:
         return node.value
@@ -84,6 +89,49 @@ def _function(tree: ast.Module, name: str) -> ast.FunctionDef | ast.AsyncFunctio
     )
 
 
+def _call_contains_names(node: ast.AST, function_name: str, expected_names: set[str]) -> bool:
+    return any(
+        isinstance(call, ast.Call)
+        and _call_name(call.func) == function_name
+        and expected_names.issubset({argument.id for argument in call.args if isinstance(argument, ast.Name)})
+        for call in ast.walk(node)
+    )
+
+
+def _manifest_binds_repository(function: ast.FunctionDef | ast.AsyncFunctionDef, repository_names: set[str]) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Compare) or not any(isinstance(operation, ast.NotEq) for operation in node.ops):
+            continue
+        call = node.left
+        if not isinstance(call, ast.Call) or _call_name(call.func) != "get" or not isinstance(call.func, ast.Attribute):
+            continue
+        if not isinstance(call.func.value, ast.Name) or call.func.value.id != "value":
+            continue
+        if not call.args or not isinstance(call.args[0], ast.Constant) or call.args[0].value != "repository":
+            continue
+        if any(isinstance(comparator, ast.Name) and comparator.id in repository_names for comparator in node.comparators):
+            return True
+    return False
+
+
+def _manifest_validates_run_attempt(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call) or _call_name(node.func) != "_validate_identity":
+            continue
+        fields = {
+            argument.slice.value
+            for argument in node.args
+            if isinstance(argument, ast.Subscript)
+            and isinstance(argument.value, ast.Name)
+            and argument.value.id == "value"
+            and isinstance(argument.slice, ast.Constant)
+            and isinstance(argument.slice.value, str)
+        }
+        if {"run_id", "attempt"}.issubset(fields):
+            return True
+    return False
+
+
 def _report_store_findings(source: str, location: str) -> list[Finding]:
     findings: list[Finding] = []
     try:
@@ -105,6 +153,13 @@ def _report_store_findings(source: str, location: str) -> list[Finding]:
             findings.append(Finding(location, f"{constant} must retain reports for {days} days"))
 
     root_function = _function(tree, "default_root")
+    repository_constant = _assigned_string(tree, "REPOSITORY") or _assigned_string(tree, "DEFAULT_REPOSITORY")
+    static_repository = None
+    if repository_constant and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository_constant):
+        owner, name = repository_constant.split("/", 1)
+        if owner not in {".", ".."} and name not in {".", ".."}:
+            static_repository = (owner, name)
+
     if root_function is None:
         findings.append(Finding(location, "local report store must define repository-scoped default_root"))
     else:
@@ -117,13 +172,27 @@ def _report_store_findings(source: str, location: str) -> list[Finding]:
             for node in nodes
         )
         returns = [node.value for node in nodes if isinstance(node, ast.Return) and node.value is not None]
+        return_strings = {
+            node.value
+            for expression in returns
+            for node in ast.walk(expression)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
         return_names = {
             child.id
             for expression in returns
             for child in ast.walk(expression)
             if isinstance(child, ast.Name)
         }
-        if "GITHUB_REPOSITORY" not in strings or not repository_validation or not {"owner", "name"}.issubset(return_names):
+        dynamic_scope = (
+            "GITHUB_REPOSITORY" in strings
+            and repository_validation
+            and {"owner", "name"}.issubset(return_names)
+        )
+        static_scope = static_repository is not None and any(
+            static_repository[1].lower() in value.lower() for value in return_strings
+        )
+        if not dynamic_scope and not static_scope:
             findings.append(Finding(location, "local report root must be namespaced by the validated GitHub repository"))
 
     manifest_function = _function(tree, "_read_manifest")
@@ -136,7 +205,9 @@ def _report_store_findings(source: str, location: str) -> list[Finding]:
                     item.value for item in node.elts
                     if isinstance(item, ast.Constant) and isinstance(item.value, str)
                 })
-    if not any(required_manifest_fields.issubset(fields) for fields in manifest_sets):
+    if not any(required_manifest_fields.issubset(fields) for fields in manifest_sets) or manifest_function is None or not _manifest_binds_repository(
+        manifest_function, {"repository", "REPOSITORY"}
+    ) or not _manifest_validates_run_attempt(manifest_function):
         findings.append(Finding(location, "local report manifest must validate repository, run, and attempt ownership"))
 
     save_function = _function(tree, "save_report")
@@ -148,8 +219,16 @@ def _report_store_findings(source: str, location: str) -> list[Finding]:
             argument.arg
             for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
         }
-        if not {"repository", "run_id", "attempt"}.issubset(parameters):
-            findings.append(Finding(location, "save_report must require repository, run, and attempt identity"))
+        identity_validated = _call_contains_names(save_function, "_validate_identity", {"run_id", "attempt"})
+        if not {"run_id", "attempt"}.issubset(parameters) or not identity_validated:
+            findings.append(Finding(location, "save_report must validate run and attempt identity"))
+        if "repository" in parameters:
+            if not _call_contains_names(save_function, "_validate_repository", {"repository"}):
+                findings.append(Finding(location, "save_report must validate its repository identity"))
+        elif static_repository is None or not any(
+            isinstance(node, ast.Name) and node.id == "REPOSITORY" for node in ast.walk(save_function)
+        ):
+            findings.append(Finding(location, "save_report must bind a validated static repository identity"))
     return findings
 
 
@@ -206,6 +285,7 @@ class WorkflowPolicy:
         self.active_workflows: set[Path] = set()
         self.visited_actions: set[Path] = set()
         self.active_actions: set[Path] = set()
+        self.report_store_requires_explicit_repository = True
 
     def _location(self, path: Path, detail: str = "") -> str:
         try:
@@ -290,7 +370,7 @@ class WorkflowPolicy:
             if GHA_CACHE_RE.search(run):
                 self.findings.append(Finding(location, "workflow shell step uses GitHub Actions cache backend type=gha"))
             if "ci_report_store.py" in run and re.search(r"\b(?:save|prune)\b", run):
-                if not re.search(r"--repository(?:\s|=)", run):
+                if self.report_store_requires_explicit_repository and not re.search(r"--repository(?:\s|=)", run):
                     self.findings.append(Finding(location, "local report-store workflow call must pass --repository explicitly"))
 
     def _analyze_steps(self, workflow: Path, steps: Any, prefix: str) -> None:
@@ -385,6 +465,27 @@ class WorkflowPolicy:
             self.visited_workflows.add(workflow)
 
     def audit(self) -> list[Finding]:
+        store_path = self.root / REPORT_STORE_PATH
+        try:
+            store_source = store_path.read_text(encoding="utf-8-sig")
+        except OSError:
+            self.findings.append(Finding(REPORT_STORE_PATH.as_posix(), "repository-scoped local report store is missing"))
+        else:
+            self.findings.extend(_report_store_findings(store_source, REPORT_STORE_PATH.as_posix()))
+            try:
+                store_tree = ast.parse(store_source, filename=REPORT_STORE_PATH.as_posix())
+            except SyntaxError:
+                pass
+            else:
+                save_function = _function(store_tree, "save_report")
+                if save_function is not None:
+                    arguments = save_function.args
+                    parameters = {
+                        argument.arg
+                        for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
+                    }
+                    self.report_store_requires_explicit_repository = "repository" in parameters
+
         workflows = self.root / ".github" / "workflows"
         if not workflows.is_dir():
             self.findings.append(Finding(".github/workflows", "workflow directory is missing"))
@@ -395,13 +496,6 @@ class WorkflowPolicy:
             for workflow in files:
                 self._analyze_workflow(workflow)
 
-        store_path = self.root / REPORT_STORE_PATH
-        try:
-            store_source = store_path.read_text(encoding="utf-8-sig")
-        except OSError:
-            self.findings.append(Finding(REPORT_STORE_PATH.as_posix(), "repository-scoped local report store is missing"))
-        else:
-            self.findings.extend(_report_store_findings(store_source, REPORT_STORE_PATH.as_posix()))
         return self.findings
 
 
