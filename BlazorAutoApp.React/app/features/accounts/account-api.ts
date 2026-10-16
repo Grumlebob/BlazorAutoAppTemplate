@@ -3,7 +3,6 @@ import type { components, paths } from "../../api/generated/schema";
 import { ApiError, invalidApiResponse, normalizeTransportError, toHttpApiError } from "../../api/errors";
 
 export type Session = components["schemas"]["AccountSession"];
-export type Profile = components["schemas"]["AccountProfile"];
 export type ClientConfiguration = components["schemas"]["ClientConfiguration"];
 export type AccountApi = Pick<ReturnType<typeof createClient<paths>>, "GET" | "POST" | "PUT" | "DELETE">;
 

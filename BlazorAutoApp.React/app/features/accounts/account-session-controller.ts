@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { ApiError, isAbortError, invalidApiResponse, toHttpApiError } from "../../api/errors";
+import { ApiError, isAbortError, invalidApiResponse, isJsonContentType, toHttpApiError } from "../../api/errors";
 import { AccountChangedError, createAccountApi, disabledSession, type AccountApi, type ClientConfiguration, type Session } from "./account-api";
 
 export type AccountStatus = "loading" | "disabled" | "anonymous" | "authenticated" | "unavailable";
@@ -336,8 +336,7 @@ function isEnabledSession(value: unknown): value is Session {
 }
 
 function isJsonResponse(response: Response): boolean {
-  const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  return contentType === "application/json" || (contentType?.startsWith("application/") === true && contentType.endsWith("+json"));
+  return isJsonContentType(response.headers.get("content-type"));
 }
 
 async function readHttpError(response: Response): Promise<ApiError> {

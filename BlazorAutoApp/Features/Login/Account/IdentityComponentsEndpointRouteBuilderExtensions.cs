@@ -1,8 +1,6 @@
-using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +48,6 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         });
 
         var logout = accountGroup.MapPost("/Logout", async (
-            ClaimsPrincipal user,
             [FromServices] SignInManager<ApplicationUser> signInManager,
             [FromForm] string? returnUrl) =>
         {
@@ -138,24 +135,15 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
                 [FromServices] AccountOperations accounts) =>
             {
                 var operation = await accounts.ExportAsync(request);
-                await using var body = new MemoryStream();
-                var operationResponse = new DefaultHttpContext
+                context.Response.OnStarting(() =>
                 {
-                    RequestServices = context.RequestServices
-                };
-                operationResponse.Response.Body = body;
-                await operation.ExecuteAsync(operationResponse);
-
-                context.Response.StatusCode = operationResponse.Response.StatusCode;
-                context.Response.ContentType = operationResponse.Response.ContentType;
-                if (operationResponse.Response.StatusCode == StatusCodes.Status200OK)
-                {
-                    context.Response.ContentType = "application/json; charset=utf-8";
-                    context.Response.Headers.ContentDisposition = "attachment; filename=AccountExport.json";
-                }
-
-                body.Position = 0;
-                await body.CopyToAsync(context.Response.Body, context.RequestAborted);
+                    if (context.Response.StatusCode == StatusCodes.Status200OK)
+                    {
+                        context.Response.Headers.ContentDisposition = "attachment; filename=AccountExport.json";
+                    }
+                    return Task.CompletedTask;
+                });
+                await operation.ExecuteAsync(context);
                 return TypedResults.Empty;
             });
         }
@@ -166,8 +154,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             manageGroup.MapPost("/DownloadPersonalData", async (
                 HttpContext context,
-                [FromServices] UserManager<ApplicationUser> userManager,
-                [FromServices] AuthenticationStateProvider authenticationStateProvider) =>
+                [FromServices] UserManager<ApplicationUser> userManager) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user is null)

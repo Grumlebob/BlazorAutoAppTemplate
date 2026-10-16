@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using BlazorAutoApp.Features.Login.Account;
+using BlazorAutoApp.Features.Login.Accounts.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -43,7 +44,7 @@ internal sealed class AccountMutationTransactions(
                         await transaction.RollbackAsync(attemptCancellation);
                         return (principal is not null ? SessionRequired() : InvalidToken(), false);
                     }
-                    if (!await LockAndReloadUserAsync(attempt.Db, user, attemptCancellation))
+                    if (!await AccountUserLock.TryLockAndReloadAsync(attempt.Db, user, attemptCancellation))
                     {
                         await transaction.RollbackAsync(attemptCancellation);
                         return (principal is not null ? SessionRequired() : InvalidToken(), false);
@@ -112,22 +113,6 @@ internal sealed class AccountMutationTransactions(
         var cookieStamp = principal.FindFirstValue(claimType);
         return !string.IsNullOrEmpty(cookieStamp)
             && string.Equals(cookieStamp, user.SecurityStamp, StringComparison.Ordinal);
-    }
-
-    private static async Task<bool> LockAndReloadUserAsync(AppDbContext db, ApplicationUser user, CancellationToken cancellationToken)
-    {
-        await using var command = db.Database.GetDbConnection().CreateCommand();
-        command.Transaction = db.Database.CurrentTransaction!.GetDbTransaction();
-        command.CommandText = "SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\" = @userId FOR UPDATE";
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = "userId";
-        parameter.Value = user.Id;
-        command.Parameters.Add(parameter);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken)) return false;
-        await reader.DisposeAsync();
-        await db.Entry(user).ReloadAsync(cancellationToken);
-        return true;
     }
 
     private sealed class AccountMutationAttempt(string userId, string operationId, bool verifyUserDeleted)

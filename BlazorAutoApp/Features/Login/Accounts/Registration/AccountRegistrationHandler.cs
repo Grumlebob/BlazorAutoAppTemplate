@@ -26,7 +26,7 @@ internal sealed class AccountRegistrationHandler(
             if (!result.Succeeded)
             {
                 if (result.Errors.Any(error => error.Code is "DuplicateEmail" or "DuplicateUserName")) return Accepted(PublicEmailResponse);
-                return Check(result, PublicEmailResponse);
+                return IdentityFailure(result);
             }
 
             await outbox.LockUserForUpdateAsync(user, cancellationToken);
@@ -77,13 +77,13 @@ internal sealed class AccountRegistrationHandler(
             if (await users.HasPasswordAsync(user))
             {
                 result = await users.RemovePasswordAsync(user);
-                if (!result.Succeeded) return (Check(result, "", "newPassword"), false);
+                if (!result.Succeeded) return (IdentityFailure(result, "newPassword"), false);
             }
 
             result = await users.AddPasswordAsync(user, request.NewPassword);
-            if (!result.Succeeded) return (Check(result, "", "newPassword"), false);
+            if (!result.Succeeded) return (IdentityFailure(result, "newPassword"), false);
             result = await users.UpdateSecurityStampAsync(user);
-            if (!result.Succeeded) return (Check(result, ""), false);
+            if (!result.Succeeded) return (IdentityFailure(result), false);
             return (Success("Email confirmed. You can now sign in."), true);
         }, cancellationToken);
         return response;

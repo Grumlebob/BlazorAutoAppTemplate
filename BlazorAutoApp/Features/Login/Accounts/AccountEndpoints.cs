@@ -2,8 +2,6 @@ using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Infrastructure.Hosting;
 using BlazorAutoApp.Features.Login.Accounts.Session;
 using BlazorAutoApp.Features.Login.Accounts.Security;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Metadata;
 
 namespace BlazorAutoApp.Features.Login.Accounts;
 
@@ -52,17 +50,17 @@ internal static class AccountEndpoints
         {
             group.MapMethods(path, [HttpMethods.Get, HttpMethods.Head], async (HttpContext context) =>
             {
-                context.Response.Headers["Allow"] = "POST";
+                context.Response.Headers.Allow = "POST";
                 await AccountProblem.Create(StatusCodes.Status405MethodNotAllowed, "MethodNotAllowed",
                     "Method not allowed", "This account operation accepts POST requests only.").ExecuteAsync(context);
             }).ExcludeFromDescription();
         }
     }
 
-    private static RouteHandlerBuilder Message(RouteHandlerBuilder endpoint, string name, int successStatus, params int[] errors) =>
+    private static void Message(RouteHandlerBuilder endpoint, string name, int successStatus, params int[] errors) =>
         Write(endpoint, name, errors).Produces<AccountMessage>(successStatus);
 
-    private static RouteHandlerBuilder Accepted(RouteHandlerBuilder endpoint, string name, params int[] errors) =>
+    private static void Accepted(RouteHandlerBuilder endpoint, string name, params int[] errors) =>
         Write(endpoint, name, errors).Produces<AccountMessage>(StatusCodes.Status202Accepted);
 
     private static RouteHandlerBuilder Write(RouteHandlerBuilder endpoint, string name, params int[] errors)
