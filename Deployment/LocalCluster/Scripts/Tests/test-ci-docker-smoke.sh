@@ -16,6 +16,7 @@ cat > "$TMP_ROOT/bin/docker" <<'PY'
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 from pathlib import Path
 args = sys.argv[1:]
@@ -46,6 +47,16 @@ elif args[:2] == ["network", "create"] or args[0] == "run":
         raise SystemExit(17)
     metadata = labels()
     metadata["ports"] = {}
+    if "--network-alias" in args and "ci-postgres" in args:
+        password = os.environ.get("POSTGRES_PASSWORD", "")
+        if not re.fullmatch(r"[0-9a-f]{48}", password):
+            raise SystemExit("The database fixture requires a generated password.")
+        metadata["database_password"] = password
+    for argument in args:
+        if argument.startswith("ConnectionStrings__DefaultConnection="):
+            passwords = [json.loads(item.read_text()).get("database_password") for item in root.iterdir()]
+            if not any(password and f"Password={password};" in argument for password in passwords):
+                raise SystemExit("The application did not receive the fixture database password.")
     if args[0] == "run":
         for index, value in enumerate(args[:-1]):
             if value in ("-p", "--publish"):

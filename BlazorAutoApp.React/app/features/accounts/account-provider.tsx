@@ -5,7 +5,8 @@ import { AccountSessionController } from "./account-session-controller";
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [controller] = useState(() => new AccountSessionController({ queryClient, onAccountChange: broadcastAccountChange }));
+  const [changes] = useState(() => new AccountChangeChannel());
+  const [controller] = useState(() => new AccountSessionController({ queryClient, onAccountChange: changes.announce }));
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
   useEffect(() => {
@@ -25,13 +26,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!snapshot.applicationId) return;
-    const channel = openAccountChannel(snapshot.applicationId);
-    if (!channel) return;
-    channel.onmessage = event => {
-      if (event.data === "changed") void controller.refresh({ announceChanges: false }).catch(() => {});
-    };
-    return () => channel.close();
-  }, [controller, snapshot.applicationId]);
+    return changes.connect(snapshot.applicationId, () => {
+      void controller.refresh({ announceChanges: false }).catch(() => {});
+    });
+  }, [changes, controller, snapshot.applicationId]);
 
   const refresh = useCallback(() => controller.refresh(), [controller]);
   const changed = useCallback(() => controller.changed(), [controller]);
@@ -39,23 +37,34 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   return <AccountContext value={{ ...snapshot, api: controller.api, refresh, changed }}>{children}</AccountContext>;
 }
 
-function openAccountChannel(applicationId: string): BroadcastChannel | null {
-  if (typeof BroadcastChannel === "undefined") return null;
-  try {
-    return new BroadcastChannel(`app-account-session:${applicationId}`);
-  } catch {
-    return null;
+class AccountChangeChannel {
+  private channel: BroadcastChannel | null = null;
+
+  readonly announce = (applicationId: string) => {
+    if (this.channel?.name !== `app-account-session:${applicationId}`) return;
+    try {
+      this.channel.postMessage("changed");
+    } catch {
+      // Focus and visibility rechecks remain available when channel use is blocked.
+    }
+  };
+
+  connect(applicationId: string, onChange: () => void): (() => void) | undefined {
+    if (typeof BroadcastChannel === "undefined") return;
+    let channel: BroadcastChannel;
+    try {
+      channel = new BroadcastChannel(`app-account-session:${applicationId}`);
+    } catch {
+      return;
+    }
+    this.channel = channel;
+    channel.onmessage = event => {
+      if (event.data === "changed") onChange();
+    };
+    return () => {
+      if (this.channel === channel) this.channel = null;
+      channel.close();
+    };
   }
 }
 
-function broadcastAccountChange(applicationId: string) {
-  const channel = openAccountChannel(applicationId);
-  if (!channel) return;
-  try {
-    channel.postMessage("changed");
-  } catch {
-    // Focus and visibility rechecks remain available when channel use is blocked.
-  } finally {
-    channel.close();
-  }
-}

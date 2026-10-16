@@ -160,11 +160,12 @@ redis_ready() {
 docker network create "${owned_label_args[@]}" "$network"
 # Loopback-only random host port: the browser tests clean up the users they
 # register directly in this disposable database.
-docker run -d --name "$postgres" --network "$network" "${owned_label_args[@]}" \
+postgres_password="$(python3 -c 'import secrets; print(secrets.token_hex(24))')"
+POSTGRES_PASSWORD="$postgres_password" docker run -d --name "$postgres" --network "$network" "${owned_label_args[@]}" \
   --network-alias ci-postgres \
   -p 127.0.0.1::5432 \
   --tmpfs /var/lib/postgresql:rw,size=1073741824 \
-  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_PASSWORD \
   -e POSTGRES_DB=app \
   "$POSTGRES_IMAGE"
 docker run -d --name "$redis" --network "$network" "${owned_label_args[@]}" \
@@ -182,7 +183,7 @@ docker run -d --name "$web" --network "$network" "${owned_label_args[@]}" \
   -e ASPNETCORE_ENVIRONMENT=Docker \
   -e ASPNETCORE_HTTP_PORTS=8080 \
   -e "APP_VERSION=${APP_VERSION}" \
-  -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
   -e "Redis__Configuration=ci-redis:6379,abortConnect=false" \
   -e Redis__AllowMissing=false \
   -e Database__RunMigrationsAtStartup=true \
@@ -319,7 +320,7 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
   react_disabled_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-disabled"
   mkdir -p "$react_disabled_results_dir"
   cd "$REPO_ROOT"
-  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
   RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \
   E2E_HEADLESS=1 \
@@ -421,7 +422,7 @@ EOF
     -e "Accounts__AdminSeed__Password=${admin_password}" \
     -e "DataProtection__KeyEncryptionCertificatePath=/run/react-auth-fixture/server.pfx" \
     -e "DataProtection__KeyEncryptionCertificatePassword=${fixture_pfx_password}" \
-    -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+    -e "ConnectionStrings__DefaultConnection=Host=ci-postgres;Port=5432;Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
     -e Redis__Configuration=ci-redis:6379,abortConnect=false \
     -e Redis__AllowMissing=false \
     -e Database__RunMigrationsAtStartup=true \
@@ -453,7 +454,7 @@ EOF
   react_enabled_results_dir="$runner_temp/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-enabled"
   mkdir -p "$react_enabled_results_dir"
   cd "$REPO_ROOT"
-  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
   E2E_SMTP_CAPTURE_DIR="$capture_dir" \
   E2E_ACCOUNT_PASSWORD="$account_password" \
   E2E_ACCOUNT_CHANGED_PASSWORD="$changed_password" \
@@ -504,7 +505,7 @@ else
   browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/BlazorAuto"
   mkdir -p "$browser_results_dir"
   cd "$REPO_ROOT"
-  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
+  E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
   RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \
   E2E_HEADLESS=1 \

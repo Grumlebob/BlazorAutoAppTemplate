@@ -14,6 +14,32 @@ afterEach(() => {
 });
 
 describe("account provider lifecycle", () => {
+  it("announces a discovered owner change without rechecking its own tab again", async () => {
+    let owner = "user-a";
+    let sessionRequests = 0;
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    vi.stubGlobal("fetch", async (request: Request) => {
+      if (new URL(request.url).pathname === "/api/client-config") {
+        return json({ schemaVersion: 1, accountsEnabled: true, applicationId: "e".repeat(32) });
+      }
+      sessionRequests += 1;
+      return json({ enabled: true, registrationEnabled: false, emailEnabled: false, csrfToken: "csrf", user: { id: owner, email: `${owner}@example.test`, roles: [] } });
+    });
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } });
+    const view = render(<QueryClientProvider client={client}><AccountProvider><SessionOwner /></AccountProvider></QueryClientProvider>);
+    await screen.findByText("user-a");
+    owner = "user-b";
+    window.dispatchEvent(new Event("focus"));
+    await screen.findByText("user-b");
+    await waitFor(() => expect(FakeBroadcastChannel.instances.flatMap(channel => channel.sent)).toEqual(["changed"]));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(sessionRequests).toBe(2);
+    expect(FakeBroadcastChannel.instances).toHaveLength(1);
+    view.unmount();
+    client.clear();
+  });
+
   it("continues focus rechecks when the browser blocks channel construction", async () => {
     let owner = "user-a";
     vi.stubGlobal("BroadcastChannel", class {
@@ -100,12 +126,20 @@ class FakeBroadcastChannel {
   static instances: FakeBroadcastChannel[] = [];
   onmessage: ((event: MessageEvent) => void) | null = null;
   closed = false;
+  sent: unknown[] = [];
 
   constructor(readonly name: string) {
     FakeBroadcastChannel.instances.push(this);
   }
 
-  postMessage() {}
+  postMessage(data: unknown) {
+    this.sent.push(data);
+    for (const channel of FakeBroadcastChannel.instances) {
+      if (channel !== this && !channel.closed && channel.name === this.name) {
+        queueMicrotask(() => channel.onmessage?.({ data } as MessageEvent));
+      }
+    }
+  }
 
   close() {
     this.closed = true;
