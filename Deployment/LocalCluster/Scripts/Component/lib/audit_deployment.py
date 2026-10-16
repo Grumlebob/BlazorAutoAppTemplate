@@ -132,6 +132,9 @@ required_files = [
     "Deployment/LocalSingleNode/Scripts/lib/acceptance_profile.sh",
     "Deployment/LocalSingleNode/Scripts/lib/read_release_acceptance.py",
     "Deployment/LocalSingleNode/Scripts/Tests/test_release_acceptance.py",
+    "Deployment/LocalSingleNode/Scripts/Tests/test_pin_legacy_release.py",
+    "Deployment/LocalSingleNode/Scripts/pin-legacy-release.py",
+    ".github/workflows/pin-localsinglenode-legacy-release.yml",
     "Scripts/Test-DeployedSite.ps1",
     "Scripts/CI/tests/test_deployed_site_acceptance.py",
     "Scripts/CI/migration_staging_artifact.py",
@@ -142,6 +145,8 @@ required_files = [
     "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
     "Deployment/Common/Scripts/Component/lib/pin_release_payload.py",
+    "Deployment/Common/Scripts/Component/lib/import_legacy_release_payload.py",
+    "Deployment/Common/Scripts/Tests/test_import_legacy_release_payload.py",
     "Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py",
     "Deployment/Common/Scripts/read-release-setting.sh",
     "Deployment/Common/Scripts/validate-common-release.sh",
@@ -263,6 +268,17 @@ required_files.extend([
 ])
 for file in required_files:
     require_file(file)
+
+legacy_pin_helper = read("Deployment/LocalSingleNode/Scripts/pin-legacy-release.py")
+for needle, why in [
+    ("def _verify_offline_restore(", "recovery pin is exercised through the offline restore path"),
+    ('os.environ.pop("GITHUB_TOKEN", None)', "GitHub artifact credentials are unavailable during the restore drill"),
+    ("pin_release_payload.restore(", "recovery is restored from the owned local pin"),
+    ("sha256_file(restored_file) != digest", "restored recovery payload checksums are verified"),
+    ('"offline_restore": "verified"', "workflow reports the offline restore result"),
+]:
+    if needle not in legacy_pin_helper:
+        fail(f"Deployment/LocalSingleNode/Scripts/pin-legacy-release.py: missing {why}")
 
 
 removed_files = [
@@ -1211,9 +1227,9 @@ for needle, why in [
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
     ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
     ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ("import_legacy_release_payload.py", "legacy artifact is selected by exact attempt and verified archive digest"),
     ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
-    ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
-    ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
+    ('--artifact-name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
     ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
 ]:
@@ -1503,8 +1519,8 @@ for needle, why in [
     ("verify-release-identity.sh", "running release identity verification"),
     ('"${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"', "post-deploy identity checks source repository labels"),
     ("timeout-minutes: 60", "bounded deploy job"),
-    ('gh run download "$CI_RUN_ID"', "CI migration artifact downloaded from exact run"),
-    ('--name "$MIGRATION_ARTIFACT_NAME"', "shared migration artifact download name"),
+    ("import_legacy_release_payload.py", "exact CI attempt artifact is digest-verified and pinned"),
+    ('--artifact-name "$MIGRATION_ARTIFACT_NAME"', "shared migration artifact download name"),
     ("chmod 0750 \"artifacts/migrations/${MIGRATION_BUNDLE_NAME}\"", "restore migration bundle execute bit"),
     ("bash Deployment/LocalCluster/Scripts/preflight.sh deploy", "deploy preflight"),
     ("with-deploy-lock.sh", "cross-repo deployment lock"),
@@ -2498,9 +2514,9 @@ for needle, why in [
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
     ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
     ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ("import_legacy_release_payload.py", "legacy artifact is selected by exact attempt and verified archive digest"),
     ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
-    ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
-    ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
+    ('--artifact-name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
     ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
     ("--restore \"$pin_dir\"", "local-pin recovery restores the named immutable pin"),

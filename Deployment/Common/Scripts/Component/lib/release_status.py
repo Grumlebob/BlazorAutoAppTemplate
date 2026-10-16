@@ -13,7 +13,8 @@ from typing import Any
 SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SOURCE_SHA = re.compile(r"[0-9a-f]{40}\Z")
 POSITIVE_INTEGER = re.compile(r"[1-9][0-9]*\Z")
-PIN_KEY = re.compile(r"ghcr-[0-9a-f]{64}-[0-9a-f]{64}\Z")
+PIN_KEY = re.compile(r"(?:ghcr-[0-9a-f]{64}-[0-9a-f]{64}|legacy-[1-9][0-9]{0,19}-[0-9a-f]{64})\Z")
+LEGACY_PIN_KEY = re.compile(r"legacy-[1-9][0-9]{0,19}-[0-9a-f]{64}\Z")
 ACTIVE_STATUSES = ("queued", "in_progress", "waiting", "requested", "pending")
 CD_WORKFLOWS = ("cd-localcluster.yml", "cd-localsinglenode.yml")
 PROFILE_ACCEPTANCE = {"BlazorAuto": "BlazorAutoV1", "React": "ReactPublicV1"}
@@ -73,8 +74,8 @@ def summarize_marker(
         raise ReleaseStatusError("release marker local pin key is malformed")
     if transport in ("ghcr-container", "local-pin") and not pin_key:
         raise ReleaseStatusError("registry release marker has no immutable local pin key")
-    if transport == "actions-artifact" and pin_key:
-        raise ReleaseStatusError("legacy release marker unexpectedly names a registry pin")
+    if transport == "actions-artifact" and pin_key and not LEGACY_PIN_KEY.fullmatch(pin_key):
+        raise ReleaseStatusError("legacy release marker local pin key is not an Actions-artifact pin")
 
     return {
         "source_sha": source_sha,
@@ -90,7 +91,11 @@ def summarize_marker(
     }
 
 
-def pin_state(release: dict[str, Any] | None, protected_pins: set[str]) -> str:
+def pin_state(
+    release: dict[str, Any] | None,
+    protected_pins: set[str],
+    inferred_pin_key: str | None = None,
+) -> str:
     if release is None:
         return "no-release"
     key = release["release_payload_pin_key"]
@@ -99,6 +104,12 @@ def pin_state(release: dict[str, Any] | None, protected_pins: set[str]) -> str:
             raise ReleaseStatusError("release marker pin was not validated by local pin inspection")
         return "verified"
     if release["payload_transport"] == "actions-artifact":
+        if inferred_pin_key == "ambiguous":
+            return "ambiguous-local-pins"
+        if inferred_pin_key is not None:
+            if inferred_pin_key not in protected_pins:
+                raise ReleaseStatusError("inferred legacy release pin was not validated by local pin inspection")
+            return "verified"
         return "legacy-artifact-only"
     raise ReleaseStatusError("registry release has no durable local pin")
 

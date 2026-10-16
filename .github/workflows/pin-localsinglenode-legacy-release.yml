@@ -1,0 +1,136 @@
+name: Pin LocalSingleNode legacy release
+run-name: "Pin LocalSingleNode ${{ inputs.app_instance }} ${{ inputs.slot }} artifact @ ${{ github.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_instance:
+        description: Select the configured LocalSingleNode app
+        required: true
+        default: primary
+        type: choice
+        options:
+          - primary
+          - additional
+      slot:
+        description: Pin the artifact named by the accepted current or recovery marker
+        required: true
+        type: choice
+        options:
+          - current
+          - recovery
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: template-pin-localsinglenode-${{ inputs.app_instance }}-${{ inputs.slot }}
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 45
+    environment:
+      name: ${{ inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+
+    steps:
+      - name: Require trusted main
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require LocalSingleNode to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",localsinglenode,"* ]]; then
+            echo "::error::LocalSingleNode is not enabled in DEPLOY_TARGETS."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          set -euo pipefail
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Prepare application instance scratch
+        run: |
+          set -euo pipefail
+          instance_temp_dir="$RUNNER_TEMP/template-legacy-pin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -m 0700 -- "$instance_temp_dir"
+          echo "INSTANCE_TEMP_DIR=${instance_temp_dir}" >> "$GITHUB_ENV"
+
+      - name: Resolve LocalSingleNode frontend profile
+        run: |
+          set -euo pipefail
+          echo "FRONTEND_PROFILE=$(python3 Scripts/Frontend/resolve_frontend_profile.py)" >> "$GITHUB_ENV"
+          echo "ACCEPTANCE_PROFILE=$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)" >> "$GITHUB_ENV"
+
+      - name: Resolve LocalSingleNode app instance
+        env:
+          INPUT_APP_INSTANCE: ${{ inputs.app_instance }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Load release settings
+        run: |
+          set -euo pipefail
+          bash Deployment/Common/Scripts/validate-common-release.sh
+          echo "MIGRATION_RUNTIME=$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)" >> "$GITHUB_ENV"
+
+      - name: Require green main CI for operation code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py
+
+      - name: Pin the exact accepted legacy artifact under the shared lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PIN_SLOT: ${{ inputs.slot }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set -euo pipefail
+          result="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 -B Deployment/LocalSingleNode/Scripts/pin-legacy-release.py --slot "$PIN_SLOT")"
+          python3 - "$result" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import sys
+
+          value = json.loads(sys.argv[1])
+          print("### Legacy release pin")
+          print()
+          print(f"Outcome: `{value['outcome']}`")
+          print(f"Pin: `{value['pin_key']}`")
+          print(f"CI: `{value['run_id']}` attempt `{value['run_attempt']}`")
+          print(f"Offline restore: `{value['offline_restore']}` with GitHub artifact credentials removed.")
+          if "artifact_id" in value:
+              print(f"Artifact: `{value['artifact_id']}` `{value['artifact_digest']}`")
+          else:
+              print("Existing immutable registry pin verified.")
+          print(f"Source: `{value['target_sha']}` {value['profile']}/{value['acceptance_profile']}")
+          print("No release marker or Actions artifact was changed.")
+          PY
+
+      - name: Remove temporary app instance files
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -n "${INSTANCE_TEMP_DIR:-}" && "$INSTANCE_TEMP_DIR" == "$RUNNER_TEMP/template-legacy-pin-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]; then
+            rm -f -- "$INSTANCE_TEMP_DIR/instance-vars.json" "$INSTANCE_TEMP_DIR/instance-settings.yml"
+            rmdir -- "$INSTANCE_TEMP_DIR" 2>/dev/null || true
+          fi

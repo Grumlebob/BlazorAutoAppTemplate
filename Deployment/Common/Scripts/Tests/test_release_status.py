@@ -77,8 +77,34 @@ class ReleaseStatusTests(TestCase):
         summary = summarize_marker(legacy, repository_url=self.repository_url, app_image=self.marker["image"])
         self.assertEqual(summary["frontend_profile"], "BlazorAuto")
         self.assertEqual(pin_state(summary, set()), "legacy-artifact-only")
+        artifact_pin_key = "legacy-123-" + "e" * 64
+        pinned_legacy = summarize_marker(
+            {**legacy, "release_payload_pin_key": artifact_pin_key},
+            repository_url=self.repository_url,
+            app_image=self.marker["image"],
+        )
+        self.assertEqual(pin_state(pinned_legacy, {artifact_pin_key}), "verified")
         with self.assertRaises(ReleaseStatusError):
             pin_state(summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"]), set())
+
+    def test_summarizes_and_verifies_an_explicit_legacy_local_pin(self):
+        marker = {**self.marker, "payload_transport": "local-pin",
+                  "release_payload_pin_key": "legacy-123-" + "e" * 64}
+        summary = summarize_marker(marker, repository_url=self.repository_url, app_image=self.marker["image"])
+        self.assertEqual(pin_state(summary, {marker["release_payload_pin_key"]}), "verified")
+
+    def test_inferred_legacy_pin_requires_local_inventory_validation(self):
+        legacy = {
+            key: value for key, value in self.marker.items()
+            if key not in ("frontend_profile", "acceptance_profile", "release_payload_pin_key")
+        }
+        legacy["manifest_schema_version"] = 1
+        legacy["payload_transport"] = "actions-artifact"
+        summary = summarize_marker(legacy, repository_url=self.repository_url, app_image=self.marker["image"])
+        key = "legacy-123-" + "e" * 64
+        self.assertEqual(pin_state(summary, {key}, key), "verified")
+        with self.assertRaisesRegex(ReleaseStatusError, "not validated"):
+            pin_state(summary, set(), key)
 
     def test_lists_active_deployment_runs_and_freezes_dispatch_target_sha(self):
         target_sha = "e" * 40
