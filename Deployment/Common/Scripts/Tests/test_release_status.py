@@ -195,6 +195,17 @@ class ReleaseStatusTests(TestCase):
                 payload_image_prefix="private-books-",
                 temp_root=Path("."),
             )
+        with self.assertRaisesRegex(ReleaseStatusError, "does not match the selected release"):
+            verify_offline_pin_restore(
+                summary,
+                Path("unused"),
+                repository_url=self.repository_url,
+                runtime="linux-x64",
+                bundle_name="books-migrate-linux-x64",
+                payload_image_prefix="private-books-",
+                temp_root=Path("."),
+                validated_pin_key="ghcr-" + "f" * 64 + "-" + "e" * 64,
+            )
 
         manifest = b"verified manifest"
         bundle = b"expected bundle"
@@ -235,6 +246,63 @@ class ReleaseStatusTests(TestCase):
                     payload_image_prefix="private-books-",
                     temp_root=Path(temporary),
                 )
+
+    def test_offline_pin_restore_accepts_an_inventory_validated_legacy_pin(self):
+        legacy = {
+            key: value for key, value in self.marker.items()
+            if key not in ("frontend_profile", "acceptance_profile", "release_payload_pin_key")
+        }
+        legacy["manifest_schema_version"] = 1
+        legacy["payload_transport"] = "actions-artifact"
+        summary = summarize_marker(legacy, repository_url=self.repository_url, app_image=self.marker["image"])
+        pin_key = "legacy-123-" + "e" * 64
+        manifest = b"verified legacy manifest"
+        bundle = b"verified legacy migration bundle"
+        metadata = {
+            "transport": "actions-artifact",
+            "repository": self.repository_url,
+            "target_sha": summary["source_sha"],
+            "run_id": summary["ci_run_id"],
+            "run_attempt": summary["ci_run_attempt"],
+            "profile": summary["frontend_profile"],
+            "acceptance_profile": summary["acceptance_profile"],
+            "runtime": "linux-x64",
+            "app_image": summary["image"],
+            "image_digest": summary["digest"],
+            "manifest_schema_version": summary["manifest_schema_version"],
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "bundle_filename": "books-migrate-linux-x64",
+            "bundle_sha256": hashlib.sha256(bundle).hexdigest(),
+        }
+
+        def restore(pin_dir, output_dir, **kwargs):
+            output_dir.mkdir()
+            (output_dir / "release-manifest.json").write_bytes(manifest)
+            (output_dir / metadata["bundle_filename"]).write_bytes(bundle)
+            self.assertEqual(kwargs["target_sha"], summary["source_sha"])
+            return {"pin_key": pin_dir.name}
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(pin_release_payload, "_require_shared_lock"), \
+                patch.object(pin_release_payload, "validate", return_value=metadata), \
+                patch.object(pin_release_payload, "restore", side_effect=restore):
+            result = verify_offline_pin_restore(
+                summary,
+                Path(temporary) / "pins",
+                repository_url=self.repository_url,
+                runtime="linux-x64",
+                bundle_name=metadata["bundle_filename"],
+                payload_image_prefix="private-books-",
+                temp_root=Path(temporary),
+                validated_pin_key=pin_key,
+            )
+
+        self.assertEqual(result, {
+            "outcome": "verified",
+            "pin_key": pin_key,
+            "transport": "actions-artifact",
+            "file_count": 2,
+        })
 
     def test_lists_active_deployment_runs_and_freezes_dispatch_target_sha(self):
         target_sha = "e" * 40

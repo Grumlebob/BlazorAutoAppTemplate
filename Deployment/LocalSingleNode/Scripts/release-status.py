@@ -150,6 +150,7 @@ def snapshot(config: dict, deploy_root: Path, *, repository: str, repository_url
                 bundle_name=release_settings["migration_bundle_name"],
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
+                validated_pin_key=marker_pins.get("current") if current_pin == "verified" else None,
             ),
             "recovery": verify_offline_pin_restore(
                 recovery, pin_root,
@@ -158,6 +159,7 @@ def snapshot(config: dict, deploy_root: Path, *, repository: str, repository_url
                 bundle_name=release_settings["migration_bundle_name"],
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
+                validated_pin_key=marker_pins.get("recovery") if recovery_pin == "verified" else None,
             ),
         }
     active = list_active_deployment_runs(
