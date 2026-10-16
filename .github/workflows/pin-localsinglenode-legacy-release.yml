@@ -105,8 +105,9 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           set -euo pipefail
-          result="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+          locked_output="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 -B Deployment/LocalSingleNode/Scripts/pin-legacy-release.py --slot "$PIN_SLOT")"
+          result="$(printf '%s\n' "$locked_output" | tail -n 1)"
           python3 - "$result" <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
           import sys
