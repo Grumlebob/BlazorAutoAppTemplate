@@ -177,9 +177,12 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).Not.ToBeVisibleAsync();
             await Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Discard previous draft" })).ToBeVisibleAsync();
             await Expect(settingsTab.GetByText(userB, new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
-            await Expect(settingsTab.GetByLabel("Current password", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
-            await Expect(settingsTab.GetByLabel("New password", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
-            await Expect(settingsTab.GetByLabel("New email", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
+            foreach (var label in new[] { "Current password", "New password", "New email" })
+            {
+                var cleared = await settingsTab.GetByLabel(label, new PageGetByLabelOptions { Exact = true })
+                    .EvaluateAsync<bool>("input => input.value.length === 0");
+                Assert.True(cleared, "An account field retained input from the previous owner.");
+            }
             await Expect(settingsTab.GetByRole(AriaRole.Checkbox)).Not.ToBeCheckedAsync();
 
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Discard previous draft" }).ClickAsync();
