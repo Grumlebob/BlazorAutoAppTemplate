@@ -166,25 +166,25 @@ internal static class DataProtectionKeyStartupExtensions
             case "None":
                 return null;
             case "FileSystem":
-            {
-                var path = Path.GetFullPath(settings.LegacyKeyStoragePath, environment.ContentRootPath);
-                if (!Directory.Exists(path) || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                 {
-                    throw new InvalidOperationException();
-                }
+                    var path = Path.GetFullPath(settings.LegacyKeyStoragePath, environment.ContentRootPath);
+                    if (!Directory.Exists(path) || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    {
+                        throw new InvalidOperationException();
+                    }
 
-                return new FileSystemXmlRepository(new DirectoryInfo(path), services.GetRequiredService<ILoggerFactory>());
-            }
+                    return new FileSystemXmlRepository(new DirectoryInfo(path), services.GetRequiredService<ILoggerFactory>());
+                }
             case "Redis":
-            {
-                if (settings.LegacyRedisKey.Contains('\r') || settings.LegacyRedisKey.Contains('\n'))
                 {
-                    throw new InvalidOperationException();
-                }
+                    if (settings.LegacyRedisKey.Contains('\r') || settings.LegacyRedisKey.Contains('\n'))
+                    {
+                        throw new InvalidOperationException();
+                    }
 
-                var redis = services.GetRequiredService<IConnectionMultiplexer>();
-                return new RedisXmlRepository(() => redis.GetDatabase(), (RedisKey)settings.LegacyRedisKey);
-            }
+                    var redis = services.GetRequiredService<IConnectionMultiplexer>();
+                    return new RedisXmlRepository(() => redis.GetDatabase(), (RedisKey)settings.LegacyRedisKey);
+                }
             default:
                 throw new InvalidOperationException();
         }

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Features.Login.Accounts;
+using BlazorAutoApp.Test.TestSupport.Accounts;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -135,19 +136,12 @@ public sealed class ClientConfigurationTests
     [InlineData(true)]
     public async Task Capability_IsExplicitCookieFreeAndSecretFree(bool enabled)
     {
-        await using var factory = new WebAppFactory(new WebAppFactoryOptions
-        {
-            UseRealIdentityCookies = true,
-            InitializeDatabaseRespawner = false,
-            AppName = $"capability-{Guid.NewGuid():N}",
-            ConfigurationOverrides = new() { ["Accounts:Enabled"] = enabled.ToString() }
-        });
+        await using var fixture = new RealCookieAccountFixture(
+            new Dictionary<string, string?> { ["Accounts:Enabled"] = enabled.ToString() },
+            appName: $"capability-{Guid.NewGuid():N}");
+        var factory = fixture.Factory;
         await factory.InitializeAsync();
-        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri("https://localhost"),
-            AllowAutoRedirect = false
-        });
+        using var client = fixture.CreateClient();
         using var response = await client.GetAsync("/api/client-config");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
