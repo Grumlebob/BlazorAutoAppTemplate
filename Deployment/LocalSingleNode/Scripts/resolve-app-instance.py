@@ -133,7 +133,7 @@ def resolve(instance: str, payload: str, selected_profile: str, selected_accepta
     image = release["app_image"] + suffix
     extra = {**config, "app_image": image}
     values = {
-        "APP_INSTANCE": instance, "APP_NAME": config["app_name"], "APP_IMAGE": image,
+        "APP_INSTANCE": instance, "APP_NAME": config["app_name"], "DEPLOY_ROOT": config["deploy_root"], "APP_IMAGE": image,
         "MIGRATION_BUNDLE_NAME": release["migration_bundle_name"],
         "MIGRATION_ARTIFACT_NAME": release["migration_artifact_name"] + suffix,
         "FRONTEND_PROFILE": profile, "ACCEPTANCE_PROFILE": acceptance_profile_for_frontend(profile),

@@ -24,4 +24,4 @@ The production Content-Security-Policy (CSP) is self-only and blocks eval, frami
 
 ## Publish the other profile
 
-A clone publishes the selected profile by default. To publish the other supported profile too, set the Actions variable `ADDITIONAL_FRONTEND_PROFILES` to the other profile name. Leave it unset for selected-only publication. CI builds and smoke-tests both releases; a failure in the additional release fails the workflow. This creates an image and migration artifact; it does not create an app instance or deploy it. Follow the chosen target's deployment guide to deploy a release.
+A clone publishes the selected profile by default. To publish the other supported profile too, set the Actions variable `ADDITIONAL_FRONTEND_PROFILES` to the other profile name. Leave it unset for selected-only publication. CI builds and smoke-tests both releases; a failure in the additional release fails the workflow. This creates an application image and a digest-pinned GHCR payload with its migration bundle; it does not create an app instance or deploy it. Follow the chosen target's deployment guide to deploy a release.

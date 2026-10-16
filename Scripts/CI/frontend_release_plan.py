@@ -20,7 +20,6 @@ def release_plan(selected: str, additional: str, settings: dict[str, str]) -> di
         "additional_acceptance_profile": "",
         "additional_image": "",
         "additional_payload_image": "",
-        "additional_artifact_name": "",
     }
     if not additional.strip():
         return values
@@ -41,7 +40,6 @@ def release_plan(selected: str, additional: str, settings: dict[str, str]) -> di
         additional_payload_image=derive_release_payload_image(
             f"{settings['app_image']}-{profile.lower()}", settings.get("release_payload_prefix", "")
         ),
-        additional_artifact_name=f"{settings['migration_artifact_name']}-{profile.lower()}",
     )
     return values
 

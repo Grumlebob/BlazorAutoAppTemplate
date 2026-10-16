@@ -10,7 +10,7 @@ From GitHub Actions, dispatch **CD - Deploy LocalSingleNode** from `main`. Requi
 - Set `run_migrations=true` for the first deployment or a schema update. Use `false` when the selected release does not need a migration.
 - The default `app_instance` is `primary`. Use `additional` only for a configured instance; see [ApplicationInstances](ApplicationInstances.md).
 
-The deployment verifies the release manifest, immutable image digest, migration artifact and acceptance profile before applying migrations. From the node's repository checkout, run the independent LAN check when needed:
+The deployment verifies the release manifest, immutable image digest, GHCR migration payload and acceptance profile before applying migrations. From the node's repository checkout, run the independent LAN check when needed:
 
 ```bash
 bash ./Deployment/LocalSingleNode/Scripts/acceptance-check.sh
@@ -30,7 +30,7 @@ Use its reported checks to identify what needs attention. Run `acceptance-check.
 
 ## Maintenance
 
-The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; artifact-only retention runs daily at 03:17 UTC for the primary app and 03:27 UTC for a configured additional app, and also runs on manual dispatch. Artifact deletion stays in dry-run mode unless the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; leave it unset until current accepted/recovery pins and live operations are verified.
+The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; release artifact retention runs daily at 03:17 UTC for the primary app and 03:27 UTC for a configured additional app, and also runs on manual dispatch. It also prunes expired runner-local CI reports. GitHub artifact deletion stays in dry-run mode unless the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; leave it unset until current accepted/recovery pins and live operations are verified.
 
 Use these options only when needed:
 

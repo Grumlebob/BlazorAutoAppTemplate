@@ -51,6 +51,7 @@
   delay: 15
   until: pulled_image.rc == 0
   changed_when: false
+  when: (release_payload_transport | default('ghcr-container')) != 'local-pin'
 - name: Inspect the staged image
   ansible.builtin.command: "docker image inspect {{ app_image_ref }}"
   become_user: deploy
@@ -168,7 +169,10 @@
 - name: Start and check the web release
   block:
     - name: Start web without removing persistent volumes
-      ansible.builtin.command: docker compose up -d --remove-orphans web
+      ansible.builtin.command: >-
+        docker compose up -d
+        {{ '--pull never' if release_payload_transport | default('ghcr-container') == 'local-pin' else '' }}
+        --remove-orphans web
       args:
         chdir: "{{ deploy_root }}"
       become_user: deploy
@@ -209,9 +213,57 @@
     - name: Stop this failed release
       ansible.builtin.fail:
         msg: "Web or LAN readiness failed. Persistent volumes were retained."
+- name: Require recoverable payload pin identity when using GHCR
+  ansible.builtin.assert:
+    that:
+      - (release_payload_transport | default('actions-artifact')) in ['actions-artifact', 'ghcr-container', 'local-pin']
+      - (release_payload_pin_key | default('')) is match('^$|^ghcr-[0-9a-f]{64}-[0-9a-f]{64}$')
+      - (release_payload_transport | default('actions-artifact')) not in ['ghcr-container', 'local-pin'] or (release_payload_pin_key | default('')) is match('^ghcr-[0-9a-f]{64}-[0-9a-f]{64}$')
+    fail_msg: "GHCR and local-pin releases require their exact immutable local pin key."
+- name: Ensure release recovery marker directory exists
+  ansible.builtin.file:
+    path: "{{ deploy_root }}/release-state"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0750"
+- name: Inspect current release marker before rotating it
+  ansible.builtin.stat:
+    path: "{{ deploy_root }}/release.json"
+    follow: false
+  register: current_release_marker
+- name: Inspect prior recovery marker before replacing it
+  ansible.builtin.stat:
+    path: "{{ deploy_root }}/release-state/previous.json"
+    follow: false
+  register: previous_release_marker_path
+- name: Refuse symlinked release marker paths
+  ansible.builtin.assert:
+    that:
+      - not current_release_marker.stat.islnk | default(false)
+      - not previous_release_marker_path.stat.islnk | default(false)
+- name: Read existing release marker before rotating it
+  ansible.builtin.slurp:
+    src: "{{ deploy_root }}/release.json"
+  register: current_release_marker_content
+  when: current_release_marker.stat.exists | default(false)
+- name: Require existing release marker to belong to this repository
+  ansible.builtin.assert:
+    that:
+      - (current_release_marker_content.content | b64decode | from_json).source_repo_url | default('') == source_repo_url
+  when: current_release_marker.stat.exists | default(false)
+- name: Preserve prior release identity as the recovery marker
+  ansible.builtin.copy:
+    src: "{{ deploy_root }}/release.json"
+    dest: "{{ deploy_root }}/release-state/previous.json"
+    remote_src: true
+    owner: deploy
+    group: deploy
+    mode: "0640"
+  when: current_release_marker.stat.exists | default(false)
 - name: Publish released identity for maintenance
   ansible.builtin.copy:
-    content: "{{ {'sha': app_version, 'source_sha': release_source_sha, 'image': app_image, 'digest': release_image_digest, 'frontend_profile': release_frontend_profile, 'acceptance_profile': release_acceptance_profile, 'manifest_schema_version': release_manifest_schema_version | int, 'ci_run_id': release_ci_run_id | string, 'ci_run_attempt': release_ci_run_attempt | string, 'source_repo_url': source_repo_url} | to_nice_json }}"
+    content: "{{ {'sha': app_version, 'source_sha': release_source_sha, 'image': app_image, 'digest': release_image_digest, 'frontend_profile': release_frontend_profile, 'acceptance_profile': release_acceptance_profile, 'manifest_schema_version': release_manifest_schema_version | int, 'ci_run_id': release_ci_run_id | string, 'ci_run_attempt': release_ci_run_attempt | string, 'source_repo_url': source_repo_url, 'payload_transport': release_payload_transport | default('actions-artifact'), 'release_payload_pin_key': release_payload_pin_key | default('')} | to_nice_json }}"
     dest: "{{ deploy_root }}/release.json"
     owner: deploy
     group: deploy

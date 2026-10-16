@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "Scripts/CI"))
 from frontend_release_plan import release_plan
 from write_release_manifest import write_manifest
 
-SETTINGS = {"app_image": "ghcr.io/example/app", "migration_artifact_name": "app-migrate-linux-x64"}
+SETTINGS = {"app_image": "ghcr.io/example/app"}
 
 
 class ReleasePlanTests(unittest.TestCase):
@@ -33,7 +33,6 @@ class ReleasePlanTests(unittest.TestCase):
             self.assertEqual(plan["additional_image"], f"{SETTINGS['app_image']}-{additional.lower()}")
             self.assertEqual(plan["additional_payload_image"],
                              f"{SETTINGS['app_image']}-{additional.lower()}-release-payload")
-            self.assertEqual(plan["additional_artifact_name"], f"{SETTINGS['migration_artifact_name']}-{additional.lower()}")
 
     def test_additional_profile_uses_configured_private_payload_prefix(self):
         settings = {**SETTINGS, "release_payload_prefix": "private-"}
