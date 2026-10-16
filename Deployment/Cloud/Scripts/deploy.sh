@@ -15,6 +15,11 @@ export ANSIBLE_ROLES_PATH="$REPO_ROOT/Deployment/Cloud/ansible/roles"
 . "$SCRIPT_DIR/Component/lib/cloud-env.sh"
 cloud_env_bootstrap_path
 cloud_env_load_valid_cloudflare_tunnel_token
+cloud_env_load_missing_var CLOUD_ACCOUNTS_ADMIN_SEED_PASSWORD
+cloud_env_load_missing_var CLOUD_ACCOUNTS_EMAIL_USERNAME
+cloud_env_load_missing_var CLOUD_ACCOUNTS_EMAIL_PASSWORD
+cloud_env_load_missing_var CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64
+cloud_env_load_missing_var CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD
 
 [[ $# -ge 1 ]] || usage
 
@@ -56,6 +61,8 @@ require_env CLOUD_POSTGRES_PASSWORD
 require_env CLOUD_POSTGRES_DB
 require_env CLOUD_REDIS_PASSWORD
 require_env CLOUD_CLOUDFLARE_TUNNEL_TOKEN
+require_env CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64
+require_env CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD
 
 SOURCE_REPO_URL="${SOURCE_REPO_URL:-$(git -C "$REPO_ROOT" config --get remote.origin.url || true)}"
 [[ -n "$SOURCE_REPO_URL" ]] || SOURCE_REPO_URL="unknown"
@@ -94,6 +101,11 @@ payload = {
     "cloud_postgres_db": env("CLOUD_POSTGRES_DB"),
     "cloud_redis_password": env("CLOUD_REDIS_PASSWORD"),
     "cloud_cloudflare_tunnel_token": env("CLOUD_CLOUDFLARE_TUNNEL_TOKEN"),
+    "cloud_accounts_admin_seed_password": os.environ.get("CLOUD_ACCOUNTS_ADMIN_SEED_PASSWORD", ""),
+    "cloud_accounts_email_username": os.environ.get("CLOUD_ACCOUNTS_EMAIL_USERNAME", ""),
+    "cloud_accounts_email_password": os.environ.get("CLOUD_ACCOUNTS_EMAIL_PASSWORD", ""),
+    "cloud_data_protection_certificate_base64": env("CLOUD_DATA_PROTECTION_CERTIFICATE_BASE64"),
+    "cloud_data_protection_certificate_password": env("CLOUD_DATA_PROTECTION_CERTIFICATE_PASSWORD"),
 }
 
 migration_bundle = os.environ.get("MIGRATION_BUNDLE_LOCAL_PATH", "")

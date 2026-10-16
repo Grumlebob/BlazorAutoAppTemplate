@@ -12,6 +12,21 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[4]
 TARGET = ROOT / "Deployment/LocalSingleNode"
 ETC = Path(os.environ.get("LOCALSINGLENODE_ETC", "/etc"))
+ACCOUNT_SETTING_DEFAULTS = {
+    "accounts_enabled": False,
+    "accounts_registration_enabled": False,
+    "accounts_admin_seed_enabled": False,
+    "accounts_admin_seed_email": "",
+    "accounts_public_origin": "",
+    "accounts_email_host": "",
+    "accounts_email_port": 587,
+    "accounts_email_security": "StartTls",
+    "accounts_email_from": "",
+}
+DATA_PROTECTION_SETTING_DEFAULTS = {
+    "data_protection_legacy_key_store": "None",
+    "data_protection_legacy_redis_key": "",
+}
 
 
 def command(*args: str, timeout: int = 30) -> str:
@@ -69,8 +84,10 @@ def settings(path: Path | None = None) -> dict:
     values = read_yaml(Path(selected_path))
     required = {"app_name", "app_port", "postgres_port", "redis_port", "deploy_root", "docker_subnet",
                 "lan_http_port", "lan_hostnames", "backup_root", "backup_keep_days", "observability_enabled"}
-    if set(values) != required:
+    optional_defaults = ACCOUNT_SETTING_DEFAULTS | DATA_PROTECTION_SETTING_DEFAULTS
+    if not required.issubset(values) or not set(values).issubset(required | set(optional_defaults)):
         raise ValueError("single-node settings have missing or unknown keys")
+    values = {**optional_defaults, **values}
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", str(values["app_name"])):
         raise ValueError("app_name must be a lowercase app slug")
     ports = [values[key] for key in ("app_port", "postgres_port", "redis_port", "lan_http_port")]
@@ -92,6 +109,28 @@ def settings(path: Path | None = None) -> dict:
         raise ValueError("backup_keep_days must be a positive integer")
     if values["observability_enabled"] is not False:
         raise ValueError("single-node observability must be disabled")
+    account_bool_keys = ("accounts_enabled", "accounts_registration_enabled", "accounts_admin_seed_enabled")
+    if any(type(values[key]) is not bool for key in account_bool_keys):
+        raise ValueError("account feature settings must be true or false")
+    if type(values["accounts_email_port"]) is not int or not 1 <= values["accounts_email_port"] <= 65535:
+        raise ValueError("accounts_email_port must be an integer from 1 through 65535")
+    if values["accounts_email_security"] not in ("StartTls", "SslOnConnect"):
+        raise ValueError("accounts_email_security must be StartTls or SslOnConnect")
+    account_string_keys = ("accounts_admin_seed_email", "accounts_public_origin", "accounts_email_host", "accounts_email_from")
+    if any(type(values[key]) is not str or any(char in values[key] for char in "\r\n\0") for key in account_string_keys):
+        raise ValueError("account settings must be single-line strings")
+    legacy_store = values["data_protection_legacy_key_store"]
+    legacy_redis_key = values["data_protection_legacy_redis_key"]
+    if legacy_store not in ("None", "Redis", "FileSystem"):
+        raise ValueError("data_protection_legacy_key_store must be None, Redis, or FileSystem")
+    if type(legacy_redis_key) is not str or any(char in legacy_redis_key for char in "\r\n\0"):
+        raise ValueError("data_protection_legacy_redis_key must be a single-line string")
+    if (legacy_store == "Redis") != bool(legacy_redis_key):
+        raise ValueError("data_protection_legacy_redis_key is required only when the legacy key store is Redis")
+    if values["accounts_admin_seed_enabled"] and not values["accounts_enabled"]:
+        raise ValueError("accounts_admin_seed_enabled requires accounts_enabled")
+    if values["accounts_registration_enabled"] and not values["accounts_enabled"]:
+        raise ValueError("accounts_registration_enabled requires accounts_enabled")
     return values
 
 

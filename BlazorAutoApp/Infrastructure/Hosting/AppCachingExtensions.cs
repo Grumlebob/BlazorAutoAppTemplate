@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
+using BlazorAutoApp.Infrastructure.Persistence;
 using BlazorAutoApp.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
@@ -17,10 +18,12 @@ internal static class AppCachingExtensions
     {
         var redisConnection = configuration.GetSection("Redis").GetValue<string>("Configuration");
         var hasRedis = !AppOptionsExtensions.IsPlaceholder(redisConnection);
+        var accountsEnabled = configuration.GetValue<bool>("Accounts:Enabled");
         var allowMissingRedis = AllowMissingRedis(configuration, environment);
         services.AddOptions<DataProtectionKeyStorageOptions>()
             .Bind(configuration.GetSection(DataProtectionKeyStorageOptions.SectionName))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.KeyStoragePath), "DataProtection:KeyStoragePath must be configured.")
+            .Validate(options => accountsEnabled || !string.IsNullOrWhiteSpace(options.KeyStoragePath), "DataProtection:KeyStoragePath must be configured.")
+            .Validate(options => options.HasValidLegacySource(), "DataProtection legacy key source settings are incomplete or ambiguous.")
             .ValidateOnStart();
 
         if (!hasRedis && !allowMissingRedis)
@@ -69,7 +72,11 @@ internal static class AppCachingExtensions
         var dataProtection = services.AddDataProtection()
             .SetApplicationName(appName);
 
-        if (redis is not null)
+        if (accountsEnabled)
+        {
+            dataProtection.PersistKeysToDbContext<AppDbContext>();
+        }
+        else if (redis is not null)
         {
             dataProtection.PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys");
         }
@@ -83,7 +90,11 @@ internal static class AppCachingExtensions
             dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
         }
 
-        if (environment.IsEnvironment("Docker"))
+        if (accountsEnabled)
+        {
+            ConfigureEnabledAccountKeyEncryption(dataProtection, configuration, environment, services);
+        }
+        else if (environment.IsEnvironment("Docker"))
         {
             ProtectKeysWithDockerCertificate(dataProtection);
         }
@@ -134,6 +145,58 @@ internal static class AppCachingExtensions
             Log.Warning(ex, "Failed to configure Data Protection certificate encryption from {CertificatePath}", certificatePath);
         }
     }
+
+    private static void ConfigureEnabledAccountKeyEncryption(
+        IDataProtectionBuilder dataProtection,
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        IServiceCollection services)
+    {
+        if (OperatingSystem.IsWindows() && environment.IsDevelopment())
+        {
+            dataProtection.ProtectKeysWithDpapi();
+            return;
+        }
+
+        var certificatePath = configuration[$"{DataProtectionKeyStorageOptions.SectionName}:KeyEncryptionCertificatePath"]
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_Kestrel__Certificates__Default__Path");
+        var certificatePassword = configuration[$"{DataProtectionKeyStorageOptions.SectionName}:KeyEncryptionCertificatePassword"]
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_Kestrel__Certificates__Default__Password");
+
+        if (string.IsNullOrWhiteSpace(certificatePath) || !File.Exists(certificatePath))
+        {
+            throw new InvalidOperationException(
+                "Enabled accounts require DataProtection:KeyEncryptionCertificatePath and its password outside Windows Development.");
+        }
+
+        X509Certificate2 certificate;
+        try
+        {
+            certificate = Path.GetExtension(certificatePath).Equals(".pfx", StringComparison.OrdinalIgnoreCase)
+                ? X509CertificateLoader.LoadPkcs12FromFile(
+                    certificatePath,
+                    certificatePassword,
+                    X509KeyStorageFlags.EphemeralKeySet)
+                : X509Certificate2.CreateFromEncryptedPemFile(certificatePath, certificatePassword ?? string.Empty);
+        }
+        catch (Exception)
+        {
+            throw new InvalidOperationException(
+                "The configured Data Protection key-encryption certificate could not be loaded.");
+        }
+
+        if (!certificate.HasPrivateKey)
+        {
+            certificate.Dispose();
+            throw new InvalidOperationException(
+                "The configured Data Protection key-encryption certificate must include its private key.");
+        }
+
+        services.AddSingleton<X509Certificate2>(_ => certificate);
+        dataProtection
+            .ProtectKeysWithCertificate(certificate)
+            .UnprotectKeysWithAnyCertificate(certificate);
+    }
 }
 
 internal sealed class DataProtectionKeyStorageOptions
@@ -141,4 +204,22 @@ internal sealed class DataProtectionKeyStorageOptions
     public const string SectionName = "DataProtection";
 
     public string KeyStoragePath { get; init; } = Path.Combine("..", "data", "storage", "DataProtection-Keys");
+    public string LegacyKeyStore { get; init; } = "None";
+    public string LegacyRedisKey { get; init; } = string.Empty;
+    public string LegacyKeyStoragePath { get; init; } = string.Empty;
+    public string KeyEncryptionCertificatePath { get; init; } = string.Empty;
+    public string KeyEncryptionCertificatePassword { get; init; } = string.Empty;
+
+    public bool HasValidLegacySource()
+    {
+        var hasRedisKey = !string.IsNullOrWhiteSpace(LegacyRedisKey);
+        var hasFilePath = !string.IsNullOrWhiteSpace(LegacyKeyStoragePath);
+        return LegacyKeyStore switch
+        {
+            "None" => !hasRedisKey && !hasFilePath,
+            "Redis" => hasRedisKey && !hasFilePath,
+            "FileSystem" => hasFilePath && !hasRedisKey,
+            _ => false
+        };
+    }
 }

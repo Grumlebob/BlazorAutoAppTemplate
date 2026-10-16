@@ -21,9 +21,47 @@
       - cloud_postgres_db | length > 0
       - cloud_redis_password is defined
       - cloud_redis_password | length > 0
+      - cloud_postgres_user is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - cloud_postgres_db is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - cloud_postgres_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')
+      - cloud_redis_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')
     fail_msg: "Cloud app deploy requires GHCR, PostgreSQL, and Redis secrets."
   no_log: true
 
+- name: Read Docker Compose plugin version
+  ansible.builtin.command:
+    argv: [docker, compose, version, --short]
+  register: docker_compose_version
+  changed_when: false
+- name: Require Docker Compose raw environment file support
+  ansible.builtin.assert:
+    that:
+      - docker_compose_version.stdout is version('2.30.0', '>=', version_type='loose')
+    fail_msg: "Docker Compose 2.30.0 or later is required for literal account environment values."
+- name: Validate account settings and secret values before staging the app
+  ansible.builtin.assert:
+    that:
+      - >-
+        (accounts_admin_seed_email | default('') ~ accounts_public_origin | default('') ~ accounts_email_host | default('') ~ accounts_email_from | default('') ~ cloud_accounts_admin_seed_password | default('') ~ cloud_accounts_email_username | default('') ~ cloud_accounts_email_password | default(''))
+        | regex_search('[\r\n]') is none
+      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (cloud_accounts_admin_seed_password | default('') | length > 0)
+      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (accounts_admin_seed_email | default('') | length == 0) == (cloud_accounts_admin_seed_password | default('') | length == 0)
+      - (cloud_accounts_email_username | default('') | length == 0) == (cloud_accounts_email_password | default('') | length == 0)
+      - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (cloud_accounts_email_username | default('') | length == 0) and (cloud_accounts_email_password | default('') | length == 0)
+      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (data_protection_legacy_key_store | default('None')) in ['None', 'Redis', 'FileSystem']
+      - (data_protection_legacy_redis_key | default('') | regex_search('[\r\n\0]')) is none
+      - ((data_protection_legacy_key_store | default('None')) == 'Redis') == ((data_protection_legacy_redis_key | default('') | length) > 0)
+    fail_msg: "Account deployment settings are incomplete or contain unsupported line breaks."
+  no_log: true
+- name: Validate encrypted Data Protection certificate inputs
+  ansible.builtin.assert:
+    that:
+      - cloud_data_protection_certificate_password is match('^[A-Fa-f0-9]{64}$')
+      - cloud_data_protection_certificate_base64 is match('^[A-Za-z0-9+/]+={0,2}$')
+    fail_msg: "The app Data Protection certificate settings are incomplete or invalid."
+  no_log: true
 - name: Ensure deployment root exists
   ansible.builtin.file:
     path: "{{ deploy_root }}"
@@ -31,6 +69,37 @@
     owner: deploy
     group: deploy
     mode: "0750"
+
+- name: Ensure protected app Data Protection directory
+  ansible.builtin.file:
+    path: "/etc/{{ app_name }}/data-protection"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+- name: Install encrypted app Data Protection certificate
+  ansible.builtin.copy:
+    content: "{{ cloud_data_protection_certificate_base64 | b64decode }}"
+    dest: "/etc/{{ app_name }}/data-protection/certificate.pem"
+    owner: root
+    group: deploy
+    mode: "0440"
+  no_log: true
+- name: Ensure legacy Data Protection import source directory
+  ansible.builtin.file:
+    path: "/etc/{{ app_name }}/data-protection/legacy"
+    state: directory
+    owner: root
+    group: deploy
+    mode: "0750"
+- name: Read deploy group ID for the read-only certificate mount
+  ansible.builtin.getent:
+    database: group
+    key: deploy
+- name: Record deploy group ID for Compose
+  ansible.builtin.set_fact:
+    data_protection_certificate_gid: "{{ ansible_facts.getent_group.deploy[1] }}"
+  changed_when: false
 
 - name: Ensure app observability Docker network exists
   ansible.builtin.command: "docker network create {{ observability_docker_network }}"
@@ -57,6 +126,15 @@
     mode: "0640"
   no_log: true
 
+- name: Render Compose interpolation allowlist
+  ansible.builtin.template:
+    src: compose.env.j2
+    dest: "{{ deploy_root }}/.compose.env"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+  no_log: true
+
 - name: Log in to GHCR
   ansible.builtin.shell: |
     set -eu
@@ -70,7 +148,7 @@
   no_log: true
 
 - name: Pull and start app container
-  ansible.builtin.command: docker compose up -d --pull always
+  ansible.builtin.command: docker compose --env-file .compose.env up -d --pull always
   args:
     chdir: "{{ deploy_root }}"
   become: true
@@ -82,6 +160,7 @@
   changed_when: >-
     (cloud_app_compose_up.stdout ~ cloud_app_compose_up.stderr)
     is search("(?i)(created|started|recreated|pulled|downloaded|built|removed)")
+  no_log: true
 
 - name: Wait for app health endpoint
   ansible.builtin.uri:

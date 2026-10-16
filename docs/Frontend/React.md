@@ -1,6 +1,6 @@
 # React frontend
 
-This page covers local React development and public feature changes. React is public-only: add no account UI or authenticated client API. Read [FrontendProfiles](../FrontendProfiles.md) only when changing the persisted profile, static hosting, or release pairing. The package manifest and lockfile are the version authorities: [package.json](../../BlazorAutoApp.React/package.json), [package-lock.json](../../BlazorAutoApp.React/package-lock.json).
+This page covers local React development and feature changes. React has public catalog routes and an optional cookie-based account experience; the server disables accounts by default and exposes capability before the client starts account requests. Public catalog calls stay credential-free. See the [Accounts runbook](../Accounts.md) for local Admin setup, mail configuration and recovery. Read [FrontendProfiles](../FrontendProfiles.md) when changing the persisted profile, static hosting, or release pairing. The package manifest and lockfile are the version authorities: [package.json](../../BlazorAutoApp.React/package.json), [package-lock.json](../../BlazorAutoApp.React/package-lock.json).
 
 ## Install and develop
 
@@ -19,7 +19,7 @@ For live development, start compatible PostgreSQL and Redis services as describe
 
 ## Change a typed public feature
 
-The React client uses the existing C# API. Keep public API contracts in Core/server and generated request/response types in the React package. It has no login, cookie, auth, or CSRF bootstrap; public requests omit credentials and protected APIs must continue to deny anonymous access.
+The React client uses the existing C# API. Keep public API contracts in Core/server and generated request/response types in the React package. The public catalog client omits credentials. The separate account client reads `/api/client-config`, then uses same-origin cookies and the session's antiforgery token when the server reports accounts enabled. Protected APIs must continue to deny anonymous access.
 
 UI-only changes stay in React and need no new API contract or generation. Run the package checks above and the repository local gate.
 

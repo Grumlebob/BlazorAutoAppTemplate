@@ -18,6 +18,7 @@ Expect matches in these areas:
 | --- | --- | --- |
 | Client | `BlazorAutoApp.Client/`, its solution and project references | Delete |
 | Host UI | `BlazorAutoApp/Components/`, Razor account pages under `BlazorAutoApp/Features/Login/Account/`, `BlazorAutoApp/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
+| React accounts | `BlazorAutoApp.React/app/features/accounts/`, `app/routes/account.tsx`, `app/routes/auth-index.tsx`, `app/routes/my-books.tsx`, and the server account endpoints/storage | Keep the feature disabled for a public-only clone, or remove the full UI and server capability as a separate product change. Removing the UI alone does not protect the APIs or remove account data |
 | Styles | `BlazorAutoApp/wwwroot/tailwind.css`, `app.css`, `BlazorAutoApp.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
 | Build | `Directory.Build.targets`, `BlazorAutoApp/BlazorAutoApp.csproj`, `frontend-profile.txt` | Accept only `React`; fail clearly on `BlazorAuto`. The file holds `React` |
 | Docker | `publish-blazor` and `final-blazor` stages in `BlazorAutoApp/Dockerfile` | Remove; keep `final-react` |
@@ -47,6 +48,6 @@ Expect matches in these areas:
 ## Deliberate boundaries
 
 - Narrowing the release resolver and verifiers touches deployment machinery. It may be a separate PR, but record it as a follow-up so no build can produce or accept a Blazor release.
-- React is public-only and account-free. Removing the Razor account pages does not decide whether to keep PostgreSQL, Redis, Identity storage or the Books sample. Treat those as separate product changes.
+- React accounts are optional and disabled by default. A public-only clone should keep them disabled; removing the feature requires a separate change covering the React UI, server authorization, Identity storage, migrations, deployment settings and recovery documentation. Removing the Razor account pages alone does not make those decisions. Treat PostgreSQL, Redis and the Books sample as separate product boundaries.
 
 Worked example: [Portfolio #11](https://github.com/Grumlebob/Portfolio/pull/11) removed Blazor from the first clone, and its description lists each decision.

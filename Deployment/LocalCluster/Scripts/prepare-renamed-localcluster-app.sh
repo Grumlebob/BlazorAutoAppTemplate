@@ -232,7 +232,19 @@ if [ -n \"\$root_app\" ] && [ \"\$root_app\" != \"\$OLD_APP_NAME\" ]; then
   exit 1
 fi
 cd \"\$OLD_DEPLOY_ROOT\"
-docker compose down'"
+compose_env=\"\$OLD_DEPLOY_ROOT/.compose.env\"
+temporary_compose_env=\"\"
+if [ ! -f \"\$compose_env\" ]; then
+  temporary_compose_env=\"\$(mktemp)\"
+  grep -E '^(COMPOSE_PROJECT_NAME|APP_NAME|APP_IMAGE|APP_IMAGE_REF|APP_VERSION|APP_NODE_NAME|APP_BIND_IP|APP_PORT|FORWARDED_HEADERS_KNOWN_PROXY|POSTGRES_HOST|POSTGRES_PORT|POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|REDIS_HOST|REDIS_PORT|REDIS_PASSWORD|OBSERVABILITY_DOCKER_NETWORK|OBSERVABILITY_ENABLED|OBSERVABILITY_OTLP_ENDPOINT|OBSERVABILITY_OTLP_PROTOCOL|OBSERVABILITY_TRACE_SAMPLE_RATIO|OBSERVABILITY_DEPLOYMENT_TARGET)=' \"\$OLD_DEPLOY_ROOT/.env\" > \"\$temporary_compose_env\"
+  compose_env=\"\$temporary_compose_env\"
+fi
+compose_status=0
+docker compose --env-file \"\$compose_env\" down || compose_status=\$?
+if [ -n \"\$temporary_compose_env\" ]; then
+  rm -f -- \"\$temporary_compose_env\"
+fi
+exit \"\$compose_status\"'"
   done
 fi
 

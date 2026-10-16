@@ -3,7 +3,15 @@ vault_postgres_password: REPLACE_WITH_STRONG_DB_PASSWORD
 vault_postgres_db: REPLACE_WITH_POSTGRES_DATABASE
 vault_redis_password: REPLACE_WITH_STRONG_REDIS_PASSWORD
 vault_cloudflare_tunnel_token: REPLACE_WITH_CLOUDFLARE_TUNNEL_TOKEN
+# setup-secrets.sh creates one encrypted per-app certificate and passphrase.
+vault_data_protection_certificate_base64: REPLACE_WITH_GENERATED_ENCRYPTED_PEM_BASE64
+vault_data_protection_certificate_password: REPLACE_WITH_GENERATED_64_HEX_PASSWORD
 # Optional. CD deploys pull with the workflow token. Add both keys only if you
 # deploy a private image manually from a control machine without `gh` login:
 # vault_ghcr_username: <github-username>
 # vault_ghcr_token: <token with read:packages>
+# Optional. Required only when accounts_admin_seed_enabled is true:
+# vault_accounts_admin_seed_password: <strong-initial-admin-password>
+# Optional SMTP authentication. Set both values or omit both:
+# vault_accounts_email_username: <smtp-username>
+# vault_accounts_email_password: <smtp-password>

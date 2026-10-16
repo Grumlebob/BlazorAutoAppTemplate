@@ -33,6 +33,7 @@ internal static class PersistenceExtensions
         {
             ConfigureDbContext(options);
             options.AddInterceptors(serviceProvider.GetServices<DbCommandInterceptor>());
+            options.AddInterceptors(serviceProvider.GetServices<IDbTransactionInterceptor>());
         });
         services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
         healthChecks.AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);

@@ -178,7 +178,7 @@ systemctl daemon-reload
 echo \"removed old firewall service/script for \$OLD_APP_NAME\"'" \
   --become
 
-echo "Removing old runtime root and Docker Compose resources."
+echo "Removing old runtime root and stopping its Compose project. Docker volumes are retained."
 OLD_APP_NAME_Q="$(printf '%q' "$OLD_APP_NAME")"
 OLD_DEPLOY_ROOT_Q="$(printf '%q' "$OLD_DEPLOY_ROOT")"
 ansible app_servers:node_db -i "$INVENTORY" -m ansible.builtin.shell -a \
@@ -196,7 +196,17 @@ if [ -f \"\$OLD_DEPLOY_ROOT/.env\" ]; then
 fi
 if [ -f \"\$OLD_DEPLOY_ROOT/docker-compose.yml\" ]; then
   cd \"\$OLD_DEPLOY_ROOT\"
-  docker compose down -v --remove-orphans || true
+  compose_env=\"\$OLD_DEPLOY_ROOT/.compose.env\"
+  temporary_compose_env=\"\"
+  if [ ! -f \"\$compose_env\" ]; then
+    temporary_compose_env=\"\$(mktemp)\"
+    grep -E '^(COMPOSE_PROJECT_NAME|APP_NAME|APP_IMAGE|APP_IMAGE_REF|APP_VERSION|APP_NODE_NAME|APP_BIND_IP|APP_PORT|FORWARDED_HEADERS_KNOWN_PROXY|POSTGRES_HOST|POSTGRES_PORT|POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|REDIS_HOST|REDIS_PORT|REDIS_PASSWORD|OBSERVABILITY_DOCKER_NETWORK|OBSERVABILITY_ENABLED|OBSERVABILITY_OTLP_ENDPOINT|OBSERVABILITY_OTLP_PROTOCOL|OBSERVABILITY_TRACE_SAMPLE_RATIO|OBSERVABILITY_DEPLOYMENT_TARGET)=' \"\$OLD_DEPLOY_ROOT/.env\" > \"\$temporary_compose_env\"
+    compose_env=\"\$temporary_compose_env\"
+  fi
+  docker compose --env-file \"\$compose_env\" down --remove-orphans || true
+  if [ -n \"\$temporary_compose_env\" ]; then
+    rm -f -- \"\$temporary_compose_env\"
+  fi
 fi
 rm -rf \"\$OLD_DEPLOY_ROOT\"
 echo \"removed old deploy root: \$OLD_DEPLOY_ROOT\"'" \

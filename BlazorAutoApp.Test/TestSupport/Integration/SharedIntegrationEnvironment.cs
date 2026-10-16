@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -12,22 +13,28 @@ namespace BlazorAutoApp.Test.TestSupport.Integration;
 public sealed class SharedIntegrationEnvironment : IAsyncLifetime
 {
     private const int RedisPort = 6379;
-    private const string RedisPassword = "redis-test-password";
+    private readonly string _redisPassword = RandomNumberGenerator.GetHexString(48);
 
-    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
-        .WithCreateParameterModifier(TestContainerImages.ConfigurePostgreSqlData)
+    private readonly PostgreSqlContainer _dbContainer = TestContainerImages.CreatePostgreSqlFixture()
         .WithLabel(TestContainerLabels.For("shared-integration-postgres"))
         .WithCleanUp(true)
         .Build();
 
-    private readonly IContainer _redisContainer = new ContainerBuilder(TestContainerImages.Redis)
-        .WithCreateParameterModifier(TestContainerImages.ConfigureRedisData)
-        .WithPortBinding(RedisPort, true)
-        .WithCommand("redis-server", "--requirepass", RedisPassword, "--save", "", "--appendonly", "no")
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "-a", RedisPassword, "ping"))
-        .WithLabel(TestContainerLabels.For("shared-integration-redis"))
-        .WithCleanUp(true)
-        .Build();
+    private readonly IContainer _redisContainer;
+
+    public SharedIntegrationEnvironment()
+    {
+        _redisContainer = new ContainerBuilder(TestContainerImages.Redis)
+            .WithCreateParameterModifier(TestContainerImages.ConfigureRedisData)
+            .WithPortBinding(RedisPort, true)
+            .WithEnvironment("REDISCLI_AUTH", _redisPassword)
+            .WithCommand("redis-server", "--requirepass", _redisPassword, "--save", "", "--appendonly", "no")
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "ping")
+                .UntilExternalTcpPortIsAvailable(RedisPort))
+            .WithLabel(TestContainerLabels.For("shared-integration-redis"))
+            .WithCleanUp(true)
+            .Build();
+    }
 
     public string AppName { get; } = $"BlazorAutoApp.CrossNodeTests.{Guid.NewGuid():N}";
 
@@ -35,8 +42,10 @@ public sealed class SharedIntegrationEnvironment : IAsyncLifetime
 
     public string PostgresConnectionString => _dbContainer.GetConnectionString();
 
+    public string PostgresContainerId => _dbContainer.Id;
+
     public string RedisConnectionString =>
-        $"127.0.0.1:{_redisContainer.GetMappedPublicPort(RedisPort)},password={RedisPassword},abortConnect=false";
+        $"127.0.0.1:{_redisContainer.GetMappedPublicPort(RedisPort)},password={_redisPassword},abortConnect=false";
 
     public async ValueTask InitializeAsync()
     {

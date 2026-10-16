@@ -6,6 +6,9 @@ using BlazorAutoApp.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
+using BlazorAutoApp.Features.Login.Accounts;
+using BlazorAutoApp.Features.Login.Accounts.Session;
+using BlazorAutoApp.Features.Login.Accounts.Security;
 
 namespace BlazorAutoApp.Frontend.OpenApi;
 
@@ -32,6 +35,8 @@ internal static class OpenApiMetadataHosting
 
         builder.Services.AddRouting();
         builder.Services.AddAuthorization();
+        builder.Services.AddSingleton(new AccountOptions { Enabled = true });
+        builder.Services.AddSingleton(new AccountApplicationIdentity("OpenApiMetadata", Environments.Production));
         builder.Services.AddAppApiJson();
         builder.Services.AddRateLimiter(options =>
             options.AddPolicy(
@@ -46,6 +51,10 @@ internal static class OpenApiMetadataHosting
             throw new InvalidOperationException("Book services are unavailable during OpenAPI metadata generation."));
         builder.Services.AddScoped<IAuthorBooksApi>(_ =>
             throw new InvalidOperationException("Author-book services are unavailable during OpenAPI metadata generation."));
+        builder.Services.AddScoped<AccountOperations>(_ =>
+            throw new InvalidOperationException("Accounts are unavailable during OpenAPI metadata generation."));
+        builder.Services.AddScoped<AccountSessionOperations>(_ =>
+            throw new InvalidOperationException("Sessions are unavailable during OpenAPI metadata generation."));
 
         builder.Services.AddOpenApi("v1", options =>
         {
@@ -70,7 +79,8 @@ internal static class OpenApiMetadataHosting
             options.AddOperationTransformer((operation, context, _) =>
             {
                 var endpointMetadata = context.Description.ActionDescriptor.EndpointMetadata;
-                var requiresAuthorization = endpointMetadata.OfType<IAuthorizeData>().Any()
+                var requiresAuthorization = (endpointMetadata.OfType<IAuthorizeData>().Any()
+                    || endpointMetadata.OfType<ExpectedAccountUser>().Any())
                     && !endpointMetadata.OfType<IAllowAnonymous>().Any();
 
                 if (requiresAuthorization)
@@ -92,6 +102,8 @@ internal static class OpenApiMetadataHosting
     public static void MapEndpoints(WebApplication app)
     {
         app.MapBooksFeature();
+        app.MapClientConfiguration();
+        app.MapAccountEndpoints();
         app.MapOpenApi();
     }
 }

@@ -47,8 +47,20 @@
         path: "{{ deploy_root }}/docker-compose.yml"
       register: cloud_app_compose_file
 
+    - name: Render protected Compose interpolation allowlist before stopping the app
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/app/templates/compose.env.j2"
+        dest: "{{ deploy_root }}/.compose.env"
+        owner: deploy
+        group: deploy
+        mode: "0640"
+      no_log: true
+      when:
+        - run_migrations | default(false) | bool
+        - cloud_app_compose_file.stat.exists
+
     - name: Stop existing app stack
-      ansible.builtin.command: docker compose down
+      ansible.builtin.command: docker compose --env-file .compose.env down
       args:
         chdir: "{{ deploy_root }}"
       become: true
@@ -129,17 +141,14 @@
       when: run_migrations | default(false) | bool
 
     - name: Run migration bundle
-      ansible.builtin.shell: |
-        set -euo pipefail
-        cd {{ deploy_root }}
-        set -a
-        . ./.env
-        set +a
-        ./migrations/{{ migration_bundle_name }} --connection "Host=127.0.0.1;Port=$POSTGRES_PORT;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
-      args:
-        executable: /bin/bash
+      ansible.builtin.command:
+        argv:
+          - "{{ deploy_root }}/migrations/{{ migration_bundle_name }}"
+          - --connection
+          - "Host=127.0.0.1;Port={{ postgres_port }};Database={{ cloud_postgres_db }};Username={{ cloud_postgres_user }};Password={{ cloud_postgres_password }}"
       become: true
       become_user: deploy
+      no_log: true
       when: run_migrations | default(false) | bool
 
 - name: Deploy app servers

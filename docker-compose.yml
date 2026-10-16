@@ -8,8 +8,10 @@ services:
   postgres:
     image: postgres:18.4-alpine3.23
     logging: *local-logging
-    env_file:
-      - ./.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
@@ -30,7 +32,8 @@ services:
     hostname: ${APP_NODE_NAME:-local-web}
     logging: *local-logging
     env_file:
-      - ./.env
+      - path: ./.env
+        format: raw
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       LocalAccounts__Enabled: "true"
@@ -65,8 +68,6 @@ services:
   redis:
     image: redis:8.8.0-alpine3.23
     logging: *local-logging
-    env_file:
-      - ./.env
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     healthcheck:
@@ -78,8 +79,6 @@ services:
   redisinsight:
     image: redis/redisinsight:3.4.2
     logging: *local-logging
-    env_file:
-      - ./.env
     depends_on:
       redis:
         condition: service_healthy

@@ -8,6 +8,7 @@
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject AccountOptions AccountOptions
 
 <PageTitle>Register confirmation</PageTitle>
 
@@ -15,7 +16,11 @@
 
 <StatusMessage Message="@statusMessage" />
 
-@if (emailConfirmationLink is not null)
+@if (AccountOptions.Enabled)
+{
+    <p role="alert">Request received. Check your email if applicable; use resend if it does not arrive.</p>
+}
+else if (emailConfirmationLink is not null)
 {
     <p>
         This app does not currently have a real email sender registered, see <a href="https://aka.ms/aspaccountconf">these docs</a> for how to configure a real email sender.
@@ -42,6 +47,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (AccountOptions.Enabled)
+        {
+            return;
+        }
+
         if (Email is null)
         {
             RedirectManager.RedirectTo("");

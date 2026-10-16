@@ -7,6 +7,8 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject AccountOptions AccountOptions
+@inject AccountOperations Accounts
 
 <PageTitle>Delete Personal Data</PageTitle>
 
@@ -27,10 +29,11 @@
         @if (requirePassword)
         {
             <div class="account-field">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
+                <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" maxlength="@(AccountOptions.Enabled ? "256" : null)" aria-required="true" placeholder="Please enter your password." />
                 <label for="Input.Password" class="account-label">Password</label>
                 <ValidationMessage For="() => Input.Password" class="account-text-danger" />
             </div>
+            <label><InputCheckbox @bind-Value="showPassword" /> Show password</label>
         }
         <button class="account-button-danger account-button-full" type="submit">Delete data and close my account</button>
     </EditForm>
@@ -40,6 +43,7 @@
     private string? message;
     private ApplicationUser? user;
     private bool requirePassword;
+    private bool showPassword;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -57,7 +61,7 @@
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
-        requirePassword = await UserManager.HasPasswordAsync(user);
+        requirePassword = AccountOptions.Enabled || await UserManager.HasPasswordAsync(user);
     }
 
     private async Task OnValidSubmitAsync()
@@ -65,6 +69,20 @@
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        if (AccountOptions.Enabled)
+        {
+            var operation = await Accounts.DeleteAsync(new AccountPasswordRequest { Password = Input.Password });
+            var response = await AccountPageResultReader.ReadAsync(HttpContext, operation);
+            if (response.StatusCode == StatusCodes.Status200OK)
+            {
+                RedirectManager.RedirectToWithStatus("Account/Login", "Account deleted.", HttpContext);
+                return;
+            }
+
+            message = AccountPageResultReader.Message(response.Body, "Unable to delete the account. Check your password and try again.");
             return;
         }
 
@@ -90,6 +108,7 @@
 
     private sealed class InputModel
     {
+        [StringLength(256)]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
     }

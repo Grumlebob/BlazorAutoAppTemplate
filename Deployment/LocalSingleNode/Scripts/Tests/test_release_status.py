@@ -79,4 +79,3 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
             marker.symlink_to(target)
             with self.assertRaises(status.ReleaseStatusError):
                 status.marker(marker)
-

@@ -9,6 +9,7 @@
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject AccountOptions AccountOptions
 
 <PageTitle>Log in</PageTitle>
 
@@ -28,10 +29,11 @@
                     <ValidationMessage For="() => Input.Email" class="account-text-danger" />
                 </div>
                 <div class="account-field">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" aria-required="true" placeholder="password" />
+                    <InputText type="@(showPassword ? "text" : "password")" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="current-password" maxlength="@(AccountOptions.Enabled ? "256" : null)" aria-required="true" placeholder="password" />
                     <label for="Input.Password" class="account-label">Password</label>
                     <ValidationMessage For="() => Input.Password" class="account-text-danger" />
                 </div>
+                <label><InputCheckbox @bind-Value="showPassword" /> Show password</label>
                 <div class="account-field">
                     <label class="account-label">
                         <InputCheckbox @bind-Value="Input.RememberMe" class="account-checkbox-input" />
@@ -72,6 +74,7 @@
 
 @code {
     private string? errorMessage;
+    private bool showPassword;
     private EditContext editContext = default!;
 
     [CascadingParameter]
@@ -100,7 +103,7 @@
     {
         if (!string.IsNullOrEmpty(Input.Passkey?.Error))
         {
-            errorMessage = $"Error: {Input.Passkey.Error}";
+            errorMessage = "Passkey sign-in failed. Try another sign-in method.";
             return;
         }
 
@@ -118,9 +121,7 @@
                 return;
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: AccountOptions.Enabled);
         }
 
         if (result.Succeeded)

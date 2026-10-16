@@ -10,6 +10,10 @@
       - cloud_postgres_db | length > 0
       - cloud_redis_password is defined
       - cloud_redis_password | length > 0
+      - cloud_postgres_user is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - cloud_postgres_db is match('^[A-Za-z_][A-Za-z0-9_]{0,62}$')
+      - cloud_postgres_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')
+      - cloud_redis_password is match('^[A-Za-z0-9._@%+/=-]{16,128}$')
     fail_msg: "Cloud data deploy requires PostgreSQL and Redis secrets."
   no_log: true
 

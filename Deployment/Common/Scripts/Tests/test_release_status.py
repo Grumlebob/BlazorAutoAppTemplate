@@ -147,4 +147,3 @@ class ReleaseStatusTests(TestCase):
                     api_root="https://api.github.com",
                     token="fixture-token",
                 )
-

@@ -10,6 +10,11 @@ services:
     hostname: ${APP_NODE_NAME}
     restart: unless-stopped
     logging: *localcluster-logging
+    group_add:
+      - "${DATA_PROTECTION_CERT_GID:?DATA_PROTECTION_CERT_GID is required}"
+    env_file:
+      - path: ./.env
+        format: raw
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       LocalAccounts__Enabled: "false"
@@ -30,6 +35,14 @@ services:
       - "${APP_PORT}:${APP_PORT}"
     volumes:
       - app_storage:/app/Storage
+      - type: bind
+        source: ${DATA_PROTECTION_CERT_HOST_PATH:?DATA_PROTECTION_CERT_HOST_PATH is required}
+        target: /run/secrets/data-protection.pem
+        read_only: true
+      - type: bind
+        source: ${DATA_PROTECTION_LEGACY_HOST_PATH:?DATA_PROTECTION_LEGACY_HOST_PATH is required}
+        target: /run/legacy-data-protection
+        read_only: true
     networks:
       - default
       - observability

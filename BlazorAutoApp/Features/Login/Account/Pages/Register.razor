@@ -13,48 +13,87 @@
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject AccountOptions AccountOptions
+@inject AccountOperations Accounts
 
 <PageTitle>Register</PageTitle>
 
 <h1>Register</h1>
 
-<div class="account-grid">
-    <div class="account-grid-main">
-        <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
-            <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr class="account-divider" />
-            <ValidationSummary class="account-text-danger" role="alert" />
-            <div class="account-field">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="account-text-danger" />
+<StatusMessage Message="@Message" />
+@if (AccountOptions.Enabled)
+{
+    @if (AccountOptions.RegistrationEnabled)
+    {
+        <div class="account-grid">
+            <div class="account-grid-main">
+                <EditForm Model="EmailInput" method="post" OnValidSubmit="RegisterEnabledUser" FormName="register-enabled">
+                    <DataAnnotationsValidator />
+                    <h2>Create a new account.</h2>
+                    <hr class="account-divider" />
+                    <ValidationSummary class="account-text-danger" role="alert" />
+                    <div class="account-field">
+                        <InputText @bind-Value="EmailInput.Email" id="EmailInput.Email" class="account-input" autocomplete="email" maxlength="254" aria-required="true" placeholder="name@example.com" />
+                        <label for="EmailInput.Email">Email</label>
+                        <ValidationMessage For="() => EmailInput.Email" class="account-text-danger" />
+                    </div>
+                    <p class="account-muted">We’ll send a confirmation link. Choose your password after confirming your email.</p>
+                    <button type="submit" class="account-button-primary account-button-full">Request registration</button>
+                </EditForm>
             </div>
-            <div class="account-field">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="account-text-danger" />
-            </div>
-            <div class="account-field">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="account-input" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="account-text-danger" />
-            </div>
-            <button type="submit" class="account-button-primary account-button-full">Register</button>
-        </EditForm>
+        </div>
+    }
+    else
+    {
+        <p class="account-alert account-alert-info" role="status">Registration is unavailable.</p>
+    }
+}
+else
+{
+    <div class="account-grid">
+        <div class="account-grid-main">
+            <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                <DataAnnotationsValidator />
+                <h2>Create a new account.</h2>
+                <hr class="account-divider" />
+                <ValidationSummary class="account-text-danger" role="alert" />
+                <div class="account-field">
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <label for="Input.Email">Email</label>
+                    <ValidationMessage For="() => Input.Email" class="account-text-danger" />
+                </div>
+                <div class="account-field">
+                    <InputText type="@(showPasswords ? "text" : "password")" @bind-Value="Input.Password" id="Input.Password" class="account-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label for="Input.Password">Password</label>
+                    <ValidationMessage For="() => Input.Password" class="account-text-danger" />
+                </div>
+                <div class="account-field">
+                    <InputText type="@(showPasswords ? "text" : "password")" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="account-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label for="Input.ConfirmPassword">Confirm Password</label>
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="account-text-danger" />
+                </div>
+                <label><InputCheckbox @bind-Value="showPasswords" /> Show passwords</label>
+                <button type="submit" class="account-button-primary account-button-full">Register</button>
+            </EditForm>
+        </div>
+        <div class="account-grid-aside">
+            <section>
+                <h3>Use another service to register.</h3>
+                <hr class="account-divider" />
+                <ExternalLoginPicker />
+            </section>
+        </div>
     </div>
-    <div class="account-grid-aside">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr class="account-divider" />
-            <ExternalLoginPicker />
-        </section>
-    </div>
-</div>
+}
 
 @code {
-    private IEnumerable<IdentityError>? identityErrors;
+    private string? message;
+    private bool showPasswords;
+    [SupplyParameterFromForm(FormName = "register-enabled")]
+    private EmailInputModel EmailInput { get; set; } = default!;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
@@ -62,11 +101,13 @@
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+    private string? Message => message;
 
     protected override void OnInitialized()
     {
+        EmailInput ??= new();
         Input ??= new();
+        Input.SetAccountPasswordPolicy(AccountOptions.Enabled);
     }
 
     public async Task RegisterUser(EditContext editContext)
@@ -80,7 +121,7 @@
 
         if (!result.Succeeded)
         {
-            identityErrors = result.Errors;
+            message = "Unable to create the account. Review your details and password, then try again.";
             return;
         }
 
@@ -108,6 +149,19 @@
         }
     }
 
+    private async Task RegisterEnabledUser()
+    {
+        var result = await Accounts.RegisterAsync(new AccountRegisterRequest { Email = EmailInput.Email });
+        var response = await AccountPageResultReader.ReadAsync(HttpContext, result);
+        if (response.StatusCode == StatusCodes.Status202Accepted)
+        {
+            RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = EmailInput.Email });
+            return;
+        }
+
+        message = AccountPageResultReader.Message(response.Body, "Unable to process the request. Try again later.");
+    }
+
     private ApplicationUser CreateUser()
     {
         try
@@ -130,7 +184,7 @@
         return (IUserEmailStore<ApplicationUser>)UserStore;
     }
 
-    private sealed class InputModel
+    private sealed class InputModel : AccountPasswordPolicyInputModel
     {
         [Required]
         [EmailAddress]
@@ -138,7 +192,7 @@
         public string Email { get; set; } = "";
 
         [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [AccountPasswordLength]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = "";
@@ -147,5 +201,11 @@
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = "";
+    }
+
+    private sealed class EmailInputModel
+    {
+        [Required, EmailAddress, StringLength(254)]
+        public string Email { get; set; } = "";
     }
 }

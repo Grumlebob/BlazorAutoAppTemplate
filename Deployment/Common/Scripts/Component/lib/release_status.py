@@ -192,4 +192,3 @@ def list_active_deployment_runs(
                 page += 1
 
     return sorted(runs_by_id.values(), key=lambda item: (item["workflow"], int(item["run_id"])))
-

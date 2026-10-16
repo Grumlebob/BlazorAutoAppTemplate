@@ -24,9 +24,12 @@ class BackupTests(unittest.TestCase):
         secret = folder / 'runtime-secrets.yml'
         secret.write_text('fixture-secret-only')
         secret.chmod(0o600)
+        certificate = folder / 'data-protection.pem'
+        certificate.write_text('synthetic-encrypted-pem')
+        certificate.chmod(0o440)
         protected = folder / 'backups'
         protected.mkdir(mode=0o750)
-        return dict(app_name='books', deploy_root=str(folder / 'app'), backup_root=str(protected), backup_keep_days=7, install_group=grp.getgrgid(os.getgid()).gr_name, secrets_file=str(secret))
+        return dict(app_name='books', deploy_root=str(folder / 'app'), backup_root=str(protected), backup_keep_days=7, install_group=grp.getgrgid(os.getgid()).gr_name, secrets_file=str(secret), data_protection_certificate_file=str(certificate))
 
     def test_backup_permissions_and_completed_marker(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -40,8 +43,26 @@ class BackupTests(unittest.TestCase):
             file = backup.latest(value)
             self.assertEqual(0o640, file.stat().st_mode & 0o777)
             self.assertEqual(0o640, (folder / 'secrets.yml').stat().st_mode & 0o777)
+            self.assertEqual(0o640, (folder / 'data-protection.pem').stat().st_mode & 0o777)
+            self.assertEqual('synthetic-encrypted-pem', (folder / 'data-protection.pem').read_text())
             self.assertEqual(0o600, Path(value['secrets_file']).stat().st_mode & 0o777)
             self.assertTrue((folder / 'last-success').exists())
+
+    def test_backup_rejects_symlinked_or_unprotected_key_material(self):
+        with tempfile.TemporaryDirectory() as temp:
+            value = self.fixture(Path(temp))
+            certificate = Path(value['data_protection_certificate_file'])
+            certificate.chmod(0o644)
+            with patch.object(backup.subprocess, 'run') as dump, self.assertRaisesRegex(ValueError, 'Data Protection certificate'):
+                backup.backup(value)
+            dump.assert_not_called()
+            certificate.chmod(0o440)
+            target = Path(temp) / 'elsewhere.pem'
+            certificate.unlink()
+            certificate.symlink_to(target)
+            with patch.object(backup.subprocess, 'run') as dump, self.assertRaisesRegex(ValueError, 'Data Protection certificate'):
+                backup.backup(value)
+            dump.assert_not_called()
 
     def test_failed_dump_is_not_published(self):
         with tempfile.TemporaryDirectory() as temp:

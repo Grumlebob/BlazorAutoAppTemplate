@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using BlazorAutoApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using BlazorAutoApp.Test.Architecture.Support;
@@ -13,6 +14,10 @@ public class EntityConfigurationLocationTests
     [Fact]
     public void AppDbContext_DbSets_Use_Core_Domain_Entities()
     {
+        Assert.Equal(
+            typeof(DbSet<DataProtectionKey>),
+            typeof(AppDbContext).GetProperty(nameof(AppDbContext.DataProtectionKeys))?.PropertyType);
+
         var offenders = typeof(AppDbContext)
             .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
             .Where(p => p.PropertyType.IsGenericType && p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
@@ -21,6 +26,7 @@ public class EntityConfigurationLocationTests
                 DbSet = p.Name,
                 Entity = p.PropertyType.GetGenericArguments()[0]
             })
+            .Where(x => x.DbSet != nameof(AppDbContext.DataProtectionKeys) || x.Entity != typeof(DataProtectionKey))
             .Where(x => x.Entity.Namespace is null
                      || !x.Entity.Namespace.StartsWith("BlazorAutoApp.Core.Features.", StringComparison.Ordinal)
                      || !x.Entity.Namespace.Split('.').Contains("Domain", StringComparer.Ordinal))

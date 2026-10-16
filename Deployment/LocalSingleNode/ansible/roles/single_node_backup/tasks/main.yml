@@ -35,7 +35,7 @@
     mode: preserve
 - name: Publish nonsecret backup settings
   ansible.builtin.copy:
-    content: "{{ {'app_name': app_name, 'deploy_root': deploy_root, 'backup_root': backup_root, 'backup_keep_days': backup_keep_days, 'install_group': install_group, 'secrets_file': '/etc/' ~ app_name ~ '/secrets.yml'} | to_nice_json }}"
+    content: "{{ {'app_name': app_name, 'deploy_root': deploy_root, 'backup_root': backup_root, 'backup_keep_days': backup_keep_days, 'install_group': install_group, 'secrets_file': '/etc/' ~ app_name ~ '/secrets.yml', 'data_protection_certificate_file': '/etc/' ~ app_name ~ '/data-protection/certificate.pem'} | to_nice_json }}"
     dest: "{{ deploy_root }}/maintenance/settings.json"
     owner: deploy
     group: deploy

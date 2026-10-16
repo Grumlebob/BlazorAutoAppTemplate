@@ -16,6 +16,7 @@ cat > "$TMP_ROOT/bin/docker" <<'PY'
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 from pathlib import Path
 args = sys.argv[1:]
@@ -44,7 +45,33 @@ elif args[:2] == ["network", "create"] or args[0] == "run":
         raise SystemExit(125)
     if "redis" in name and os.environ.get("FAIL_REDIS") == "1":
         raise SystemExit(17)
-    state(name).write_text(json.dumps(labels()))
+    metadata = labels()
+    metadata["ports"] = {}
+    if "--network-alias" in args and "ci-postgres" in args:
+        password = os.environ.get("POSTGRES_PASSWORD", "")
+        if not re.fullmatch(r"[0-9a-f]{48}", password):
+            raise SystemExit("The database fixture requires a generated password.")
+        metadata["database_password"] = password
+    for argument in args:
+        if argument.startswith("ConnectionStrings__DefaultConnection="):
+            passwords = [json.loads(item.read_text()).get("database_password") for item in root.iterdir()]
+            if not any(password and f"Password={password};" in argument for password in passwords):
+                raise SystemExit("The application did not receive the fixture database password.")
+    if args[0] == "run":
+        for index, value in enumerate(args[:-1]):
+            if value in ("-p", "--publish"):
+                mapping = args[index + 1].split(":")
+                if len(mapping) == 3 and mapping[-1] in ("5432", "8080", "8443"):
+                    metadata["ports"][mapping[-1] + "/tcp"] = mapping[1] or "34567"
+                elif len(mapping) == 4 and mapping[-1] in ("5432", "8080", "8443"):
+                    metadata["ports"][mapping[-1] + "/tcp"] = mapping[2]
+    state(name).write_text(json.dumps(metadata))
+    if "web-enabled" in name and os.environ.get("SMOKE_REMOVE_CALLER"):
+        caller = Path(os.environ["SMOKE_REMOVE_CALLER"])
+        assert caller.name == "caller" and caller.parent.resolve() == root.parent.resolve()
+        caller.rmdir()
+elif args[:2] == ["network", "inspect"] and "--format" in args and "Gateway" in args[args.index("--format") + 1]:
+    print("172.20.0.1")
 elif args[0] == "inspect" or args[:2] == ["network", "inspect"]:
     name = args[-1]
     if not state(name).exists():
@@ -54,16 +81,28 @@ elif args[0] == "inspect" or args[:2] == ["network", "inspect"]:
 elif args[0] == "rm" or args[:2] == ["network", "rm"]:
     state(args[-1]).unlink()
 elif args[0] == "port":
-    print("127.0.0.1:34567")
+    name = args[1]
+    protocol = args[2]
+    item = json.loads(state(name).read_text())
+    print("127.0.0.1:" + item.get("ports", {}).get(protocol, "34567"))
 elif args[0] == "exec":
     print("PONG" if "redis-cli" in args else "accepting connections")
-elif args[0] != "logs":
+elif args[0] == "logs":
+    if "smtp" in args[-1]:
+        print("READY 2525")
+else:
     raise SystemExit("unexpected fake Docker command")
 PY
 cat > "$TMP_ROOT/bin/curl" <<'SH'
 #!/usr/bin/env bash
 url="${*: -1}"
 if [[ "${FRONTEND_PROFILE:-BlazorAuto}" == "React" ]]; then
+  if [[ "$url" == */api/client-config ]]; then
+    enabled="false"
+    [[ "$url" != https://* ]] || enabled="true"
+    printf 'HTTP/1.1 200 OK\r\nCache-Control: no-store\r\nContent-Type: application/json\r\n\r\n{"schemaVersion":1,"accountsEnabled":%s,"applicationId":"1234567890abcdef1234567890abcdef"}' "$enabled"
+    exit
+  fi
   if [[ "$url" == */ && "$*" == *"--dump-header"* ]]; then
     printf 'HTTP/1.1 200 OK\r\nCache-Control: no-cache\r\nContent-Security-Policy: default-src '\''self'\''; script-src '\''self'\'' '\''sha256-abcd'\''\r\n\r\n'
     exit
@@ -81,7 +120,14 @@ if [[ "${FRONTEND_PROFILE:-BlazorAuto}" == "React" ]]; then
     */assets/app-abcdef123456.js)
       printf 'HTTP/1.1 200 OK\r\nCache-Control: public,max-age=31536000,immutable\r\n\r\n'
       ;;
-    */Account|*/api/auth/login|*/assets/missing.js) printf '\n404' ;;
+    */api/auth/login)
+      if [[ "$url" == https://* ]]; then
+        printf 'HTTP/1.1 405 Method Not Allowed\r\nAllow: POST\r\n\r\n'
+      else
+        printf '\n404'
+      fi
+      ;;
+    */api/auth|*/api/auth/session|*/api/auth/not-a-real-operation|*/Account|*/assets/missing.js) printf '\n404' ;;
     */books|*/books/author/example)
       if [[ " $* " == *" --head "* ]]; then
         printf 'HTTP/1.1 200 OK\r\nContent-Length: 123\r\n\r\n'
@@ -121,7 +167,27 @@ if [[ "$(basename "$0")" == pwsh && "$*" == *Test-DeployedSite.ps1* ]]; then
   exit "$(printenv FAIL_HTTP_ACCEPTANCE || printf 0)"
 fi
 if [[ "$(basename "$0")" == dotnet ]]; then
-  [[ "${FRONTEND_PROFILE:-BlazorAuto}" != "React" ]] || exit 34
+  # The real CLI cannot initialize its parser from a removed working directory.
+  pwd -P >/dev/null 2>&1 || exit 38
+  if [[ "${FRONTEND_PROFILE:-BlazorAuto}" == "React" ]]; then
+    case "$*" in
+      *"Category=ReactPackagedDisabled"*) result_name="react-disabled-browser.trx"; failure="${FAIL_REACT_DISABLED_BROWSER:-0}" ;;
+      *"Category=ReactPackagedEnabled"*) result_name="react-enabled-browser.trx"; failure="${FAIL_REACT_ENABLED_BROWSER:-0}" ;;
+      *) exit 34 ;;
+    esac
+    results_dir=""
+    previous=""
+    for argument in "$@"; do
+      if [[ "$previous" == "--results-directory" ]]; then results_dir="$argument"; fi
+      previous="$argument"
+    done
+    [[ -n "$results_dir" ]] || exit 5
+    mkdir -p "$results_dir"
+    cat > "$results_dir/$result_name" <<'XML'
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results><UnitTestResult testName="react-browser-journey" outcome="Passed"/></Results></TestRun>
+XML
+    exit "$failure"
+  fi
   [[ "$*" == *"RenderModeE2ETests"*"PreHydrationControlsE2ETests"* ]] || exit 3
   [[ "${E2E_CLEANUP_CONNECTION_STRING:-}" == *"Host=127.0.0.1;Port=34567;"* ]] || exit 4
   results_dir=""
@@ -144,18 +210,26 @@ chmod +x "$TMP_ROOT/bin/"*
 run_case() {
   local expected="$1" status=0
   mkdir -p "$TMP_ROOT/runner-temp"
-  RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  if [[ "${REMOVE_CALLER_DIRECTORY:-0}" == 1 ]]; then
+    mkdir -p "$TMP_ROOT/caller"
+    (cd "$TMP_ROOT/caller" && SMOKE_REMOVE_CALLER="$TMP_ROOT/caller" RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT") > "$TMP_ROOT/output" 2>&1 || status=$?
+  else
+    RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  fi
   [[ "$status" == "$expected" ]] || { cat "$TMP_ROOT/output" >&2; echo "expected $expected, got $status" >&2; exit 1; }
   [[ -z "$(find "$SMOKE_STATE" -type f -print)" ]] || { echo "owned resources leaked" >&2; exit 1; }
 }
 run_case 0
 FRONTEND_PROFILE=React run_case 0
+FRONTEND_PROFILE=React REMOVE_CALLER_DIRECTORY=1 run_case 0
 FRONTEND_PROFILE=React FRONTEND_ACCEPTANCE_PROFILE=BlazorAutoV1 run_case 2
 FAIL_IMAGE_LABEL=1 run_case 1
 FAIL_ACCEPTANCE_LABEL=1 run_case 1
 FAIL_REDIS=1 run_case 17
 FAIL_API=1 run_case 1
 FAIL_BROWSER=19 run_case 19
+FRONTEND_PROFILE=React FAIL_REACT_DISABLED_BROWSER=20 run_case 20
+FRONTEND_PROFILE=React FAIL_REACT_ENABLED_BROWSER=21 run_case 21
 FAIL_HTTP_ACCEPTANCE=23 run_case 23
 env -u GITHUB_RUN_ID -u GITHUB_RUN_ATTEMPT bash "$SCRIPT" > "$TMP_ROOT/local-one"
 env -u GITHUB_RUN_ID -u GITHUB_RUN_ATTEMPT bash "$SCRIPT" > "$TMP_ROOT/local-two"
@@ -184,6 +258,18 @@ for args in calls:
             assert "Redis__Configuration=ci-redis:6379,abortConnect=false" in args
             assert "RateLimiting__Api__PermitLimit=1000" in args
             assert "LocalAccounts__Enabled=false" in args
+            if "web-enabled" in name:
+                assert "Accounts__Enabled=true" in args
+                assert "Accounts__RegistrationEnabled=true" in args
+                assert "Accounts__Email__Security=StartTls" in args
+                assert "ASPNETCORE_URLS=http://+:8080;https://+:8443" in args
+                assert any(value.endswith(":8443") for value in args if value.startswith("127.0.0.1:"))
+                assert any(value.endswith(":ro") for value in args if "/run/react-auth-fixture" in value)
+        elif "smtp" in name:
+            assert "node:24.21.0-bookworm-slim" in args
+            assert "--read-only" in args
+            assert args[args.index("--network-alias") + 1] == "ci-smtp"
+            assert not any(value in ("-p", "--publish") for value in args)
         else:
             assert not any(value.startswith("RateLimiting__") for value in args)
         assert "localcluster.ci.repository=example/repo" in args
@@ -205,7 +291,7 @@ import json, os
 from pathlib import Path
 root = Path(os.environ['SMOKE_STATE'])
 labels = {'localcluster.ci.repository': 'example/repo', 'localcluster.ci.owner': 'ci-smoke', 'localcluster.ci.run_id': '123', 'localcluster.ci.run_attempt': '2'}
-for name in ('sample-ci-postgres-123-2', 'sample-ci-redis-123-2', 'sample-ci-123-2'):
+for name in ('sample-ci-postgres-123-2', 'sample-ci-redis-123-2', 'sample-ci-web-enabled-123-2', 'sample-ci-smtp-123-2', 'sample-ci-123-2'):
     (root / name).write_text(json.dumps(labels))
 (root / 'sample-ci-postgres-456-1').write_text(json.dumps({**labels, 'localcluster.ci.run_id': '456', 'localcluster.ci.run_attempt': '1'}))
 PY

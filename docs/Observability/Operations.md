@@ -46,7 +46,7 @@ pwsh -File .\docker\observability\smoke-local-observability.ps1
 
 After changing shared assets, validate the configuration. Run the resource-limit check when Compose limits change. With the local stack running, use the smoke and cardinality checks; after changing Alertmanager routing, run the safe route test:
 
-```bash
+.```powershell
 bash ./Deployment/Common/observability/scripts/validate-observability.sh
 bash ./Deployment/Common/observability/scripts/check-compose-resource-limits.sh
 bash ./Deployment/Common/observability/scripts/smoke-observability.sh
@@ -74,8 +74,8 @@ Cloud metrics, logs, and traces are disposable and are destroyed with the Cloud 
 
 To suspend only local telemetry containers while leaving the app and data services running, stop the profile services from the repository root:
 
-```bash
-docker compose --profile observability stop postgres-exporter redis-exporter prometheus alertmanager loki tempo alloy grafana
+```powershell
+.\Scripts\RunLocal.ps1 -StopObservability
 ```
 
 This preserves volumes. The app may still attempt telemetry export, but export failure must not block requests. To resume the local telemetry profile, use `RunLocal.ps1 -Observability`.

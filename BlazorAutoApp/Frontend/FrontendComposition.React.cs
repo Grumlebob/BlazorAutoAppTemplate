@@ -1,4 +1,5 @@
 using BlazorAutoApp.Features.Login;
+using BlazorAutoApp.Features.Login.Accounts.Email;
 
 namespace BlazorAutoApp.Frontend;
 
@@ -7,6 +8,7 @@ internal static class FrontendComposition
     public static void AddFrontendServices(IServiceCollection services, IConfiguration configuration)
     {
         ReactFrontendHosting.AddResponseCompression(services);
+        services.AddSingleton<IAccountMailFrontend>(AccountMailFrontend.React);
         services.AddScoped<ICurrentUserAccessor, HttpPrincipalCurrentUserAccessor>();
         services.AddSingleton<ReactFrontendStaticRoot>();
     }

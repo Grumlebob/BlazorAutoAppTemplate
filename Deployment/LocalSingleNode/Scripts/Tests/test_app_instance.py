@@ -87,6 +87,16 @@ class AppInstanceTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             self.assertEqual(stat.S_IMODE(Path(values["INSTANCE_EXTRA_VARS_FILE"]).stat().st_mode), 0o600)
 
+    def test_legacy_additional_settings_default_account_features_off(self):
+        legacy_candidate = {key: value for key, value in self.candidate.items()
+                            if key not in instance.ACCOUNT_SETTING_DEFAULTS}
+        self.config["settings"] = legacy_candidate
+        candidate, _, _ = self.validate()
+        self.assertFalse(candidate["accounts_enabled"])
+        self.assertFalse(candidate["accounts_registration_enabled"])
+        self.assertFalse(candidate["accounts_admin_seed_enabled"])
+        self.assertEqual("", candidate["accounts_public_origin"])
+
     def test_unknown_and_missing_instances_fail(self):
         for selected, payload in (("unknown", "{}"), ("../additional", "{}"), ("additional", ""), ("additional", "{}")):
             with self.subTest(selected=selected), self.assertRaises(ValueError):

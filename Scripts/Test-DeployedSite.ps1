@@ -164,7 +164,67 @@ function Invoke-CommonAcceptance($Anonymous, [string]$FrontendProfile) {
     }
 }
 
-function Invoke-ReactPublicAcceptance($Anonymous, $Uri) {
+function Get-ReactCapability($Session, $Uri) {
+    $script:checkName = 'React-client-config'
+    $response = Request -Path '/api/client-config' -Session $Session -FollowRedirects $false
+    $contentType = [string]$response.Headers['Content-Type']
+    $cacheControl = [string]$response.Headers['Cache-Control']
+    $setCookie = [string]$response.Headers['Set-Cookie']
+    $cookies = @($Session.Cookies.GetCookies($Uri)).Count
+    $payload = $null
+    if ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json') {
+        try { $payload = $response.Content | ConvertFrom-Json } catch { $payload = $null }
+    }
+
+    $hasShape = $false
+    if ($null -ne $payload) {
+        $properties = @($payload.PSObject.Properties.Name)
+        $schemaVersion = $payload.schemaVersion
+        $schemaVersionValid = ($schemaVersion -is [int] -or $schemaVersion -is [long]) -and $schemaVersion -eq 1
+        $hasShape = ($properties -contains 'schemaVersion') -and $schemaVersionValid -and
+            ($properties -contains 'accountsEnabled') -and ($payload.accountsEnabled -is [bool]) -and
+            ($properties -contains 'applicationId') -and ([string]$payload.applicationId -match '\A[0-9a-fA-F]{32}\z')
+    }
+    $noStore = $cacheControl -match '(^|,)\s*no-store(\s|,|$)'
+    $credentialFree = [string]::IsNullOrWhiteSpace($setCookie) -and $cookies -eq 0
+    if ([int]$response.StatusCode -ne 200 -or -not $hasShape -or -not $noStore -or -not $credentialFree) {
+        throw 'React client capability document is missing or invalid'
+    }
+
+    return [pscustomobject]@{ AccountsEnabled = [bool]$payload.accountsEnabled }
+}
+
+function Invoke-ReactAccountSessionAcceptance($Uri) {
+    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $script:checkName = 'React-enabled-session'
+    $response = Request -Path '/api/auth/session' -Session $session -FollowRedirects $false
+    $contentType = [string]$response.Headers['Content-Type']
+    $cacheControl = [string]$response.Headers['Cache-Control']
+    $setCookie = [string]$response.Headers['Set-Cookie']
+    $payload = $null
+    if ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json') {
+        try { $payload = $response.Content | ConvertFrom-Json } catch { $payload = $null }
+    }
+
+    $hasShape = $false
+    if ($null -ne $payload) {
+        $properties = @($payload.PSObject.Properties.Name)
+        $csrfToken = $payload.csrfToken
+        $hasShape = ($properties -contains 'enabled') -and ($payload.enabled -is [bool]) -and $payload.enabled -and
+            ($properties -contains 'registrationEnabled') -and ($payload.registrationEnabled -is [bool]) -and
+            ($properties -contains 'emailEnabled') -and ($payload.emailEnabled -is [bool]) -and
+            ($properties -contains 'csrfToken') -and ($csrfToken -is [string]) -and -not [string]::IsNullOrWhiteSpace($csrfToken) -and
+            ($properties -contains 'user') -and ($null -eq $payload.user)
+    }
+    $privateNoStore = $cacheControl -match 'private' -and $cacheControl -match 'no-store'
+    $hasAntiforgeryCookie = $setCookie -match '__Host-CSRF-[0-9a-fA-F]{32}='
+    $hasAuthenticationCookie = $setCookie -match '__Host-Accounts-[0-9a-fA-F]{32}='
+    Write-Check 'React-enabled-session' ([int]$response.StatusCode -eq 200 -and $contentType -match 'application/json' -and $hasShape) 'Enabled anonymous session returns capability flags, a CSRF token and no user'
+    Write-Check 'React-enabled-session-cache' $privateNoStore 'Account session is private and no-store'
+    Write-Check 'React-enabled-session-cookie' ($hasAntiforgeryCookie -and -not $hasAuthenticationCookie) 'Session sets its antiforgery cookie without an authentication cookie'
+}
+
+function Invoke-ReactPublicAcceptance($Anonymous, $Uri, [bool]$AccountsEnabled) {
     $script:checkName = 'React-shell'
     $homeResponse = Request -Path '/' -Session $Anonymous -Headers @{ Accept = 'text/html' }
     $hasModule = $homeResponse.Content -match '<script\b[^>]*type=["'']module["'']'
@@ -223,11 +283,30 @@ function Invoke-ReactPublicAcceptance($Anonymous, $Uri) {
     }
     Write-Check 'React-public-data' ([int]$publicData.StatusCode -eq 200 -and $isJson -and $hasBooks) 'Public author-book API returns JSON sample data'
 
-    foreach ($path in @('/Account', '/Account/Login', '/Account/Register', '/api/auth', '/api/auth/login', '/signin-google', '/signin-oidc', '/oauth/callback', '/_framework/missing', '/_content/missing')) {
+    if ($AccountsEnabled) {
+        $script:checkName = 'React-enabled-post-only'
+        $loginGet = Request -Path '/api/auth/login' -Session $Anonymous -FollowRedirects $false
+        $getAllowsPost = ([string]$loginGet.Headers['Allow']).Trim() -eq 'POST'
+        Write-Check 'React-enabled-post-only-GET' ([int]$loginGet.StatusCode -eq 405 -and $getAllowsPost) 'Known login route rejects GET with Allow: POST'
+
+        $loginHead = Request -Path '/api/auth/login' -Session $Anonymous -FollowRedirects $false -RequestMethod 'HEAD'
+        $headAllowsPost = ([string]$loginHead.Headers['Allow']).Trim() -eq 'POST'
+        Write-Check 'React-enabled-post-only-HEAD' ([int]$loginHead.StatusCode -eq 405 -and $headAllowsPost) 'Known login route rejects HEAD with Allow: POST'
+
+        $unknown = Request -Path '/api/auth/not-a-real-operation' -Session $Anonymous -FollowRedirects $false
+        $unknownNotShell = $unknown.Content -notmatch '<html|<script\b[^>]*type=["'']module["'']'
+        Write-Check 'React-enabled-unknown-api' ([int]$unknown.StatusCode -eq 404 -and $unknownNotShell) 'Unknown account operation remains a real 404'
+        $inactivePaths = @('/Account', '/Account/Login', '/Account/Register', '/api/auth', '/signin-google', '/signin-oidc', '/oauth/callback', '/_framework/missing', '/_content/missing', '/assets/missing.js')
+    } else {
+        $inactivePaths = @('/Account', '/Account/Login', '/Account/Register', '/api/auth', '/api/auth/session', '/api/auth/login', '/signin-google', '/signin-oidc', '/oauth/callback', '/_framework/missing', '/_content/missing', '/assets/missing.js')
+    }
+
+    foreach ($path in $inactivePaths) {
         $script:checkName = 'React-inactive-route'
         $inactive = Request -Path $path -Session $Anonymous -FollowRedirects $false -Headers @{ Accept = 'text/html' }
         $notShell = $inactive.Content -notmatch '<html|<script\b[^>]*type=["'']module["'']'
-        Write-Check ('React-inactive-route-' + $path) ([int]$inactive.StatusCode -eq 404 -and $notShell) 'Inactive route returns a real 404'
+        $description = if ($AccountsEnabled) { 'React-only or missing path returns a real 404' } else { 'Disabled or missing path returns a real 404' }
+        Write-Check ('React-inactive-route-' + $path) ([int]$inactive.StatusCode -eq 404 -and $notShell) $description
     }
 
     $cookieCount = @($Anonymous.Cookies.GetCookies($Uri)).Count
@@ -322,11 +401,20 @@ try {
         Write-Check 'TCP' $tcp.Connected 'HTTP port accepts connections'
     } finally { $tcp.Dispose() }
 
-    $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    Invoke-CommonAcceptance $anonymous $FrontendProfile
     if ($FrontendProfile -eq 'React') {
-        Invoke-ReactPublicAcceptance $anonymous $uri
+        # Capability is the first application request. Never infer disabled mode from a route 404.
+        $capabilitySession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $capability = Get-ReactCapability $capabilitySession $uri
+        Write-Check 'React-client-config' $true 'Capability is explicit, versioned, no-store and cookie-free'
+        $accountsEnabled = [bool]$capability.AccountsEnabled
+        if ($accountsEnabled) { Invoke-ReactAccountSessionAcceptance $uri }
+
+        $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        Invoke-CommonAcceptance $anonymous $FrontendProfile
+        Invoke-ReactPublicAcceptance $anonymous $uri $accountsEnabled
     } else {
+        $anonymous = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        Invoke-CommonAcceptance $anonymous $FrontendProfile
         Invoke-BlazorAccountAcceptance $uri
     }
 } catch {
@@ -336,7 +424,8 @@ try {
         'FrontendProfile and AcceptanceProfile do not match',
         'Provide -Node, -Address or -BaseUrl',
         'BaseUrl must be an HTTP or HTTPS origin without credentials, a path, query or fragment',
-        'Antiforgery input missing from account form'
+        'Antiforgery input missing from account form',
+        'React client capability document is missing or invalid'
     )) {
         $reason = $_.Exception.Message
     }

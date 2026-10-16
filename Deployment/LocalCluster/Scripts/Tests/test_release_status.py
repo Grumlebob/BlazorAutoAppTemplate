@@ -125,4 +125,3 @@ class LocalClusterReleaseStatusTests(TestCase):
         ]):
             with self.assertRaises(status.ReleaseStatusError):
                 status.read_remote_marker("/opt/books/release.json", required=True)
-

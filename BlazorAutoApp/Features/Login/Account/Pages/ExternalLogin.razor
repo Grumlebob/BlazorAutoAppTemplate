@@ -14,6 +14,7 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ExternalLogin> Logger
+@inject AccountOptions AccountOptions
 
 <PageTitle>Register</PageTitle>
 
@@ -112,7 +113,7 @@
             externalLoginInfo.LoginProvider,
             externalLoginInfo.ProviderKey,
             isPersistent: false,
-            bypassTwoFactor: true);
+            bypassTwoFactor: !AccountOptions.Enabled);
 
         if (result.Succeeded)
         {
@@ -123,9 +124,20 @@
             RedirectManager.RedirectTo(ReturnUrl);
             return;
         }
+        else if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo("Account/LoginWith2fa", new() { ["returnUrl"] = ReturnUrl });
+            return;
+        }
         else if (result.IsLockedOut)
         {
             RedirectManager.RedirectTo("Account/Lockout");
+            return;
+        }
+
+        if (AccountOptions.Enabled)
+        {
+            RedirectToEmailRegistration();
             return;
         }
 
@@ -138,6 +150,11 @@
 
     private async Task OnValidSubmitAsync()
     {
+        if (AccountOptions.Enabled)
+        {
+            RedirectToEmailRegistration();
+            return;
+        }
         if (externalLoginInfo is null)
         {
             RedirectManager.RedirectToWithStatus("Account/Login", "Error loading external login information during confirmation.", HttpContext);
@@ -181,9 +198,16 @@
         }
         else
         {
-            message = $"Error: {string.Join(",", result.Errors.Select(error => error.Description))}";
+            message = "Unable to finish external sign-in. Try again or use another sign-in method.";
         }
     }
+
+    private void RedirectToEmailRegistration() => RedirectManager.RedirectToWithStatus(
+        AccountOptions.RegistrationEnabled ? "Account/Register" : "Account/Login",
+        AccountOptions.RegistrationEnabled
+            ? "Create and confirm an email account, then sign in to link the external provider."
+            : "Sign in to an existing account before linking an external provider.",
+        HttpContext);
 
     private ApplicationUser CreateUser()
     {

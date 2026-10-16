@@ -83,6 +83,10 @@
         content: |
           vault_postgres_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
           vault_redis_password: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=48') }}
+          vault_accounts_admin_seed_password: ''
+          vault_accounts_email_username: ''
+          vault_accounts_email_password: ''
+          vault_data_protection_certificate_password: {{ lookup('password', '/dev/null chars=hexdigits length=64') }}
         force: false
         owner: deploy
         group: deploy
@@ -94,6 +98,21 @@
         owner: deploy
         group: deploy
         mode: "0600"
+    - name: Read existing app secrets before generating a Data Protection passphrase
+      ansible.builtin.include_vars:
+        file: "/etc/{{ app_name }}/secrets.yml"
+        name: runtime_app_secrets
+      no_log: true
+    - name: Add one protected Data Protection passphrase only when missing
+      ansible.builtin.lineinfile:
+        path: "/etc/{{ app_name }}/secrets.yml"
+        regexp: '^vault_data_protection_certificate_password:'
+        line: "vault_data_protection_certificate_password: {{ lookup('password', '/dev/null chars=hexdigits length=64') }}"
+        owner: deploy
+        group: deploy
+        mode: "0600"
+      no_log: true
+      when: runtime_app_secrets.vault_data_protection_certificate_password | default('') | length == 0
     - name: Add only the additional LAN HTTP firewall allowance
       ansible.builtin.command: "ufw allow from {{ lan_cidr }} to any port {{ lan_http_port }} proto tcp"
       changed_when: false

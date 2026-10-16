@@ -42,4 +42,21 @@ for profile in BlazorAuto React; do
   python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
     "$profile_results/suite.trx" \
     --suite "$profile solution tests"
+
+  # The full suite allows the repository's explicitly opt-in browser skips.
+  # Run shared account integration tests separately and require every selected
+  # test to execute, so an account test cannot silently become opt-in/skipped.
+  account_results="$profile_results/accounts"
+  account_filter='FullyQualifiedName~Features.Login.Accounts'
+  if [[ "$profile" == "React" ]]; then
+    account_filter+='&FrontendProfile!=BlazorAuto'
+  fi
+  mkdir -p "$account_results"
+  dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
+    --configuration Release --no-build --no-restore "-p:FrontendProfile=$profile" \
+    --filter "$account_filter" \
+    --logger 'trx;LogFileName=accounts.trx' --results-directory "$account_results"
+  python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
+    "$account_results/accounts.trx" \
+    --expected-skipped 0 --suite "$profile account integration tests"
 done

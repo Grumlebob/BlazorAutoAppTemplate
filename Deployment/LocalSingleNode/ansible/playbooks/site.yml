@@ -19,6 +19,7 @@
           - public_enabled | default(false) | bool or not existing_public.stat.exists
         fail_msg: "Public configuration is missing for an already-published app. Restore its variables and secret or follow the explicit removal procedure."
   roles:
+    - single_node_backup
     - single_node_stack
   tasks:
     - name: Deploy the optional public connector

@@ -1,8 +1,20 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
+import { buildApiEnvironment, parseApiEnvironment } from "./dev-api-env.mjs";
+
+// Keep credentials in the API process only. Vite must not receive this file.
+let localEnvironment = {};
+try {
+  localEnvironment = parseApiEnvironment(await readFile(new URL("../../.env", import.meta.url), "utf8"));
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+// Root .env contributes only Accounts settings; process variables retain precedence.
+const apiEnvironment = buildApiEnvironment(localEnvironment, process.env);
 
 const projectPath = fileURLToPath(new URL("../../BlazorAutoApp/BlazorAutoApp.csproj", import.meta.url));
-const apiOrigin = new URL(process.env.REACT_API_ORIGIN ?? "https://localhost:7186").origin;
+const apiOrigin = new URL(apiEnvironment.REACT_API_ORIGIN ?? "https://localhost:7186").origin;
 const child = spawn(
   "dotnet",
   [
@@ -17,9 +29,9 @@ const child = spawn(
   ],
   {
     env: {
-      ...process.env,
-      ASPNETCORE_ENVIRONMENT: process.env.ASPNETCORE_ENVIRONMENT ?? "Development",
-      Database__RunMigrationsAtStartup: process.env.Database__RunMigrationsAtStartup ?? "true",
+      ...apiEnvironment,
+      ASPNETCORE_ENVIRONMENT: apiEnvironment.ASPNETCORE_ENVIRONMENT ?? "Development",
+      Database__RunMigrationsAtStartup: apiEnvironment.Database__RunMigrationsAtStartup ?? "true",
     },
     stdio: "inherit",
     windowsHide: true,

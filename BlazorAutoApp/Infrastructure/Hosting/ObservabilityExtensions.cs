@@ -83,7 +83,9 @@ internal static class ObservabilityExtensions
                 .AddSource(BooksTelemetry.ActivitySourceName)
                 .AddAspNetCoreInstrumentation(instrumentation =>
                 {
-                    instrumentation.Filter = context => !IsLowValueRequestPath(context.Request.Path);
+                    instrumentation.Filter = context =>
+                        !IsLowValueRequestPath(context.Request.Path)
+                        && !IsSensitiveAccountProofPath(context.Request.Path);
                     instrumentation.RecordException = true;
                 })
                 .AddHttpClientInstrumentation(instrumentation =>
@@ -166,6 +168,11 @@ internal static class ObservabilityExtensions
             value.EndsWith(".woff", StringComparison.OrdinalIgnoreCase) ||
             value.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase);
     }
+
+    internal static bool IsSensitiveAccountProofPath(PathString path) =>
+        path.StartsWithSegments("/Account/ConfirmEmail", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/Account/ConfirmEmailChange", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/Account/ResetPassword", StringComparison.OrdinalIgnoreCase);
 
     private static void ConfigureOtlpExporter(
         OtlpExporterOptions exporter,

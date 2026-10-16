@@ -1,6 +1,6 @@
 # BlazorAutoApp
 
-BlazorAutoApp is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional public-only React SPA. Both use the same ASP.NET Core backend. PostgreSQL stores app data; Redis supports distributed caching and Data Protection.
+BlazorAutoApp is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional React SPA with public catalog pages and an account feature that is disabled by default. Both use the same ASP.NET Core backend. PostgreSQL stores app data; Redis supports distributed caching and Data Protection.
 
 Run the local Docker stack:
 
@@ -16,6 +16,7 @@ Run the local Docker stack:
 | Run the app or change local settings | [Run locally](docs/HowToRunLocally.md) |
 | Add a Blazor feature | [Feature guide](docs/HowToAddANewFeature.md) |
 | Add a React public feature | [React feature guide](docs/Frontend/React.md#change-a-typed-public-feature) |
+| Configure React accounts | [Accounts runbook](docs/Accounts.md) |
 | Select a frontend profile | [Frontend profiles](docs/FrontendProfiles.md) |
 | Run and verify checks | [Tests](docs/Test.md) |
 | Prepare a fork or a standalone product | [Fork guide](docs/HowToForkThisRepo.md), [standalone product](docs/StandaloneProduct.md) |

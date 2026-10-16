@@ -34,3 +34,15 @@ observability_prometheus_retention_time: 7d
 observability_prometheus_retention_size: 4GB
 observability_loki_retention_period: 3d
 observability_tempo_retention_period: 24h
+
+accounts_enabled: false
+accounts_registration_enabled: false
+accounts_admin_seed_enabled: false
+accounts_admin_seed_email: ""
+accounts_public_origin: ""
+accounts_email_host: ""
+accounts_email_port: 587
+accounts_email_security: StartTls
+accounts_email_from: ""
+data_protection_legacy_key_store: None
+data_protection_legacy_redis_key: ""

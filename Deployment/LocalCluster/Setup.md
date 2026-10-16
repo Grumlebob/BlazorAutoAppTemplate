@@ -184,7 +184,7 @@ bash ./Deployment/LocalCluster/Scripts/setup-secrets.sh
 bash ./Deployment/LocalCluster/Scripts/check-vault.sh
 ```
 
-Enter requested vault values and save the vault password in a password manager. The script can set GitHub secret ANSIBLE_VAULT_PASSWORD when GitHub CLI is authenticated. If it cannot, add that secret through GitHub repository settings. Commit only encrypted Deployment/LocalCluster/inventory/prod/vault.yml; never commit plaintext secrets.
+Enter requested vault values and save the vault password in a password manager. The script creates one encrypted per-app Data Protection certificate and passphrase when either is absent; it preserves a complete existing pair. Do not rotate this pair during routine deployments. The certificate lets app replicas unwrap keys stored in PostgreSQL, so database recovery also needs this vault. The script can set GitHub secret ANSIBLE_VAULT_PASSWORD when GitHub CLI is authenticated. If it cannot, add that secret through GitHub repository settings. Commit only encrypted Deployment/LocalCluster/inventory/prod/vault.yml; never commit plaintext secrets.
 
 **Checkpoint:** check-vault.sh reports that the encrypted vault decrypts and contains required non-placeholder keys.
 

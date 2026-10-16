@@ -6,6 +6,7 @@ param(
   [switch]$FollowLogs,
   [switch]$StatusOnly,
   [switch]$Observability,
+  [switch]$StopObservability,
   [switch]$StopStack,
   [switch]$SkipDockerCleanup,
   [int]$TimeoutSeconds = 180
@@ -95,7 +96,7 @@ function Get-ListeningProcessIds {
 function Get-ComposeServiceState {
   param([string]$Service)
 
-  $output = docker compose ps -a --format json $Service 2>$null
+  $output = docker compose --env-file $script:composeEnvFile ps -a --format json $Service 2>$null
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($output)) {
     return $null
   }
@@ -116,7 +117,7 @@ function Get-ComposeServiceState {
 function Get-WebLogs {
   param([string]$Since)
 
-  $logArgs = @('compose', 'logs', 'web', '--tail=160')
+  $logArgs = @('compose', '--env-file', $script:composeEnvFile, 'logs', 'web', '--tail=160')
   if (-not [string]::IsNullOrWhiteSpace($Since)) {
     $logArgs += @('--since', $Since)
   }
@@ -131,6 +132,28 @@ function Write-StartupFailureHelp {
     Write-Host ""
     Write-Warning "The local Docker PostgreSQL volume contains an older schema. This repo now has a fresh initial migration, so the old local database must be reset."
     Write-Host "Run: .\Scripts\RunLocal.ps1 -ResetDatabase"
+  }
+}
+
+$composeEnvNames = @(
+  'COMPOSE_PROJECT_NAME', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'POSTGRES_HOST_PORT',
+  'FRONTEND_DOCKER_TARGET', 'FRONTEND_PROFILE_OVERRIDE', 'APP_NODE_NAME', 'APP_VERSION',
+  'RateLimiting__Global__PermitLimit', 'RateLimiting__Api__PermitLimit', 'RateLimiting__Authentication__PermitLimit',
+  'OBSERVABILITY_ENABLED', 'OBSERVABILITY_OTLP_ENDPOINT', 'OBSERVABILITY_OTLP_PROTOCOL',
+  'OBSERVABILITY_TRACE_SAMPLE_RATIO', 'OBSERVABILITY_DEPLOYMENT_TARGET',
+  'APP_HTTPS_HOST_PORT', 'REDIS_HOST_PORT', 'REDIS_INSIGHT_HOST_PORT',
+  'GRAFANA_HOST_PORT', 'ALERTMANAGER_HOST_PORT', 'PROMETHEUS_HOST_PORT', 'LOKI_HOST_PORT',
+  'TEMPO_HOST_PORT', 'ALLOY_HOST_PORT', 'POSTGRES_EXPORTER_HOST_PORT', 'REDIS_EXPORTER_HOST_PORT'
+)
+$script:composeEnvFile = [IO.Path]::GetTempFileName()
+$script:composeEnvironmentBackup = @{}
+$envValues = Read-DotEnv -Path $envPath
+foreach ($name in $composeEnvNames) {
+  $exists = Test-Path -LiteralPath "Env:$name"
+  $oldValue = [Environment]::GetEnvironmentVariable($name, 'Process')
+  $script:composeEnvironmentBackup[$name] = if ($exists) { $oldValue } else { $null }
+  if (-not $exists -and $envValues.ContainsKey($name)) {
+    [Environment]::SetEnvironmentVariable($name, $envValues[$name], 'Process')
   }
 }
 
@@ -149,15 +172,28 @@ try {
     return
   }
 
+  if ($StopObservability -and $StopStack) {
+    throw "Use only one of -StopObservability and -StopStack."
+  }
+
   Wait-Docker
+
+  if ($StopObservability) {
+    docker compose --env-file $script:composeEnvFile --profile observability stop postgres-exporter redis-exporter prometheus alertmanager loki tempo alloy grafana
+    if ($LASTEXITCODE -ne 0) {
+      throw "Docker Compose failed to stop local observability services."
+    }
+    Write-Host "Local observability services stopped."
+    return
+  }
 
   if ($StopStack) {
     if ($ResetDatabase) {
       Write-Warning "-ResetDatabase with -StopStack deletes the local database and service volumes."
-      docker compose down --volumes --remove-orphans
+      docker compose --env-file $script:composeEnvFile down --volumes --remove-orphans
     }
     else {
-      docker compose down --remove-orphans
+      docker compose --env-file $script:composeEnvFile down --remove-orphans
     }
     if ($LASTEXITCODE -ne 0) {
       throw "docker compose down failed."
@@ -175,6 +211,13 @@ try {
 
   if ($LASTEXITCODE -ne 0) {
     throw "Local setup failed."
+  }
+
+  $envValues = Read-DotEnv -Path $envPath
+  foreach ($name in $composeEnvNames) {
+    if ($null -eq $script:composeEnvironmentBackup[$name] -and $name -notin @('FRONTEND_DOCKER_TARGET', 'FRONTEND_PROFILE_OVERRIDE') -and $envValues.ContainsKey($name)) {
+      [Environment]::SetEnvironmentVariable($name, $envValues[$name], 'Process')
+    }
   }
 
   $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
@@ -200,7 +243,6 @@ try {
   $env:FRONTEND_DOCKER_TARGET = $frontendDockerTarget
   Write-Host "Building the persisted frontend profile: $frontendProfile ($frontendDockerTarget)"
 
-  $envValues = Read-DotEnv -Path $envPath
   $appUrl = $envValues['App__Url']
   if ([string]::IsNullOrWhiteSpace($appUrl)) {
     $appPort = $envValues['APP_HTTPS_HOST_PORT']
@@ -223,7 +265,7 @@ try {
 
   if ($ResetDatabase) {
     Write-Host "Resetting local Docker database and service volumes..."
-    docker compose down --volumes --remove-orphans
+    docker compose --env-file $script:composeEnvFile down --volumes --remove-orphans
   }
 
   if ($Observability) {
@@ -234,7 +276,7 @@ try {
     $env:OBSERVABILITY_DEPLOYMENT_TARGET = 'local'
   }
 
-  $composeArgs = @('compose')
+  $composeArgs = @('compose', '--env-file', $script:composeEnvFile)
   if ($Observability) {
     $composeArgs += @('--profile', 'observability')
   }
@@ -342,7 +384,7 @@ try {
   }
 
   if ($FollowLogs) {
-    docker compose logs -f web
+    docker compose --env-file $script:composeEnvFile logs -f web
   }
 }
 finally {
@@ -363,5 +405,15 @@ finally {
   else {
     Remove-Item Env:FRONTEND_DOCKER_TARGET -ErrorAction SilentlyContinue
   }
+  foreach ($name in $script:composeEnvironmentBackup.Keys) {
+    $value = $script:composeEnvironmentBackup[$name]
+    if ($null -eq $value) {
+      Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+    }
+    else {
+      [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+    }
+  }
+  Remove-Item -LiteralPath $script:composeEnvFile -ErrorAction SilentlyContinue
   Pop-Location
 }
