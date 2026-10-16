@@ -208,6 +208,7 @@ class PinLegacyReleaseTests(TestCase):
         self.assertNotIn("packages:", workflow)
         self.assertIn("with-deploy-lock.sh", workflow)
         self.assertIn("pin-legacy-release.py", workflow)
+        self.assertIn('result="$(printf \'%s\\n\' "$locked_output" | tail -n 1)"', workflow)
         self.assertIn("Offline restore:", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
 
