@@ -18,7 +18,7 @@ bash ./Deployment/LocalSingleNode/Scripts/acceptance-check.sh
 
 For an app rollback before a migration, dispatch the prior verified `main` SHA with `run_migrations=false`; that SHA still needs its successful publishing run. After a migration, prefer a forward fix. Restoring an older backup loses later writes, and rolling back the app image does not roll back database changes. See [the release contract](../Common/ReleaseContract.md).
 
-To add a local recovery pin for a release that still uses an Actions artifact, dispatch **Pin LocalSingleNode legacy release** from `main`. Choose the app instance and `current` or `recovery` slot. The workflow checks the accepted marker's exact CI run and attempt, verifies the artifact archive digest, and stores the payload under the shared deployment lock. It leaves release markers and Actions artifacts unchanged; a missing or ambiguous artifact fails closed.
+To add a local recovery pin for a release that still uses an Actions artifact, dispatch **Pin LocalSingleNode legacy release** from `main`. Choose the app instance and `current` or `recovery` slot. The workflow checks the accepted marker's exact CI run and attempt, verifies the artifact archive digest, and stores the payload under the shared deployment lock. It then restores the local pin in temporary storage with GitHub artifact credentials removed and checks the restored payload hashes. It leaves release markers and Actions artifacts unchanged; a missing or ambiguous artifact fails closed.
 
 ## Diagnose a running node
 

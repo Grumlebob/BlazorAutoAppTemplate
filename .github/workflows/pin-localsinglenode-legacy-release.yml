@@ -117,6 +117,7 @@ jobs:
           print(f"Outcome: `{value['outcome']}`")
           print(f"Pin: `{value['pin_key']}`")
           print(f"CI: `{value['run_id']}` attempt `{value['run_attempt']}`")
+          print(f"Offline restore: `{value['offline_restore']}` with GitHub artifact credentials removed.")
           if "artifact_id" in value:
               print(f"Artifact: `{value['artifact_id']}` `{value['artifact_digest']}`")
           else:
