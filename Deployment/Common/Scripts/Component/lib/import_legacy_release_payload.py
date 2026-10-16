@@ -343,8 +343,10 @@ def import_legacy_artifact(
     bundle_name: str | None,
     expected_image_digest: str | None = None,
 ) -> dict[str, Any]:
-    if selection.get("outcome") != "legacy_artifact" or not isinstance(selection.get("selected"), dict):
-        raise ImportError("CI selection is not an exact legacy release")
+    if (not isinstance(selection, dict)
+            or selection.get("outcome") not in {"legacy_artifact", "success"}
+            or not isinstance(selection.get("selected"), dict)):
+        raise ImportError("CI selection is not an exact successful run with an Actions artifact")
     if not OWNER_REPO.fullmatch(repository) or not token.strip():
         raise ImportError("GitHub repository or token is unavailable")
     selected_raw = selection["selected"]

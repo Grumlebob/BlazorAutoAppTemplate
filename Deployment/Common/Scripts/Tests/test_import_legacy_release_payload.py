@@ -113,12 +113,13 @@ class ArtifactImportTests(unittest.TestCase):
             destination.write_bytes(data)
             return "sha256:" + hashlib.sha256(data).hexdigest()
 
+        selection = {**self.selection, "outcome": "success"}
         with patch.object(MODULE, "_github_json", side_effect=lambda path, token: self._github_response(path)), \
                 patch.object(MODULE, "_artifact_download_url", side_effect=lambda api, repo, aid, token: aid), \
                 patch.object(MODULE, "_download_archive", side_effect=download), \
                 patch.object(pin_release_payload, "_require_shared_lock", return_value=(self.root / "lock", "token")):
             pinned = MODULE.import_legacy_artifact(
-                self.selection,
+                selection,
                 self.root / "pins",
                 repository=self.repository,
                 repository_url=self.repository_url,

@@ -276,6 +276,8 @@ for needle, why in [
     ("pin_release_payload.restore(", "recovery is restored from the owned local pin"),
     ("sha256_file(restored_file) != digest", "restored recovery payload checksums are verified"),
     ('"offline_restore": "verified"', "workflow reports the offline restore result"),
+    ('selection.get("outcome") not in {"legacy_artifact", "success"}', "exact successful receipts do not hide still-retained legacy artifacts"),
+    ('"app_image_digest": summary["digest"]', "any successful receipt is bound to the accepted legacy image digest"),
 ]:
     if needle not in legacy_pin_helper:
         fail(f"Deployment/LocalSingleNode/Scripts/pin-legacy-release.py: missing {why}")
