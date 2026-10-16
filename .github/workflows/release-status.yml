@@ -81,7 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(uname -s)" = Linux
-          expected_runner="$(python3 Deployment/LocalCluster/Scripts/read-deploy-setting.py runner_name)"
+          expected_runner="$(python3 Deployment/LocalCluster/Scripts/Component/lib/read-deploy-setting.py runner_name)"
           test -n "$EXPECTED_RUNNER_NAME"
           test "$EXPECTED_RUNNER_NAME" = "$expected_runner"
           command -v ansible >/dev/null
