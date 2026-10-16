@@ -59,10 +59,14 @@ class LocalClusterReleaseStatusTests(TestCase):
         self.assertIn("Reason: unexpected local inspection error; details withheld", summary)
         self.assertNotIn("credential", summary)
 
-    def test_summarizes_ansible_authentication_and_connectivity_failures(self):
+    def test_summarizes_ansible_authentication_connectivity_and_host_verification_failures(self):
         failures = (
             ("Permission denied (publickey).", "SSH authentication failed while inspecting LocalCluster app servers"),
-            ("Connection timed out", "SSH connectivity or host verification failed while inspecting LocalCluster app servers"),
+            ("Connection timed out", "SSH connectivity failed while inspecting LocalCluster app servers"),
+            ("Connection refused", "SSH connectivity failed while inspecting LocalCluster app servers"),
+            ("Host key verification failed.", "SSH host verification failed while inspecting LocalCluster app servers"),
+            ("REMOTE HOST IDENTIFICATION HAS CHANGED!", "SSH host verification failed while inspecting LocalCluster app servers"),
+            ("UNREACHABLE! Remote command failed.", "Ansible could not inspect every LocalCluster app server"),
         )
         for diagnostic, expected in failures:
             with self.subTest(diagnostic=diagnostic), tempfile.TemporaryDirectory() as temp_dir:

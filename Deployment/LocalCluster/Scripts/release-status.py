@@ -49,11 +49,14 @@ def ansible_results(module: str, arguments: str, destination: Path) -> list[dict
         if "permission denied" in diagnostic or "authentication failed" in diagnostic:
             reason = "SSH authentication failed while inspecting LocalCluster app servers"
         elif any(marker in diagnostic for marker in (
-            "connection timed out", "timed out", "no route to host", "network is unreachable",
-            "connection refused", "connection reset", "host is unreachable", "unreachable!",
             "host key verification failed", "remote host identification has changed",
         )):
-            reason = "SSH connectivity or host verification failed while inspecting LocalCluster app servers"
+            reason = "SSH host verification failed while inspecting LocalCluster app servers"
+        elif any(marker in diagnostic for marker in (
+            "connection timed out", "timed out", "no route to host", "network is unreachable",
+            "connection refused", "connection reset", "host is unreachable",
+        )):
+            reason = "SSH connectivity failed while inspecting LocalCluster app servers"
         else:
             reason = "Ansible could not inspect every LocalCluster app server"
         raise ReleaseStatusError(reason)
