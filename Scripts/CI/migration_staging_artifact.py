@@ -155,9 +155,22 @@ def create_staging_artifact(
     if not runtime:
         _fail("migration runtime must not be empty")
     _require_root_directory(directory)
+    frontend_profile = env.get("RESOLVED_FRONTEND_PROFILE")
+    if frontend_profile not in {"BlazorAuto", "React"}:
+        _fail("resolved frontend profile must be BlazorAuto or React")
+
     bundle_path = directory / bundle_filename
     _require_regular_nonempty(bundle_path, "migration bundle")
 
+    build_command = [
+        "dotnet",
+        "build",
+        "BlazorAutoApp/BlazorAutoApp.csproj",
+        "--configuration",
+        "Release",
+        "--no-restore",
+        f"-p:FrontendProfile={frontend_profile}",
+    ]
     migration_command = [
         "dotnet",
         "ef",
@@ -174,6 +187,17 @@ def create_staging_artifact(
         "--configuration",
         "Release",
     ]
+    try:
+        subprocess.run(
+            build_command,
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        _fail(f"could not build migration metadata assembly: {error}")
+
     try:
         migration_output = subprocess.run(
             migration_command,
