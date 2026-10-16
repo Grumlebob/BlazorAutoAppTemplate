@@ -129,6 +129,19 @@ def write_marker(path: Path, value: dict | None) -> Path | None:
     return path
 
 
+def report_safe_failure(reason: str) -> None:
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    try:
+        with Path(summary_path).open("a", encoding="utf-8") as summary:
+            summary.write("### Release status unavailable\n\n")
+            summary.write(f"Reason: {reason}\n\nProtected state was not changed.\n")
+    except OSError:
+        # Diagnostics must never change the status command's failure behavior.
+        pass
+
+
 def snapshot() -> dict:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     if repository.casefold() != "Grumlebob/BlazorAutoAppTemplate".casefold():
@@ -199,11 +212,19 @@ def snapshot() -> dict:
 def main() -> int:
     try:
         result = snapshot()
-    except (ReleaseStatusError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+    except ReleaseStatusError as error:
+        report_safe_failure(str(error))
+        print("Release status unavailable; protected state was not changed.", file=sys.stderr)
+        return 1
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        report_safe_failure("unexpected local inspection error; details withheld")
         print("Release status unavailable; protected state was not changed.", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
-    return 0 if result["live_identity"] != "failed" else 1
+    if result["live_identity"] == "failed":
+        report_safe_failure("live LocalCluster identity check failed")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
