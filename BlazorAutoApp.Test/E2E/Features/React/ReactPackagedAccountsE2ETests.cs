@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using BlazorAutoApp.Test.E2E.Support;
+using BlazorAutoApp.Test.TestSupport.Accounts;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.Playwright;
-using MimeKit;
 using Xunit;
 
 namespace BlazorAutoApp.Test.E2E.Features.React;
@@ -323,26 +323,23 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
         {
             foreach (var path in Directory.EnumerateFiles(directory, "*.eml"))
             {
-                try
+                var message = CapturedMailReader.TryLoad(path);
+                if (message is null)
                 {
-                    using var stream = File.OpenRead(path);
-                    var message = MimeMessage.Load(stream);
-                    if (!message.To.Mailboxes.Any(mailbox => string.Equals(mailbox.Address, recipient, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        continue;
-                    }
-
-                    var text = message.TextBody ?? string.Empty;
-                    var match = Regex.Match(text, @"https://[^\s<>]+", RegexOptions.CultureInvariant);
-                    if (match.Success && Uri.TryCreate(match.Value.TrimEnd('.', ',', ')'), UriKind.Absolute, out var uri)
-                        && string.Equals(uri.AbsolutePath, requiredPath, StringComparison.Ordinal))
-                    {
-                        return uri.ToString();
-                    }
+                    continue;
                 }
-                catch (IOException)
+
+                if (!message.To.Mailboxes.Any(mailbox => string.Equals(mailbox.Address, recipient, StringComparison.OrdinalIgnoreCase)))
                 {
-                    // The SMTP fixture writes with create-new and the next poll will see the completed file.
+                    continue;
+                }
+
+                var text = message.TextBody ?? string.Empty;
+                var match = Regex.Match(text, @"https://[^\s<>]+", RegexOptions.CultureInvariant);
+                if (match.Success && Uri.TryCreate(match.Value.TrimEnd('.', ',', ')'), UriKind.Absolute, out var uri)
+                    && string.Equals(uri.AbsolutePath, requiredPath, StringComparison.Ordinal))
+                {
+                    return uri.ToString();
                 }
             }
 
