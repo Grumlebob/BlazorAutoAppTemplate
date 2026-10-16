@@ -18,6 +18,12 @@ export interface AccountSessionControllerOptions {
   queryClient: QueryClient;
   baseUrl?: string;
   fetcher?: (request: Request) => Promise<Response>;
+  onAccountChange?: (applicationId: string) => void;
+}
+
+interface SessionRefreshAttempt {
+  generation: number;
+  announceChanges: boolean;
 }
 
 const emptySnapshot: AccountSnapshot = {
@@ -45,6 +51,7 @@ export class AccountSessionController {
   private readonly queryClient: QueryClient;
   private readonly baseUrl: string;
   private readonly fetcher: (request: Request) => Promise<Response>;
+  private readonly onAccountChange?: (applicationId: string) => void;
   private readonly listeners = new Set<() => void>();
   private readonly activeRequests = new Set<AbortController>();
   private readonly requestGenerations = new WeakMap<Request, number>();
@@ -58,6 +65,7 @@ export class AccountSessionController {
     this.queryClient = options.queryClient;
     this.baseUrl = options.baseUrl ?? (typeof globalThis.location === "undefined" ? "http://localhost" : globalThis.location.origin);
     this.fetcher = options.fetcher ?? (request => globalThis.fetch(request));
+    this.onAccountChange = options.onAccountChange;
     const api = createAccountApi(this.baseUrl, request => this.sendApiRequest(request));
     api.use({
       onRequest: ({ request }) => this.prepareApiRequest(request),
@@ -85,11 +93,11 @@ export class AccountSessionController {
     this.disposed = false;
   }
 
-  refresh(): Promise<Session> {
+  refresh(options: { announceChanges?: boolean } = {}): Promise<Session> {
     if (this.disposed) return Promise.reject(createAbortError());
     if (this.pendingRefresh?.generation === this.generation) return this.pendingRefresh.promise;
 
-    const attempt = { generation: this.generation };
+    const attempt = { generation: this.generation, announceChanges: options.announceChanges !== false };
     const abortController = new AbortController();
     this.refreshController = abortController;
     this.publish({ checking: true, error: null });
@@ -97,6 +105,7 @@ export class AccountSessionController {
     const promise = this.loadSession(attempt, abortController.signal)
       .catch(async error => {
         if (this.isCurrent(attempt.generation) && !isAbortError(error)) {
+          const hadPrivateSession = this.snapshot.session.user !== null;
           this.advanceGeneration(attempt);
           await this.clearPrivateData();
           if (this.isCurrent(attempt.generation)) {
@@ -107,6 +116,7 @@ export class AccountSessionController {
               checking: false,
               error: getSafeAccountError(error),
             });
+            if (hadPrivateSession && attempt.announceChanges) this.signalAccountChange();
           }
         }
         throw error;
@@ -125,7 +135,8 @@ export class AccountSessionController {
     this.advanceGeneration();
     this.publish({ checking: true, error: null });
     await this.clearPrivateData();
-    return this.refresh();
+    this.signalAccountChange();
+    return this.refresh({ announceChanges: false });
   }
 
   dispose(): void {
@@ -136,7 +147,7 @@ export class AccountSessionController {
     this.listeners.clear();
   }
 
-  private async loadSession(attempt: { generation: number }, signal: AbortSignal): Promise<Session> {
+  private async loadSession(attempt: SessionRefreshAttempt, signal: AbortSignal): Promise<Session> {
     const configResponse = await this.fetchJson("/api/client-config", "omit", signal);
     const configuration = await this.readJson<ClientConfiguration>(configResponse);
     if (!isClientConfiguration(configuration)) throw invalidApiResponse(configResponse.status);
@@ -145,6 +156,7 @@ export class AccountSessionController {
       this.advanceGeneration(attempt);
       await this.clearPrivateData();
       if (!this.isCurrent(attempt.generation)) throw createAbortError();
+      if (attempt.announceChanges) this.signalAccountChange();
     }
     this.publish({ applicationId: configuration.applicationId });
 
@@ -160,16 +172,18 @@ export class AccountSessionController {
     return session;
   }
 
-  private async publishSession(attempt: { generation: number }, status: "disabled" | "anonymous" | "authenticated", session: Session): Promise<void> {
+  private async publishSession(attempt: SessionRefreshAttempt, status: "disabled" | "anonymous" | "authenticated", session: Session): Promise<void> {
     if (!this.isCurrent(attempt.generation)) throw createAbortError();
     const previousUserId = this.snapshot.session.user?.id ?? null;
     const nextUserId = session.user?.id ?? null;
+    const hadSession = !this.snapshot.loading;
     if (previousUserId !== nextUserId) {
       this.advanceGeneration(attempt);
       await this.clearPrivateData();
       if (!this.isCurrent(attempt.generation)) throw createAbortError();
     }
     this.publish({ status, session, loading: false, checking: false, error: null });
+    if (hadSession && previousUserId !== nextUserId && attempt.announceChanges) this.signalAccountChange();
   }
 
   private async fetchJson(path: string, credentials: RequestCredentials, signal: AbortSignal): Promise<Response> {
@@ -263,6 +277,10 @@ export class AccountSessionController {
   private async clearPrivateData(): Promise<void> {
     await this.queryClient.cancelQueries({ queryKey: ["private"] });
     this.queryClient.removeQueries({ queryKey: ["private"] });
+  }
+
+  private signalAccountChange(): void {
+    if (!this.disposed && this.snapshot.applicationId) this.onAccountChange?.(this.snapshot.applicationId);
   }
 
   private advanceGeneration(refreshAttempt?: { generation: number }): void {

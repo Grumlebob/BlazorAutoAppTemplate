@@ -9,10 +9,29 @@ const originalVisibilityDescriptor = Object.getOwnPropertyDescriptor(document, "
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  FakeBroadcastChannel.instances = [];
   if (originalVisibilityDescriptor) Object.defineProperty(document, "visibilityState", originalVisibilityDescriptor);
 });
 
 describe("account provider lifecycle", () => {
+  it("continues focus rechecks when the browser blocks channel construction", async () => {
+    let owner = "user-a";
+    vi.stubGlobal("BroadcastChannel", class {
+      constructor() { throw new DOMException("Channel use is blocked.", "SecurityError"); }
+    });
+    vi.stubGlobal("fetch", async (request: Request) => new URL(request.url).pathname === "/api/client-config"
+      ? json({ schemaVersion: 1, accountsEnabled: true, applicationId: "d".repeat(32) })
+      : json({ enabled: true, registrationEnabled: false, emailEnabled: false, csrfToken: "csrf", user: { id: owner, email: `${owner}@example.test`, roles: [] } }));
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } });
+    const view = render(<QueryClientProvider client={client}><AccountProvider><SessionOwner /></AccountProvider></QueryClientProvider>);
+    await screen.findByText("user-a");
+    owner = "user-b";
+    window.dispatchEvent(new Event("focus"));
+    await screen.findByText("user-b");
+    view.unmount();
+    client.clear();
+  });
   it("rechecks focus, visible state and app-scoped broadcasts, then removes listeners on unmount", async () => {
     const applicationId = "c".repeat(32);
     const requests: Request[] = [];
@@ -66,6 +85,11 @@ describe("account provider lifecycle", () => {
 function SessionStatus() {
   const accounts = useAccounts();
   return <p data-testid="account-status">{accounts.status}</p>;
+}
+
+function SessionOwner() {
+  const accounts = useAccounts();
+  return <p>{accounts.session.user?.id ?? accounts.status}</p>;
 }
 
 function json(value: unknown) {

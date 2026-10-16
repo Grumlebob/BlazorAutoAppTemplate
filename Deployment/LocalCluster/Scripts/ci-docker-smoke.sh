@@ -305,6 +305,7 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
     echo "React image contains inactive Blazor assets" >&2
     exit 1
   fi
+  cd "$REPO_ROOT"
   pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
     -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE" \
     -ForwardedProto https -BaseUrl "$base_url"
@@ -313,9 +314,11 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
 
   postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
   [[ -n "$postgres_host_port" ]] || { echo "postgres did not publish port 5432" >&2; exit 1; }
+  cd "$REPO_ROOT"
   pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
   react_disabled_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-disabled"
   mkdir -p "$react_disabled_results_dir"
+  cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
   RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \
@@ -442,12 +445,14 @@ EOF
   echo "enabled React app ready at ${enabled_base_url}"
   enabled_http_port="$(docker port "$web_enabled" 8080/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
   [[ -n "$enabled_http_port" ]] || { echo "enabled React app did not publish its loopback HTTP port" >&2; exit 1; }
+  cd "$REPO_ROOT"
   pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
     -FrontendProfile React -AcceptanceProfile ReactPublicV1 \
     -ForwardedProto https -BaseUrl "http://127.0.0.1:${enabled_http_port}"
 
   react_enabled_results_dir="$runner_temp/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-enabled"
   mkdir -p "$react_enabled_results_dir"
+  cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
   E2E_SMTP_CAPTURE_DIR="$capture_dir" \
   E2E_ACCOUNT_PASSWORD="$account_password" \
@@ -485,6 +490,7 @@ else
     echo "anonymous /api/books redirected instead of returning 401" >&2
     exit 1
   fi
+  cd "$REPO_ROOT"
   pwsh -NoProfile -File "$REPO_ROOT/Scripts/Test-DeployedSite.ps1" \
     -FrontendProfile "$FRONTEND_PROFILE" -AcceptanceProfile "$FRONTEND_ACCEPTANCE_PROFILE" \
     -BaseUrl "$base_url"
@@ -493,9 +499,11 @@ else
   postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
   [[ -n "$postgres_host_port" ]] || { echo "web container did not publish port 5432" >&2; exit 1; }
 
+  cd "$REPO_ROOT"
   pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
   browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/BlazorAuto"
   mkdir -p "$browser_results_dir"
+  cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=postgres;GSS Encryption Mode=Disable" \
   RUN_E2E=1 \
   E2E_BASE_URL="$base_url" \

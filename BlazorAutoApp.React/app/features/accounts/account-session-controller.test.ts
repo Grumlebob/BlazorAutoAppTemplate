@@ -308,11 +308,54 @@ describe("account session controller", () => {
     await expect(request).rejects.toHaveProperty("name", "AbortError");
     expect(controller.getSnapshot()).toMatchObject({ applicationId: applicationIdB, status: "authenticated" });
   });
+  it("announces server-detected session expiry through the application change signal", async () => {
+    const onAccountChange = vi.fn();
+    let expired = false;
+    const controller = createController(async request => {
+      const path = new URL(request.url).pathname;
+      if (path === "/api/books") return json({ code: "AuthenticationRequired" }, 401);
+      if (expired && path === "/api/auth/session") return json({ ...session("user-a", "csrf"), user: null });
+      return accountResponse(request, "user-a", "csrf");
+    }, undefined, onAccountChange);
+    await controller.refresh();
+    expect(onAccountChange).not.toHaveBeenCalled();
+    expired = true;
+
+    await expect(controller.api.GET("/api/books")).rejects.toHaveProperty("name", "AbortError");
+
+    expect(controller.getSnapshot().status).toBe("anonymous");
+    expect(onAccountChange).toHaveBeenCalledExactlyOnceWith(applicationIdA);
+  });
+
+  it.each([true, false])("announces a discovered owner change only for a local refresh (announce=%s)", async announceChanges => {
+    const onAccountChange = vi.fn();
+    let owner = "user-a";
+    const controller = createController(async request => accountResponse(request, owner, "csrf"), undefined, onAccountChange);
+    await controller.refresh();
+    owner = "user-b";
+
+    await controller.refresh({ announceChanges });
+
+    expect(controller.getSnapshot().session.user?.id).toBe("user-b");
+    expect(onAccountChange).toHaveBeenCalledTimes(announceChanges ? 1 : 0);
+  });
+
+  it("announces loss of a private session once without broadcasting repeated service failures", async () => {
+    const onAccountChange = vi.fn();
+    let unavailable = false;
+    const controller = createController(async request => unavailable ? json({ title: "Unavailable" }, 503)
+      : accountResponse(request, "user-a", "csrf"), undefined, onAccountChange);
+    await controller.refresh();
+    unavailable = true;
+    await expect(controller.refresh()).rejects.toHaveProperty("status", 503);
+    await expect(controller.refresh()).rejects.toHaveProperty("status", 503);
+    expect(onAccountChange).toHaveBeenCalledExactlyOnceWith(applicationIdA);
+  });
 });
 
-function createController(fetcher: (request: Request) => Promise<Response>, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })): AccountSessionController {
+function createController(fetcher: (request: Request) => Promise<Response>, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }), onAccountChange?: (applicationId: string) => void): AccountSessionController {
   clients.push(queryClient);
-  const controller = new AccountSessionController({ queryClient, baseUrl: "https://app.test", fetcher });
+  const controller = new AccountSessionController({ queryClient, baseUrl: "https://app.test", fetcher, onAccountChange });
   controllers.push(controller);
   return controller;
 }

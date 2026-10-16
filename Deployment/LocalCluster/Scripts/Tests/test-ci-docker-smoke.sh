@@ -55,6 +55,10 @@ elif args[:2] == ["network", "create"] or args[0] == "run":
                 elif len(mapping) == 4 and mapping[-1] in ("5432", "8080", "8443"):
                     metadata["ports"][mapping[-1] + "/tcp"] = mapping[2]
     state(name).write_text(json.dumps(metadata))
+    if "web-enabled" in name and os.environ.get("SMOKE_REMOVE_CALLER"):
+        caller = Path(os.environ["SMOKE_REMOVE_CALLER"])
+        assert caller.name == "caller" and caller.parent.resolve() == root.parent.resolve()
+        caller.rmdir()
 elif args[:2] == ["network", "inspect"] and "--format" in args and "Gateway" in args[args.index("--format") + 1]:
     print("172.20.0.1")
 elif args[0] == "inspect" or args[:2] == ["network", "inspect"]:
@@ -152,6 +156,8 @@ if [[ "$(basename "$0")" == pwsh && "$*" == *Test-DeployedSite.ps1* ]]; then
   exit "$(printenv FAIL_HTTP_ACCEPTANCE || printf 0)"
 fi
 if [[ "$(basename "$0")" == dotnet ]]; then
+  # The real CLI cannot initialize its parser from a removed working directory.
+  pwd -P >/dev/null 2>&1 || exit 38
   if [[ "${FRONTEND_PROFILE:-BlazorAuto}" == "React" ]]; then
     case "$*" in
       *"Category=ReactPackagedDisabled"*) result_name="react-disabled-browser.trx"; failure="${FAIL_REACT_DISABLED_BROWSER:-0}" ;;
@@ -193,12 +199,18 @@ chmod +x "$TMP_ROOT/bin/"*
 run_case() {
   local expected="$1" status=0
   mkdir -p "$TMP_ROOT/runner-temp"
-  RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  if [[ "${REMOVE_CALLER_DIRECTORY:-0}" == 1 ]]; then
+    mkdir -p "$TMP_ROOT/caller"
+    (cd "$TMP_ROOT/caller" && SMOKE_REMOVE_CALLER="$TMP_ROOT/caller" RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT") > "$TMP_ROOT/output" 2>&1 || status=$?
+  else
+    RUNNER_TEMP="$TMP_ROOT/runner-temp" GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2 bash "$SCRIPT" > "$TMP_ROOT/output" 2>&1 || status=$?
+  fi
   [[ "$status" == "$expected" ]] || { cat "$TMP_ROOT/output" >&2; echo "expected $expected, got $status" >&2; exit 1; }
   [[ -z "$(find "$SMOKE_STATE" -type f -print)" ]] || { echo "owned resources leaked" >&2; exit 1; }
 }
 run_case 0
 FRONTEND_PROFILE=React run_case 0
+FRONTEND_PROFILE=React REMOVE_CALLER_DIRECTORY=1 run_case 0
 FRONTEND_PROFILE=React FRONTEND_ACCEPTANCE_PROFILE=BlazorAutoV1 run_case 2
 FAIL_IMAGE_LABEL=1 run_case 1
 FAIL_ACCEPTANCE_LABEL=1 run_case 1

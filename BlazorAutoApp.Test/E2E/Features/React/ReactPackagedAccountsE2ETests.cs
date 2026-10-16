@@ -121,6 +121,11 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
 
                     await AssertSharedCookieSwitchAsync(userA, userAPassword, userB, password, bookA, bookB);
 
+                    // The cross-tab expiry proof revokes all sessions. Establish a fresh
+                    // independent session for the subsequent password-change proof.
+                    await SignInAsync(userASecondTab, userA, userAPassword);
+                    await Expect(userASecondTab.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).ToBeVisibleAsync();
+
                     await NavigateAsync(Page, "/auth/settings");
                     await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Your account" })).ToBeVisibleAsync();
                     await Page.Locator("input[autocomplete='current-password']").FillAsync(userAPassword);
@@ -196,6 +201,36 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).ToBeVisibleAsync();
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookB })).Not.ToBeVisibleAsync();
             await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = replacementDraft })).Not.ToBeVisibleAsync();
+
+            await Expect(settingsTab.GetByText(userA, new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+            await Page.BringToFrontAsync();
+            await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).ToBeVisibleAsync();
+            await Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true }).FillAsync(originalDraft);
+
+            // Bypass the React client so only the detecting tab can announce expiry.
+            var revoked = await switchTab.EvaluateAsync<bool>("""
+                async password => {
+                    const session = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' }).then(response => response.json());
+                    const response = await fetch('/api/auth/logout-all', {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': session.csrfToken, 'X-Expected-User': session.user.id },
+                        body: JSON.stringify({ password })
+                    });
+                    return response.status === 200;
+                }
+                """, passwordA);
+            Assert.True(revoked, "Out-of-band session revocation failed.");
+            await Page.EvaluateAsync("window.dispatchEvent(new Event('focus'))");
+            await Expect(Page.GetByText("Sign in to view and save your private books.", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).Not.ToBeVisibleAsync();
+            await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).Not.ToBeVisibleAsync();
+            await Expect(settingsTab.GetByText("Sign in to manage your account.", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+            await Expect(switchTab.GetByText("Sign in to view and save your private books.", new PageGetByTextOptions { Exact = false })).ToBeVisibleAsync();
+            await Expect(switchTab.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).Not.ToBeVisibleAsync();
+
+            await SignInAsync(switchTab, userA, passwordA);
+            await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync(originalDraft);
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = originalDraft })).Not.ToBeVisibleAsync();
         }
         finally
         {

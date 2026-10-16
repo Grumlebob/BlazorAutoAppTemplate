@@ -5,7 +5,7 @@ import { AccountSessionController } from "./account-session-controller";
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [controller] = useState(() => new AccountSessionController({ queryClient }));
+  const [controller] = useState(() => new AccountSessionController({ queryClient, onAccountChange: broadcastAccountChange }));
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
   useEffect(() => {
@@ -24,24 +24,38 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [controller]);
 
   useEffect(() => {
-    if (!snapshot.applicationId || typeof BroadcastChannel === "undefined") return;
-    const channel = new BroadcastChannel(`app-account-session:${snapshot.applicationId}`);
+    if (!snapshot.applicationId) return;
+    const channel = openAccountChannel(snapshot.applicationId);
+    if (!channel) return;
     channel.onmessage = event => {
-      if (event.data === "changed") void controller.refresh().catch(() => {});
+      if (event.data === "changed") void controller.refresh({ announceChanges: false }).catch(() => {});
     };
     return () => channel.close();
   }, [controller, snapshot.applicationId]);
 
   const refresh = useCallback(() => controller.refresh(), [controller]);
-  const changed = useCallback(async () => {
-    const session = await controller.changed();
-    if (snapshot.applicationId && typeof BroadcastChannel !== "undefined") {
-      const channel = new BroadcastChannel(`app-account-session:${snapshot.applicationId}`);
-      channel.postMessage("changed");
-      channel.close();
-    }
-    return session;
-  }, [controller, snapshot.applicationId]);
+  const changed = useCallback(() => controller.changed(), [controller]);
 
   return <AccountContext value={{ ...snapshot, api: controller.api, refresh, changed }}>{children}</AccountContext>;
+}
+
+function openAccountChannel(applicationId: string): BroadcastChannel | null {
+  if (typeof BroadcastChannel === "undefined") return null;
+  try {
+    return new BroadcastChannel(`app-account-session:${applicationId}`);
+  } catch {
+    return null;
+  }
+}
+
+function broadcastAccountChange(applicationId: string) {
+  const channel = openAccountChannel(applicationId);
+  if (!channel) return;
+  try {
+    channel.postMessage("changed");
+  } catch {
+    // Focus and visibility rechecks remain available when channel use is blocked.
+  } finally {
+    channel.close();
+  }
 }
