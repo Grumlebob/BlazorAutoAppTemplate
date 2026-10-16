@@ -95,20 +95,10 @@ internal sealed class AccountMailOutbox(
         EnsureAdmissionOpen();
         if (_lockedUserIds.Contains(user.Id)) return;
 
-        await using var command = db.Database.GetDbConnection().CreateCommand();
-        command.Transaction = db.Database.CurrentTransaction!.GetDbTransaction();
-        command.CommandText = "SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\" = @userId FOR UPDATE";
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = "userId";
-        parameter.Value = user.Id;
-        command.Parameters.Add(parameter);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+        if (!await AccountUserLock.TryLockAndReloadAsync(db, user, cancellationToken))
         {
             throw new DbUpdateException("The account disappeared during an admitted account mail operation.");
         }
-        await reader.DisposeAsync();
-        await db.Entry(user).ReloadAsync(cancellationToken);
         _lockedUserIds.Add(user.Id);
     }
 

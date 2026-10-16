@@ -46,11 +46,11 @@ internal sealed class AccountRecoveryHandler(
             {
                 var safe = result.Errors.Any(error => error.Code == "InvalidToken")
                     ? InvalidToken()
-                    : Check(result, "", "newPassword");
+                    : IdentityFailure(result, "newPassword");
                 return (safe, false);
             }
             result = await users.UpdateSecurityStampAsync(user);
-            if (!result.Succeeded) return (Check(result, ""), false);
+            if (!result.Succeeded) return (IdentityFailure(result), false);
             return (Success("Password reset. Sign in with your new password."), true);
         }, cancellationToken);
         return response;

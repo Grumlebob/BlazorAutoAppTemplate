@@ -21,9 +21,9 @@ internal sealed class AccountPasswordChangeHandler(
             var passwordCheck = await attempt.SignIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
             if (!passwordCheck.Succeeded) return (Denied(), true);
             var result = await attempt.Users.ChangePasswordAsync(user, request.Password, request.NewPassword);
-            if (!result.Succeeded) return (Check(result, "", "newPassword"), false);
+            if (!result.Succeeded) return (IdentityFailure(result, "newPassword"), false);
             result = await attempt.Users.UpdateSecurityStampAsync(user);
-            if (!result.Succeeded) return (Check(result, ""), false);
+            if (!result.Succeeded) return (IdentityFailure(result), false);
             return (Success("Password changed. Sign in again."), true);
         }, cancellationToken, principal: principal);
         if (committed && response is IStatusCodeHttpResult { StatusCode: StatusCodes.Status200OK }) await signIn.SignOutAsync();

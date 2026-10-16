@@ -82,14 +82,70 @@ it("does not reuse a private draft in another application with the same user ID"
   expect(writes).toEqual([]);
 });
 
-function renderApp(path: string, state: { owner: string | null; pendingSession?: Promise<Response>; applicationId?: string }) {
+it("requires explicit discard before another owner can replace a preserved draft by editing a book", async () => {
+  const state = { owner: "user-a", books: [{ id: 1, title: "Saved book" }] };
+  renderApp("/my-books", state);
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "Title" }), "Alice's private draft");
+
+  state.owner = "user-b";
+  fireEvent.focus(window);
+  await screen.findByRole("button", { name: "Discard previous draft" });
+  const edit = await screen.findByRole("button", { name: "Edit" });
+  expect(edit).toBeDisabled();
+  await user.click(edit);
+
+  state.owner = "user-a";
+  fireEvent.focus(window);
+  expect(await screen.findByRole("textbox", { name: "Title" })).toHaveValue("Alice's private draft");
+});
+
+it("does not carry book deletion consent into another application with matching user and book IDs", async () => {
+  const state = { owner: "user-a", applicationId: "a".repeat(32), books: [{ id: 1, title: "Saved book" }] };
+  renderApp("/my-books", state);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Delete" }));
+  expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+
+  state.applicationId = "b".repeat(32);
+  fireEvent.focus(window);
+  await screen.findByRole("button", { name: "Delete" });
+  expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
+});
+
+it("keeps deletion failures visible after a session check and refreshes the list after a successful retry", async () => {
+  const state = { owner: "user-a", books: [{ id: 1, title: "Saved book" }], deleteFailure: "Could not delete book." as string | undefined };
+  renderApp("/my-books", state);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Delete" }));
+  await user.click(screen.getByRole("button", { name: "Confirm delete" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete book.");
+
+  state.deleteFailure = undefined;
+  await user.click(screen.getByRole("button", { name: "Confirm delete" }));
+  await screen.findByText("No books yet. Add your first below.");
+  expect(screen.queryByText("Saved book")).not.toBeInTheDocument();
+});
+
+it.each(["toString", "constructor", "__proto__"])("rejects inherited object property %s as an account route", async action => {
+  renderApp(`/auth/${action}`, { owner: null });
+  expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+});
+
+function renderApp(path: string, state: { owner: string | null; pendingSession?: Promise<Response>; applicationId?: string; books?: { id: number; title: string }[]; deleteFailure?: string }) {
   const writes: { owner: string | null; title: unknown }[] = [];
   vi.stubGlobal("fetch", async (request: Request) => {
+    if (request.method === "DELETE" && new URL(request.url).pathname.startsWith("/api/books/")) {
+      if (state.deleteFailure) return json({ detail: state.deleteFailure }, 400);
+      const id = Number(new URL(request.url).pathname.split("/").pop());
+      state.books = state.books?.filter(book => book.id !== id);
+      return new Response(null, { status: 204 });
+    }
     switch (new URL(request.url).pathname) {
       case "/api/client-config": return json({ schemaVersion: 1, accountsEnabled: true, applicationId: state.applicationId ?? "a".repeat(32) });
       case "/api/auth/session": return state.pendingSession ?? json(session(state.owner));
       case "/api/books": {
-        if (request.method === "GET") return json({ books: [] });
+        if (request.method === "GET") return json({ books: state.books ?? [] });
         const body = await request.json() as { title: unknown };
         writes.push({ owner: request.headers.get("X-Expected-User"), title: body.title });
         return json({ id: 1, title: body.title }, 201);

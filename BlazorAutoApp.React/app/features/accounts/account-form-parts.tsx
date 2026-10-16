@@ -4,6 +4,7 @@ import { ApiError } from "../../api/errors";
 import { apiResult, safeReturnPath } from "./account-api";
 import { useAccounts } from "./account-context";
 import { passwordPolicyError } from "./account-password-policy";
+import { accountActionHasEmailRequirement, emailActionSubmitLabels, type AccountAction, type EmailAction } from "./account-form-model";
 
 const inputClass = "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-indigo-600 focus:outline-2 focus:outline-indigo-600";
 const buttonClass = "rounded-lg bg-indigo-700 px-5 py-2.5 font-medium text-white disabled:opacity-50";
@@ -64,13 +65,13 @@ export function RegistrationForm() {
   </>;
 }
 
-export function EmailActionForm({ actionName }: { actionName: "forgot-password" | "reset-password" | "confirm-email" | "confirm-email-change" }) {
+export function EmailActionForm({ actionName }: { actionName: EmailAction }) {
   const accounts = useAccounts();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const action = useSubmission();
   const tokens = useFragmentTokens();
-  const tokenAction = ["reset-password", "confirm-email", "confirm-email-change"].includes(actionName);
+  const tokenAction = actionName !== "forgot-password";
   const missingTokens = !tokens.userId || !tokens.token || (actionName === "confirm-email-change" && !tokens.email);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -94,7 +95,7 @@ export function EmailActionForm({ actionName }: { actionName: "forgot-password" 
     <form className="mt-6 space-y-5" onSubmit={submit}>
       {actionName === "forgot-password" && <><label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required {...fieldAttributes(action, "email")} value={email} onChange={event => setEmail(event.target.value)} /></label><FieldError action={action} field="email" /></>}
       {(actionName === "reset-password" || actionName === "confirm-email") && <PasswordField label={actionName === "confirm-email" ? "Choose password" : "New password"} name="newPassword" autoComplete="new-password" value={newPassword} onChange={setNewPassword} error={fieldErrorMessage(action, "newPassword")} required passwordPolicy />}
-      {tokenAction && missingTokens ? <p role="alert">This link is incomplete. Request a new email and open its full link.</p> : <button className={buttonClass} disabled={action.pending || accounts.checking}>{action.pending ? "Please wait…" : actionName === "forgot-password" ? "Send reset link" : actionName === "reset-password" ? "Choose a new password" : actionName === "confirm-email" ? "Confirm email and create account" : "Confirm new email"}</button>}
+      {tokenAction && missingTokens ? <p role="alert">This link is incomplete. Request a new email and open its full link.</p> : <button className={buttonClass} disabled={action.pending || accounts.checking}>{action.pending ? "Please wait…" : emailActionSubmitLabels[actionName]}</button>}
     </form>
   </>;
 }
@@ -276,12 +277,12 @@ function useFragmentTokens() {
   return tokens;
 }
 
-export function AccountActionForm({ action }: { action: string }) {
+export function AccountActionForm({ action }: { action: AccountAction }) {
   if (action === "login") return <SignInForm />;
   if (action === "register") return <RegistrationForm />;
   if (action === "settings") return <AccountSettingsForm />;
-  if (["forgot-password", "reset-password", "confirm-email", "confirm-email-change"].includes(action)) {
-    return <EmailActionForm actionName={action as "forgot-password" | "reset-password" | "confirm-email" | "confirm-email-change"} />;
+  if (accountActionHasEmailRequirement(action)) {
+    return <EmailActionForm actionName={action} />;
   }
   return null;
 }

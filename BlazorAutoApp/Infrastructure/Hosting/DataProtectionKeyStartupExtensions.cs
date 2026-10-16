@@ -90,7 +90,7 @@ internal static class DataProtectionKeyStartupExtensions
                         if ((existing.IsKey && document.IsKey
                                 && existing.SourceFingerprint == document.SourceFingerprint
                                 && IsVerifiedImportedKey(existing))
-                            || XNode.DeepEquals(existing.Element, document.StoredElement))
+                            || XNode.DeepEquals(existing.StoredElement, document.StoredElement))
                         {
                             continue;
                         }
@@ -239,7 +239,7 @@ internal static class DataProtectionKeyStartupExtensions
             var document = Describe(XElement.Parse(row.Xml), encryptor);
             if (identities.TryGetValue(document.Identity, out var previous))
             {
-                if (!XNode.DeepEquals(previous.Element, document.StoredElement))
+                if (!XNode.DeepEquals(previous.StoredElement, document.StoredElement))
                 {
                     throw new InvalidOperationException();
                 }
@@ -446,8 +446,5 @@ internal static class DataProtectionKeyStartupExtensions
         Guid? RevokedKeyId,
         DateTimeOffset? MassRevocationDate,
         bool IsKey,
-        string SourceFingerprint)
-    {
-        public XElement Element => StoredElement;
-    }
+        string SourceFingerprint);
 }

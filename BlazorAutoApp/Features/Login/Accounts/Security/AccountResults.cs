@@ -28,13 +28,12 @@ internal static class AccountResults
     public const int MaximumExportRecords = 10_000;
     public const int MaximumExportBytes = 10 * 1024 * 1024;
 
-    public static IResult Check(IdentityResult result, string success, string? passwordField = null)
+    public static IResult IdentityFailure(IdentityResult result, string? passwordField = null)
     {
-        if (result.Succeeded) return Success(success);
         var codes = result.Errors.Select(error => error.Code).ToArray();
         if (codes.Any(code => code is "DuplicateEmail" or "DuplicateUserName"))
         {
-            return AccountProblem.Create(409, "AccountConflict", "The account could not be updated", "The request conflicts with the current account state.");
+            return Conflict();
         }
         if (codes.Any(code => code.StartsWith("Password", StringComparison.Ordinal)) || passwordField is not null)
         {

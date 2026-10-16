@@ -21,7 +21,7 @@ internal sealed class AccountRevocationHandler(
             var passwordCheck = await attempt.SignIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
             if (!passwordCheck.Succeeded) return (Denied(), true);
             var result = await attempt.Users.UpdateSecurityStampAsync(user);
-            if (!result.Succeeded) return (Check(result, ""), false);
+            if (!result.Succeeded) return (IdentityFailure(result), false);
             return (Success("All sessions were signed out."), true);
         }, cancellationToken, principal: principal);
         return committed && response is IStatusCodeHttpResult { StatusCode: StatusCodes.Status200OK }

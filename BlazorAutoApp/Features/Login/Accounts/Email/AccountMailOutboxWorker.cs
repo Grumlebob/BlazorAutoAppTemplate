@@ -124,7 +124,7 @@ internal sealed class AccountMailOutboxWorker(
         {
             if (lease.ExpiresUtc <= now)
             {
-                await CompleteAsync(db, lease, "Cancelled", "Expired", clearPayload: true, now, cancellationToken);
+                await CompleteAsync(db, lease, "Cancelled", "Expired", now, cancellationToken);
                 return;
             }
 
@@ -135,13 +135,13 @@ internal sealed class AccountMailOutboxWorker(
                 || !AccountMailOutbox.TryParsePurpose(lease.Purpose, out var storedPurpose)
                 || storedPurpose != payload.Purpose)
             {
-                await CompleteAsync(db, lease, "Failed", "PayloadInvalid", clearPayload: true, now, cancellationToken);
+                await CompleteAsync(db, lease, "Failed", "PayloadInvalid", now, cancellationToken);
                 return;
             }
 
             if (payload.LinkExpiresUtc <= now)
             {
-                await CompleteAsync(db, lease, "Cancelled", "Expired", clearPayload: true, now, cancellationToken);
+                await CompleteAsync(db, lease, "Cancelled", "Expired", now, cancellationToken);
                 return;
             }
 
@@ -149,13 +149,13 @@ internal sealed class AccountMailOutboxWorker(
             var user = await users.FindByIdAsync(payload.UserId);
             if (!await IsCurrentAndEligibleAsync(users, user, payload))
             {
-                await CompleteAsync(db, lease, "Cancelled", "AccountChanged", clearPayload: true, now, cancellationToken);
+                await CompleteAsync(db, lease, "Cancelled", "AccountChanged", now, cancellationToken);
                 return;
             }
 
             var message = services.GetRequiredService<AccountEmailLinkFactory>().Create(payload, lease.MessageId);
             await services.GetRequiredService<IAccountMailTransport>().SendAsync(message, cancellationToken);
-            await CompleteAsync(db, lease, "Sent", null, clearPayload: true, clock.GetUtcNow(), cancellationToken);
+            await CompleteAsync(db, lease, "Sent", null, clock.GetUtcNow(), cancellationToken);
             health.Sent();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -178,7 +178,7 @@ internal sealed class AccountMailOutboxWorker(
                 }
             }
 
-            await CompleteAsync(db, lease, "Failed", failureCode, clearPayload: true, failedAt, cancellationToken);
+            await CompleteAsync(db, lease, "Failed", failureCode, failedAt, cancellationToken);
             health.Failed(failureCode, failedAt);
             logger.LogWarning("Account mail delivery stopped with safe code {FailureCode}", failureCode);
         }
@@ -228,7 +228,6 @@ internal sealed class AccountMailOutboxWorker(
         MailLease lease,
         string status,
         string? failureCode,
-        bool clearPayload,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -236,7 +235,7 @@ internal sealed class AccountMailOutboxWorker(
                 && message.Status == "Leased" && message.LeaseId == lease.LeaseId)
             .ExecuteUpdateAsync(update => update
                 .SetProperty(message => message.Status, status)
-                .SetProperty(message => message.ProtectedPayload, clearPayload ? "" : lease.ProtectedPayload)
+                .SetProperty(message => message.ProtectedPayload, "")
                 .SetProperty(message => message.LeaseId, (string?)null)
                 .SetProperty(message => message.LeaseUntilUtc, (DateTimeOffset?)null)
                 .SetProperty(message => message.FailureCode, failureCode)

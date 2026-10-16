@@ -58,11 +58,11 @@ internal sealed class AccountEmailChangeHandler(
             }
 
             var changed = await users.ChangeEmailAsync(user, request.Email, request.Token);
-            if (!changed.Succeeded) return (Check(changed, ""), false);
+            if (!changed.Succeeded) return (IdentityFailure(changed), false);
             changed = await users.SetUserNameAsync(user, request.Email);
-            if (!changed.Succeeded) return (Check(changed, ""), false);
+            if (!changed.Succeeded) return (IdentityFailure(changed), false);
             changed = await users.UpdateSecurityStampAsync(user);
-            if (!changed.Succeeded) return (Check(changed, ""), false);
+            if (!changed.Succeeded) return (IdentityFailure(changed), false);
             return (Success("Email changed. Sign in again."), true);
         }, cancellationToken);
         if (committed) await signIn.SignOutAsync();

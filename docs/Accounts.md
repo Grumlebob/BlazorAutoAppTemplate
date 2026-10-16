@@ -16,6 +16,8 @@ The authentication cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, host-only and
 
 Blazor retains its existing MFA, passkey and configured external-login capabilities in enabled mode. React's password-only sign-in does not bypass MFA. Blazor password recovery preserves MFA, and sensitive management still requires a valid session and current-password proof. New external users complete email-first registration, then sign in to link their provider; disabling registration also prevents external callbacks from creating accounts.
 
+React hides private data while rechecking the session and clears private query caches when the account changes. Unsaved book drafts remain bound to their original application and user; another user must explicitly discard the previous draft before adding or editing a book. Deletion confirmation and account-management credentials do not carry across application or user changes. These boundaries follow [React's guidance on preserving and resetting state](https://react.dev/learn/preserving-and-resetting-state).
+
 ## Create a local React Admin
 
 Use the Docker development setup from [How to run locally](HowToRunLocally.md). It generates the local HTTPS certificate used to protect the local PostgreSQL Data Protection key ring. Select `React` in `frontend-profile.txt` for this run; the file is the persisted profile selection.

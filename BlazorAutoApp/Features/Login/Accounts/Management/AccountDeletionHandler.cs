@@ -42,7 +42,7 @@ internal sealed class AccountDeletionHandler(
                 await attempt.Db.SaveChangesAsync(cancellationToken);
 
                 var result = await attempt.Users.DeleteAsync(user);
-                if (!result.Succeeded) return (Check(result, ""), false);
+                if (!result.Succeeded) return (IdentityFailure(result), false);
                 return (Success("Account deleted."), true);
             }, cancellationToken, principal: principal, verifyUserDeleted: true);
             if (committed && response is IStatusCodeHttpResult { StatusCode: StatusCodes.Status200OK }) await signIn.SignOutAsync();
