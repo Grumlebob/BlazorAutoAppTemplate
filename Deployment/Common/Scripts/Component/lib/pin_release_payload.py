@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and retain an immutable GHCR release payload on an owned machine."""
+"""Validate and retain immutable release payloads on an owned machine."""
 
 from __future__ import annotations
 
@@ -30,6 +30,8 @@ PROVENANCE = "provenance.json"
 SAFE_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 PIN_KEY = re.compile(r"ghcr-[0-9a-f]{64}-[0-9a-f]{64}\Z")
+LEGACY_PIN_KEY = re.compile(r"legacy-[1-9][0-9]{0,19}-[0-9a-f]{64}\Z")
+ANY_PIN_KEY = re.compile(r"(?:ghcr-[0-9a-f]{64}-[0-9a-f]{64}|legacy-[1-9][0-9]{0,19}-[0-9a-f]{64})\Z")
 MAX_LOCAL_PIN_BYTES = 1_073_741_824
 
 
@@ -104,6 +106,64 @@ def _receipt_and_identity(
     return receipt, identity, digest
 
 
+def _legacy_identity(provenance: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "schema_version", "transport", "repository", "target_sha", "run_id", "run_attempt",
+        "profile", "acceptance_profile", "runtime", "app_image", "image_digest",
+        "manifest_sha256", "bundle_filename", "bundle_sha256", "content_sha256",
+        "manifest_schema_version", "artifact_id", "artifact_name", "artifact_digest",
+        "artifact_size_bytes",
+    }
+    if (provenance.get("schema_version") != 1 or provenance.get("transport") != "actions-artifact"
+            or set(provenance) != required):
+        raise PinError("legacy local pin provenance schema or fields are unsupported")
+    repository = provenance["repository"]
+    if (not isinstance(repository, str)
+            or not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository)):
+        raise PinError("legacy local pin repository is malformed")
+    if not isinstance(provenance["target_sha"], str) or not re.fullmatch(r"[0-9a-f]{40}", provenance["target_sha"]):
+        raise PinError("legacy local pin source SHA is malformed")
+    for field in ("run_id", "run_attempt", "artifact_id"):
+        if not isinstance(provenance[field], str) or not re.fullmatch(r"[1-9][0-9]{0,19}", provenance[field]):
+            raise PinError(f"legacy local pin {field} is malformed")
+    for field in ("profile", "acceptance_profile", "runtime", "artifact_name"):
+        value = provenance[field]
+        if value is not None and (not isinstance(value, str) or not SAFE_FILENAME.fullmatch(value)):
+            raise PinError(f"legacy local pin {field} is malformed")
+    for field in ("image_digest", "artifact_digest"):
+        if not isinstance(provenance[field], str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", provenance[field]):
+            raise PinError(f"legacy local pin {field} is malformed")
+    for field in ("manifest_sha256", "content_sha256"):
+        if not isinstance(provenance[field], str) or not SHA256.fullmatch(provenance[field]):
+            raise PinError(f"legacy local pin {field} is malformed")
+    if type(provenance["manifest_schema_version"]) is not int or provenance["manifest_schema_version"] not in (1, 2, 3):
+        raise PinError("legacy local pin manifest schema is malformed")
+    size = provenance["artifact_size_bytes"]
+    if type(size) is not int or size <= 0 or size > registry_payload.MAX_ARCHIVE_BYTES:
+        raise PinError("legacy local pin artifact size is malformed")
+    bundle_name = provenance["bundle_filename"]
+    bundle_sha = provenance["bundle_sha256"]
+    if bundle_name is None:
+        if bundle_sha is not None or provenance["manifest_schema_version"] != 3:
+            raise PinError("file-only legacy local pin bundle metadata is inconsistent")
+    elif (not isinstance(bundle_name, str) or not SAFE_FILENAME.fullmatch(bundle_name)
+            or not isinstance(bundle_sha, str) or not SHA256.fullmatch(bundle_sha)):
+        raise PinError("legacy local pin bundle metadata is malformed")
+    if (not isinstance(provenance["app_image"], str) or not provenance["app_image"]
+            or not isinstance(provenance["runtime"], str) or not provenance["runtime"]):
+        raise PinError("legacy local pin release settings are malformed")
+    if provenance["manifest_schema_version"] == 1 and (
+            provenance["profile"], provenance["acceptance_profile"]) != ("BlazorAuto", "BlazorAutoV1"):
+        raise PinError("legacy schema-v1 local pins are supported only for the Blazor profile")
+    return provenance
+
+
+def _pin_key(metadata: dict[str, Any]) -> str:
+    if metadata.get("transport") == "actions-artifact":
+        return f"legacy-{metadata['artifact_id']}-{metadata['artifact_digest'].removeprefix('sha256:')}"
+    return f"ghcr-{hashlib.sha256(metadata['payload_ref'].encode('utf-8')).hexdigest()}-{metadata['manifest_sha256']}"
+
+
 def payload_files(root: Path) -> tuple[str, ...]:
     if root.is_symlink() or not root.is_dir():
         raise PinError("pinned payload must be a directory and must not be a symlink")
@@ -111,10 +171,17 @@ def payload_files(root: Path) -> tuple[str, ...]:
     if provenance_path.is_symlink() or not provenance_path.is_file():
         raise PinError("pinned payload provenance is missing or unsafe")
     provenance = _read_json(provenance_path, "pinned payload provenance is malformed")
-    _, identity, _ = _receipt_and_identity(provenance)
+    if provenance.get("transport") == "ghcr-container":
+        _, identity, _ = _receipt_and_identity(provenance)
+        bundle_name = identity.bundle_filename
+    elif provenance.get("transport") == "actions-artifact":
+        identity = _legacy_identity(provenance)
+        bundle_name = identity["bundle_filename"]
+    else:
+        raise PinError("pinned payload transport is unsupported")
     names = [MANIFEST]
-    if identity.bundle_filename is not None:
-        names.append(identity.bundle_filename)
+    if bundle_name is not None:
+        names.append(bundle_name)
     names.append(PROVENANCE)
     if any(not SAFE_FILENAME.fullmatch(name) for name in names) or len(set(names)) != len(names):
         raise PinError("pinned payload contains an unsafe filename")
@@ -130,6 +197,8 @@ def payload_files(root: Path) -> tuple[str, ...]:
 def validate(root: Path) -> dict[str, Any]:
     names = payload_files(root)
     provenance = _read_json(root / PROVENANCE, "pinned payload provenance is malformed")
+    if provenance.get("transport") == "actions-artifact":
+        return _validate_legacy_pin(root, names, provenance)
     receipt, identity, digest = _receipt_and_identity(provenance)
     manifest_path = root / MANIFEST
     if manifest_path.stat().st_size <= 0 or manifest_path.stat().st_size > registry_payload.MAX_MANIFEST_BYTES:
@@ -187,6 +256,75 @@ def validate(root: Path) -> dict[str, Any]:
         "bundle_sha256": identity.bundle_sha256,
         "content_sha256": receipt["content_sha256"],
         "image_digest": identity.app_image_digest,
+        "manifest_schema_version": manifest["schema_version"],
+        "files": list(names),
+    }
+
+
+def _validate_legacy_pin(root: Path, names: tuple[str, ...], provenance: dict[str, Any]) -> dict[str, Any]:
+    identity = _legacy_identity(provenance)
+    manifest_path = root / MANIFEST
+    if manifest_path.stat().st_size <= 0 or manifest_path.stat().st_size > registry_payload.MAX_MANIFEST_BYTES:
+        raise PinError("pinned release manifest has an invalid size")
+    if sha256_file(manifest_path) != identity["manifest_sha256"]:
+        raise PinError("pinned release manifest checksum differs from its trusted provenance")
+    content_files = {MANIFEST: identity["manifest_sha256"]}
+    bundle_name = identity["bundle_filename"]
+    if bundle_name is not None:
+        bundle_path = root / bundle_name
+        if bundle_path.stat().st_size <= 0 or bundle_path.stat().st_size > registry_payload.MAX_BUNDLE_BYTES:
+            raise PinError("pinned migration bundle has an invalid size")
+        if sha256_file(bundle_path) != identity["bundle_sha256"]:
+            raise PinError("pinned migration bundle checksum differs from its trusted provenance")
+        content_files[bundle_name] = identity["bundle_sha256"]
+    if registry_payload.content_checksum(content_files) != identity["content_sha256"]:
+        raise PinError("pinned payload content checksum differs from its trusted provenance")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        image_digest = validate_manifest_payload(
+            manifest,
+            expected_repository=identity["repository"],
+            expected_sha=identity["target_sha"],
+            expected_ci_run_id=identity["run_id"],
+            expected_ci_run_attempt=identity["run_attempt"],
+            expected_image=identity["app_image"],
+            expected_bundle_name=bundle_name,
+            expected_frontend_profile=identity["profile"],
+            expected_acceptance_profile=identity["acceptance_profile"],
+            bundle_dir=root if bundle_name is not None else None,
+            expected_bundle_runtime=(
+                identity["runtime"]
+                if bundle_name is not None and identity["manifest_schema_version"] >= 2 else None
+            ),
+            require_migration_metadata=(bundle_name is not None and identity["manifest_schema_version"] >= 2),
+            require_bundle_runtime=(bundle_name is not None and identity["manifest_schema_version"] >= 2),
+            allowed_schema_versions=(1, 2) if bundle_name is not None else (3,),
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ManifestError) as error:
+        raise PinError("pinned release manifest failed identity validation") from error
+    if image_digest != identity["image_digest"]:
+        raise PinError("pinned application image digest differs from its trusted provenance")
+    return {
+        "schema_version": 1,
+        "transport": "actions-artifact",
+        "repository": identity["repository"],
+        "target_sha": identity["target_sha"],
+        "run_id": identity["run_id"],
+        "run_attempt": identity["run_attempt"],
+        "profile": identity["profile"],
+        "acceptance_profile": identity["acceptance_profile"],
+        "runtime": identity["runtime"],
+        "app_image": identity["app_image"],
+        "payload_digest": identity["artifact_digest"],
+        "artifact_id": identity["artifact_id"],
+        "artifact_name": identity["artifact_name"],
+        "artifact_digest": identity["artifact_digest"],
+        "artifact_size_bytes": identity["artifact_size_bytes"],
+        "manifest_sha256": identity["manifest_sha256"],
+        "bundle_filename": bundle_name,
+        "bundle_sha256": identity["bundle_sha256"],
+        "content_sha256": identity["content_sha256"],
+        "image_digest": identity["image_digest"],
         "manifest_schema_version": manifest["schema_version"],
         "files": list(names),
     }
@@ -350,6 +488,55 @@ def pin(
     return {"schema_version": 1, "outcome": outcome, "pin_key": key, **metadata}
 
 
+def pin_legacy(staging: Path, provenance: dict[str, Any], root: Path) -> dict[str, Any]:
+    """Retain an exact, already verified Actions-artifact payload without its ZIP archive."""
+    _require_shared_lock()
+    if root.is_symlink() or staging.is_symlink():
+        raise PinError("staging and pin roots must not be symlinks")
+    identity = _legacy_identity(provenance)
+    expected_files = {MANIFEST}
+    if identity["bundle_filename"] is not None:
+        expected_files.add(identity["bundle_filename"])
+    if not staging.is_dir() or {entry.name for entry in staging.iterdir()} != expected_files:
+        raise PinError("staged legacy release payload contains missing or unexpected files")
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root = root.resolve()
+    with tempfile.TemporaryDirectory(prefix=".pin-legacy-", dir=str(root)) as temporary:
+        candidate = Path(temporary) / "payload"
+        candidate.mkdir(mode=0o700)
+        for name in sorted(expected_files):
+            source = staging / name
+            if source.is_symlink() or not source.is_file():
+                raise PinError("staged legacy release payload contains an unsafe file")
+            shutil.copyfile(source, candidate / name)
+        (candidate / PROVENANCE).write_text(
+            json.dumps(provenance, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
+        )
+        metadata = validate(candidate)
+        key = _pin_key(metadata)
+        destination = root / key
+        with publication_lock(root):
+            if destination.exists() or destination.is_symlink():
+                if destination.is_symlink() or validate(destination) != metadata:
+                    raise PinError("existing legacy local pin has conflicting immutable provenance")
+                outcome = "already_pinned"
+            else:
+                for name in payload_files(candidate):
+                    path = candidate / name
+                    with path.open("r+b") as output:
+                        os.fsync(output.fileno())
+                    os.chmod(path, 0o600)
+                os.rename(candidate, destination)
+                if os.name == "posix":
+                    descriptor = os.open(root, os.O_RDONLY)
+                    try:
+                        os.fsync(descriptor)
+                    finally:
+                        os.close(descriptor)
+                outcome = "pinned"
+    return {"schema_version": 1, "outcome": outcome, "pin_key": key, **metadata}
+
+
 def restore(
     pin_dir: Path,
     output_dir: Path,
@@ -363,13 +550,29 @@ def restore(
     bundle_name: str | None,
     payload_image_prefix: str,
 ) -> dict[str, Any]:
-    if not re.fullmatch(r"ghcr-[0-9a-f]{64}-[0-9a-f]{64}", pin_dir.name):
+    if not ANY_PIN_KEY.fullmatch(pin_dir.name):
         raise PinError("local pin key is malformed")
     metadata = validate(pin_dir)
     provenance = _read_json(pin_dir / PROVENANCE, "pinned payload provenance is malformed")
+    if metadata["transport"] == "actions-artifact":
+        identity = _legacy_identity(provenance)
+        if pin_dir.name != _pin_key(metadata):
+            raise PinError("local legacy pin directory key does not match its artifact identity")
+        expected = {
+            "repository": repository,
+            "target_sha": target_sha,
+            "profile": profile,
+            "acceptance_profile": acceptance_profile,
+            "runtime": runtime,
+            "app_image": app_image,
+            "bundle_filename": bundle_name,
+        }
+        actual = {field: identity[field] for field in expected}
+        if actual != expected:
+            raise PinError("local pin does not match the requested repository, target, profile, or release settings")
+        return _restore_files(pin_dir, output_dir, metadata)
     _, identity, _ = _receipt_and_identity(provenance)
-    expected_key = "ghcr-" + hashlib.sha256(metadata["payload_ref"].encode("utf-8")).hexdigest() + "-" + metadata["manifest_sha256"]
-    if pin_dir.name != expected_key:
+    if pin_dir.name != _pin_key(metadata):
         raise PinError("local pin directory key does not match its immutable payload identity")
     expected = {
         "repository": repository,
@@ -393,6 +596,10 @@ def restore(
     }
     if actual != expected:
         raise PinError("local pin does not match the requested repository, target, profile, or release settings")
+    return _restore_files(pin_dir, output_dir, metadata)
+
+
+def _restore_files(pin_dir: Path, output_dir: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     if output_dir.exists() or output_dir.is_symlink():
         raise PinError("local pin restore destination already exists")
     output_dir.mkdir(parents=True, mode=0o700)
@@ -447,8 +654,15 @@ def _read_release_marker(path: Path, repository: str) -> dict[str, Any] | None:
             or sha != source_sha):
         raise PinError(f"release marker does not identify the expected repository and source SHA: {path}")
     key = marker.get("release_payload_pin_key", "")
-    if key and (not isinstance(key, str) or not PIN_KEY.fullmatch(key)):
+    if key and (not isinstance(key, str) or not ANY_PIN_KEY.fullmatch(key)):
         raise PinError(f"release marker has a malformed local pin key: {path}")
+    transport = marker.get("payload_transport", "actions-artifact")
+    if transport not in {"actions-artifact", "ghcr-container", "local-pin"}:
+        raise PinError(f"release marker has an unsupported payload transport: {path}")
+    if transport == "actions-artifact" and key and not LEGACY_PIN_KEY.fullmatch(key):
+        raise PinError(f"legacy release marker names a non-legacy local pin: {path}")
+    if transport == "ghcr-container" and key and not PIN_KEY.fullmatch(key):
+        raise PinError(f"GHCR release marker names a non-GHCR local pin: {path}")
     return marker
 
 
@@ -457,17 +671,25 @@ def _pin_size(path: Path) -> int:
 
 
 def _pin_marker_matches(marker: dict[str, Any], pin: dict[str, Any]) -> bool:
+    schema = marker.get("manifest_schema_version", 1)
+    profile = marker.get("frontend_profile")
+    acceptance = marker.get("acceptance_profile")
+    if schema == 1:
+        profile = profile or "BlazorAuto"
+        acceptance = acceptance or "BlazorAutoV1"
     expected = {
         "source_sha": pin["target_sha"],
         "ci_run_id": pin["run_id"],
         "ci_run_attempt": pin["run_attempt"],
-        "frontend_profile": pin["profile"],
-        "acceptance_profile": pin["acceptance_profile"],
         "image": pin["app_image"],
         "digest": pin["image_digest"],
         "manifest_schema_version": pin["manifest_schema_version"],
     }
-    return all(str(marker.get(field, "")) == str(value) for field, value in expected.items())
+    return (
+        profile == pin["profile"]
+        and acceptance == pin["acceptance_profile"]
+        and all(str(marker.get(field, "")) == str(value) for field, value in expected.items())
+    )
 
 
 def prune_local_pins(
@@ -492,6 +714,7 @@ def prune_local_pins(
         return {
             "schema_version": 1, "outcome": "no_pins", "repository": repository,
             "pins": 0, "deleted": [], "dry_run": not apply,
+            "protected": [], "marker_pins": {"current": None, "recovery": None},
         }
     root = root.resolve()
     current_marker = _read_release_marker(current_marker_path, repository)
@@ -505,33 +728,49 @@ def prune_local_pins(
             if entry.is_symlink() or not entry.is_file():
                 raise PinError("local pin publication lock is unsafe")
             continue
-        if entry.is_symlink() or not entry.is_dir() or not PIN_KEY.fullmatch(entry.name):
+        if entry.is_symlink() or not entry.is_dir() or not ANY_PIN_KEY.fullmatch(entry.name):
             raise PinError(f"local pin root contains an unknown or unsafe entry: {entry.name}")
         metadata = validate(entry)
         provenance = _read_json(entry / PROVENANCE, "pinned payload provenance is malformed")
-        reference_hash = hashlib.sha256(metadata["payload_ref"].encode("utf-8")).hexdigest()
-        expected_key = f"ghcr-{reference_hash}-{metadata['manifest_sha256']}"
+        expected_key = _pin_key(metadata)
         if entry.name != expected_key or provenance.get("repository", "").casefold() != repository.casefold():
             raise PinError(f"local pin directory identity differs from its verified provenance: {entry.name}")
         entries[entry.name] = {**metadata, "bytes": _pin_size(entry)}
 
     protected: set[str] = set()
-    markers = [marker for marker in (current_marker, recovery_marker) if marker is not None]
-    for marker in markers:
-        key = marker.get("release_payload_pin_key", "")
-        if not key:
+    marker_pins: dict[str, str | None] = {"current": None, "recovery": None}
+    markers = (("current", current_marker), ("recovery", recovery_marker))
+    for slot, marker in markers:
+        if marker is None:
             continue
-        pin = entries.get(key)
-        if pin is None:
-            raise PinError(f"release marker references a missing local pin: {key}")
-        if not _pin_marker_matches(marker, pin):
-            raise PinError(f"release marker identity differs from its verified local pin: {key}")
-        protected.add(key)
+        key = marker.get("release_payload_pin_key", "")
+        if key:
+            pin = entries.get(key)
+            if pin is None:
+                raise PinError(f"release marker references a missing local pin: {key}")
+            if not _pin_marker_matches(marker, pin):
+                raise PinError(f"release marker identity differs from its verified local pin: {key}")
+            protected.add(key)
+            marker_pins[slot] = key
+        elif marker.get("payload_transport", "actions-artifact") == "actions-artifact":
+            matches = [
+                candidate for candidate, pin in entries.items()
+                if pin.get("transport") == "actions-artifact" and _pin_marker_matches(marker, pin)
+            ]
+            if len(matches) == 1:
+                protected.add(matches[0])
+                marker_pins[slot] = matches[0]
+            elif len(matches) > 1:
+                marker_pins[slot] = "ambiguous"
 
     blocked_reason = ""
-    if entries and (current_marker is None or not current_marker.get("release_payload_pin_key")):
+    if entries and current_marker is not None and marker_pins["current"] == "ambiguous":
+        blocked_reason = "current-release-local-pin-is-ambiguous"
+    elif entries and recovery_marker is not None and marker_pins["recovery"] == "ambiguous":
+        blocked_reason = "recovery-release-local-pin-is-ambiguous"
+    elif entries and (current_marker is None or not marker_pins["current"]):
         blocked_reason = "current-release-local-pin-is-unknown"
-    elif entries and recovery_marker is not None and not recovery_marker.get("release_payload_pin_key"):
+    elif entries and recovery_marker is not None and not marker_pins["recovery"]:
         blocked_reason = "recovery-release-local-pin-is-unknown"
 
     profiles: dict[str, list[tuple[str, dict[str, Any]]]] = {}
@@ -575,10 +814,16 @@ def prune_local_pins(
                 _read_release_marker(recovery_marker_path, repository)
                 if recovery_marker_path is not None else None
             )
-            live_protected = {
-                marker.get("release_payload_pin_key", "")
-                for marker in (current_now, recovery_now) if marker is not None
-            }
+            live_protected = set()
+            for marker in (current_now, recovery_now):
+                if marker is None:
+                    continue
+                marker_key = marker.get("release_payload_pin_key", "")
+                if marker_key:
+                    live_protected.add(marker_key)
+                elif marker.get("payload_transport", "actions-artifact") == "actions-artifact":
+                    if _pin_marker_matches(marker, entries[key]):
+                        live_protected.add(key)
             if key in live_protected:
                 raise PinError(f"refusing to delete a pin newly referenced by a release marker: {key}")
             candidate = root / key
@@ -598,6 +843,7 @@ def prune_local_pins(
         "repository": repository,
         "pins": len(entries),
         "protected": sorted(protected),
+        "marker_pins": marker_pins,
         "protected_bytes": protected_bytes,
         "candidate_bytes": sum(pin["bytes"] for pin in remaining_unprotected),
         "candidate_limit_bytes": max_unprotected_bytes,

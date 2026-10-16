@@ -154,6 +154,35 @@ class PinReleasePayloadTests(unittest.TestCase):
             payload_image_prefix=self.identity.payload_image_prefix,
         )
 
+    def _legacy_provenance(self, *, artifact_id: str = "789", artifact_digest: str | None = None) -> dict:
+        manifest_sha = hashlib.sha256((self.staging / MODULE.MANIFEST).read_bytes()).hexdigest()
+        bundle_sha = hashlib.sha256((self.staging / self.identity.bundle_filename).read_bytes()).hexdigest()
+        content_sha = registry_payload.content_checksum(
+            {MODULE.MANIFEST: manifest_sha, self.identity.bundle_filename: bundle_sha}
+        )
+        return {
+            "schema_version": 1,
+            "transport": "actions-artifact",
+            "repository": self.identity.repository,
+            "target_sha": self.identity.commit_sha,
+            "run_id": self.identity.run_id,
+            "run_attempt": self.identity.run_attempt,
+            "profile": self.identity.profile,
+            "acceptance_profile": self.identity.acceptance_profile,
+            "runtime": self.identity.runtime,
+            "app_image": self.identity.app_image,
+            "image_digest": self.identity.app_image_digest,
+            "manifest_sha256": manifest_sha,
+            "bundle_filename": self.identity.bundle_filename,
+            "bundle_sha256": bundle_sha,
+            "content_sha256": content_sha,
+            "manifest_schema_version": 2,
+            "artifact_id": artifact_id,
+            "artifact_name": "books-migrate-linux-x64",
+            "artifact_digest": artifact_digest or "sha256:" + "e" * 64,
+            "artifact_size_bytes": 1000,
+        }
+
     def _publish_version(self, index: int) -> str:
         sha = format(index, "x").rjust(40, "0")
         self.identity = replace(self.identity, commit_sha=sha, run_id=str(100 + index), run_attempt="1")
@@ -174,6 +203,7 @@ class PinReleasePayloadTests(unittest.TestCase):
             "manifest_schema_version": metadata["manifest_schema_version"],
             "ci_run_id": metadata["run_id"],
             "ci_run_attempt": metadata["run_attempt"],
+            "payload_transport": "ghcr-container",
             "release_payload_pin_key": pin_key,
         }
         path.write_text(json.dumps(marker), encoding="utf-8")
@@ -196,6 +226,17 @@ class PinReleasePayloadTests(unittest.TestCase):
                 max_candidates_per_profile=int(kwargs.get("max_candidates_per_profile", 3)),
                 max_unprotected_bytes=int(kwargs.get("max_unprotected_bytes", MODULE.MAX_LOCAL_PIN_BYTES)),
             )
+
+    def _locked_pin_legacy(self, provenance: dict) -> dict:
+        lock_dir = self.root / "pin-deploy-lock"
+        lock_dir.mkdir(exist_ok=True)
+        token = "fixture-pin-lock-token"
+        (lock_dir / "token").write_text(token, encoding="utf-8")
+        with patch.dict(os.environ, {
+            "LOCALCLUSTER_DEPLOY_LOCK_DIR": str(lock_dir),
+            "LOCALCLUSTER_DEPLOY_LOCK_TOKEN": token,
+        }):
+            return MODULE.pin_legacy(self.staging, provenance, self.pin_root)
 
     def test_pins_and_offline_verifies_profiled_migration_payload(self) -> None:
         pinned = self._pin()
@@ -221,6 +262,105 @@ class PinReleasePayloadTests(unittest.TestCase):
             set(MODULE.payload_files(directory)),
             {MODULE.MANIFEST, MODULE.PROVENANCE},
         )
+
+    def test_pins_and_restores_legacy_artifact_without_registry_access(self) -> None:
+        provenance = self._legacy_provenance()
+        pinned = self._locked_pin_legacy(provenance)
+        directory = self.pin_root / pinned["pin_key"]
+        with patch.object(registry_payload, "_docker", side_effect=AssertionError("legacy pin used Docker")):
+            verified = MODULE.validate(directory)
+            restored = MODULE.restore(
+                directory,
+                self.root / "legacy-restored",
+                repository=self.identity.repository,
+                target_sha=self.identity.commit_sha,
+                profile=self.identity.profile,
+                acceptance_profile=self.identity.acceptance_profile,
+                runtime=self.identity.runtime,
+                app_image=self.identity.app_image,
+                bundle_name=self.identity.bundle_filename,
+                payload_image_prefix=self.identity.payload_image_prefix,
+            )
+        self.assertEqual(verified["transport"], "actions-artifact")
+        self.assertEqual(verified["artifact_id"], "789")
+        self.assertEqual(restored["outcome"], "restored")
+        self.assertEqual(
+            (self.root / "legacy-restored" / self.identity.bundle_filename).read_bytes(),
+            (self.staging / self.identity.bundle_filename).read_bytes(),
+        )
+
+    def test_pins_schema_one_legacy_bundle_without_newer_manifest_fields(self) -> None:
+        bundle_sha = hashlib.sha256((self.staging / self.identity.bundle_filename).read_bytes()).hexdigest()
+        manifest = {
+            "schema_version": 1,
+            "repository": self.identity.repository,
+            "commit_sha": self.identity.commit_sha,
+            "ci_run_id": int(self.identity.run_id),
+            "attempt": int(self.identity.run_attempt),
+            "image_ref": f"{self.identity.app_image}:{self.identity.commit_sha}",
+            "image_digest": self.identity.app_image_digest,
+            "bundle": {"file": self.identity.bundle_filename, "sha256": bundle_sha},
+        }
+        (self.staging / MODULE.MANIFEST).write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+        provenance = self._legacy_provenance()
+        provenance["manifest_schema_version"] = 1
+        provenance["manifest_sha256"] = hashlib.sha256((self.staging / MODULE.MANIFEST).read_bytes()).hexdigest()
+        provenance["bundle_sha256"] = bundle_sha
+        provenance["content_sha256"] = registry_payload.content_checksum(
+            {MODULE.MANIFEST: provenance["manifest_sha256"], self.identity.bundle_filename: bundle_sha}
+        )
+        pinned = self._locked_pin_legacy(provenance)
+        self.assertEqual(MODULE.validate(self.pin_root / pinned["pin_key"])["manifest_schema_version"], 1)
+
+    def test_legacy_pin_implicitly_protects_matching_artifact_marker(self) -> None:
+        pinned = self._locked_pin_legacy(self._legacy_provenance())
+        current = self.root / "legacy-release.json"
+        current.write_text(json.dumps({
+            "sha": self.identity.commit_sha,
+            "source_sha": self.identity.commit_sha,
+            "source_repo_url": self.identity.repository,
+            "image": self.identity.app_image,
+            "digest": self.identity.app_image_digest,
+            "frontend_profile": self.identity.profile,
+            "acceptance_profile": self.identity.acceptance_profile,
+            "manifest_schema_version": 2,
+            "ci_run_id": self.identity.run_id,
+            "ci_run_attempt": self.identity.run_attempt,
+            "payload_transport": "actions-artifact",
+        }), encoding="utf-8")
+        result = self._locked_prune(current_marker_path=current, recovery_marker_path=None)
+        self.assertEqual(result["protected"], [pinned["pin_key"]])
+        self.assertEqual(result["marker_pins"]["current"], pinned["pin_key"])
+        self.assertEqual(result["outcome"], "dry_run")
+
+    def test_ambiguous_legacy_marker_blocks_retention_without_deletion(self) -> None:
+        first = self._locked_pin_legacy(self._legacy_provenance(artifact_id="789"))
+        second = self._locked_pin_legacy(self._legacy_provenance(artifact_id="790"))
+        current = self.root / "legacy-release.json"
+        current.write_text(json.dumps({
+            "sha": self.identity.commit_sha,
+            "source_sha": self.identity.commit_sha,
+            "source_repo_url": self.identity.repository,
+            "image": self.identity.app_image,
+            "digest": self.identity.app_image_digest,
+            "frontend_profile": self.identity.profile,
+            "acceptance_profile": self.identity.acceptance_profile,
+            "manifest_schema_version": 2,
+            "ci_run_id": self.identity.run_id,
+            "ci_run_attempt": self.identity.run_attempt,
+            "payload_transport": "actions-artifact",
+        }), encoding="utf-8")
+        result = self._locked_prune(current_marker_path=current, recovery_marker_path=None, apply=True)
+        self.assertEqual(result["outcome"], "blocked")
+        self.assertEqual(result["blocked_reason"], "current-release-local-pin-is-ambiguous")
+        self.assertEqual(result["planned_delete"], [])
+        self.assertTrue((self.pin_root / first["pin_key"]).is_dir())
+        self.assertTrue((self.pin_root / second["pin_key"]).is_dir())
+
+    def test_legacy_pin_creation_requires_the_shared_deployment_lock(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(MODULE.PinError, "shared deployment lock"):
+                MODULE.pin_legacy(self.staging, self._legacy_provenance(), self.pin_root)
 
     def test_restores_exact_pin_without_registry_access_and_checks_target(self) -> None:
         pinned = self._pin()

@@ -173,7 +173,7 @@ jobs:
             set -euo pipefail
             RELEASE_PAYLOAD_PIN_KEY=""
             if [[ -n "$LOCAL_PAYLOAD_PIN_KEY" ]]; then
-              [[ "$LOCAL_PAYLOAD_PIN_KEY" =~ ^ghcr-[0-9a-f]{64}-[0-9a-f]{64}$ ]] || { echo "local_payload_pin_key is malformed" >&2; exit 1; }
+              [[ "$LOCAL_PAYLOAD_PIN_KEY" =~ ^(ghcr-[0-9a-f]{64}-[0-9a-f]{64}|legacy-[1-9][0-9]{0,19}-[0-9a-f]{64})$ ]] || { echo "local_payload_pin_key is malformed" >&2; exit 1; }
               pin_dir="${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\//-}/${LOCAL_PAYLOAD_PIN_KEY}"
               pin_result="$(python3 Deployment/Common/Scripts/Component/lib/pin_release_payload.py \
                 --restore "$pin_dir" --output-dir artifacts/migrations \
@@ -228,11 +228,28 @@ jobs:
                 echo "Using immutable GHCR payload selected from the successful CI receipt." >> "$GITHUB_STEP_SUMMARY"
                 ;;
               legacy_artifact)
-                mkdir -p artifacts/migrations
-                gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
-                test -f artifacts/migrations/release-manifest.json
+                pin_result="$(python3 Deployment/Common/Scripts/Component/lib/import_legacy_release_payload.py \
+                  --selection-file "$selection_file" \
+                  --root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\//-}" \
+                  --repository "$GITHUB_REPOSITORY" --repository-url "$SOURCE_REPO_URL" \
+                  --artifact-name "$MIGRATION_ARTIFACT_NAME" \
+                  --profile "$FRONTEND_PROFILE" --acceptance-profile "$ACCEPTANCE_PROFILE" \
+                  --runtime "$MIGRATION_RUNTIME" --app-image "$APP_IMAGE" \
+                  --bundle-name "$MIGRATION_BUNDLE_NAME")"
+                printf "%s" "$pin_result" > "${RUNNER_TEMP}/pinned-legacy-release-payload.json"
+                pin_key="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["pin_key"])' "$pin_result")"
+                restored_result="$(python3 Deployment/Common/Scripts/Component/lib/pin_release_payload.py \
+                  --restore "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\//-}/${pin_key}" \
+                  --output-dir artifacts/migrations --repository "$SOURCE_REPO_URL" \
+                  --target-sha "$TARGET_SHA" --profile "$FRONTEND_PROFILE" \
+                  --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
+                  --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+                  --bundle-name "$MIGRATION_BUNDLE_NAME")"
+                RELEASE_PAYLOAD_PIN_KEY="$pin_key"
+                RELEASE_IMAGE_DIGEST="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["image_digest"])' "$restored_result")"
+                RELEASE_MANIFEST_SCHEMA_VERSION="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["manifest_schema_version"])' "$restored_result")"
                 RELEASE_PAYLOAD_TRANSPORT="actions-artifact"
-                echo "Selected CI attempt predates immutable receipts; using its exact legacy artifact." >> "$GITHUB_STEP_SUMMARY"
+                echo "Pinned exact legacy artifact ${pin_key} and restored its verified payload; application image will use its normal registry pull." >> "$GITHUB_STEP_SUMMARY"
                 ;;
               *)
                 echo "CI selector returned unsupported outcome: ${outcome}" >&2
@@ -245,7 +262,7 @@ jobs:
               echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
               echo "RELEASE_PAYLOAD_TRANSPORT=${RELEASE_PAYLOAD_TRANSPORT}"
               echo "RELEASE_PAYLOAD_PIN_KEY=${RELEASE_PAYLOAD_PIN_KEY}"
-              if [[ "$RELEASE_PAYLOAD_TRANSPORT" == local-pin ]]; then
+              if [[ "$RELEASE_PAYLOAD_TRANSPORT" == local-pin || "$RELEASE_PAYLOAD_TRANSPORT" == actions-artifact ]]; then
                 echo "RELEASE_IMAGE_DIGEST=${RELEASE_IMAGE_DIGEST}"
                 echo "RELEASE_MANIFEST_SCHEMA_VERSION=${RELEASE_MANIFEST_SCHEMA_VERSION}"
               fi

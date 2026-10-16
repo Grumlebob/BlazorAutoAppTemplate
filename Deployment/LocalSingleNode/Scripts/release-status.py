@@ -128,8 +128,9 @@ def snapshot(config: dict, deploy_root: Path, *, repository: str, repository_url
         max_unprotected_bytes=1_073_741_824,
     )
     protected = set(inventory.get("protected", []))
-    current_pin = pin_state(current, protected)
-    recovery_pin = pin_state(recovery, protected)
+    marker_pins = inventory.get("marker_pins", {})
+    current_pin = pin_state(current, protected, marker_pins.get("current"))
+    recovery_pin = pin_state(recovery, protected, marker_pins.get("recovery"))
     active = list_active_deployment_runs(
         repository,
         api_root=os.environ.get("GITHUB_API_URL", "https://api.github.com"),

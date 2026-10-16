@@ -218,6 +218,7 @@ jobs:
             Deployment/Common/Scripts/Tests/test_ci_payload_receipt.py \
             Deployment/Common/Scripts/Tests/test_pull_release_payload.py \
             Deployment/Common/Scripts/Tests/test_pin_release_payload.py \
+            Deployment/Common/Scripts/Tests/test_import_legacy_release_payload.py \
             Deployment/Common/Scripts/Tests/test_release_status.py \
             Deployment/Common/Scripts/Tests/test_release_settings.py \
             Scripts/CI/tests/test_ci_report_store.py
@@ -226,6 +227,7 @@ jobs:
         run: |
           python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_release_status.py -v
           python3 -m unittest Deployment/LocalSingleNode/Scripts/Tests/test_release_status.py -v
+          python3 -m unittest Deployment/LocalSingleNode/Scripts/Tests/test_pin_legacy_release.py -v
 
       - name: Test deployment target gates and CI runner profiles
         run: python3 -m unittest Deployment/Common/Scripts/Tests/test_target_gate.py
