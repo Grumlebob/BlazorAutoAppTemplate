@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
+from contextlib import redirect_stderr
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -27,6 +31,32 @@ class LocalClusterReleaseStatusTests(TestCase):
         self.assertTrue((REPO_ROOT / reader).is_file())
         workflow = (REPO_ROOT / ".github/workflows/release-status.yml").read_text(encoding="utf-8")
         self.assertIn(f"python3 {reader} runner_name", workflow)
+
+    def test_reports_controlled_failure_reason_to_workflow_summary(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            summary_path = Path(temp_dir) / "summary.md"
+            with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary_path)}):
+                with patch.object(
+                    status,
+                    "snapshot",
+                    side_effect=status.ReleaseStatusError("Ansible could not inspect every LocalCluster app server"),
+                ):
+                    with redirect_stderr(io.StringIO()):
+                        self.assertEqual(status.main(), 1)
+            summary = summary_path.read_text(encoding="utf-8")
+        self.assertIn("Reason: Ansible could not inspect every LocalCluster app server", summary)
+        self.assertIn("Protected state was not changed.", summary)
+
+    def test_withholds_unexpected_exception_details_from_workflow_summary(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            summary_path = Path(temp_dir) / "summary.md"
+            with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary_path)}):
+                with patch.object(status, "snapshot", side_effect=OSError("credential=secret")):
+                    with redirect_stderr(io.StringIO()):
+                        self.assertEqual(status.main(), 1)
+            summary = summary_path.read_text(encoding="utf-8")
+        self.assertIn("Reason: unexpected local inspection error; details withheld", summary)
+        self.assertNotIn("credential", summary)
 
     def test_reads_one_consistent_marker_from_every_app_server(self):
         marker = {
