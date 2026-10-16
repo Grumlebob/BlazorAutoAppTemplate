@@ -2560,6 +2560,8 @@ for path, why in [
 ]:
     for needle in ("pin_release_payload.py", "--prune-root", "--current-marker", "--recovery-marker", "--max-candidates-per-profile 3", "--max-unprotected-bytes 1073741824", "--apply"):
         require_contains(path, needle, why)
+    if read(path).count("pin_release_payload.py") < 2:
+        fail(f"{path}: local pin cleanup must print a dry-run preview before applying retention")
 for path, needle in [
     (".github/workflows/cd-localcluster.yml", '-e "release_payload_pin_key=${RELEASE_PAYLOAD_PIN_KEY}"'),
     (".github/workflows/cd-localsinglenode.yml", '-e "release_payload_pin_key=$RELEASE_PAYLOAD_PIN_KEY"'),
@@ -2576,6 +2578,8 @@ for needle, why in [
     ("actions: write", "permission to delete old artifacts"),
     ("ci_report_store.py prune", "bounded local CI report retention"),
     ("with-deploy-lock.sh python3 Scripts/CI/ci_report_store.py prune", "local CI report pruning under the deployment lock"),
+    ("ci_report_store.py prune --repository \"$GITHUB_REPOSITORY\" --dry-run", "dry-run local report retention"),
+    ("Preview local CI report retention under the shared deployment lock", "report retention preview step"),
     ("bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh", "artifact pruning under the deployment lock"),
     ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
