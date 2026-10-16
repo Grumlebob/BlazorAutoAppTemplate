@@ -185,8 +185,24 @@ def pin_marker(
         selection = json.loads(selected.stdout)
     except json.JSONDecodeError as error:
         raise LegacyPinOperationError("CI selector returned malformed provenance") from error
-    if not isinstance(selection, dict) or selection.get("outcome") != "legacy_artifact":
-        raise LegacyPinOperationError("accepted marker does not match an exact successful legacy CI attempt")
+    if not isinstance(selection, dict) or selection.get("outcome") not in {"legacy_artifact", "success"}:
+        raise LegacyPinOperationError("accepted marker does not match an exact successful CI attempt")
+    if selection["outcome"] == "success":
+        receipt = selection.get("payload_receipt")
+        expected_receipt = {
+            "repository": repository_url,
+            "sha": summary["source_sha"],
+            "run_id": summary["ci_run_id"],
+            "run_attempt": summary["ci_run_attempt"],
+            "profile": profile,
+            "acceptance_profile": acceptance,
+            "runtime": runtime,
+            "app_image": expected_image,
+            "app_image_digest": summary["digest"],
+            "bundle_filename": migration_bundle_name,
+        }
+        if not isinstance(receipt, dict) or any(receipt.get(key) != value for key, value in expected_receipt.items()):
+            raise LegacyPinOperationError("successful CI receipt differs from the accepted legacy marker")
 
     result = import_legacy_release_payload.import_legacy_artifact(
         selection,

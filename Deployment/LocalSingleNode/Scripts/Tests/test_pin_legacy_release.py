@@ -68,8 +68,20 @@ class PinLegacyReleaseTests(TestCase):
     def test_imports_exact_accepted_attempt_and_leaves_marker_unchanged(self) -> None:
         before = self.marker_path.read_bytes()
         selected = subprocess.CompletedProcess([], 0, json.dumps({
-            "outcome": "legacy_artifact",
+            "outcome": "success",
             "selected": {"id": 12345, "run_attempt": 2, "head_sha": self.marker["source_sha"]},
+            "payload_receipt": {
+                "repository": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                "sha": self.marker["source_sha"],
+                "run_id": "12345",
+                "run_attempt": "2",
+                "profile": "React",
+                "acceptance_profile": "ReactPublicV1",
+                "runtime": "linux-x64",
+                "app_image": self.marker["image"],
+                "app_image_digest": self.marker["digest"],
+                "bundle_filename": "books-migrate",
+            },
         }), "")
         metadata = self._metadata()
         expected_metadata = metadata.copy()
@@ -97,13 +109,47 @@ class PinLegacyReleaseTests(TestCase):
         self.assertEqual(selector.call_args.args[0][selector.call_args.args[0].index("--expected-run-id") + 1], "12345")
         self.assertEqual(importer.call_args.kwargs["expected_image_digest"], self.marker["digest"])
         self.assertEqual(importer.call_args.kwargs["artifact_name"], "books-migrate-linux-x64")
+        self.assertEqual(importer.call_args.args[0]["outcome"], "success")
 
     def test_rejects_marker_for_another_ci_attempt(self) -> None:
-        selected = subprocess.CompletedProcess([], 0, json.dumps({"outcome": "success", "selected": {}}), "")
+        selected = subprocess.CompletedProcess([], 0, json.dumps({"outcome": "waiting", "selected": {}}), "")
         with patch.object(operation.subprocess, "run", return_value=selected), \
                 patch.object(operation.pin_release_payload, "_require_shared_lock", return_value=(self.deploy_root, "token")), \
                 patch.object(operation.import_legacy_release_payload, "import_legacy_artifact") as importer:
             with self.assertRaisesRegex(operation.LegacyPinOperationError, "does not match"):
+                operation.pin_marker(
+                    slot="current", app_instance="primary", deploy_root=self.deploy_root,
+                    repository="Grumlebob/BlazorAutoAppTemplate",
+                    repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                    app_image_base="ghcr.io/grumlebob/books",
+                    migration_artifact_name="books-migrate-linux-x64",
+                    migration_bundle_name="books-migrate", payload_image_prefix="private-",
+                    runtime="linux-x64", token="fixture-token",
+                )
+        importer.assert_not_called()
+
+    def test_rejects_successful_receipt_for_a_different_image_digest(self) -> None:
+        selection = {
+            "outcome": "success",
+            "selected": {"id": 12345, "run_attempt": 2, "head_sha": self.marker["source_sha"]},
+            "payload_receipt": {
+                "repository": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                "sha": self.marker["source_sha"],
+                "run_id": "12345",
+                "run_attempt": "2",
+                "profile": "React",
+                "acceptance_profile": "ReactPublicV1",
+                "runtime": "linux-x64",
+                "app_image": self.marker["image"],
+                "app_image_digest": "sha256:" + "f" * 64,
+                "bundle_filename": "books-migrate",
+            },
+        }
+        completed = subprocess.CompletedProcess([], 0, json.dumps(selection), "")
+        with patch.object(operation.subprocess, "run", return_value=completed), \
+                patch.object(operation.pin_release_payload, "_require_shared_lock", return_value=(self.deploy_root, "token")), \
+                patch.object(operation.import_legacy_release_payload, "import_legacy_artifact") as importer:
+            with self.assertRaisesRegex(operation.LegacyPinOperationError, "receipt differs"):
                 operation.pin_marker(
                     slot="current", app_instance="primary", deploy_root=self.deploy_root,
                     repository="Grumlebob/BlazorAutoAppTemplate",
