@@ -8,6 +8,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "release-status.py"
+REPO_ROOT = SCRIPT.parents[3]
 sys.path.insert(0, str(SCRIPT.parent / "Component" / "lib"))
 sys.path.insert(0, str(SCRIPT.parents[3] / "Deployment/Common/Scripts/Component/lib"))
 sys.path.insert(0, str(SCRIPT.parents[3] / "Scripts/Frontend"))
@@ -21,6 +22,12 @@ spec.loader.exec_module(status)
 
 
 class LocalClusterReleaseStatusTests(TestCase):
+    def test_release_status_workflow_uses_the_tracked_runner_settings_reader(self):
+        reader = "Deployment/LocalCluster/Scripts/Component/lib/read-deploy-setting.py"
+        self.assertTrue((REPO_ROOT / reader).is_file())
+        workflow = (REPO_ROOT / ".github/workflows/release-status.yml").read_text(encoding="utf-8")
+        self.assertIn(f"python3 {reader} runner_name", workflow)
+
     def test_reads_one_consistent_marker_from_every_app_server(self):
         marker = {
             "source_repo_url": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
