@@ -4,11 +4,17 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
+from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
+
+import pin_release_payload
+from release_manifest import sha256_file
 
 SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SOURCE_SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -112,6 +118,89 @@ def pin_state(
             return "verified"
         return "legacy-artifact-only"
     raise ReleaseStatusError("registry release has no durable local pin")
+
+
+def verify_offline_pin_restore(
+    release: dict[str, Any] | None,
+    pin_root: Path,
+    *,
+    repository_url: str,
+    runtime: str,
+    bundle_name: str | None,
+    payload_image_prefix: str,
+    temp_root: Path,
+) -> dict[str, Any]:
+    """Restore one exact local pin with GitHub and registry credentials unavailable."""
+    if release is None:
+        return {"outcome": "no-release"}
+    pin_key = release.get("release_payload_pin_key")
+    if not isinstance(pin_key, str) or not PIN_KEY.fullmatch(pin_key):
+        raise ReleaseStatusError("release has no exact local pin for offline restore")
+
+    credentials = ("GITHUB_TOKEN", "GH_TOKEN", "GHCR_TOKEN", "GHCR_USERNAME", "DOCKER_CONFIG")
+    saved_credentials = {name: os.environ.pop(name) for name in credentials if name in os.environ}
+    try:
+        pin_release_payload._require_shared_lock()
+        pin_dir = pin_root / pin_key
+        metadata = pin_release_payload.validate(pin_dir)
+        expected_identity = {
+            "repository": repository_url,
+            "target_sha": release["source_sha"],
+            "run_id": release["ci_run_id"],
+            "run_attempt": release["ci_run_attempt"],
+            "profile": release["frontend_profile"],
+            "acceptance_profile": release["acceptance_profile"],
+            "runtime": runtime,
+            "app_image": release["image"],
+            "image_digest": release["digest"],
+            "manifest_schema_version": release["manifest_schema_version"],
+            "bundle_filename": bundle_name,
+        }
+        if any(metadata.get(field) != value for field, value in expected_identity.items()):
+            raise ReleaseStatusError("offline local pin does not match the selected release")
+
+        expected_files = {"release-manifest.json": metadata["manifest_sha256"]}
+        if metadata.get("bundle_filename") is not None:
+            expected_files[metadata["bundle_filename"]] = metadata["bundle_sha256"]
+        if not temp_root.is_dir() or temp_root.is_symlink():
+            raise ReleaseStatusError("offline restore scratch directory is unavailable")
+
+        with tempfile.TemporaryDirectory(prefix="template-offline-pin-restore-", dir=temp_root) as directory:
+            output_dir = Path(directory) / "payload"
+            restored = pin_release_payload.restore(
+                pin_dir,
+                output_dir,
+                repository=repository_url,
+                target_sha=release["source_sha"],
+                profile=release["frontend_profile"],
+                acceptance_profile=release["acceptance_profile"],
+                runtime=runtime,
+                app_image=release["image"],
+                bundle_name=bundle_name,
+                payload_image_prefix=payload_image_prefix,
+            )
+            if restored.get("pin_key") != pin_key:
+                raise ReleaseStatusError("offline restore returned a different local pin identity")
+            restored_names = {path.name for path in output_dir.iterdir()}
+            if restored_names != set(expected_files):
+                raise ReleaseStatusError("offline restore returned an unexpected payload file set")
+            for name, digest in expected_files.items():
+                path = output_dir / name
+                if path.is_symlink() or not path.is_file() or sha256_file(path) != digest:
+                    raise ReleaseStatusError("offline restore did not reproduce the pinned payload checksums")
+    except ReleaseStatusError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ReleaseStatusError("offline local pin restore failed") from error
+    finally:
+        os.environ.update(saved_credentials)
+
+    return {
+        "outcome": "verified",
+        "pin_key": pin_key,
+        "transport": metadata["transport"],
+        "file_count": len(expected_files),
+    }
 
 
 def _api_get(api_root: str, path: str, token: str) -> dict[str, Any]:

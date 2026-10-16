@@ -69,6 +69,52 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
         self.assertEqual(result["active_deployments"], [{"run_id": "77"}])
         self.assertEqual(result["mutation"], "none")
         self.assertTrue(result["pin_inventory"]["dry_run"])
+        self.assertEqual(result["offline_pin_restore"], {"outcome": "not-requested"})
+
+    def test_snapshot_can_restore_current_and_recovery_pins_without_mutating_release_state(self):
+        pin_current = "ghcr-" + "a" * 64 + "-" + "b" * 64
+        pin_recovery = "legacy-123-" + "d" * 64
+        config = {"app_name": "books"}
+        current = self.marker(sha="1" * 40, pin=pin_current, run_id="12341")
+        recovery = self.marker(sha="2" * 40, pin=pin_recovery, run_id="12342")
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release.json").write_text(json.dumps(current), encoding="utf-8")
+            (root / "release-state").mkdir()
+            (root / "release-state/previous.json").write_text(json.dumps(recovery), encoding="utf-8")
+            inventory = {
+                "outcome": "consistent", "pins": 2, "protected": [pin_current, pin_recovery],
+                "marker_pins": {"current": pin_current, "recovery": pin_recovery},
+                "protected_bytes": 100, "candidate_bytes": 20, "planned_delete": [],
+                "blocked_reason": None, "dry_run": True,
+            }
+            with patch.object(status.pin_release_payload, "_require_shared_lock"), \
+                    patch.object(status.pin_release_payload, "prune_local_pins", return_value=inventory), \
+                    patch.object(status, "list_active_deployment_runs", return_value=[]), \
+                    patch.object(status, "verify_live_identity", return_value="verified"), \
+                    patch.object(
+                        status,
+                        "verify_offline_pin_restore",
+                        side_effect=lambda release, *_args, **_kwargs: {
+                            "outcome": "verified",
+                            "pin_key": release["release_payload_pin_key"],
+                        },
+                    ) as restore, \
+                    patch.dict("os.environ", {
+                        "APP_INSTANCE": "additional",
+                        "VERIFY_OFFLINE_PINS": "true",
+                        "RUNNER_TEMP": directory,
+                    }, clear=False):
+                result = status.snapshot(
+                    config, root, repository="Grumlebob/BlazorAutoAppTemplate",
+                    repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                    app_image="ghcr.io/grumlebob/books",
+                )
+
+        self.assertEqual(restore.call_count, 2)
+        self.assertEqual(result["offline_pin_restore"]["current"]["pin_key"], pin_current)
+        self.assertEqual(result["offline_pin_restore"]["recovery"]["pin_key"], pin_recovery)
+        self.assertEqual(result["mutation"], "none")
 
     def test_marker_rejects_symlink(self):
         with TemporaryDirectory() as directory:

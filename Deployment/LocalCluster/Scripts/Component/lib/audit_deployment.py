@@ -2351,6 +2351,8 @@ for needle, why in (
     ('value.get("shared_lock") != "held"', "workflow requires the shared lock"),
     ("GITHUB_STEP_SUMMARY", "bounded human-readable status output"),
     ("secrets.GITHUB_TOKEN", "short-lived read-only Actions status token"),
+    ("verify_offline_pins:", "opt-in offline restoration verification for exact local pins"),
+    ("VERIFY_OFFLINE_PINS: ${{ inputs.verify_offline_pins }}", "offline pin verification input wired to status jobs"),
     ("localsinglenode-books", "LocalSingleNode runner label fallback"),
 ):
     if needle not in release_status_workflow:
@@ -2372,6 +2374,7 @@ for status_script in (
     for needle, why in (
         ("pin_release_payload.prune_local_pins(", "the existing local pin inventory"),
         ("apply=False", "dry-run pin inventory with no deletion"),
+        ("verify_offline_pin_restore(", "optional offline restoration of verified current and recovery pins"),
         ('"mutation": "none"', "an explicit no-mutation result"),
         ("list_active_deployment_runs(", "active deployment run identities"),
         ("_require_shared_lock()", "the existing deployment lock ownership proof"),
@@ -2383,6 +2386,8 @@ for needle, why in (
     ("target_sha", "the requested deployment target SHA"),
     ("run_attempt", "the exact workflow run attempt"),
     ('"Authorization": f"Bearer {token}"', "the runner-provided short-lived API token"),
+    ("os.environ.pop(name)", "GitHub and registry credentials removed during offline local pin restoration"),
+    ("sha256_file(path) != digest", "restored payload bytes checked against their frozen checksums"),
 ):
     if needle not in read("Deployment/Common/Scripts/Component/lib/release_status.py"):
         fail(f"Deployment/Common/Scripts/Component/lib/release_status.py: missing {why}: {needle}")
