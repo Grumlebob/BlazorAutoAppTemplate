@@ -198,8 +198,9 @@ def snapshot() -> dict:
         )
 
     protected = set(inventory.get("protected", []))
-    current_pin = pin_state(current, protected, inventory.get("marker_pins", {}).get("current"))
-    recovery_pin = pin_state(recovery, protected, inventory.get("marker_pins", {}).get("recovery"))
+    marker_pins = inventory.get("marker_pins", {})
+    current_pin = pin_state(current, protected, marker_pins.get("current"))
+    recovery_pin = pin_state(recovery, protected, marker_pins.get("recovery"))
     offline_pin_restore: dict[str, Any] = {"outcome": "not-requested"}
     if os.environ.get("VERIFY_OFFLINE_PINS", "false").casefold() == "true":
         temp_root = Path(os.environ.get("RUNNER_TEMP", ""))
@@ -211,6 +212,7 @@ def snapshot() -> dict:
                 bundle_name=release_settings["migration_bundle_name"],
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
+                validated_pin_key=marker_pins.get("current") if current_pin == "verified" else None,
             ),
             "recovery": verify_offline_pin_restore(
                 recovery, pin_root,
@@ -219,6 +221,7 @@ def snapshot() -> dict:
                 bundle_name=release_settings["migration_bundle_name"],
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
+                validated_pin_key=marker_pins.get("recovery") if recovery_pin == "verified" else None,
             ),
         }
     active = list_active_deployment_runs(

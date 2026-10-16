@@ -77,6 +77,8 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
         config = {"app_name": "books"}
         current = self.marker(sha="1" * 40, pin=pin_current, run_id="12341")
         recovery = self.marker(sha="2" * 40, pin=pin_recovery, run_id="12342")
+        recovery["payload_transport"] = "actions-artifact"
+        recovery.pop("release_payload_pin_key")
         with TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "release.json").write_text(json.dumps(current), encoding="utf-8")
@@ -97,7 +99,7 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                         "verify_offline_pin_restore",
                         side_effect=lambda release, *_args, **_kwargs: {
                             "outcome": "verified",
-                            "pin_key": release["release_payload_pin_key"],
+                            "pin_key": release.get("release_payload_pin_key") or _kwargs["validated_pin_key"],
                         },
                     ) as restore, \
                     patch.dict("os.environ", {
@@ -114,6 +116,7 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
         self.assertEqual(restore.call_count, 2)
         self.assertEqual(result["offline_pin_restore"]["current"]["pin_key"], pin_current)
         self.assertEqual(result["offline_pin_restore"]["recovery"]["pin_key"], pin_recovery)
+        self.assertEqual(restore.call_args_list[1].kwargs["validated_pin_key"], pin_recovery)
         self.assertEqual(result["mutation"], "none")
 
     def test_marker_rejects_symlink(self):

@@ -129,11 +129,15 @@ def verify_offline_pin_restore(
     bundle_name: str | None,
     payload_image_prefix: str,
     temp_root: Path,
+    validated_pin_key: str | None = None,
 ) -> dict[str, Any]:
     """Restore one exact local pin with GitHub and registry credentials unavailable."""
     if release is None:
         return {"outcome": "no-release"}
-    pin_key = release.get("release_payload_pin_key")
+    marker_pin_key = release.get("release_payload_pin_key")
+    if marker_pin_key and validated_pin_key and marker_pin_key != validated_pin_key:
+        raise ReleaseStatusError("offline local pin does not match the selected release")
+    pin_key = marker_pin_key or validated_pin_key
     if not isinstance(pin_key, str) or not PIN_KEY.fullmatch(pin_key):
         raise ReleaseStatusError("release has no exact local pin for offline restore")
 
