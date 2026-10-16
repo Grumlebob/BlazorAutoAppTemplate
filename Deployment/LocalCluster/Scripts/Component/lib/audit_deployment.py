@@ -242,6 +242,13 @@ required_files.extend([
     "Deployment/Common/ansible/roles/caddy_install/handlers/main.yml",
     "Deployment/LocalCluster/ansible/roles/caddy/meta/main.yml",
     "Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh",
+    "Deployment/Common/Scripts/Component/lib/release_status.py",
+    "Deployment/Common/Scripts/Tests/test_release_status.py",
+    "Deployment/LocalCluster/Scripts/release-status.py",
+    "Deployment/LocalCluster/Scripts/Tests/test_release_status.py",
+    "Deployment/LocalSingleNode/Scripts/release-status.py",
+    "Deployment/LocalSingleNode/Scripts/Tests/test_release_status.py",
+    ".github/workflows/release-status.yml",
 ])
 for file in required_files:
     require_file(file)
@@ -1003,6 +1010,9 @@ for needle, why in [
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
     ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v", "bounded documentation slice loader tests"),
     ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_read_live_release_ci_run_ids.py -v", "live release identity protection tests"),
+    ("Deployment/Common/Scripts/Tests/test_release_status.py", "shared release status validation tests"),
+    ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_release_status.py -v", "LocalCluster read-only release status tests"),
+    ("python3 -m unittest Deployment/LocalSingleNode/Scripts/Tests/test_release_status.py -v", "LocalSingleNode read-only release status tests"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
@@ -2154,6 +2164,58 @@ for workflow in workflow_paths:
             ):
                 if needle not in first:
                     fail(f"{workflow}: each deployment job must fail closed on an exact enabled-target match before other steps")
+
+release_status_workflow = read(".github/workflows/release-status.yml")
+for needle, why in (
+    ("workflow_dispatch:", "manual-only read-only status trigger"),
+    ("permissions:\n  actions: read\n  contents: read\n", "read-only Actions and contents permissions"),
+    ("template-release-status-${{ inputs.target }}-${{ inputs.target == 'localsinglenode' && inputs.app_instance || 'primary' }}", "target and instance-specific serialization"),
+    ("cancel-in-progress: false", "non-canceling status serialization"),
+    ("Require trusted main", "trusted main-only status source"),
+    ('test "$GITHUB_REF" = refs/heads/main', "status code restricted to main"),
+    ("Require this deployment target to be enabled", "enabled deployment target gate"),
+    ("Verify node-main runner", "explicit LocalCluster runner identity verification"),
+    ("read-deploy-setting.py runner_name", "configured LocalCluster runner identity"),
+    ("with-deploy-lock.sh", "shared deployment lock for status inspection"),
+    ('value.get("mutation") != "none"', "workflow rejects any reported mutation"),
+    ('value.get("shared_lock") != "held"', "workflow requires the shared lock"),
+    ("GITHUB_STEP_SUMMARY", "bounded human-readable status output"),
+    ("secrets.GITHUB_TOKEN", "short-lived read-only Actions status token"),
+    ("localsinglenode-books", "LocalSingleNode runner label fallback"),
+):
+    if needle not in release_status_workflow:
+        fail(f".github/workflows/release-status.yml: missing {why}: {needle}")
+for forbidden, why in (
+    ("schedule:", "scheduled trigger"),
+    ("pull_request:", "pull request trigger"),
+    ("actions: write", "Actions write permission"),
+    ("packages: write", "package write permission"),
+    ("docker push", "registry publication"),
+    ("gh api -X DELETE", "GitHub resource deletion"),
+):
+    if forbidden in release_status_workflow:
+        fail(f".github/workflows/release-status.yml: must not use {why}: {forbidden}")
+for status_script in (
+    "Deployment/LocalCluster/Scripts/release-status.py",
+    "Deployment/LocalSingleNode/Scripts/release-status.py",
+):
+    for needle, why in (
+        ("pin_release_payload.prune_local_pins(", "the existing local pin inventory"),
+        ("apply=False", "dry-run pin inventory with no deletion"),
+        ('"mutation": "none"', "an explicit no-mutation result"),
+        ("list_active_deployment_runs(", "active deployment run identities"),
+        ("_require_shared_lock()", "the existing deployment lock ownership proof"),
+    ):
+        if needle not in read(status_script):
+            fail(f"{status_script}: missing {why}: {needle}")
+for needle, why in (
+    ("ACTIVE_STATUSES = (\"queued\", \"in_progress\", \"waiting\", \"requested\", \"pending\")", "all active and waiting Actions states"),
+    ("target_sha", "the requested deployment target SHA"),
+    ("run_attempt", "the exact workflow run attempt"),
+    ('"Authorization": f"Bearer {token}"', "the runner-provided short-lived API token"),
+):
+    if needle not in read("Deployment/Common/Scripts/Component/lib/release_status.py"):
+        fail(f"Deployment/Common/Scripts/Component/lib/release_status.py: missing {why}: {needle}")
 if CODEQL_WORKFLOW in workflow_paths:
     codeql = read(CODEQL_WORKFLOW)
     for needle, why in (
