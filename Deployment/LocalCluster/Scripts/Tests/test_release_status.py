@@ -4,10 +4,11 @@ import base64
 import io
 import json
 import os
-from pathlib import Path
+import subprocess
 import sys
 import tempfile
 from contextlib import redirect_stderr
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -57,6 +58,19 @@ class LocalClusterReleaseStatusTests(TestCase):
             summary = summary_path.read_text(encoding="utf-8")
         self.assertIn("Reason: unexpected local inspection error; details withheld", summary)
         self.assertNotIn("credential", summary)
+
+    def test_summarizes_ansible_authentication_and_connectivity_failures(self):
+        failures = (
+            ("Permission denied (publickey).", "SSH authentication failed while inspecting LocalCluster app servers"),
+            ("Connection timed out", "SSH connectivity or host verification failed while inspecting LocalCluster app servers"),
+        )
+        for diagnostic, expected in failures:
+            with self.subTest(diagnostic=diagnostic), tempfile.TemporaryDirectory() as temp_dir:
+                result = subprocess.CompletedProcess(args=["ansible"], returncode=2, stdout="", stderr=diagnostic)
+                with patch.object(status.subprocess, "run", return_value=result):
+                    with self.assertRaises(status.ReleaseStatusError) as error:
+                        status.ansible_results("ansible.builtin.stat", "path=/opt/books/release.json", Path(temp_dir))
+                self.assertEqual(str(error.exception), expected)
 
     def test_reads_one_consistent_marker_from_every_app_server(self):
         marker = {
