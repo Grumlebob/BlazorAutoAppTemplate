@@ -26,6 +26,8 @@ Run every command successfully before pushing non-Markdown changes. Use Linux or
 git diff --check
 dotnet restore BlazorAutoApp.sln
 python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py Scripts/CI/tests/test_ci_report_store.py
+python3 -m unittest Scripts/CI/tests/test_workflow_policy.py
+python3 Scripts/CI/workflow_policy.py --repo-root .
 dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh
