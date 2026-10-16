@@ -1,0 +1,179 @@
+name: Read-only release status
+run-name: "Release status - ${{ inputs.target }} @ ${{ github.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target to inspect
+        required: true
+        type: choice
+        options:
+          - localcluster
+          - localsinglenode
+      app_instance:
+        description: LocalSingleNode app instance; ignored for LocalCluster
+        required: true
+        default: primary
+        type: choice
+        options:
+          - primary
+          - additional
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: template-release-status-${{ inputs.target }}-${{ inputs.target == 'localsinglenode' && inputs.app_instance || 'primary' }}
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: [self-hosted, linux, x64, "${{ inputs.target == 'localcluster' && (vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books') || (vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books') }}"]
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.target == 'localcluster' && (vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster') || (inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode') }}
+
+    steps:
+      - name: Require trusted main
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled in DEPLOY_TARGETS."
+            exit 1
+          fi
+
+      - name: Prepare run-scoped status scratch
+        env:
+          STATUS_TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          status_ci_path="$RUNNER_TEMP/template-release-status-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          echo "STATUS_CI_PATH=${status_ci_path}" >> "$GITHUB_ENV"
+          if [[ "$STATUS_TARGET" == "localsinglenode" ]]; then
+            instance_temp_dir="$RUNNER_TEMP/template-release-status-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            mkdir -m 0700 -- "$instance_temp_dir"
+            echo "INSTANCE_TEMP_DIR=${instance_temp_dir}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Require green main CI for status code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py > "$STATUS_CI_PATH"
+
+      - name: Verify node-main runner
+        if: inputs.target == 'localcluster'
+        env:
+          EXPECTED_RUNNER_NAME: ${{ runner.name }}
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Linux
+          expected_runner="$(python3 Deployment/LocalCluster/Scripts/read-deploy-setting.py runner_name)"
+          test -n "$EXPECTED_RUNNER_NAME"
+          test "$EXPECTED_RUNNER_NAME" = "$expected_runner"
+          command -v ansible >/dev/null
+          command -v ansible-inventory >/dev/null
+          test -f Deployment/LocalCluster/inventory/prod/hosts.yml
+
+      - name: Inspect LocalCluster release and pins under the shared lock
+        if: inputs.target == 'localcluster'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set -euo pipefail
+          command_status=0
+          output="$(bash Deployment/Common/Scripts/with-deploy-lock.sh python3 -B Deployment/LocalCluster/Scripts/release-status.py 2>/dev/null)" || command_status=$?
+          if [[ "$command_status" != 0 ]]; then
+            echo "::error::Release status unavailable; protected state was not changed."
+            exit 1
+          fi
+          status="${output##*$'\n'}"
+          python3 - "$status" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import sys
+
+          value = json.loads(sys.argv[1])
+          if value.get("mutation") != "none" or value.get("shared_lock") != "held":
+              raise SystemExit("Release status did not prove a read-only locked inspection.")
+          print(json.dumps(value, sort_keys=True, indent=2))
+          PY
+
+      - name: Verify intended LocalSingleNode runner
+        if: inputs.target == 'localsinglenode'
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          set -euo pipefail
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Resolve LocalSingleNode frontend profile
+        if: inputs.target == 'localsinglenode'
+        run: |
+          set -euo pipefail
+          echo "FRONTEND_PROFILE=$(python3 Scripts/Frontend/resolve_frontend_profile.py)" >> "$GITHUB_ENV"
+          echo "ACCEPTANCE_PROFILE=$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)" >> "$GITHUB_ENV"
+
+      - name: Resolve LocalSingleNode app instance
+        if: inputs.target == 'localsinglenode'
+        env:
+          INPUT_APP_INSTANCE: ${{ inputs.app_instance }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Inspect LocalSingleNode release and pins under the shared lock
+        if: inputs.target == 'localsinglenode'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set -euo pipefail
+          command_status=0
+          output="$(bash Deployment/Common/Scripts/with-deploy-lock.sh python3 -B Deployment/LocalSingleNode/Scripts/release-status.py 2>/dev/null)" || command_status=$?
+          if [[ "$command_status" != 0 ]]; then
+            echo "::error::Release status unavailable; protected state was not changed."
+            exit 1
+          fi
+          status="${output##*$'\n'}"
+          python3 - "$status" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import sys
+
+          value = json.loads(sys.argv[1])
+          if value.get("mutation") != "none" or value.get("shared_lock") != "held":
+              raise SystemExit("Release status did not prove a read-only locked inspection.")
+          print(json.dumps(value, sort_keys=True, indent=2))
+          PY
+
+      - name: Remove temporary status files
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -n "${STATUS_CI_PATH:-}" ]]; then
+            rm -f -- "$STATUS_CI_PATH"
+          fi
+          if [[ -n "${INSTANCE_TEMP_DIR:-}" && "$INSTANCE_TEMP_DIR" == "$RUNNER_TEMP/template-release-status-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]; then
+            rm -f -- "$INSTANCE_TEMP_DIR/instance-vars.json" "$INSTANCE_TEMP_DIR/instance-settings.yml"
+            rmdir -- "$INSTANCE_TEMP_DIR" 2>/dev/null || true
+          fi
+

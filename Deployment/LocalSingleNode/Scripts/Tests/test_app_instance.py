@@ -54,6 +54,25 @@ class AppInstanceTests(unittest.TestCase):
         self.assertEqual(values["LOCALSINGLENODE_SETTINGS_FILE"], "")
         self.assertEqual(json.loads(Path(values["INSTANCE_EXTRA_VARS_FILE"]).read_text())["app_name"], self.primary["app_name"])
 
+    def test_run_scoped_instance_temp_directory_stays_inside_runner_temp(self):
+        run_scoped = self.directory / "release-status-123-1"
+        with mock.patch.dict(os.environ, {
+            "RUNNER_TEMP": str(self.directory),
+            "INSTANCE_TEMP_DIR": str(run_scoped),
+        }, clear=False):
+            result = instance.resolve_temporary_directory()
+        self.assertEqual(result, run_scoped.resolve())
+        if os.name == "posix":
+            self.assertEqual(stat.S_IMODE(result.stat().st_mode), 0o700)
+
+        with tempfile.TemporaryDirectory() as outside:
+            with mock.patch.dict(os.environ, {
+                "RUNNER_TEMP": str(self.directory),
+                "INSTANCE_TEMP_DIR": str(Path(outside) / "outside"),
+            }, clear=False):
+                with self.assertRaises(ValueError):
+                    instance.resolve_temporary_directory()
+
     def test_additional_settings_and_release_are_bound_independently(self):
         values = self.resolve()
         self.assertEqual(values["APP_NAME"], "catalog")

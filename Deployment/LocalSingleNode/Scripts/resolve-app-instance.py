@@ -91,6 +91,20 @@ def write_private(path: Path, content: str) -> None:
         output.write(content)
 
 
+def resolve_temporary_directory() -> Path:
+    runner_temp = Path(os.environ["RUNNER_TEMP"]).resolve()
+    requested = Path(os.environ.get("INSTANCE_TEMP_DIR", str(runner_temp)))
+    if not requested.is_absolute() or requested.is_symlink():
+        raise ValueError("instance temporary directory must be an absolute, non-symlink path")
+    requested.mkdir(mode=0o700, exist_ok=True)
+    resolved = requested.resolve(strict=True)
+    if os.path.commonpath((str(runner_temp), str(resolved))) != str(runner_temp):
+        raise ValueError("instance temporary directory must remain inside RUNNER_TEMP")
+    if resolved != runner_temp:
+        os.chmod(resolved, 0o700)
+    return resolved
+
+
 def verify_owned(config: dict, source: str, etc: Path = ETC) -> None:
     marker = etc / f"localsinglenode/apps/{config['app_name']}.json"
     for path in (marker.parent, marker):
@@ -171,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
             mask(json.loads(payload, object_pairs_hook=unique_object))
         values = resolve(instance, payload, os.environ["FRONTEND_PROFILE"], os.environ["ACCEPTANCE_PROFILE"],
                          load_release_settings(ROOT / "Deployment/Common/release.yml"),
-                         settings(TARGET / "inventory/group_vars/all.yml"), Path(os.environ["RUNNER_TEMP"]))
+                         settings(TARGET / "inventory/group_vars/all.yml"), resolve_temporary_directory())
         config = json.loads(Path(values["INSTANCE_EXTRA_VARS_FILE"]).read_text(encoding="utf-8"))
         source = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
         primary = settings(TARGET / "inventory/group_vars/all.yml")
