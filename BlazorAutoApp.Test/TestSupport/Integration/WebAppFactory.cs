@@ -76,8 +76,7 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         _options = options;
         if (string.IsNullOrWhiteSpace(options.PostgresConnectionString))
         {
-            _dbContainer = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
-                .WithCreateParameterModifier(TestContainerImages.ConfigurePostgreSqlData)
+            _dbContainer = TestContainerImages.CreatePostgreSqlFixture()
                 .WithLabel(TestContainerLabels.For("web-app-factory-postgres"))
                 .WithCleanUp(true)
                 .Build();

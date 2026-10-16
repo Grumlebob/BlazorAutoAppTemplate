@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using DotNet.Testcontainers.Builders;
 using Docker.DotNet.Models;
+using Testcontainers.PostgreSql;
 
 namespace BlazorAutoApp.Test.TestSupport.Integration;
 
@@ -16,6 +19,15 @@ internal static class TestContainerImages
     public const string RedisDataPath = "/data";
     public const string RedisDataTmpfsOptions = "rw,size=67108864";
     public const string Ryuk = "testcontainers/ryuk:0.14.0";
+
+    public static PostgreSqlBuilder CreatePostgreSqlFixture() => new PostgreSqlBuilder(PostgreSql)
+        // A recycled host port must not reuse a prior container's connection pool.
+        .WithPassword(RandomNumberGenerator.GetHexString(48))
+        .WithCreateParameterModifier(ConfigurePostgreSqlData)
+        .WithWaitStrategy(Wait.ForUnixContainer()
+            .UntilCommandIsCompleted("pg_isready", "--host", "localhost",
+                "--dbname", PostgreSqlBuilder.DefaultDatabase, "--username", PostgreSqlBuilder.DefaultUsername)
+            .UntilExternalTcpPortIsAvailable(PostgreSqlBuilder.PostgreSqlPort));
 
     public static void ConfigurePostgreSqlData(CreateContainerParameters parameters) =>
         ConfigureDisposableData(parameters, PostgreSqlDataPath, PostgreSqlDataTmpfsOptions);

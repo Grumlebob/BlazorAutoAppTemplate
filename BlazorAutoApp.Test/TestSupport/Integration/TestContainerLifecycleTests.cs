@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using DotNet.Testcontainers.Builders;
-using Testcontainers.PostgreSql;
+using Npgsql;
 using Xunit;
 
 namespace BlazorAutoApp.Test.TestSupport.Integration;
@@ -46,13 +46,18 @@ public sealed class TestContainerLifecycleTests
             Assert.Skip("Set RUN_TESTCONTAINER_LIFECYCLE=1 to run the isolated Docker lifecycle proof.");
         }
 
-        await using var container = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
-            .WithCreateParameterModifier(TestContainerImages.ConfigurePostgreSqlData)
+        await using var container = TestContainerImages.CreatePostgreSqlFixture()
             .WithLabel(TestContainerLabels.For("lifecycle-proof-postgres"))
             .WithCleanUp(true)
             .Build();
 
         await container.StartAsync();
+        await using (var connection = new NpgsqlConnection(container.GetConnectionString()))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("SELECT 1", connection);
+            Assert.Equal(1, await command.ExecuteScalarAsync());
+        }
         var inspect = await DockerInspectAsync(container.Id);
         var tmpfs = inspect.GetProperty("HostConfig").GetProperty("Tmpfs");
         Assert.Equal(
