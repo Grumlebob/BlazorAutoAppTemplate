@@ -584,6 +584,11 @@ jobs:
             echo "release_payload_image=${release_payload_image}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Restore .NET projects for this publisher run
+        env:
+          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
+        run: dotnet restore BlazorAutoApp.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+
       - name: Restore .NET tools
         run: dotnet tool restore
 
