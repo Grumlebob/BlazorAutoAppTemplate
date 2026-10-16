@@ -35,16 +35,28 @@ def ansible_results(module: str, arguments: str, destination: Path) -> list[dict
                 "ansible", "app_servers", "-i", str(inventory),
                 "-m", module, "-a", arguments, "--tree", str(destination),
             ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            capture_output=True,
             text=True,
             check=False,
             timeout=120,
         )
+    except subprocess.TimeoutExpired as error:
+        raise ReleaseStatusError("Ansible timed out while inspecting LocalCluster app servers") from error
     except (OSError, subprocess.SubprocessError) as error:
         raise ReleaseStatusError("Ansible could not inspect every LocalCluster app server") from error
     if result.returncode != 0:
-        raise ReleaseStatusError("Ansible could not inspect every LocalCluster app server")
+        diagnostic = f"{result.stderr or ''}\n{result.stdout or ''}".casefold()
+        if "permission denied" in diagnostic or "authentication failed" in diagnostic:
+            reason = "SSH authentication failed while inspecting LocalCluster app servers"
+        elif any(marker in diagnostic for marker in (
+            "connection timed out", "timed out", "no route to host", "network is unreachable",
+            "connection refused", "connection reset", "host is unreachable", "unreachable!",
+            "host key verification failed", "remote host identification has changed",
+        )):
+            reason = "SSH connectivity or host verification failed while inspecting LocalCluster app servers"
+        else:
+            reason = "Ansible could not inspect every LocalCluster app server"
+        raise ReleaseStatusError(reason)
     records: list[dict[str, Any]] = []
     for path in sorted(destination.iterdir()):
         if not path.is_file():
