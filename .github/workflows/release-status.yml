@@ -176,4 +176,3 @@ jobs:
             rm -f -- "$INSTANCE_TEMP_DIR/instance-vars.json" "$INSTANCE_TEMP_DIR/instance-settings.yml"
             rmdir -- "$INSTANCE_TEMP_DIR" 2>/dev/null || true
           fi
-
