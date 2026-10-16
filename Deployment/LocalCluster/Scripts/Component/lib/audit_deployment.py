@@ -258,6 +258,17 @@ required_files.extend([
 for file in required_files:
     require_file(file)
 
+legacy_pin_helper = read("Deployment/LocalSingleNode/Scripts/pin-legacy-release.py")
+for needle, why in [
+    ("def _verify_offline_restore(", "recovery pin is exercised through the offline restore path"),
+    ('os.environ.pop("GITHUB_TOKEN", None)', "GitHub artifact credentials are unavailable during the restore drill"),
+    ("pin_release_payload.restore(", "recovery is restored from the owned local pin"),
+    ("sha256_file(restored_file) != digest", "restored recovery payload checksums are verified"),
+    ('"offline_restore": "verified"', "workflow reports the offline restore result"),
+]:
+    if needle not in legacy_pin_helper:
+        fail(f"Deployment/LocalSingleNode/Scripts/pin-legacy-release.py: missing {why}")
+
 
 removed_files = [
     "HowToDeploy.md",
