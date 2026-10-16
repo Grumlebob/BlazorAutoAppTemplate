@@ -144,7 +144,7 @@ def _reject_symlinks(path: Path) -> None:
             _reject_symlinks(child)
 
 
-def _read_manifest(entry: Path, repository: str = DEFAULT_REPOSITORY) -> dict[str, Any] | None:
+def _read_manifest(entry: Path, repository: str | None = DEFAULT_REPOSITORY) -> dict[str, Any] | None:
     if not entry.is_dir() or entry.is_symlink():
         return None
     manifest_path = entry / "ci-report.json"
@@ -164,8 +164,12 @@ def _read_manifest(entry: Path, repository: str = DEFAULT_REPOSITORY) -> dict[st
         set(value) != required
         or type(value.get("schema_version")) is not int
         or value.get("schema_version") != SCHEMA_VERSION
-        or value.get("repository") != repository
+        or (repository is not None and value.get("repository") != repository)
     ):
+        return None
+    try:
+        _validate_repository(value.get("repository"))
+    except ReportStoreError:
         return None
     if not all(isinstance(value.get(key), str) for key in ("run_id", "attempt", "job", "status")):
         return None
@@ -221,6 +225,14 @@ def _known_entries(root: Path, repository: str = DEFAULT_REPOSITORY) -> list[tup
     return result
 
 
+def _unknown_entries(root: Path) -> list[str]:
+    return [
+        entry.name
+        for entry in root.iterdir()
+        if entry.name != ".ci-report-store.lock" and _read_manifest(entry, None) is None
+    ]
+
+
 def _store_bytes(root: Path) -> int:
     total = 0
     for child in root.iterdir():
@@ -228,6 +240,70 @@ def _store_bytes(root: Path) -> int:
             continue
         total += _safe_tree_bytes(child)
     return total
+
+
+def _prune_result(
+    root: Path,
+    *,
+    repository: str,
+    now: datetime,
+    max_bytes: int,
+    protect: Path | None = None,
+    apply: bool,
+) -> dict[str, Any]:
+    _validate_repository(repository)
+    unknown = _unknown_entries(root)
+    if unknown:
+        return {
+            "planned": [], "removed": [], "unknown_entries": unknown,
+            "blocked_reason": "unknown_store_entries", "dry_run": not apply,
+        }
+
+    entries = _known_entries(root, repository)
+    entries.sort(key=lambda item: _parse_utc(item[1]["created_utc"]))
+    planned: list[str] = []
+    planned_set: set[str] = set()
+    total = _store_bytes(root)
+
+    def expired(entry: Path, manifest: dict[str, Any]) -> bool:
+        if manifest["pinned"] or entry == protect:
+            return False
+        age_limit = SUCCESS_RETENTION if manifest["status"] == "success" else FAILURE_RETENTION
+        return now - _parse_utc(manifest["created_utc"]) >= age_limit
+
+    for entry, manifest in entries:
+        if expired(entry, manifest):
+            planned.append(entry.name)
+            planned_set.add(entry.name)
+            total -= _safe_tree_bytes(entry)
+
+    if total > max_bytes:
+        for entry, manifest in entries:
+            if total <= max_bytes:
+                break
+            if manifest["pinned"] or entry == protect or entry.name in planned_set:
+                continue
+            size = _safe_tree_bytes(entry)
+            planned.append(entry.name)
+            planned_set.add(entry.name)
+            total -= size
+
+    removed: list[str] = []
+    if apply:
+        for name in planned:
+            entry = root / name
+            manifest = _read_manifest(entry, repository)
+            if manifest is None or manifest["pinned"] or entry == protect:
+                _fail(f"report entry changed after retention selection: {name}")
+            shutil.rmtree(entry)
+            removed.append(name)
+    return {
+        "planned": planned,
+        "removed": removed,
+        "unknown_entries": [],
+        "blocked_reason": "protected_data_exceeds_byte_cap" if total > max_bytes else None,
+        "dry_run": not apply,
+    }
 
 
 def _prune(
@@ -238,34 +314,9 @@ def _prune(
     max_bytes: int,
     protect: Path | None = None,
 ) -> list[str]:
-    _validate_repository(repository)
-    entries = _known_entries(root, repository)
-    removed: list[str] = []
-
-    def expired(entry: Path, manifest: dict[str, Any]) -> bool:
-        if manifest["pinned"] or entry == protect:
-            return False
-        age_limit = SUCCESS_RETENTION if manifest["status"] == "success" else FAILURE_RETENTION
-        return now - _parse_utc(manifest["created_utc"]) >= age_limit
-
-    for entry, manifest in sorted(entries, key=lambda item: _parse_utc(item[1]["created_utc"])):
-        if expired(entry, manifest):
-            shutil.rmtree(entry)
-            removed.append(entry.name)
-
-    entries = _known_entries(root, repository)
-    total = _store_bytes(root)
-    if total > max_bytes:
-        for entry, manifest in sorted(entries, key=lambda item: _parse_utc(item[1]["created_utc"])):
-            if total <= max_bytes:
-                break
-            if manifest["pinned"] or entry == protect:
-                continue
-            size = _safe_tree_bytes(entry)
-            shutil.rmtree(entry)
-            total -= size
-            removed.append(entry.name)
-    return removed
+    return _prune_result(
+        root, repository=repository, now=now, max_bytes=max_bytes, protect=protect, apply=True,
+    )["removed"]
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
@@ -497,6 +548,7 @@ def main(argv: list[str] | None = None) -> int:
     prune_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPOSITORY))
     prune_parser.add_argument("--root", type=Path, help="private local report root (defaults under the runner account)")
     prune_parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
+    prune_parser.add_argument("--dry-run", action="store_true", help="report eligible deletions without removing reports")
 
     pin_parser = subparsers.add_parser("pin", help="protect a report from retention cleanup")
     _add_identity(pin_parser)
@@ -540,19 +592,23 @@ def main(argv: list[str] | None = None) -> int:
             if type(args.max_bytes) is not int or args.max_bytes < 1:
                 _fail("maximum report-store size must be a positive integer")
             if not args.root.exists():
-                removed = []
+                result = {
+                    "planned": [], "removed": [], "unknown_entries": [],
+                    "blocked_reason": None, "dry_run": args.dry_run,
+                }
             else:
                 descriptor = _lock(args.root)
                 try:
-                    removed = _prune(
+                    result = _prune_result(
                         args.root,
                         repository=args.repository,
                         now=datetime.now(timezone.utc),
                         max_bytes=args.max_bytes,
+                        apply=not args.dry_run,
                     )
                 finally:
                     _unlock(descriptor)
-            print(json.dumps({"repository": args.repository, "removed": removed}, sort_keys=True))
+            print(json.dumps({"repository": args.repository, **result}, sort_keys=True))
         elif args.command in {"pin", "unpin"}:
             result = _mutate_pin(args.root, args.run_id, args.attempt, args.job, args.command == "pin", args.repository)
             print(json.dumps({"run_id": result["run_id"], "attempt": result["attempt"], "job": result["job"], "pinned": result["pinned"]}, sort_keys=True))

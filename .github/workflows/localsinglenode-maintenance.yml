@@ -200,6 +200,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
 
+      - name: Preview local CI report retention under the shared deployment lock
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Scripts/CI/ci_report_store.py prune --repository "$GITHUB_REPOSITORY" --dry-run
+
       - name: Prune local CI reports under the shared deployment lock
         env:
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"

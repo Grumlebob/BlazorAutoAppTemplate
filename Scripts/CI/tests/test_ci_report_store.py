@@ -216,6 +216,45 @@ class CiReportStoreTests(unittest.TestCase):
         self.assertFalse((self.root / "127-1-validate").exists())
         self.assertTrue((self.root / "128-1-validate").exists())
 
+    def test_prune_dry_run_and_unknown_entries_fail_closed(self) -> None:
+        self.save(run_id="129", status="success", now=self.now - timedelta(days=4))
+        output = io.StringIO()
+        with patch.object(store, "datetime") as date_mock:
+            date_mock.now.return_value = self.now
+            date_mock.fromisoformat = datetime.fromisoformat
+            with redirect_stdout(output):
+                self.assertEqual(store.main([
+                    "prune", "--repository", store.DEFAULT_REPOSITORY,
+                    "--root", str(self.root), "--dry-run",
+                ]), 0)
+
+        preview = json.loads(output.getvalue())
+        self.assertEqual(preview["planned"], ["129-1-validate"])
+        self.assertEqual(preview["removed"], [])
+        self.assertTrue(preview["dry_run"])
+        self.assertTrue((self.root / "129-1-validate").exists())
+
+        unknown = self.root / "unknown-owner-data"
+        unknown.mkdir()
+        (unknown / "data.bin").write_bytes(b"unknown")
+        output = io.StringIO()
+        with patch.object(store, "datetime") as date_mock:
+            date_mock.now.return_value = self.now
+            date_mock.fromisoformat = datetime.fromisoformat
+            with redirect_stdout(output):
+                self.assertEqual(store.main([
+                    "prune", "--repository", store.DEFAULT_REPOSITORY,
+                    "--root", str(self.root),
+                ]), 0)
+
+        blocked = json.loads(output.getvalue())
+        self.assertEqual(blocked["blocked_reason"], "unknown_store_entries")
+        self.assertEqual(blocked["planned"], [])
+        self.assertEqual(blocked["removed"], [])
+        self.assertEqual(blocked["unknown_entries"], ["unknown-owner-data"])
+        self.assertTrue((self.root / "129-1-validate").exists())
+        self.assertTrue(unknown.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
