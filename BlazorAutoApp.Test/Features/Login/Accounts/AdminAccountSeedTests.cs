@@ -43,6 +43,14 @@ public sealed class AdminAccountSeedTests
             Assert.True(admin.EmailConfirmed);
             Assert.True(await users.CheckPasswordAsync(admin, password));
             Assert.True(await users.IsInRoleAsync(admin, "Admin"));
+            using var client = fixture.CreateClient();
+            using var login = await RealCookieAccountFixture.LoginAsync(client, email, password);
+            Assert.Equal(System.Net.HttpStatusCode.OK, login.StatusCode);
+            var session = await RealCookieAccountFixture.ReadSessionAsync(client);
+            Assert.False(session.EmailEnabled);
+            Assert.False(session.RegistrationEnabled);
+            Assert.Equal(admin.Id, session.User?.Id);
+            Assert.Contains("Admin", session.User!.Roles);
             hash = admin.PasswordHash!;
             stamp = admin.SecurityStamp!;
             Assert.True((await users.SetLockoutEnabledAsync(admin, true)).Succeeded);

@@ -45,7 +45,7 @@ internal sealed class AccountMailOutbox(
                     services, operation, capacityOrUnavailableResult, stableMessageId, cancellationToken);
             });
         }
-        catch (Exception exception) when (exception is DbException or DbUpdateException or TimeoutException)
+        catch (Exception exception) when (exception is DbException or DbUpdateException or TimeoutException or RetryLimitExceededException)
         {
             health.Failed("OutboxUnavailable", clock.GetUtcNow());
             return capacityOrUnavailableResult;

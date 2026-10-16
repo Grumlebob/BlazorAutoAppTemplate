@@ -20,6 +20,7 @@ public static class BookEndpoints
             .WithTags("Books")
             .RequireRateLimiting(AppRateLimiting.ApiPolicyName)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithMetadata(new ExpectedAccountUser())
             .WithMetadata(new AccountRequestProtection())

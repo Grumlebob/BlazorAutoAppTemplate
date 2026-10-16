@@ -24,7 +24,7 @@
                 <hr class="account-divider" />
                 <ValidationSummary class="account-text-danger" role="alert" />
                 <div class="account-field">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="@(AccountOptions.Enabled ? "username" : "username webauthn")" aria-required="true" placeholder="name@example.com" />
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="account-input" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
                     <label for="Input.Email" class="account-label">Email</label>
                     <ValidationMessage For="() => Input.Email" class="account-text-danger" />
                 </div>
@@ -43,15 +43,12 @@
                 <div>
                     <button type="submit" class="account-button-primary account-button-full">Log in</button>
                 </div>
-                @if (!AccountOptions.Enabled)
-                {
-                    <hr class="account-divider" />
-                    <div class="account-stack account-center">
-                        <span class="account-divider-label">OR</span>
-                        <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="account-button-link">Log in with a passkey</PasskeySubmit>
-                    </div>
-                    <hr class="account-divider" />
-                }
+                <hr class="account-divider" />
+                <div class="account-stack account-center">
+                    <span class="account-divider-label">OR</span>
+                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="account-button-link">Log in with a passkey</PasskeySubmit>
+                </div>
+                <hr class="account-divider" />
                 <div>
                     <p>
                         <a href="Account/ForgotPassword">Forgot your password?</a>
@@ -66,16 +63,13 @@
             </EditForm>
         </section>
     </div>
-    @if (!AccountOptions.Enabled)
-    {
-        <div class="account-grid-aside">
-            <section>
-                <h3>Use another service to log in.</h3>
-                <hr class="account-divider" />
-                <ExternalLoginPicker />
-            </section>
-        </div>
-    }
+    <div class="account-grid-aside">
+        <section>
+            <h3>Use another service to log in.</h3>
+            <hr class="account-divider" />
+            <ExternalLoginPicker />
+        </section>
+    </div>
 </div>
 
 @code {
@@ -107,19 +101,8 @@
 
     public async Task LoginUser()
     {
-        if (AccountOptions.Enabled && !string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
-        {
-            errorMessage = "This sign-in method is unavailable.";
-            return;
-        }
-
         if (!string.IsNullOrEmpty(Input.Passkey?.Error))
         {
-            if (AccountOptions.Enabled)
-            {
-                errorMessage = "This sign-in method is unavailable.";
-                return;
-            }
             errorMessage = "Passkey sign-in failed. Try another sign-in method.";
             return;
         }
@@ -148,11 +131,6 @@
         }
         else if (result.RequiresTwoFactor)
         {
-            if (AccountOptions.Enabled)
-            {
-                errorMessage = "This sign-in method is unavailable.";
-                return;
-            }
             RedirectManager.RedirectTo(
                 "Account/LoginWith2fa",
                 new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });

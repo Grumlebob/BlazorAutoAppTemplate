@@ -23,6 +23,8 @@ internal sealed class AccountOperations(
     public Task<IResult> ConfirmAsync(AccountConfirmEmailRequest request) => registration.ConfirmAsync(request, Context.RequestAborted);
     public Task<IResult> ForgotAsync(AccountEmailRequest request) => recovery.ForgotAsync(request, Context.RequestAborted);
     public Task<IResult> ResetAsync(AccountResetPasswordRequest request) => recovery.ResetAsync(request, Context.RequestAborted);
+    public Task<IResult> ForgotForBlazorAsync(AccountEmailRequest request) => recovery.ForgotAsync(request, Context.RequestAborted, supportsTwoFactor: true);
+    public Task<IResult> ResetForBlazorAsync(AccountResetPasswordRequest request) => recovery.ResetAsync(request, Context.RequestAborted, supportsTwoFactor: true);
     public Task<IResult> LogoutAllAsync(AccountPasswordRequest request) => revocation.LogoutAllAsync(request, Context.User, Context.RequestAborted);
     public Task<IResult> ChangePasswordAsync(AccountChangePasswordRequest request) => passwordChanges.ChangePasswordAsync(request, Context.User, Context.RequestAborted);
     public Task<IResult> ChangeEmailAsync(AccountChangeEmailRequest request) => emailChanges.ChangeEmailAsync(request, Context.User, Context.RequestAborted);

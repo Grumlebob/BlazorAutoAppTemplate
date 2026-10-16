@@ -18,7 +18,7 @@ function AccountRoute({ action }: { action: string }) {
   if (!title) return <section><h1 id="page-title">Page not found</h1><Link to="/">Return home</Link></section>;
   if (accounts.loading) return <p role="status">Loading account…</p>;
   if (accounts.status === "unavailable") {
-    return <section className="mx-auto max-w-lg"><h1 className="text-3xl font-semibold" id="page-title">Account service unavailable</h1><p className="mt-4">{accounts.error ?? "The account service could not be reached."}</p><Link className="mt-6 inline-block text-indigo-700" to="/">Return home</Link></section>;
+    return <section className="mx-auto max-w-lg"><h1 className="text-3xl font-semibold" id="page-title">Account service unavailable</h1><p className="mt-4">{accounts.error ?? "The account service could not be reached."}</p><button className="mt-6 text-indigo-700 disabled:opacity-50" disabled={accounts.checking} onClick={() => void accounts.refresh().catch(() => {})}>{accounts.checking ? "Checking your session…" : "Try again"}</button><Link className="ml-6 mt-6 inline-block text-indigo-700" to="/">Return home</Link></section>;
   }
   if (accounts.status === "disabled") {
     return <section className="mx-auto max-w-lg"><h1 className="text-3xl font-semibold" id="page-title">Accounts are unavailable</h1><p className="mt-4">This site currently provides its public catalog only.</p><Link className="mt-6 inline-block text-indigo-700" to="/">Return home</Link></section>;

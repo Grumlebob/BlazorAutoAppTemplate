@@ -1,12 +1,10 @@
+using System.Security.Claims;
 using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Accounts.Email;
 using BlazorAutoApp.Features.Login.Accounts.Security;
-using BlazorAutoApp.Features.Login.Accounts.Session;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Security.Claims;
 using static BlazorAutoApp.Features.Login.Accounts.Security.AccountResults;
 
 namespace BlazorAutoApp.Features.Login.Accounts.Management;
@@ -29,7 +27,6 @@ internal sealed class AccountEmailChangeHandler(
             if (user is null) return SessionRequired();
             await admission.Outbox.LockUserForUpdateAsync(user, cancellationToken);
             if (!transactions.CurrentCookieMatches(user, principal)) return SessionRequired();
-            if (user.TwoFactorEnabled) return Denied();
             var passwordCheck = await admission.SignIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
             if (!passwordCheck.Succeeded) return Denied();
 

@@ -6,13 +6,15 @@ Accounts are optional and disabled by default. React reads the server capability
 
 | Configuration | Behavior |
 | --- | --- |
-| `Accounts:Enabled=false` | Account endpoints and private Books are unavailable. React displays the disabled state and creates no account session cookie. |
+| `Accounts:Enabled=false` | Account API routes are absent. React stays public-only, offers no private Books and creates no account session cookie. Legacy Blazor Identity behavior is retained. |
 | `Accounts:Enabled=true`, email host empty | Login, logout, password change, export, deletion and private Books work. Registration, confirmation, recovery and email change stay unavailable. A configured Admin can be provisioned once with `Accounts:AdminSeed`. |
 | `Accounts:Enabled=true`, email host and sender configured | The mail worker can send confirmation and recovery links. Registration additionally requires `Accounts:RegistrationEnabled=true`. `Accounts:PublicOrigin` must be a bare HTTPS origin. |
 
 `GET /api/client-config` returns the account capability without user data or secrets. When enabled, React reads `GET /api/auth/session` for the current user, feature flags and an antiforgery token. The UI lives at `/auth/login`, `/auth/register` and related `/auth/*` routes; `/auth` redirects to login. `/my-books` is private. Account mutations use POST and the antiforgery header. API failures stay JSON responses rather than login redirects.
 
 The authentication cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, host-only and fixed at eight hours, or fourteen days when “remember me” is selected. Account and private API responses use `Cache-Control: private, no-store`. Passwords must contain 15–128 Unicode characters, contain no control characters, and differ from the application name and email; common passwords are rejected. Password changes, resets and confirmed email changes rotate the security stamp; account deletion removes the user. Each action revokes existing sessions.
+
+Blazor retains its existing MFA, passkey and configured external-login capabilities in enabled mode. React's password-only sign-in does not bypass MFA. Blazor password recovery preserves MFA, and sensitive management still requires a valid session and current-password proof. New external users complete email-first registration, then sign in to link their provider; disabling registration also prevents external callbacks from creating accounts.
 
 ## Create a local React Admin
 
@@ -53,7 +55,7 @@ The password must satisfy the account password policy and must not be common or 
 
 Email requires `Accounts:Email:Host`, a valid `Accounts:Email:From`, and `Accounts:PublicOrigin`. `Accounts:Email:Security` accepts `StartTls` or `SslOnConnect`; username and password must either both be empty or both be supplied. Registration cannot be enabled without accounts and an email host. Email links use the configured HTTPS origin and keep token secrets in the URL fragment on the React routes. The exact environment keys and defaults live in [`.env.example`](../.env.example).
 
-Enabled account POSTs are limited to 20 per client IP per five minutes and also use the API limit of 60 requests per minute. The outbox suppresses an active duplicate, enforces a 60-second cooldown and allows at most five intents per user and purpose per hour. It has a global capacity of 1,000 active jobs. A queued job expires after 45 minutes; its Identity link expires after one hour. The worker makes at most three attempts by default, then clears the protected payload. Public email requests return the same accepted response regardless of whether an address is known.
+Enabled account POSTs are limited to 20 per client IP per five minutes. JSON account requests also use the API limit of 60 requests per minute. The outbox suppresses an active duplicate, enforces a 60-second cooldown and allows at most five intents per user and purpose per hour. It has a global capacity of 1,000 active jobs. A queued job expires after 45 minutes; its Identity link expires after one hour. The worker makes at most three attempts by default, then clears the protected payload. Public email requests return the same accepted response regardless of whether an address is known.
 
 A database restore may replay an active pending job and produce a duplicate email; SMTP delivery cannot guarantee exactly-once delivery. The worker checks job expiry, link expiry, account confirmation and the current security stamp before sending. It cancels expired or stale intents and clears their protected payloads.
 

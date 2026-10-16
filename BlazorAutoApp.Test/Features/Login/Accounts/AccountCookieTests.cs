@@ -257,6 +257,15 @@ public sealed class AccountCookieTests
         }
         Assert.Equal(user.Id, (await RealCookieAccountFixture.ReadSessionAsync(first)).User?.Id);
 
+        using (var rejectedPolicy = await ChangePasswordAsync(first, user.Id, firstSession.CsrfToken, user.Password, user.Email))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, rejectedPolicy.StatusCode);
+            using var problem = System.Text.Json.JsonDocument.Parse(await rejectedPolicy.Content.ReadAsStringAsync());
+            Assert.Equal("PasswordRejected", problem.RootElement.GetProperty("code").GetString());
+            Assert.True(problem.RootElement.GetProperty("errors").TryGetProperty("newPassword", out _));
+        }
+        Assert.Equal(user.Id, (await RealCookieAccountFixture.ReadSessionAsync(first)).User?.Id);
+
         var newPassword = NewPassword();
         using var changed = await ChangePasswordAsync(first, user.Id, firstSession.CsrfToken, user.Password, newPassword);
         Assert.Equal(HttpStatusCode.OK, changed.StatusCode);

@@ -68,7 +68,7 @@ internal static class AccountEndpoints
     private static RouteHandlerBuilder Write(RouteHandlerBuilder endpoint, string name, params int[] errors)
     {
         var builder = endpoint.RequireRateLimiting(AppRateLimiting.AccountWritePolicyName).WithName(name);
-        var statusCodes = new HashSet<int>([400, 413, 415, 429]);
+        var statusCodes = new HashSet<int>([400, 413, 415, 429, 503]);
         statusCodes.UnionWith(errors);
         foreach (var statusCode in statusCodes)
         {

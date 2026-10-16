@@ -57,7 +57,38 @@ describe("account forms", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("This link is incomplete.");
     expect(screen.queryByRole("button", { name: "Confirm new email" })).not.toBeInTheDocument();
   });
+
+  it("associates server email validation with the email field", async () => {
+    const user = userEvent.setup();
+    renderWithAccount(<RegistrationForm />, async () => validationProblem("email", "Enter a valid email address."));
+    const email = screen.getByRole("textbox", { name: "Email" });
+    await user.type(email, "reader@example.test");
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+
+    await screen.findByRole("alert");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Enter a valid email address.");
+  });
+
+  it("associates rejected server password policy with the password field and retains policy help", async () => {
+    window.history.replaceState(window.history.state, "", "/auth/confirm-email#userId=user-1&token=proof-token");
+    const user = userEvent.setup();
+    renderWithAccount(<EmailActionForm actionName="confirm-email" />, async () => validationProblem("newPassword", "Choose a password unrelated to your email."));
+    const password = screen.getByLabelText("Choose password");
+    await user.type(password, "reader@example.test");
+    await user.click(screen.getByRole("button", { name: "Confirm email and create account" }));
+
+    await screen.findByRole("alert");
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription(/Use 15–128 Unicode characters.*Choose a password unrelated to your email\./);
+  });
 });
+
+function validationProblem(field: string, message: string) {
+  return new Response(JSON.stringify({ title: "Validation failed", detail: "Check the highlighted field.", errors: { [field]: [message] } }), {
+    status: 400, headers: { "content-type": "application/problem+json" },
+  });
+}
 
 function renderWithAccount(
   children: React.ReactNode,

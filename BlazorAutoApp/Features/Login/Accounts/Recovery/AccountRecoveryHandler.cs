@@ -1,12 +1,7 @@
 using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
-using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Accounts.Email;
 using BlazorAutoApp.Features.Login.Accounts.Security;
-using BlazorAutoApp.Features.Login.Accounts.Session;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Security.Claims;
 using static BlazorAutoApp.Features.Login.Accounts.Security.AccountResults;
 
 namespace BlazorAutoApp.Features.Login.Accounts.Recovery;
@@ -16,7 +11,8 @@ internal sealed class AccountRecoveryHandler(
     AccountMutationTransactions transactions,
     IOptions<AccountOptions> options)
 {
-    public async Task<IResult> ForgotAsync(AccountEmailRequest request, CancellationToken cancellationToken)
+    // The Blazor adapter selects MFA recovery internally; this capability is never bound from request data.
+    public async Task<IResult> ForgotAsync(AccountEmailRequest request, CancellationToken cancellationToken, bool supportsTwoFactor = false)
     {
         if (!options.Value.EmailEnabled) return EmailDisabled();
         return await email.RunAdmittedAsync(async (admission, cancellationToken) =>
@@ -27,7 +23,7 @@ internal sealed class AccountRecoveryHandler(
             if (user is not null)
             {
                 await outbox.LockUserForUpdateAsync(user, cancellationToken);
-                if (user.EmailConfirmed && !user.TwoFactorEnabled)
+                if (user.EmailConfirmed && (supportsTwoFactor || !user.TwoFactorEnabled))
                 {
                     var token = await users.GeneratePasswordResetTokenAsync(user);
                     await outbox.EnqueueAsync(user, AccountMailPurpose.PasswordReset, user.Email!, token,
@@ -38,13 +34,13 @@ internal sealed class AccountRecoveryHandler(
         }, DeliveryUnavailable(), cancellationToken);
     }
 
-    public async Task<IResult> ResetAsync(AccountResetPasswordRequest request, CancellationToken cancellationToken)
+    public async Task<IResult> ResetAsync(AccountResetPasswordRequest request, CancellationToken cancellationToken, bool supportsTwoFactor = false)
     {
         if (!options.Value.EmailEnabled) return EmailDisabled();
         var (response, _) = await transactions.ExecuteAsync(request.UserId, async (attempt, user) =>
         {
             var users = attempt.Users;
-            if (!user.EmailConfirmed || user.TwoFactorEnabled) return (InvalidToken(), false);
+            if (!user.EmailConfirmed || (!supportsTwoFactor && user.TwoFactorEnabled)) return (InvalidToken(), false);
             var result = await users.ResetPasswordAsync(user, request.Token, request.NewPassword);
             if (!result.Succeeded)
             {

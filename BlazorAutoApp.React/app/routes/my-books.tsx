@@ -45,7 +45,7 @@ export default function MyBooks() {
       : !userId ? <p className="mt-6">{accounts.error ?? "Sign in to view and save your private books."} <Link className="text-indigo-700" to="/auth/login?returnTo=/my-books">Sign in</Link></p>
         : <>
           {books.isPending && <p className="mt-6" role="status">Loading books…</p>}
-          {books.error && <p className="mt-6 text-red-800" role="alert">{books.error.message}</p>}
+          {books.error && <div className="mt-6"><p className="text-red-800" role="alert">{books.error.message}</p><button className="mt-3 text-indigo-700 disabled:opacity-50" disabled={books.isFetching} onClick={() => void books.refetch()}>Try again</button></div>}
           <ul className="mt-6 grid gap-4 sm:grid-cols-2">
             {books.data?.books?.map(book => <li className="rounded-xl border border-slate-200 bg-white p-5" key={book.id}>
               <h2 className="font-semibold">{book.title}</h2><p className="mt-1 text-slate-600">{book.author}</p>

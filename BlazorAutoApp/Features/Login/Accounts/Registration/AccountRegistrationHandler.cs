@@ -2,11 +2,7 @@ using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Features.Login.Account;
 using BlazorAutoApp.Features.Login.Accounts.Email;
 using BlazorAutoApp.Features.Login.Accounts.Security;
-using BlazorAutoApp.Features.Login.Accounts.Session;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Security.Claims;
 using static BlazorAutoApp.Features.Login.Accounts.Security.AccountResults;
 
 namespace BlazorAutoApp.Features.Login.Accounts.Registration;

@@ -200,10 +200,10 @@ internal sealed class AccountMailOutboxWorker(
             AccountMailPurpose.Confirmation => !user.EmailConfirmed
                 && string.Equals(user.Email, payload.Recipient, StringComparison.OrdinalIgnoreCase)
                 && await users.VerifyUserTokenAsync(user, tokenOptions.EmailConfirmationTokenProvider, "EmailConfirmation", payload.Token),
-            AccountMailPurpose.PasswordReset => user.EmailConfirmed && !user.TwoFactorEnabled
+            AccountMailPurpose.PasswordReset => user.EmailConfirmed
                 && string.Equals(user.Email, payload.Recipient, StringComparison.OrdinalIgnoreCase)
                 && await users.VerifyUserTokenAsync(user, tokenOptions.PasswordResetTokenProvider, "ResetPassword", payload.Token),
-            AccountMailPurpose.EmailChange => user.EmailConfirmed && !user.TwoFactorEnabled
+            AccountMailPurpose.EmailChange => user.EmailConfirmed
                 && payload.TargetEmail is { Length: > 0 } target
                 && string.Equals(payload.Recipient, target, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(user.Email, target, StringComparison.OrdinalIgnoreCase)

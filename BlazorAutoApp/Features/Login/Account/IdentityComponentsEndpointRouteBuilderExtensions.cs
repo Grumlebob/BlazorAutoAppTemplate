@@ -72,7 +72,10 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             [FromServices] SignInManager<ApplicationUser> signInManager,
             [FromServices] IAntiforgery antiforgery) =>
         {
-            await antiforgery.ValidateRequestAsync(context);
+            if (!await antiforgery.IsRequestValidAsync(context))
+            {
+                return AccountProblem.Create(400, "CsrfInvalid", "The request could not be verified");
+            }
 
             var user = await userManager.GetUserAsync(context.User);
             if (user is null)
@@ -98,7 +101,10 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             [FromServices] IAntiforgery antiforgery,
             [FromQuery] string? username) =>
         {
-            await antiforgery.ValidateRequestAsync(context);
+            if (!await antiforgery.IsRequestValidAsync(context))
+            {
+                return AccountProblem.Create(400, "CsrfInvalid", "The request could not be verified");
+            }
 
             var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
             var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);

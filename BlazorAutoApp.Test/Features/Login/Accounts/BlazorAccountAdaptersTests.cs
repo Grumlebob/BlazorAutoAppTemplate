@@ -153,7 +153,7 @@ public sealed class BlazorAccountAdaptersTests
         using (var scope = fixture.Factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            Assert.False(await db.AccountOutbox.AnyAsync(message => message.UserId == account.Id));
+            Assert.True(await db.AccountOutbox.AnyAsync(message => message.UserId == account.Id && message.Purpose == "PasswordReset"));
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var user = await users.FindByIdAsync(account.Id) ?? throw new InvalidOperationException("Fixture user missing.");
             resetToken = await users.GeneratePasswordResetTokenAsync(user);
@@ -169,19 +169,21 @@ public sealed class BlazorAccountAdaptersTests
         resetFields["Input.Code"] = resetToken;
         resetFields["Input.Password"] = newPassword;
         resetFields["Input.ConfirmPassword"] = newPassword;
-        using var rejectedReset = await client.PostAsync(resetPath, new FormUrlEncodedContent(resetFields));
+        using var completedReset = await client.PostAsync(resetPath, new FormUrlEncodedContent(resetFields));
 
-        Assert.Equal(HttpStatusCode.OK, rejectedReset.StatusCode);
-        var rejectedHtml = await rejectedReset.Content.ReadAsStringAsync();
-        Assert.Contains("invalid, expired or unavailable", rejectedHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Redirect, completedReset.StatusCode);
+        Assert.Contains("/Account/ResetPasswordConfirmation", completedReset.Headers.Location?.OriginalString, StringComparison.Ordinal);
         using (var scope = fixture.Factory.Services.CreateScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var user = await users.FindByIdAsync(account.Id) ?? throw new InvalidOperationException("Fixture user missing.");
             Assert.True(user.TwoFactorEnabled);
-            Assert.True(await users.CheckPasswordAsync(user, account.Password));
-            Assert.False(await users.CheckPasswordAsync(user, newPassword));
+            Assert.False(await users.CheckPasswordAsync(user, account.Password));
+            Assert.True(await users.CheckPasswordAsync(user, newPassword));
         }
+        using var refusedReactLogin = await RealCookieAccountFixture.LoginAsync(client, account.Email, newPassword);
+        Assert.Equal(HttpStatusCode.Unauthorized, refusedReactLogin.StatusCode);
+        Assert.Null((await RealCookieAccountFixture.ReadSessionAsync(client)).User);
     }
 
     [Fact]
@@ -330,7 +332,7 @@ public sealed class BlazorAccountAdaptersTests
     }
 
     [Fact]
-    public async Task EnabledBlazorHidesAndRejectsMfaPasskeyAndExternalSignInRoutes()
+    public async Task EnabledBlazorRetainsAdvancedSignInAndManagementRoutes()
     {
         await using var fixture = new RealCookieAccountFixture();
         await fixture.InitializeAsync();
@@ -342,24 +344,105 @@ public sealed class BlazorAccountAdaptersTests
         using var loginPage = await client.GetAsync("/Account/Login");
         Assert.Equal(HttpStatusCode.OK, loginPage.StatusCode);
         var html = await loginPage.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("Log in with a passkey", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Use another service to log in", html, StringComparison.Ordinal);
+        Assert.Contains("Log in with a passkey", html, StringComparison.Ordinal);
+        Assert.Contains("Use another service to log in", html, StringComparison.Ordinal);
 
         foreach (var path in new[]
         {
-            "/Account/LoginWith2fa",
-            "/Account/LoginWithRecoveryCode",
             "/Account/Manage/TwoFactorAuthentication",
             "/Account/Manage/Passkeys",
-            "/Account/Manage/ExternalLogins",
-            "/Account/PasskeyCreationOptions",
-            "/Account/PasskeyRequestOptions"
+            "/Account/Manage/ExternalLogins"
         })
         {
             using var response = await client.GetAsync(path);
-            Assert.True(response.StatusCode == HttpStatusCode.NotFound,
-                $"Expected {path} to be unavailable, got {(int)response.StatusCode} {response.StatusCode}.");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+
+        var session = await RealCookieAccountFixture.ReadSessionAsync(client);
+        foreach (var path in new[] { "/Account/PasskeyCreationOptions", "/Account/PasskeyRequestOptions" })
+        {
+            using var missingCsrf = await client.PostAsync(path, new FormUrlEncodedContent([]));
+            Assert.Equal(HttpStatusCode.BadRequest, missingCsrf.StatusCode);
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new FormUrlEncodedContent([]) };
+            request.Headers.Add("X-CSRF-TOKEN", session.CsrfToken);
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var options = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.False(string.IsNullOrEmpty(options.RootElement.GetProperty("challenge").GetString()));
+        }
+    }
+
+    [Fact]
+    public async Task EnabledBlazorRequiresTwoFactorBeforeIssuingARealCookieAndRetainsManagement()
+    {
+        await using var fixture = new RealCookieAccountFixture();
+        await fixture.InitializeAsync();
+        var account = await fixture.CreateUserAsync();
+        string recoveryCode;
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await users.FindByIdAsync(account.Id);
+            Assert.NotNull(user);
+            Assert.True((await users.ResetAuthenticatorKeyAsync(user)).Succeeded);
+            Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
+            recoveryCode = (await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 2))!.First();
+        }
+
+        using var client = fixture.CreateClient();
+        using var refusedReact = await RealCookieAccountFixture.LoginAsync(client, account.Email, account.Password);
+        Assert.Equal(HttpStatusCode.Unauthorized, refusedReact.StatusCode);
+        const string loginPath = "/Account/Login?ReturnUrl=%2FAccount%2FManage";
+        using var loginPage = await client.GetAsync(loginPath);
+        var fields = ReadHiddenInputs(await loginPage.Content.ReadAsStringAsync());
+        fields["Input.Email"] = account.Email;
+        fields["Input.Password"] = account.Password;
+        using var passwordStep = await client.PostAsync(loginPath, new FormUrlEncodedContent(fields));
+        Assert.Equal(HttpStatusCode.Redirect, passwordStep.StatusCode);
+        Assert.Contains("/Account/LoginWith2fa", passwordStep.Headers.Location?.OriginalString, StringComparison.Ordinal);
+        Assert.Null((await RealCookieAccountFixture.ReadSessionAsync(client)).User);
+        using var authenticatorPage = await client.GetAsync(passwordStep.Headers.Location);
+        Assert.Equal(HttpStatusCode.OK, authenticatorPage.StatusCode);
+        Assert.Contains("Authenticator code", await authenticatorPage.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        const string recoveryPath = "/Account/LoginWithRecoveryCode?ReturnUrl=%2FAccount%2FManage";
+        using var recoveryPage = await client.GetAsync(recoveryPath);
+        fields = ReadHiddenInputs(await recoveryPage.Content.ReadAsStringAsync());
+        fields["Input.RecoveryCode"] = "invalid-fixture-recovery-code";
+        using var invalidProof = await client.PostAsync(recoveryPath, new FormUrlEncodedContent(fields));
+        Assert.Equal(HttpStatusCode.OK, invalidProof.StatusCode);
+        var invalidHtml = await invalidProof.Content.ReadAsStringAsync();
+        Assert.Contains("Invalid recovery code", invalidHtml, StringComparison.Ordinal);
+        Assert.Null((await RealCookieAccountFixture.ReadSessionAsync(client)).User);
+        fields = ReadHiddenInputs(invalidHtml);
+        fields["Input.RecoveryCode"] = recoveryCode;
+        using var completed = await client.PostAsync(recoveryPath, new FormUrlEncodedContent(fields));
+        Assert.Equal(HttpStatusCode.Redirect, completed.StatusCode);
+        Assert.Equal(account.Id, (await RealCookieAccountFixture.ReadSessionAsync(client)).User?.Id);
+
+        using var dataPage = await client.GetAsync("/Account/Manage/PersonalData");
+        fields = ReadHiddenInputs(await dataPage.Content.ReadAsStringAsync());
+        fields["Password"] = account.Password;
+        using var exported = await client.PostAsync("/Account/Manage/DownloadPersonalData", new FormUrlEncodedContent(fields));
+        Assert.Equal(HttpStatusCode.OK, exported.StatusCode);
+
+        using var changePage = await client.GetAsync("/Account/Manage/ChangePassword");
+        fields = ReadHiddenInputs(await changePage.Content.ReadAsStringAsync());
+        var newPassword = $"Changed MFA password {Guid.NewGuid():N}";
+        fields["Input.OldPassword"] = account.Password;
+        fields["Input.NewPassword"] = newPassword;
+        fields["Input.ConfirmPassword"] = newPassword;
+        using var changed = await client.PostAsync("/Account/Manage/ChangePassword", new FormUrlEncodedContent(fields));
+        Assert.Equal(HttpStatusCode.Redirect, changed.StatusCode);
+        Assert.Null((await RealCookieAccountFixture.ReadSessionAsync(client)).User);
+        using var stillRefusedReact = await RealCookieAccountFixture.LoginAsync(client, account.Email, newPassword);
+        Assert.Equal(HttpStatusCode.Unauthorized, stillRefusedReact.StatusCode);
+        using var verification = fixture.Factory.Services.CreateScope();
+        var verifiedUsers = verification.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var remaining = await verifiedUsers.FindByIdAsync(account.Id);
+        Assert.NotNull(remaining);
+        Assert.True(remaining.TwoFactorEnabled);
+        Assert.Equal(1, await verifiedUsers.CountRecoveryCodesAsync(remaining));
     }
 
     private static Dictionary<string, string> ReadHiddenInputs(string html)

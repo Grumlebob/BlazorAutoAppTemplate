@@ -103,29 +103,46 @@ public sealed class AccountMailOutboxTests
         Assert.Equal(5, await db.AccountOutbox.CountAsync());
     }
 
-    [Fact]
-    public async Task EnabledWorker_SendsProtectedIntentOverTrustedStartTlsAndClearsPayload()
+    [Theory]
+    [InlineData(nameof(AccountMailPurpose.Confirmation))]
+    [InlineData(nameof(AccountMailPurpose.PasswordReset))]
+    [InlineData(nameof(AccountMailPurpose.EmailChange))]
+    public async Task EnabledWorker_SendsProtectedIntentOverTrustedStartTlsAndClearsPayload(string purposeName)
     {
         await using var inbox = new TlsSmtpFixture();
         await using var fixture = NewEmailFixture(inbox, trustCertificate: true);
         await fixture.InitializeAsync();
-        var (userId, email, _) = await fixture.CreateUserAsync(confirmed: false);
+        var purpose = Enum.Parse<AccountMailPurpose>(purposeName);
+        var (userId, email, _) = await fixture.CreateUserAsync(confirmed: purpose != AccountMailPurpose.Confirmation);
+        var targetEmail = purpose == AccountMailPurpose.EmailChange ? $"changed-{Guid.NewGuid():N}@example.test" : null;
+        var recipient = targetEmail ?? email;
 
         using (var scope = fixture.Factory.Services.CreateScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var user = await users.FindByIdAsync(userId) ?? throw new InvalidOperationException("Fixture user missing.");
-            var token = await users.GenerateEmailConfirmationTokenAsync(user);
+            if (purpose != AccountMailPurpose.Confirmation)
+            {
+                Assert.True((await users.ResetAuthenticatorKeyAsync(user)).Succeeded);
+                Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
+            }
+            var token = purpose switch
+            {
+                AccountMailPurpose.Confirmation => await users.GenerateEmailConfirmationTokenAsync(user),
+                AccountMailPurpose.PasswordReset => await users.GeneratePasswordResetTokenAsync(user),
+                AccountMailPurpose.EmailChange => await users.GenerateChangeEmailTokenAsync(user, targetEmail!),
+                _ => throw new InvalidOperationException("Unexpected fixture mail purpose.")
+            };
             await QueueAsync(scope.ServiceProvider.GetRequiredService<AccountMailOutbox>(), userId,
-                AccountMailPurpose.Confirmation, email, token);
+                purpose, recipient, token, targetEmail);
         }
 
         using var received = await inbox.ReadMessageAsync().WaitAsync(TimeSpan.FromSeconds(20));
-        Assert.Equal(email, received.To.Mailboxes.Single().Address);
+        Assert.Equal(recipient, received.To.Mailboxes.Single().Address);
         Assert.Contains("before ", received.TextBody, StringComparison.Ordinal);
         var frontend = fixture.Factory.Services.GetRequiredService<IAccountMailFrontend>();
         var routeSuffix = frontend.UsesFragmentSecrets ? "#" : "?";
-        Assert.Contains($"/{frontend.GetRoute(AccountMailPurpose.Confirmation)}{routeSuffix}", received.TextBody, StringComparison.Ordinal);
+        Assert.Contains($"/{frontend.GetRoute(purpose)}{routeSuffix}", received.TextBody, StringComparison.Ordinal);
 
         await WaitUntilAsync(async () =>
         {
@@ -349,11 +366,12 @@ public sealed class AccountMailOutboxTests
         string userId,
         AccountMailPurpose purpose,
         string recipient,
-        string token) => outbox.RunAdmittedAsync(async (admission, cancellationToken) =>
+        string token,
+        string? targetEmail = null) => outbox.RunAdmittedAsync(async (admission, cancellationToken) =>
         {
             var user = await admission.Users.FindByIdAsync(userId) ?? throw new InvalidOperationException("Fixture user missing.");
             await admission.Outbox.LockUserForUpdateAsync(user, cancellationToken);
-            return await admission.Outbox.EnqueueAsync(user, purpose, recipient, token, cancellationToken: cancellationToken);
+            return await admission.Outbox.EnqueueAsync(user, purpose, recipient, token, targetEmail, cancellationToken);
         }, AccountMailEnqueueResult.Suppressed, CancellationToken.None);
 
     private static Task MarkTerminalAsync(AppDbContext db) => db.AccountOutbox.ExecuteUpdateAsync(update => update

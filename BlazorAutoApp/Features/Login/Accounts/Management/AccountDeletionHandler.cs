@@ -1,12 +1,9 @@
+using System.Security.Claims;
 using BlazorAutoApp.Core.Features.Login.UseCases.Shared;
 using BlazorAutoApp.Features.Login.Account;
-using BlazorAutoApp.Features.Login.Accounts.Email;
 using BlazorAutoApp.Features.Login.Accounts.Security;
-using BlazorAutoApp.Features.Login.Accounts.Session;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using System.Security.Claims;
 using static BlazorAutoApp.Features.Login.Accounts.Security.AccountResults;
 
 namespace BlazorAutoApp.Features.Login.Accounts.Management;
@@ -24,7 +21,6 @@ internal sealed class AccountDeletionHandler(
         {
             var (response, committed) = await transactions.ExecuteAsync(userId, async (attempt, user) =>
             {
-                if (user.TwoFactorEnabled) return (Denied(), false);
                 var proof = await attempt.SignIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
                 if (!proof.Succeeded) return (Denied(), true);
 

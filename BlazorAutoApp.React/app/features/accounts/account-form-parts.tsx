@@ -29,8 +29,9 @@ export function SignInForm() {
   return <>
     <FormFeedback action={action} />
     <form className="mt-6 space-y-5" onSubmit={submit}>
-      <label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required value={email} onChange={event => setEmail(event.target.value)} /></label>
-      <PasswordField label="Password" name="password" autoComplete="current-password" value={password} onChange={setPassword} required />
+      <label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required {...fieldAttributes(action, "email")} value={email} onChange={event => setEmail(event.target.value)} /></label>
+      <FieldError action={action} field="email" />
+      <PasswordField label="Password" name="password" autoComplete="current-password" value={password} onChange={setPassword} error={fieldErrorMessage(action, "password")} required />
       <label className="flex items-center gap-2"><input type="checkbox" checked={rememberMe} onChange={event => setRememberMe(event.target.checked)} />Remember me on this device</label>
       <button className={buttonClass} disabled={action.pending || accounts.checking}>{action.pending ? "Please wait…" : "Sign in"}</button>
     </form>
@@ -55,7 +56,8 @@ export function RegistrationForm() {
   return <>
     <FormFeedback action={action} />
     <form className="mt-6 space-y-5" onSubmit={submit}>
-      <label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required value={email} onChange={event => setEmail(event.target.value)} /></label>
+      <label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required {...fieldAttributes(action, "email")} value={email} onChange={event => setEmail(event.target.value)} /></label>
+      <FieldError action={action} field="email" />
       <p className="text-sm text-slate-600">Request received. Check your email if applicable; use resend if it does not arrive. Choose your password after confirming your email.</p>
       <button className={buttonClass} disabled={action.pending || accounts.checking}>{action.pending ? "Please wait…" : "Create an account"}</button>
     </form>
@@ -90,8 +92,8 @@ export function EmailActionForm({ actionName }: { actionName: "forgot-password" 
   return <>
     <FormFeedback action={action} />
     <form className="mt-6 space-y-5" onSubmit={submit}>
-      {actionName === "forgot-password" && <label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required value={email} onChange={event => setEmail(event.target.value)} /></label>}
-      {(actionName === "reset-password" || actionName === "confirm-email") && <PasswordField label={actionName === "confirm-email" ? "Choose password" : "New password"} name="newPassword" autoComplete="new-password" value={newPassword} onChange={setNewPassword} required passwordPolicy />}
+      {actionName === "forgot-password" && <><label className="block font-medium">Email<input className={inputClass} type="email" name="email" autoComplete="email" maxLength={254} required {...fieldAttributes(action, "email")} value={email} onChange={event => setEmail(event.target.value)} /></label><FieldError action={action} field="email" /></>}
+      {(actionName === "reset-password" || actionName === "confirm-email") && <PasswordField label={actionName === "confirm-email" ? "Choose password" : "New password"} name="newPassword" autoComplete="new-password" value={newPassword} onChange={setNewPassword} error={fieldErrorMessage(action, "newPassword")} required passwordPolicy />}
       {tokenAction && missingTokens ? <p role="alert">This link is incomplete. Request a new email and open its full link.</p> : <button className={buttonClass} disabled={action.pending || accounts.checking}>{action.pending ? "Please wait…" : actionName === "forgot-password" ? "Send reset link" : actionName === "reset-password" ? "Choose a new password" : actionName === "confirm-email" ? "Confirm email and create account" : "Confirm new email"}</button>}
     </form>
   </>;
@@ -124,21 +126,22 @@ export function AccountSettingsForm() {
       {accounts.session.user?.roles?.includes("Admin") && <p className="mt-2 text-sm font-medium text-indigo-800">Admin</p>}
       <p className="mt-5 text-sm text-slate-600">Enter your current password to change account details, export data or sign out all sessions.</p>
       <FormFeedback action={action} />
-      <div className="mt-4"><PasswordField label="Current password" name="password" autoComplete="current-password" value={password} onChange={setPassword} /></div>
+      <div className="mt-4"><PasswordField label="Current password" name="password" autoComplete="current-password" value={password} onChange={setPassword} error={fieldErrorMessage(action, "password")} /></div>
       <form className="mt-6 space-y-4 border-t border-slate-200 pt-6" onSubmit={async event => {
         event.preventDefault();
         await action.run(() => apiResult(accounts.api.POST("/api/auth/change-password", { body: { password, newPassword } })), true);
         setPassword(""); setNewPassword("");
       }}>
         <h2 className="text-xl font-semibold">Change password</h2>
-        <PasswordField label="New password" name="newPassword" autoComplete="new-password" value={newPassword} onChange={setNewPassword} required passwordPolicy />
+        <PasswordField label="New password" name="newPassword" autoComplete="new-password" value={newPassword} onChange={setNewPassword} error={fieldErrorMessage(action, "newPassword")} required passwordPolicy />
         <button className={buttonClass} disabled={action.pending || accounts.checking || !password}>Change password</button>
       </form>
       {accounts.session.emailEnabled && <form className="mt-6 space-y-4 border-t border-slate-200 pt-6" onSubmit={async event => {
         event.preventDefault(); await action.run(() => apiResult(accounts.api.POST("/api/auth/change-email", { body: { password, email } }))); setPassword("");
       }}>
         <h2 className="text-xl font-semibold">Change email</h2>
-        <label className="block font-medium">New email<input className={inputClass} type="email" autoComplete="email" maxLength={254} required value={email} onChange={event => setEmail(event.target.value)} /></label>
+        <label className="block font-medium">New email<input className={inputClass} type="email" autoComplete="email" maxLength={254} required {...fieldAttributes(action, "email")} value={email} onChange={event => setEmail(event.target.value)} /></label>
+        <FieldError action={action} field="email" />
         <button className={buttonClass} disabled={action.pending || accounts.checking || !password}>Send confirmation</button>
       </form>}
       <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
@@ -161,15 +164,18 @@ function useSubmission() {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ApiError["fieldErrors"]>();
+  const feedbackId = useId();
 
   async function run(operation: () => Promise<{ message?: string | null }>, sessionChanges = false): Promise<boolean> {
-    setPending(true); setError(""); setMessage("");
+    setPending(true); setError(""); setMessage(""); setFieldErrors(undefined);
     try {
       const result = await operation();
       if (sessionChanges) await accounts.changed();
       setMessage(result.message ?? "Done.");
       return true;
     } catch (failure) {
+      if (failure instanceof ApiError) setFieldErrors(failure.fieldErrors);
       setError(failure instanceof ApiError && failure.kind === "network"
         ? "The account service is unavailable. Try again."
         : failure instanceof Error ? failure.message : "The request failed. Please try again.");
@@ -179,7 +185,22 @@ function useSubmission() {
     }
   }
 
-  return { pending, message, error, run };
+  return { pending, message, error, fieldErrors, feedbackId, run };
+}
+
+function fieldErrorMessage(action: ReturnType<typeof useSubmission>, field: string) {
+  return Object.entries(action.fieldErrors ?? {})
+    .find(([key]) => key.toLowerCase() === field.toLowerCase())?.[1].join(" ");
+}
+
+function fieldAttributes(action: ReturnType<typeof useSubmission>, field: string) {
+  const invalid = !!fieldErrorMessage(action, field);
+  return { "aria-invalid": invalid || undefined, "aria-describedby": invalid ? `${action.feedbackId}-${field}` : undefined };
+}
+
+function FieldError({ action, field }: { action: ReturnType<typeof useSubmission>; field: string }) {
+  const message = fieldErrorMessage(action, field);
+  return message ? <p className="mt-2 text-sm text-red-800" id={`${action.feedbackId}-${field}`}>{message}</p> : null;
 }
 
 function FormFeedback({ action }: { action: ReturnType<typeof useSubmission> }) {
@@ -195,6 +216,7 @@ export function PasswordField({
   autoComplete,
   value,
   onChange,
+  error,
   required = false,
   passwordPolicy = false,
 }: {
@@ -203,11 +225,13 @@ export function PasswordField({
   autoComplete: "current-password" | "new-password";
   value: string;
   onChange: (value: string) => void;
+  error?: string;
   required?: boolean;
   passwordPolicy?: boolean;
 }) {
   const id = useId();
   const policyId = `${id}-policy`;
+  const errorId = `${id}-error`;
   const [visible, setVisible] = useState(false);
 
   return <div>
@@ -222,7 +246,8 @@ export function PasswordField({
         maxLength={256}
         required={required}
         value={value}
-        aria-describedby={passwordPolicy ? policyId : undefined}
+        aria-invalid={!!error || undefined}
+        aria-describedby={[passwordPolicy ? policyId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined}
         onChange={event => {
           const nextValue = event.target.value;
           onChange(nextValue);
@@ -234,6 +259,7 @@ export function PasswordField({
       </button>
     </div>
     {passwordPolicy && <p className="mt-2 text-sm text-slate-600" id={policyId}>Use 15–128 Unicode characters. Avoid common or app-related passwords.</p>}
+    {error && <p className="mt-2 text-sm text-red-800" id={errorId}>{error}</p>}
   </div>;
 }
 

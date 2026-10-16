@@ -10,6 +10,7 @@ using BlazorAutoApp.Test.TestSupport.Accounts;
 using BlazorAutoApp.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -201,6 +202,38 @@ public sealed class AccountDataManagementTests
             Assert.Equal("Pending", intent.Status);
             Assert.NotEmpty(intent.ProtectedPayload);
         }
+    }
+
+    [Fact]
+    public async Task Delete_VerifiesLostCommitAcknowledgementWithoutRepeatingAccountDeletion()
+    {
+        var interceptor = new CommitUncertaintyInterceptor();
+        await using var fixture = new RealCookieAccountFixture(
+            configureTestServices: services => services.AddSingleton<IDbTransactionInterceptor>(interceptor));
+        await fixture.InitializeAsync();
+        var owner = await fixture.CreateUserAsync();
+        int bookId;
+        using (var scope = fixture.Factory.Services.CreateScope())
+        {
+            bookId = await AddBookAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), "Commit recovery private book", owner.Id);
+        }
+        await QueueResetIntentAsync(fixture, owner.Id, owner.Email);
+        using var client = fixture.CreateClient();
+        using var login = await RealCookieAccountFixture.LoginAsync(client, owner.Email, owner.Password);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var session = await RealCookieAccountFixture.ReadSessionAsync(client);
+        interceptor.ThrowAfterNextCommit();
+
+        using var deleted = await DeleteAsync(client, owner.Id, session.CsrfToken, owner.Password);
+
+        Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+        Assert.Equal(1, interceptor.ThrownCount);
+        Assert.Null((await RealCookieAccountFixture.ReadSessionAsync(client)).User);
+        using var verification = fixture.Factory.Services.CreateScope();
+        var db = verification.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(await db.Users.AnyAsync(user => user.Id == owner.Id));
+        Assert.False(await db.Books.AnyAsync(book => book.Id == bookId));
+        Assert.False(await db.AccountOutbox.AnyAsync(message => message.UserId == owner.Id));
     }
 
     private static async Task<int> AddBookAsync(AppDbContext db, string title, string ownerId, string? authorSeed = null)

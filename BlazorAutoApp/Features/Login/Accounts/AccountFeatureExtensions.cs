@@ -20,23 +20,6 @@ namespace BlazorAutoApp.Features.Login.Accounts;
 internal static class AccountFeatureExtensions
 {
     private const int MaximumJsonRequestBytes = 16 * 1024;
-    private static readonly PathString[] UnsupportedIdentityPaths =
-    [
-        "/Account/ExternalLogin",
-        "/Account/PerformExternalLogin",
-        "/Account/LoginWith2fa",
-        "/Account/LoginWithRecoveryCode",
-        "/Account/PasskeyCreationOptions",
-        "/Account/PasskeyRequestOptions",
-        "/Account/Manage/ExternalLogins",
-        "/Account/Manage/TwoFactorAuthentication",
-        "/Account/Manage/EnableAuthenticator",
-        "/Account/Manage/Disable2fa",
-        "/Account/Manage/GenerateRecoveryCodes",
-        "/Account/Manage/ResetAuthenticator",
-        "/Account/Manage/Passkeys",
-        "/Account/Manage/RenamePasskey"
-    ];
     private static readonly HashSet<string> AccountJsonMutationPaths = new(StringComparer.OrdinalIgnoreCase)
     {
         "/api/auth/login",
@@ -197,9 +180,10 @@ internal static class AccountFeatureExtensions
 
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase)
+            var accountRequest = context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase)
                 || context.Request.Path.StartsWithSegments("/api/books", StringComparison.OrdinalIgnoreCase)
-                || context.Request.Path.StartsWithSegments("/Account", StringComparison.OrdinalIgnoreCase))
+                || context.Request.Path.StartsWithSegments("/Account", StringComparison.OrdinalIgnoreCase);
+            if (accountRequest)
             {
                 context.Response.Headers.CacheControl = "private, no-store";
                 context.Response.Headers.Pragma = "no-cache";
@@ -221,27 +205,16 @@ internal static class AccountFeatureExtensions
                 }
             }
 
-            await next();
-        });
-    }
-
-    public static void UseAccountUnsupportedIdentityRoutes(this WebApplication app)
-    {
-        if (!app.Services.GetRequiredService<AccountOptions>().Enabled)
-        {
-            return;
-        }
-
-        app.Use(async (context, next) =>
-        {
-            if (UnsupportedIdentityPaths.Any(path => context.Request.Path.StartsWithSegments(
-                    path, StringComparison.OrdinalIgnoreCase)))
+            try
             {
-                context.Response.StatusCode = StatusCodes.Status404NotFound;
-                return;
+                await next();
             }
-
-            await next();
+            catch (Exception exception) when (accountRequest && !context.Response.HasStarted
+                && AccountResults.IsPersistenceFailure(exception))
+            {
+                context.Response.Clear();
+                await AccountResults.DeliveryUnavailable().ExecuteAsync(context);
+            }
         });
     }
 

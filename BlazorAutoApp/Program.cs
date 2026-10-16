@@ -83,7 +83,6 @@ app.UseAuthorization();
 app.UseAccountPrincipalGuards();
 
 app.UseAntiforgery();
-app.UseAccountUnsupportedIdentityRoutes();
 
 app.Use(async (ctx, next) =>
 {
