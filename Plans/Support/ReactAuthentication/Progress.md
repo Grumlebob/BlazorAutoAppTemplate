@@ -4,16 +4,16 @@
 
 Status: active implementation. The owner activated [ReactAuthenticationFoundationGoal.md](../../ReactAuthenticationFoundationGoal.md) on 2026-10-15, authorizing implementation, isolated verification and gated PR integration. Live deployments, shared-host changes and external messages remain outside scope.
 
-The latest [main plan](../../ReactAuthenticationFoundation.md), [execution specification](ExecutionSpecification.md) and AGENTS.md were read after fetching `origin/main` at `63bfdb6aa746768b8414a6c8b43a6b403c2d19db` on 2026-10-16. The plan/specification are authoritative over the earlier draft. A00 (S00–S03) is integrated by PR #309 as `2fa8b51107923521a62f54b721896c06c7979a60`; its exact-main CI is green. A01–A05 are active locally. No complete AUTH acceptance row is passed yet.
+The [main plan](../../ReactAuthenticationFoundation.md), [execution specification](ExecutionSpecification.md) and AGENTS.md govern this goal. A00 (S00–S03) is integrated by PR #309 as `2fa8b51107923521a62f54b721896c06c7979a60`; its exact-main CI is green. A01–A06 are in draft PR [#320](https://github.com/Grumlebob/BlazorAutoAppTemplate/pull/320). Its previous head `ca60ac8b4e50d37c9449fe7cfa6dda57b7bfea52` passed [CI run 38888781830](https://github.com/Grumlebob/BlazorAutoAppTemplate/actions/runs/38888781830), but the resumed acceptance audit found additional races. The PR remains draft while those fixes receive a new full local gate and packaged browser verification. Fetched `origin/main` is `0b5b5cce13b610033b91d6c302b0a1ba999add2e`. Final integration and individual AUTH acceptance remain pending.
 
-### Preserved work
+### Original preservation history
 
 - Draft branch: `feat/react-authentication-foundation-20261015`; base `8599ffa527239a699f888c4aceea808f9829573a`. Locate the registered worktree with `git worktree list`.
-- Current task checkout is at `423953aef8ccc79bdbd3f652a77b09bd707e8523`; fetched `origin/main` is now `63bfdb6aa746768b8414a6c8b43a6b403c2d19db`. The release-payload update changes shared workflows and the deployment audit; reconcile those 17 upstream paths before opening a PR. No worktree changes were overwritten or merged during this review.
-- It contains uncommitted backend/React/configuration/Blazor transport changes. Preserve them for review/reuse; do not treat them as integrated or verified.
+- The initial preserved checkout was at `423953aef8ccc79bdbd3f652a77b09bd707e8523`, then reconciled with newer main changes without overwriting the draft. Later verification and PR heads are recorded below.
+- Its original backend/React/configuration/Blazor transport changes were reviewed and replaced or completed under this goal; historical compile-only evidence does not establish acceptance.
 - Recovery patch in the primary checkout: ignored `Plans.local/ReactAuthenticationFoundation/DeferredImplementation-20261015.patch`, SHA-256 `DAC42AD1A33F1B5FBF3C956C4042A5DDAE181FCEC636A243E96F53CB6466B08A`. Already restored; do not apply twice. Its absence does not prevent clean implementation from tracked contracts.
 - The earlier documentation plan was integrated by PR #307 as `e0150cef6d7d0be7253bca0542582379ba024264`. The PR introducing this review/specification/goal records its own exact integration evidence.
-- Earlier draft compile/schema/typecheck/lint/build checkpoints are recorded in main plan §10. Later edits were not all rebuilt together. No authentication tests, real sign-in, real seed user, external mail or deployment has been performed.
+- Earlier draft compile/schema/typecheck/lint/build checkpoints are recorded in main plan §10. Subsequent isolated real-cookie, SMTP and browser evidence is recorded below. No external mail or live deployment has been performed.
 
 ## Reviewed recommendations to implement
 
@@ -111,6 +111,18 @@ A01 source is based on local merge `add6c6172383a018c9999ae0b4aa7d34eeeae6e8`, w
 OpenAPI generation contacts neither database nor SMTP. Resource bytes were downloaded once from the specified SecLists commit and matched SHA-256 `68782d6a4a19a4768d5f15dd66bd534e7a33055cc755411e33f16d18c50fdcce`; `.gitattributes` preserves their bytes on all platforms. The framework's non-sliding stamp renewal preserved absolute expiry in real-cookie tests, so the draft's custom principal-validation wrapper was removed. This is a verified implementation choice, not a custom cryptographic/session validator. Password DTOs preserve whitespace, including a valid all-space candidate, while refusing empty values; validation never trims password contents.
 
 S09 local verification on task head `423953ae` plus working changes: filtered Blazor tests passed 39/39 in `Plans.local/ReactAuthenticationFoundation/TestResults/account-s09.trx`. The cases cover real-cookie owner guards, CSRF before malformed JSON binding, exact 16 KiB acceptance versus 16 KiB + 1 rejection, unsupported media types, shared cross-route IP quota, separate IP partitions, preserved API/global quotas, capability discovery, settings validation and disabled legacy authentication limiting. Build and solution format verification passed. This remains local evidence; the full A01 local gate and exact-head CI are still required.
+
+### Resumed S04/S14/S16/S22/S36 acceptance audit
+
+The audit reproduced three transport races: an ordinary refresh could discover a new owner without cancelling older requests, request ownership ended before asynchronous JSON parsing, and a delayed authentication-error body could invalidate a newer session. The controller now guards the full typed operation, advances generations on owner/application/unavailable transitions, and checks the generation after error-body parsing. Same-owner refreshes retain valid requests. Regression coverage also verifies private-cache removal without removing public cache entries.
+
+Component tests reproduced visible book drafts during session checking and account-management credentials/deletion consent surviving an owner switch. Draft display is now suppressed while checking; book draft ownership includes application identity; account forms remount on application/owner changes. Original-owner book drafts survive a same-owner recheck and temporary sign-out; another owner must explicitly discard them. The packaged real-cookie journey now also exercises three tabs sharing cookies, including both book drafts and management fields.
+
+A real PostgreSQL retry fixture rolled back a sensitive mutation, changed the password/stamp in another scope, then retried. The old logout-all code incorrectly returned HTTP 200 after the retry rejected the obsolete stamp. Sign-out side effects now depend on the final committed result rather than a mutable flag from an earlier attempt. The regression covers logout-all, password change, export and deletion; it initially failed logout-all (200 instead of 401), and all four now pass. The focused cookie/email/data suites pass 27/27 with zero skips in `TestResults/s36-handler-races.trx`.
+
+S04 is completed structurally: `AccountOperations` is a thin adapter shared by API and Blazor; focused registration, recovery, revocation, password-change, email-change, export and deletion handlers receive cancellation and the captured principal. `Security/AccountMutationTransactions` retains one account-specific locked execution-strategy helper; safe result mapping is separate. No generic command bus/repository or alternative authentication framework was introduced. Keeping `IResult` at this feature's handler boundary follows existing HTTP/Blazor adapter conventions; transaction proof receives no `HttpContext`.
+
+The latest React unit run before the application-identity draft regression passed 58/58 plus typecheck/lint; that additional draft regression now passes 3/3 in the component suite. These focused results do not replace the new complete local gate, packaged image checks, exact-head CI or final main verification. S36 is reopened until those checks pass on the corrected source.
 
 ## Acceptance ledger
 

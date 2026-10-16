@@ -33,7 +33,7 @@ function AccountRoute({ action }: { action: string }) {
     {accounts.error && <p className="mt-5 rounded-lg bg-red-50 p-4 text-red-900" role="alert">{accounts.error}</p>}
     {unavailable ? <p className="mt-5">This account operation is not enabled on this site.</p>
       : action === "settings" && !authenticated ? <p className="mt-5">Sign in to manage your account. <Link className="text-indigo-700" to="/auth/login?returnTo=/auth/settings">Sign in</Link></p>
-        : <div className="mt-4"><AccountActionForm action={action} /></div>}
+        : <div className="mt-4"><AccountActionForm key={`${accounts.applicationId}:${accounts.session.user?.id ?? "anonymous"}`} action={action} /></div>}
     <div className="mt-6 flex flex-wrap gap-4 text-sm font-medium text-indigo-700">
       {action !== "login" && <Link to="/auth/login">Sign in</Link>}
       {action === "login" && accounts.session.registrationEnabled && <Link to="/auth/register">Create an account</Link>}

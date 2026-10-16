@@ -314,6 +314,56 @@ public sealed class AccountCookieTests
         Assert.Equal(HttpStatusCode.OK, newPasswordLogin.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/api/auth/logout-all")]
+    [InlineData("/api/auth/change-password")]
+    [InlineData("/api/auth/export")]
+    [InlineData("/api/auth/delete")]
+    public async Task SensitiveMutation_RetryRevalidatesCredentialsAndDoesNotReuseRolledBackSuccess(string path)
+    {
+        var interceptor = new AccountRetryInterceptor();
+        await using var fixture = new RealCookieAccountFixture(
+            configureTestServices: services => services.AddSingleton<IDbTransactionInterceptor>(interceptor));
+        await fixture.InitializeAsync();
+        using var client = fixture.CreateClient();
+        var user = await fixture.CreateUserAsync();
+        using var login = await RealCookieAccountFixture.LoginAsync(client, user.Email, user.Password);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var session = await RealCookieAccountFixture.ReadSessionAsync(client);
+        var replacementPassword = NewPassword();
+        string? replacementStamp = null;
+        interceptor.RollBackNextCommit(async () =>
+        {
+            using var scope = fixture.Factory.Services.CreateScope();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var stored = await users.FindByIdAsync(user.Id);
+            Assert.NotNull(stored);
+            var token = await users.GeneratePasswordResetTokenAsync(stored);
+            Assert.True((await users.ResetPasswordAsync(stored, token, replacementPassword)).Succeeded);
+            replacementStamp = stored.SecurityStamp;
+        });
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(new { password = user.Password, newPassword = NewPassword() })
+        };
+        request.Headers.Add("X-Expected-User", user.Id);
+        request.Headers.Add("X-CSRF-TOKEN", session.CsrfToken);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var problem = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("AuthenticationRequired", problem.RootElement.GetProperty("code").GetString());
+        Assert.Equal(1, interceptor.RetriedCount);
+        using var verificationScope = fixture.Factory.Services.CreateScope();
+        var verificationUsers = verificationScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var remaining = await verificationUsers.FindByIdAsync(user.Id);
+        Assert.NotNull(remaining);
+        Assert.Equal(replacementStamp, remaining.SecurityStamp);
+        Assert.True(await verificationUsers.CheckPasswordAsync(remaining, replacementPassword));
+        Assert.Equal(0, await verificationUsers.GetAccessFailedCountAsync(remaining));
+    }
+
     private static async Task<string> ReadSafeProblemAsync(HttpResponseMessage response)
     {
         var problem = System.Text.Json.Nodes.JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsObject();

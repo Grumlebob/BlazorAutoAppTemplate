@@ -5,7 +5,7 @@ import { ApiError, invalidApiResponse, normalizeTransportError, toHttpApiError }
 export type Session = components["schemas"]["AccountSession"];
 export type Profile = components["schemas"]["AccountProfile"];
 export type ClientConfiguration = components["schemas"]["ClientConfiguration"];
-export type AccountApi = ReturnType<typeof createClient<paths>>;
+export type AccountApi = Pick<ReturnType<typeof createClient<paths>>, "GET" | "POST" | "PUT" | "DELETE">;
 
 export const disabledSession: Session = {
   enabled: false,
@@ -15,7 +15,7 @@ export const disabledSession: Session = {
   user: null,
 };
 
-export function createAccountApi(baseUrl: string, fetcher: (request: Request) => Promise<Response>): AccountApi {
+export function createAccountApi(baseUrl: string, fetcher: (request: Request) => Promise<Response>) {
   return createClient<paths>({ baseUrl, credentials: "same-origin", fetch: fetcher });
 }
 
@@ -34,13 +34,15 @@ export async function apiResult<T>(request: Promise<{ data?: T; error?: unknown;
   }
 }
 
-export function accountChangedError(): ApiError {
-  return new ApiError({
-    kind: "http",
-    status: 409,
-    title: "Account changed",
-    message: "Your account changed. Refresh your session before continuing.",
-  });
+export class AccountChangedError extends ApiError {
+  constructor() {
+    super({
+      kind: "http",
+      status: 409,
+      title: "Account changed",
+      message: "Your account changed. Refresh your session before continuing.",
+    });
+  }
 }
 
 export function safeReturnPath(value: string | null): string {

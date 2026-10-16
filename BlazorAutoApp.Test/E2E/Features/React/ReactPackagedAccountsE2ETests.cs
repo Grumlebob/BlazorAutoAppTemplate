@@ -119,6 +119,8 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
                     await ReloadAndAssertBookAsync(userBPage, bookB);
                     Assert.False(await userBPage.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA }).IsVisibleAsync());
 
+                    await AssertSharedCookieSwitchAsync(userA, userAPassword, userB, password, bookA, bookB);
+
                     await NavigateAsync(Page, "/auth/settings");
                     await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Your account" })).ToBeVisibleAsync();
                     await Page.Locator("input[autocomplete='current-password']").FillAsync(userAPassword);
@@ -148,6 +150,55 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
                 await userASecondSession.CloseAsync();
             }
         });
+    }
+
+    private async Task AssertSharedCookieSwitchAsync(
+        string userA, string passwordA, string userB, string passwordB, string bookA, string bookB)
+    {
+        var originalDraft = $"E2E Book React unsaved A {Guid.NewGuid():N}";
+        await Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true }).FillAsync(originalDraft);
+        var settingsTab = await Context.NewPageAsync();
+        var switchTab = await Context.NewPageAsync();
+        try
+        {
+            MonitorBrowser(settingsTab);
+            MonitorBrowser(switchTab);
+            await NavigateAsync(settingsTab, "/auth/settings");
+            await Expect(settingsTab.GetByText(userA, new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+            await settingsTab.GetByLabel("Current password", new PageGetByLabelOptions { Exact = true }).FillAsync(passwordA);
+            await settingsTab.GetByLabel("New password", new PageGetByLabelOptions { Exact = true }).FillAsync(passwordA);
+            await settingsTab.GetByLabel("New email", new PageGetByLabelOptions { Exact = true }).FillAsync(NewEmail("draft-a"));
+            await settingsTab.GetByRole(AriaRole.Checkbox).CheckAsync();
+
+            // These tabs share real browser cookies and the application's change channel.
+            await SignInAsync(switchTab, userB, passwordB);
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookB })).ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).Not.ToBeVisibleAsync();
+            await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).Not.ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Discard previous draft" })).ToBeVisibleAsync();
+            await Expect(settingsTab.GetByText(userB, new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+            await Expect(settingsTab.GetByLabel("Current password", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
+            await Expect(settingsTab.GetByLabel("New password", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
+            await Expect(settingsTab.GetByLabel("New email", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
+            await Expect(settingsTab.GetByRole(AriaRole.Checkbox)).Not.ToBeCheckedAsync();
+
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Discard previous draft" }).ClickAsync();
+            await Expect(Page.GetByLabel("Title", new PageGetByLabelOptions { Exact = true })).ToHaveValueAsync("");
+            var replacementDraft = $"E2E Book React own B {Guid.NewGuid():N}";
+            TrackCreatedBook(replacementDraft);
+            await AddBookAsync(Page, replacementDraft, "React User B");
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = originalDraft })).Not.ToBeVisibleAsync();
+
+            await SignInAsync(switchTab, userA, passwordA);
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookA })).ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = bookB })).Not.ToBeVisibleAsync();
+            await Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = replacementDraft })).Not.ToBeVisibleAsync();
+        }
+        finally
+        {
+            await switchTab.CloseAsync();
+            await settingsTab.CloseAsync();
+        }
     }
 
     private async Task AssertSeededAdminAsync(string email, string password)

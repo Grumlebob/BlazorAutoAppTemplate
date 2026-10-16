@@ -173,10 +173,144 @@ describe("account session controller", () => {
     await expect(stale).rejects.toHaveProperty("name", "AbortError");
     expect(controller.getSnapshot()).toMatchObject({ status: "loading", session: disabledSession });
   });
+
+  it("discards an old owner's private response when an ordinary refresh discovers a new owner", async () => {
+    const privateResponse = deferred<Response>();
+    const started = deferred<void>();
+    let owner = "user-a";
+    const queryClient = new QueryClient();
+    const controller = createController(async request => {
+      if (new URL(request.url).pathname === "/api/books") {
+        started.resolve();
+        return privateResponse.promise;
+      }
+      return accountResponse(request, owner, `csrf-${owner}`);
+    }, queryClient);
+    await controller.refresh();
+    queryClient.setQueryData(["private", "user-a", "books"], { books: [{ title: "Alice's cached book" }] });
+    queryClient.setQueryData(["public", "authors"], { authors: [{ name: "Public author" }] });
+    const oldRequest = controller.api.GET("/api/books");
+    await started.promise;
+
+    owner = "user-b";
+    await controller.refresh();
+    privateResponse.resolve(json({ books: [{ id: 12, title: "Old owner's private book" }] }));
+
+    await expect(oldRequest).rejects.toHaveProperty("name", "AbortError");
+    expect(controller.getSnapshot().session.user?.id).toBe("user-b");
+    expect(queryClient.getQueryData(["private", "user-a", "books"])).toBeUndefined();
+    expect(queryClient.getQueryData(["public", "authors"])).toEqual({ authors: [{ name: "Public author" }] });
+  });
+
+  it.each(["GET", "POST"] as const)("keeps %s response bodies cancellable and discards success after an account change", async method => {
+    const body = streamedJson();
+    let owner = "user-a";
+    let requestSignal: AbortSignal | undefined;
+    const controller = createController(async request => {
+      if (new URL(request.url).pathname === "/api/books") {
+        requestSignal = request.signal;
+        return body.response;
+      }
+      return accountResponse(request, owner, `csrf-${owner}`);
+    });
+    await controller.refresh();
+    const oldRequest = method === "GET"
+      ? controller.api.GET("/api/books")
+      : controller.api.POST("/api/books", { body: { title: "Old owner's draft" } });
+    await vi.waitFor(() => expect(body.response.bodyUsed).toBe(true));
+
+    owner = "user-b";
+    await controller.changed();
+    const wasAborted = requestSignal?.aborted;
+    body.complete({ books: [{ id: 12, title: "Old owner's private book" }] });
+
+    await expect(oldRequest).rejects.toHaveProperty("name", "AbortError");
+    expect(wasAborted).toBe(true);
+    expect(controller.getSnapshot().session.user?.id).toBe("user-b");
+  });
+
+  it("does not let a late authentication error body invalidate the new owner's session", async () => {
+    const body = streamedJson(401);
+    const clone = vi.spyOn(body.response, "clone");
+    let owner = "user-a";
+    const fetcher = vi.fn(async (request: Request) => {
+      if (new URL(request.url).pathname === "/api/books") return body.response;
+      return accountResponse(request, owner, `csrf-${owner}`);
+    });
+    const controller = createController(fetcher);
+    await controller.refresh();
+    const oldRequest = controller.api.GET("/api/books");
+    await vi.waitFor(() => expect(clone).toHaveBeenCalled());
+
+    owner = "user-b";
+    await controller.changed();
+    const currentGeneration = controller.getSnapshot().generation;
+    body.complete({ code: "AuthenticationRequired", title: "Sign-in required" });
+
+    await expect(oldRequest).rejects.toHaveProperty("name", "AbortError");
+    expect(controller.getSnapshot()).toMatchObject({
+      generation: currentGeneration,
+      status: "authenticated",
+      session: { user: { id: "user-b" } },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps a pending private request valid when a refresh confirms the same owner", async () => {
+    const body = streamedJson();
+    const controller = createController(async request => new URL(request.url).pathname === "/api/books"
+      ? body.response : accountResponse(request, "user-a", "csrf-a"));
+    await controller.refresh();
+    const generation = controller.getSnapshot().generation;
+    const request = controller.api.GET("/api/books");
+    await vi.waitFor(() => expect(body.response.bodyUsed).toBe(true));
+    await controller.refresh();
+    body.complete({ books: [{ id: 12, title: "Current owner's book" }] });
+
+    await expect(request).resolves.toMatchObject({ data: { books: [{ id: 12 }] } });
+    expect(controller.getSnapshot().generation).toBe(generation);
+  });
+
+  it("discards pending private data when session discovery becomes unavailable", async () => {
+    const body = streamedJson();
+    let unavailable = false;
+    const controller = createController(async request => {
+      if (new URL(request.url).pathname === "/api/books") return body.response;
+      return unavailable ? json({ title: "Unavailable" }, 503) : accountResponse(request, "user-a", "csrf-a");
+    });
+    await controller.refresh();
+    const request = controller.api.GET("/api/books");
+    await vi.waitFor(() => expect(body.response.bodyUsed).toBe(true));
+    unavailable = true;
+    await expect(controller.refresh()).rejects.toHaveProperty("status", 503);
+    body.complete({ books: [{ id: 12, title: "Unavailable session's private book" }] });
+
+    await expect(request).rejects.toHaveProperty("name", "AbortError");
+    expect(controller.getSnapshot()).toMatchObject({ status: "unavailable", session: { user: null } });
+  });
+
+  it("discards private data when the application identity changes even if the user ID is equal", async () => {
+    const body = streamedJson();
+    let applicationId = applicationIdA;
+    const controller = createController(async request => {
+      const path = new URL(request.url).pathname;
+      if (path === "/api/books") return body.response;
+      if (path === "/api/client-config") return json({ schemaVersion: 1, accountsEnabled: true, applicationId });
+      return accountResponse(request, "user-a", "csrf-a");
+    });
+    await controller.refresh();
+    const request = controller.api.GET("/api/books");
+    await vi.waitFor(() => expect(body.response.bodyUsed).toBe(true));
+    applicationId = applicationIdB;
+    await controller.refresh();
+    body.complete({ books: [{ id: 12, title: "Other application's book" }] });
+
+    await expect(request).rejects.toHaveProperty("name", "AbortError");
+    expect(controller.getSnapshot()).toMatchObject({ applicationId: applicationIdB, status: "authenticated" });
+  });
 });
 
-function createController(fetcher: (request: Request) => Promise<Response>): AccountSessionController {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+function createController(fetcher: (request: Request) => Promise<Response>, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })): AccountSessionController {
   clients.push(queryClient);
   const controller = new AccountSessionController({ queryClient, baseUrl: "https://app.test", fetcher });
   controllers.push(controller);
@@ -206,6 +340,21 @@ function session(userId: string, csrfToken: string) {
 
 function json(body: unknown, status = 200, contentType = "application/json") {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": contentType } });
+}
+
+function streamedJson(status = 200) {
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  const response = new Response(new ReadableStream<Uint8Array>({ start(controller) { stream = controller; } }), {
+    status,
+    headers: { "content-type": status === 200 ? "application/json" : "application/problem+json" },
+  });
+  return {
+    response,
+    complete(body: unknown) {
+      stream.enqueue(new TextEncoder().encode(JSON.stringify(body)));
+      stream.close();
+    },
+  };
 }
 
 function deferred<T>() {

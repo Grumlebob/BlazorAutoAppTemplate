@@ -1,3 +1,6 @@
+using BlazorAutoApp.Features.Login.Accounts.Management;
+using BlazorAutoApp.Features.Login.Accounts.Recovery;
+using BlazorAutoApp.Features.Login.Accounts.Registration;
 using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -84,6 +87,14 @@ internal static class AccountFeatureExtensions
         services.AddSingleton<IAccountMailTransport, MailKitAccountMailTransport>();
         services.AddScoped<AccountMailOutbox>();
         services.AddScoped<AccountOperations>();
+        services.AddScoped<AccountMutationTransactions>();
+        services.AddScoped<AccountRegistrationHandler>();
+        services.AddScoped<AccountRecoveryHandler>();
+        services.AddScoped<AccountRevocationHandler>();
+        services.AddScoped<AccountPasswordChangeHandler>();
+        services.AddScoped<AccountEmailChangeHandler>();
+        services.AddScoped<AccountExportHandler>();
+        services.AddScoped<AccountDeletionHandler>();
         services.AddScoped<AccountSessionOperations>();
         services.TryAddSingleton(TimeProvider.System);
 

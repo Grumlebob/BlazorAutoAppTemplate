@@ -10,7 +10,7 @@ export default function MyBooks() {
   const accounts = useAccounts();
   const client = useQueryClient();
   const userId = accounts.session.user?.id;
-  const ownerKey = userId ?? "anonymous";
+  const ownerKey = `${accounts.applicationId}:${userId ?? "anonymous"}`;
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [url, setUrl] = useState("");
@@ -65,7 +65,7 @@ export default function MyBooks() {
           {books.data?.books?.length === 0 && <p className="mt-6">No books yet. Add your first below.</p>}
         </>}
     {error && <p className="mt-6 text-red-800" role="alert">{error}</p>}
-    {otherOwner ? <div className="mt-8"><p>This draft belongs to another session. Discard it before continuing.</p><button className="mt-4 text-indigo-700" onClick={() => { setTitle(""); setAuthor(""); setUrl(""); setEditing(null); setError(""); setDraftOwner(ownerKey); }}>Discard previous draft</button></div> : <form className="mt-8 max-w-lg space-y-4 rounded-xl border border-slate-200 bg-white p-6" onSubmit={save}>
+    {accounts.loading || accounts.checking ? null : otherOwner ? <div className="mt-8"><p>This draft belongs to another session. Discard it before continuing.</p><button className="mt-4 text-indigo-700" onClick={() => { setTitle(""); setAuthor(""); setUrl(""); setEditing(null); setError(""); setDraftOwner(ownerKey); }}>Discard previous draft</button></div> : <form className="mt-8 max-w-lg space-y-4 rounded-xl border border-slate-200 bg-white p-6" onSubmit={save}>
       <h2 className="text-xl font-semibold">{editing === null ? "Add a book" : "Edit book"}</h2>
       <p className="text-sm text-slate-600">Your input stays here if your session expires. Sign in before saving.</p>
       <label className="block font-medium">Title<input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" required maxLength={200} value={title} onChange={event => { setDraftOwner(ownerKey); setTitle(event.target.value); }} /></label>

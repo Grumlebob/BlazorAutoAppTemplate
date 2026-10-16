@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { ApiError, isAbortError, invalidApiResponse, toHttpApiError } from "../../api/errors";
-import { accountChangedError, createAccountApi, disabledSession, type ClientConfiguration, type Session } from "./account-api";
+import { AccountChangedError, createAccountApi, disabledSession, type AccountApi, type ClientConfiguration, type Session } from "./account-api";
 
 export type AccountStatus = "loading" | "disabled" | "anonymous" | "authenticated" | "unavailable";
 
@@ -40,7 +40,7 @@ const privateAccountPaths = new Set([
 ]);
 
 export class AccountSessionController {
-  readonly api;
+  readonly api: AccountApi;
 
   private readonly queryClient: QueryClient;
   private readonly baseUrl: string;
@@ -58,14 +58,20 @@ export class AccountSessionController {
     this.queryClient = options.queryClient;
     this.baseUrl = options.baseUrl ?? (typeof globalThis.location === "undefined" ? "http://localhost" : globalThis.location.origin);
     this.fetcher = options.fetcher ?? (request => globalThis.fetch(request));
-    this.api = createAccountApi(this.baseUrl, request => this.sendApiRequest(request));
-    this.api.use({
+    const api = createAccountApi(this.baseUrl, request => this.sendApiRequest(request));
+    api.use({
       onRequest: ({ request }) => this.prepareApiRequest(request),
-      onResponse: ({ request, response }) => {
-        void this.handleApiResponse(request, response);
+      onResponse: async ({ request, response }) => {
+        await this.handleApiResponse(request, response);
         return response;
       },
     });
+    this.api = {
+      GET: this.guardApiMethod(api.GET),
+      POST: this.guardApiMethod(api.POST),
+      PUT: this.guardApiMethod(api.PUT),
+      DELETE: this.guardApiMethod(api.DELETE),
+    };
   }
 
   readonly getSnapshot = (): AccountSnapshot => this.snapshot;
@@ -83,16 +89,17 @@ export class AccountSessionController {
     if (this.disposed) return Promise.reject(createAbortError());
     if (this.pendingRefresh?.generation === this.generation) return this.pendingRefresh.promise;
 
-    const generation = this.generation;
+    const attempt = { generation: this.generation };
     const abortController = new AbortController();
     this.refreshController = abortController;
     this.publish({ checking: true, error: null });
 
-    const promise = this.loadSession(generation, abortController.signal)
+    const promise = this.loadSession(attempt, abortController.signal)
       .catch(async error => {
-        if (this.isCurrent(generation) && !isAbortError(error)) {
+        if (this.isCurrent(attempt.generation) && !isAbortError(error)) {
+          this.advanceGeneration(attempt);
           await this.clearPrivateData();
-          if (this.isCurrent(generation)) {
+          if (this.isCurrent(attempt.generation)) {
             this.publish({
               status: "unavailable",
               session: disabledSession,
@@ -109,7 +116,7 @@ export class AccountSessionController {
         if (this.refreshController === abortController) this.refreshController = undefined;
       });
 
-    this.pendingRefresh = { generation, promise };
+    this.pendingRefresh = { generation: attempt.generation, promise };
     return promise;
   }
 
@@ -129,32 +136,38 @@ export class AccountSessionController {
     this.listeners.clear();
   }
 
-  private async loadSession(generation: number, signal: AbortSignal): Promise<Session> {
+  private async loadSession(attempt: { generation: number }, signal: AbortSignal): Promise<Session> {
     const configResponse = await this.fetchJson("/api/client-config", "omit", signal);
     const configuration = await this.readJson<ClientConfiguration>(configResponse);
     if (!isClientConfiguration(configuration)) throw invalidApiResponse(configResponse.status);
-    if (!this.isCurrent(generation)) throw createAbortError();
+    if (!this.isCurrent(attempt.generation)) throw createAbortError();
+    if (this.snapshot.applicationId !== null && this.snapshot.applicationId !== configuration.applicationId) {
+      this.advanceGeneration(attempt);
+      await this.clearPrivateData();
+      if (!this.isCurrent(attempt.generation)) throw createAbortError();
+    }
     this.publish({ applicationId: configuration.applicationId });
 
     if (!configuration.accountsEnabled) {
-      await this.publishSession(generation, "disabled", disabledSession);
+      await this.publishSession(attempt, "disabled", disabledSession);
       return disabledSession;
     }
 
     const sessionResponse = await this.fetchJson("/api/auth/session", "same-origin", signal);
     const session = await this.readJson<Session>(sessionResponse);
     if (!isEnabledSession(session)) throw invalidApiResponse(sessionResponse.status);
-    await this.publishSession(generation, session.user ? "authenticated" : "anonymous", session);
+    await this.publishSession(attempt, session.user ? "authenticated" : "anonymous", session);
     return session;
   }
 
-  private async publishSession(generation: number, status: "disabled" | "anonymous" | "authenticated", session: Session): Promise<void> {
-    if (!this.isCurrent(generation)) throw createAbortError();
+  private async publishSession(attempt: { generation: number }, status: "disabled" | "anonymous" | "authenticated", session: Session): Promise<void> {
+    if (!this.isCurrent(attempt.generation)) throw createAbortError();
     const previousUserId = this.snapshot.session.user?.id ?? null;
     const nextUserId = session.user?.id ?? null;
     if (previousUserId !== nextUserId) {
+      this.advanceGeneration(attempt);
       await this.clearPrivateData();
-      if (!this.isCurrent(generation)) throw createAbortError();
+      if (!this.isCurrent(attempt.generation)) throw createAbortError();
     }
     this.publish({ status, session, loading: false, checking: false, error: null });
   }
@@ -196,8 +209,8 @@ export class AccountSessionController {
     if (request.method === "GET" || request.method === "HEAD") return request;
 
     const session = await this.refresh();
+    if (privateRequest && capturedOwner !== (session.user?.id ?? null)) throw new AccountChangedError();
     if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
-    if (privateRequest && capturedOwner !== (session.user?.id ?? null)) throw accountChangedError();
     if (!session.enabled || !session.csrfToken) {
       throw new ApiError({ kind: "http", status: 503, message: "The account service is unavailable." });
     }
@@ -207,26 +220,41 @@ export class AccountSessionController {
 
   private async sendApiRequest(request: Request): Promise<Response> {
     const requestGeneration = this.requestGenerations.get(request) ?? this.generation;
-    const abortController = new AbortController();
-    const abortFromRequest = () => abortController.abort(request.signal.reason);
-    if (request.signal.aborted) abortFromRequest();
-    else request.signal.addEventListener("abort", abortFromRequest, { once: true });
-    this.activeRequests.add(abortController);
+    if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
+    const response = await this.fetcher(request);
+    if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
+    return response;
+  }
 
-    try {
-      const outgoing = new Request(request, { signal: abortController.signal });
-      const response = await this.fetcher(outgoing);
-      if (!this.isCurrent(requestGeneration)) throw createAbortError();
-      return response;
-    } finally {
-      request.signal.removeEventListener("abort", abortFromRequest);
-      this.activeRequests.delete(abortController);
-    }
+  private guardApiMethod<TMethod extends (...args: never[]) => Promise<unknown>>(method: TMethod): TMethod {
+    const invoke = method as unknown as (...args: unknown[]) => Promise<unknown>;
+    const guarded = async (path: unknown, options?: RequestInit) => {
+      const generation = this.generation;
+      const controller = new AbortController();
+      const signal = options?.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
+      this.activeRequests.add(controller);
+      try {
+        // Keep cancellation and ownership checks around the entire typed operation,
+        // including openapi-fetch's asynchronous response-body parsing.
+        const result = await invoke(path, { ...options, signal });
+        if (signal.aborted || !this.isCurrent(generation)) throw createAbortError();
+        return result;
+      } catch (error) {
+        if (error instanceof AccountChangedError) throw error;
+        if (signal.aborted || !this.isCurrent(generation)) throw createAbortError();
+        throw error;
+      } finally {
+        this.activeRequests.delete(controller);
+      }
+    };
+    // Preserve openapi-fetch's path/init generics; only the optional signal changes.
+    return guarded as unknown as TMethod;
   }
 
   private async handleApiResponse(request: Request, response: Response): Promise<void> {
     if ((response.status !== 401 && response.status !== 409) || !isPrivateRequest(new URL(request.url).pathname)) return;
     const code = await readProblemCode(response);
+    if (!this.isCurrent(this.requestGenerations.get(request) ?? -1)) return;
     if (code === "SessionExpired" || code === "AuthenticationRequired" || code === "AccountChanged") {
       await this.changed().catch(() => {});
     }
@@ -237,11 +265,18 @@ export class AccountSessionController {
     this.queryClient.removeQueries({ queryKey: ["private"] });
   }
 
-  private advanceGeneration(): void {
+  private advanceGeneration(refreshAttempt?: { generation: number }): void {
     this.generation += 1;
-    this.refreshController?.abort();
-    this.refreshController = undefined;
-    this.pendingRefresh = undefined;
+    if (refreshAttempt) {
+      // A refresh that discovers a different identity owns the new generation;
+      // older API operations are cancelled without aborting that refresh itself.
+      refreshAttempt.generation = this.generation;
+      if (this.pendingRefresh) this.pendingRefresh.generation = this.generation;
+    } else {
+      this.refreshController?.abort();
+      this.refreshController = undefined;
+      this.pendingRefresh = undefined;
+    }
     for (const request of this.activeRequests) request.abort();
     this.activeRequests.clear();
     this.publish({ generation: this.generation });
