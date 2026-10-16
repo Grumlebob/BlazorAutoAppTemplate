@@ -45,6 +45,7 @@ def resolve_identity(
     runtime: str,
     app_image: str,
     bundle_name: str | None,
+    payload_image_prefix: str = "",
 ) -> tuple[registry_payload.ReleasePayloadIdentity, str]:
     selected = selection["selected"]
     receipt = selection["receipt"]
@@ -61,6 +62,7 @@ def resolve_identity(
             acceptance_profile=acceptance_profile,
             runtime=runtime,
             app_image=app_image,
+            payload_image_prefix=payload_image_prefix,
         )
     except (KeyError, TypeError, ValueError, ci_payload_receipt.ReceiptError) as error:
         raise registry_payload.PayloadError("expected release identity is malformed") from error
@@ -86,6 +88,7 @@ def resolve_identity(
         bundle_filename=receipt_bundle_name,
         manifest_sha256=receipt["manifest_sha256"],
         bundle_sha256=receipt.get("bundle_sha256"),
+        payload_image_prefix=payload_image_prefix,
     )
     if receipt["payload_image"] != identity.payload_image:
         raise registry_payload.PayloadError("payload receipt image does not match the derived release image")
@@ -152,6 +155,7 @@ def pull_from_selection(
     runtime: str,
     app_image: str,
     bundle_name: str | None,
+    payload_image_prefix: str = "",
     registry_username: str | None = None,
     token_file: Path | None = None,
 ) -> dict[str, Any]:
@@ -165,6 +169,7 @@ def pull_from_selection(
         runtime=runtime,
         app_image=app_image,
         bundle_name=bundle_name,
+        payload_image_prefix=payload_image_prefix,
     )
     files = _pull_with_isolated_login(
         identity,
@@ -206,6 +211,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--acceptance-profile", default="")
     parser.add_argument("--runtime", required=True)
     parser.add_argument("--app-image", required=True)
+    parser.add_argument("--payload-image-prefix", default="")
     parser.add_argument("--bundle-name", default="")
     parser.add_argument("--registry-username")
     parser.add_argument("--token-file", type=Path)
@@ -224,6 +230,7 @@ def main() -> int:
             runtime=args.runtime,
             app_image=args.app_image,
             bundle_name=args.bundle_name or None,
+            payload_image_prefix=args.payload_image_prefix,
             registry_username=args.registry_username,
             token_file=args.token_file,
         )

@@ -121,6 +121,7 @@ required_files = [
     "Deployment/Common/Scripts/Tests/test_ci_provenance.py",
     "Deployment/Common/Scripts/Tests/test_target_gate.py",
     "Deployment/Common/Scripts/Tests/test_release_contract.py",
+    "Deployment/Common/Scripts/Tests/test_pin_release_payload.py",
     "Deployment/LocalCluster/Scripts/verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/Tests/test-verify-release-identity.sh",
     "Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh",
@@ -135,9 +136,12 @@ required_files = [
     "Scripts/CI/tests/test_deployed_site_acceptance.py",
     "Scripts/CI/migration_staging_artifact.py",
     "Scripts/CI/tests/test_migration_staging_artifact.py",
+    "Scripts/CI/ci_report_store.py",
+    "Scripts/CI/tests/test_ci_report_store.py",
     "Deployment/Common/Scripts/install-ansible.sh",
     "Deployment/Common/Scripts/prune-actions-artifacts.sh",
     "Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py",
+    "Deployment/Common/Scripts/Component/lib/pin_release_payload.py",
     "Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py",
     "Deployment/Common/Scripts/read-release-setting.sh",
     "Deployment/Common/Scripts/validate-common-release.sh",
@@ -249,6 +253,13 @@ required_files.extend([
     "Deployment/Common/ansible/roles/caddy_install/handlers/main.yml",
     "Deployment/LocalCluster/ansible/roles/caddy/meta/main.yml",
     "Deployment/Common/Scripts/Tests/test-ensure-actions-runner-prereqs.sh",
+    "Deployment/Common/Scripts/Component/lib/release_status.py",
+    "Deployment/Common/Scripts/Tests/test_release_status.py",
+    "Deployment/LocalCluster/Scripts/release-status.py",
+    "Deployment/LocalCluster/Scripts/Tests/test_release_status.py",
+    "Deployment/LocalSingleNode/Scripts/release-status.py",
+    "Deployment/LocalSingleNode/Scripts/Tests/test_release_status.py",
+    ".github/workflows/release-status.yml",
 ])
 for file in required_files:
     require_file(file)
@@ -351,9 +362,9 @@ for needle, why, owner in [
     ('Allowed branch: main', 'main-only environment branch rule', 'setup'),
     ('Environment localcluster exists and allows deployments from main.', 'environment setup checkpoint', 'setup'),
     ('First Deploy From GitHub Actions', 'first CD deploy step after environment setup', 'setup'),
-    ('publishes the GHCR image and migration bundle only when the run is for `refs/heads/main`', 'main-only CI publishing explanation', 'release_contract'),
+    ('Main CI publishes the application image, a digest-pinned GHCR payload', 'main-only CI publishing explanation', 'release_contract'),
     ('Optional sanity check: before deploying, confirm the image tag exists.', 'optional image check wording', 'setup'),
-    ('migration bundle artifact is missing or expired', 'expired CI artifact recovery guidance', 'release_contract'),
+    ('if the GHCR payload is missing or cannot be retrieved', 'missing immutable payload recovery guidance', 'release_contract'),
     ('pins PostgreSQL and Redis to exact versioned image tags', 'pinned database image guidance', 'settings'),
     ('If this is the only app on these four nodes, keep the default ports and continue.', 'single-site default guidance', 'settings'),
     ('If another LocalCluster app already runs on these nodes', 'side-by-side settings warning', 'fork_existing'),
@@ -370,7 +381,7 @@ for needle, why, owner in [
     ('git add Deployment/LocalCluster/inventory/prod/group_vars/all.yml', 'deployment settings commit command', 'settings'),
     ('needs committed `all.yml` settings and committed `hosts.yml` inventory', 'committed settings and inventory explanation', 'settings'),
     ('git status --short Deployment/LocalCluster/inventory/prod/group_vars/all.yml Deployment/LocalCluster/inventory/prod/hosts.yml Deployment/LocalCluster/inventory/prod/vault.yml', 'pre-push deployment file clean-state check', 'settings'),
-    ('Workflow permissions: Read and write permissions', 'fork GitHub Actions package write prerequisite', 'release_contract'),
+    ('main publisher job needs `packages: write`', 'job-scoped GitHub Actions package write prerequisite', 'release_contract'),
     ('`app_image`', 'side-by-side app image uniqueness', 'settings'),
     ('`migration_bundle_name`', 'side-by-side migration bundle uniqueness', 'settings'),
     ('same machine IPs', 'side-by-side reused machine IP guidance', 'fork_existing'),
@@ -764,6 +775,12 @@ ci_provenance = read("Deployment/Common/Scripts/Component/lib/find-successful-ci
 for needle in ['ALLOWED_EVENTS = {"push", "workflow_dispatch"}', "verify_publishing_job", "/attempts/{attempt}/jobs", 'job.get("run_attempt")', 'job.get("head_sha")']:
     if needle not in ci_provenance:
         fail(f"CI release provenance: missing publishing verification contract {needle}")
+release_settings_source = read("Deployment/Common/Scripts/Component/lib/release_settings.py")
+for needle in ("PAYLOAD_PREFIX_RE", "def derive_release_payload_image(app_image: str, prefix: str = \"\")", "validate_release_payload_image"):
+    if needle not in release_settings_source:
+        fail(f"CI release package settings: missing validated payload-prefix support {needle}")
+if "release_payload_prefix: private-" not in read("Deployment/Common/release.yml"):
+    fail("Deployment/Common/release.yml: final payload packages must use the prepared private package prefix")
 
 deploy_app_compose = read("Deployment/LocalCluster/compose/app-server/docker-compose.yml")
 for needle, why in [
@@ -941,7 +958,7 @@ for needle, why in [
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),
-    ("bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name", "shared migration artifact setting"),
+    ("bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix", "configured GHCR release payload package prefix"),
     ("Build and test both frontend profiles", "both-profile .NET validation gate"),
     ("bash Scripts/CI/validate-frontend-profiles.sh", "sequential build and test of both frontend profiles"),
     ("Test required .NET test-result counts", "strict .NET result parser unit tests"),
@@ -966,9 +983,12 @@ for needle, why in [
     ("--pull", "Docker build base image freshness"),
     ("postgres:18.4-alpine3.23", "PostgreSQL 18 integration test image pre-pull"),
     ("redis:8.8.0-alpine3.23", "Redis 8 integration test image pre-pull"),
-    ("if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'", "main-only artifact/image publish guard"),
-    ("name: ${{ steps.release_settings.outputs.migration_artifact_name }}", "shared migration artifact upload name"),
-    ("retention-days: 7", "short migration artifact retention"),
+    ("needs.validate.result == 'success'", "main publisher requires successful full validation"),
+    ("Store CI reports on this runner", "bounded runner-local test report storage"),
+    ("REPORT_STATUS: ${{ job.status }}", "report retention follows exact terminal job status"),
+    ("--job validate", "validation reports use a distinct store identity"),
+    ("--job publish-main", "publisher reports use a distinct store identity"),
+    ("Scripts/CI/tests/test_ci_report_store.py", "runner-local report store tests"),
     ("Remove this run's local Docker image", "owned CI image cleanup step"),
     ("bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh --cleanup-only", "interrupted-run smoke cleanup"),
     ("always() && steps.ci_smoke.outcome != 'skipped'", "always-run interrupted smoke cleanup guard"),
@@ -1001,6 +1021,9 @@ for needle, why in [
     ("python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py", "runner identity fixtures"),
     ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v", "bounded documentation slice loader tests"),
     ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_read_live_release_ci_run_ids.py -v", "live release identity protection tests"),
+    ("Deployment/Common/Scripts/Tests/test_release_status.py", "shared release status validation tests"),
+    ("python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_release_status.py -v", "LocalCluster read-only release status tests"),
+    ("python3 -m unittest Deployment/LocalSingleNode/Scripts/Tests/test_release_status.py -v", "LocalSingleNode read-only release status tests"),
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
@@ -1117,9 +1140,10 @@ if "ansible-lint" in ci or "ansible-vault encrypt" in ci:
 if "cache: npm" in ci or "cache-dependency-path" in ci:
     fail(".github/workflows/ci.yml: CI must not use GitHub cloud npm cache on the self-hosted runner")
 push_pos = ci.find('docker push "${APP_IMAGE}:${GITHUB_SHA}"')
-upload_pos = ci.find("Upload migration bundle")
-if push_pos < 0 or upload_pos < 0 or upload_pos < push_pos:
-    fail(".github/workflows/ci.yml: migration bundle upload must happen after Docker image push")
+manifest_pos = ci.find("Resolve pushed image digest and write release manifest")
+receipt_pos = ci.find("Emit immutable release payload receipt")
+if push_pos < 0 or manifest_pos < push_pos or receipt_pos < manifest_pos:
+    fail(".github/workflows/ci.yml: GHCR payload receipt must follow the pushed image and verified manifest")
 # Artifact retention runs daily on the maintenance runner, while host and
 # Docker cleanup remain manual. Both selection/download and cleanup use the
 # shared deployment lock and retain live, successful, and active release IDs.
@@ -1183,7 +1207,11 @@ for needle, why in [
     ("find-successful-ci-run.py", "receipt selector is invoked"),
     ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
     ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
+    ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
@@ -1193,6 +1221,26 @@ for needle, why in [
         fail(f".github/workflows/cd-localcluster.yml: missing locked artifact selection behavior: {why}")
 if "actions/download-artifact@" in cd_localcluster:
     fail(".github/workflows/cd-localcluster.yml: release artifact selection and download must share the host lock")
+cd_cloud = read(".github/workflows/cd-cloud.yml")
+cloud_selection = workflow_step_text(cd_cloud, "Select successful CI receipt for this commit")
+for needle, why in [
+    ("find-successful-ci-run.py", "Cloud receipt selector is invoked"),
+    ('--target-sha "$GITHUB_SHA"', "Cloud selector binds the dispatched commit"),
+    ("--read-final-payload-receipt", "Cloud release requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "Cloud receipt selection uses the configured package prefix"),
+]:
+    if needle not in cloud_selection:
+        fail(f".github/workflows/cd-cloud.yml: missing immutable migration payload behavior: {why}")
+cloud_payload = workflow_step_text(cd_cloud, "Retrieve migration bundle from immutable payload")
+for needle, why in [
+    ("pull_release_payload.py", "Cloud migration payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "Cloud payload pull uses the configured package prefix"),
+    ('gh run download "$CI_RUN_ID"', "Cloud legacy fallback uses the exact CI run"),
+]:
+    if needle not in cloud_payload:
+        fail(f".github/workflows/cd-cloud.yml: missing immutable migration payload behavior: {why}")
+if "actions/download-artifact@" in cd_cloud:
+    fail(".github/workflows/cd-cloud.yml: legacy artifact fallback must use the exact CI run")
 artifact_pruner = read("Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py")
 for needle, why in [
     ("ACTIVE_STATUSES", "live deployment and producer protection"),
@@ -1318,33 +1366,28 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         fail(".github/workflows/ci.yml: publish-main must keep the build-test-push name on main and fail closed before checkout")
     if "docker/login-action@" in validate_job or "docker push" in validate_job:
         fail(".github/workflows/ci.yml: validate must not log into GHCR or push images")
-    if "dotnet ef migrations bundle" in publisher_job:
-        fail(".github/workflows/ci.yml: publish-main must not rebuild the migration bundle")
-    staging_upload = workflow_step("validate", "Upload migration staging artifact")
-    if (
-        "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in staging_upload
-        or "migration-provenance.json" not in staging_upload
-        or "retention-days: 1" not in staging_upload
-        or "if-no-files-found: error" not in staging_upload
-    ):
-        fail(".github/workflows/ci.yml: staging artifact must use a unique short-retention name and the provenance file")
+    if "dotnet ef migrations bundle" not in publisher_job:
+        fail(".github/workflows/ci.yml: publish-main must rebuild the bundle from its exact checked-out commit")
+    if "actions/upload-artifact@" in ci or "actions/download-artifact@" in ci:
+        fail(".github/workflows/ci.yml: routine reports and release payloads must not use Actions artifact storage")
+    staging_build = workflow_step("publish-main", "Build migration bundle for this exact publisher run")
+    staging_create = workflow_step("publish-main", "Create migration staging provenance")
     staging_validation = workflow_step("publish-main", "Validate migration staging artifact")
     if (
-        "migration_staging_artifact.py validate" not in staging_validation
-        or "-staging-${{ github.run_id }}-${{ github.run_attempt }}" not in publisher_job
+        "dotnet ef migrations bundle" not in staging_build
+        or "migration_staging_artifact.py create" not in staging_create
+        or "migration_staging_artifact.py validate" not in staging_validation
+        or publisher_job.find("Build migration bundle for this exact publisher run") > publisher_job.find("Create migration staging provenance")
+        or publisher_job.find("Create migration staging provenance") > publisher_job.find("Validate migration staging artifact")
         or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Build Docker image")
         or publisher_job.find("Validate migration staging artifact") > publisher_job.find("Login to GHCR")
     ):
-        fail(".github/workflows/ci.yml: publish-main must verify the exact staging input before building or publishing")
+        fail(".github/workflows/ci.yml: publisher must rebuild, bind, and validate its exact migration bundle before image or registry work")
     if publisher_job.find("ci-docker-smoke.sh") < 0 or publisher_job.find("ci-docker-smoke.sh") > publisher_job.find("Push Docker image"):
         fail(".github/workflows/ci.yml: publish-main must smoke-test the image before pushing it")
-    final_upload = workflow_step("publish-main", "Upload migration bundle")
-    if (
-        "release-manifest.json" not in final_upload
-        or "migration-provenance.json" in final_upload
-        or "retention-days: 7" not in final_upload
-    ):
-        fail(".github/workflows/ci.yml: final release artifact must be the bundle plus release-manifest.json")
+    if any("ci_report_store.py save" not in workflow_step(job_id, "Store CI reports on this runner")
+           for job_id in ("validate", "publish-main")):
+        fail(".github/workflows/ci.yml: both terminal jobs must store bounded reports locally")
     manifest_step = workflow_step("publish-main", "Resolve pushed image digest and write release manifest")
     if "python3 Scripts/CI/write_release_manifest.py --directory artifacts/migrations" not in manifest_step:
         fail(".github/workflows/ci.yml: selected release must invoke the shared verified manifest writer")
@@ -1371,7 +1414,7 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     if "ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}" not in settings_step or "python3 Scripts/CI/frontend_release_plan.py" not in settings_step:
         fail(".github/workflows/ci.yml: optional publication must use the validated release plan")
     for needle in ('if not additional.strip():', 'seen = {selected}', 'acceptance_profile_for_frontend(profile)',
-                   "{settings['app_image']}-{profile.lower()}", "{settings['migration_artifact_name']}-{profile.lower()}"):
+                   "{settings['app_image']}-{profile.lower()}", 'settings.get("release_payload_prefix", "")'):
         if needle not in release_plan:
             fail(f"Scripts/CI/frontend_release_plan.py: missing default isolation or validation {needle}")
     additional_step = workflow_step("publish-main", "Publish additional frontend")
@@ -1390,13 +1433,14 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
     additional_cleanup = workflow_step("publish-main", "Remove additional frontend resources after interruption")
     if "always()" not in additional_cleanup or "--cleanup-only" not in additional_cleanup or "outputs.additional_image" not in additional_cleanup:
         fail(".github/workflows/ci.yml: interrupted additional releases require scoped cleanup")
-    additional_upload = workflow_step("publish-main", "Upload additional migration bundle")
-    for needle in ("outputs.additional_artifact_name", "artifacts/additional-migrations/release-manifest.json",
-                   "retention-days: 7", "if-no-files-found: error", "steps.additional_release.outcome == 'success'"):
-        if needle not in additional_upload:
-            fail(f".github/workflows/ci.yml: missing additional release artifact check {needle}")
-    if "migration-provenance.json" in additional_upload:
-        fail(".github/workflows/ci.yml: additional release artifact must exclude internal staging provenance")
+    additional_receipt = workflow_step("publish-main", "Emit immutable release payload receipt")
+    for needle in ("ADDITIONAL_PAYLOAD_IMAGE", '--payload-image "${ADDITIONAL_PAYLOAD_IMAGE}"',
+                   '--payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"',
+                   "artifacts/additional-migrations/release-manifest.json"):
+        if needle not in additional_receipt:
+            fail(f".github/workflows/ci.yml: missing additional GHCR payload receipt check {needle}")
+    if "Upload additional migration bundle" in publisher_job or "Upload migration bundle" in publisher_job:
+        fail(".github/workflows/ci.yml: final migration payloads must not be uploaded as Actions artifacts")
 
 release_validator = read("Deployment/Common/Scripts/validate_release_manifest.py")
 shared_release_validator = read("Deployment/Common/Scripts/Component/lib/release_manifest.py")
@@ -1454,7 +1498,7 @@ for needle, why in [
     ('--expected-ci-run-attempt "$CI_RUN_ATTEMPT"', "release manifest bound to the CI attempt"),
     ("release_image_digest=${RELEASE_IMAGE_DIGEST}", "digest-pinned deployment"),
     ('-e @"${GHCR_EXTRA_VARS_FILE}"', "workflow-token registry credentials"),
-    ("GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "workflow token instead of a stored PAT"),
+    ("GHCR_TOKEN: ${{ inputs.local_payload_pin_key == '' && secrets.GITHUB_TOKEN || '' }}", "workflow token is present only when restoring is not local"),
     ('rm -f "${GHCR_EXTRA_VARS_FILE}"', "registry credential file cleanup"),
     ("verify-release-identity.sh", "running release identity verification"),
     ('"${CI_RUN_ATTEMPT}" "${SOURCE_REPO_URL}"', "post-deploy identity checks source repository labels"),
@@ -1476,19 +1520,42 @@ for needle, why in [
 download_step = workflow_step_text(deploy_lan, "Select and retrieve the release payload under the shared lock")
 if not download_step or "if:" in download_step:
     fail(".github/workflows/cd-localcluster.yml: select and retrieve the release payload under the lock for every deploy")
+for needle, why in [
+    ("local_payload_pin_key:", "manual dispatch accepts an exact local pin key"),
+    ("if: inputs.local_payload_pin_key == ''", "local-pin recovery skips GHCR login"),
+    ("--restore \"$pin_dir\"", "local-pin recovery restores the named immutable pin"),
+    ('RELEASE_PAYLOAD_TRANSPORT="local-pin"', "local restore is identified to Ansible"),
+    ('release_payload_transport=${RELEASE_PAYLOAD_TRANSPORT}', "Ansible receives the frozen payload transport"),
+    ("without Actions or GHCR payload access", "offline restore is summarized as an offline path"),
+]:
+    if needle not in deploy_lan:
+        fail(f".github/workflows/cd-localcluster.yml: missing {why}")
+if "<<'LOCKED'" not in download_step:
+    fail(".github/workflows/cd-localcluster.yml: release selection must use a quoted lock-owned script heredoc")
 if "vault_ghcr_token" in read("Deployment/LocalCluster/inventory/prod/vault.example.yml").replace("# vault_ghcr_token", ""):
     fail("Deployment/LocalCluster/inventory/prod/vault.example.yml: GHCR credentials must stay optional")
 app_tasks = read("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml")
 for needle, why in [
     ("Pull application image with command-owned registry credentials", "single command-owned registry login and pull"),
     ('export DOCKER_CONFIG="$docker_config"', "temporary registry credential store"),
-    ("docker compose --env-file .compose.env up -d --pull always --remove-orphans", "pull and start the exact image with the Compose allowlist"),
+    ('pull_policy="always"', "normal deployment pulls the selected image"),
+    ('pull_policy="never"', "offline restore never requests a registry pull"),
+    ('docker compose --env-file .compose.env up -d --pull "$pull_policy" --remove-orphans', "pull or start the exact selected image with the Compose allowlist"),
     ("no_log: true", "registry credentials kept out of logs"),
 ]:
     if needle not in app_tasks:
         fail(f"Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: missing {why}")
 if "- name: Log in to GHCR" in app_tasks:
     fail("Deployment/LocalCluster/ansible/roles/app/tasks/main.yml: do not leave a persistent GHCR login on app nodes")
+if "when: (release_payload_transport | default('ghcr-container')) != 'local-pin'" not in read("Deployment/LocalCluster/ansible/playbooks/site.yml"):
+    fail("Deployment/LocalCluster/ansible/playbooks/site.yml: local-pin recovery must skip the network image pull before interruption")
+for needle, why in [
+    ("Publish LocalCluster release identity for local pin recovery", "current LocalCluster release marker"),
+    ("release_payload_pin_key", "LocalCluster release marker retains its exact local pin key"),
+    ("release-state/previous.json", "previous LocalCluster release remains available for recovery"),
+]:
+    if needle not in read("Deployment/LocalCluster/ansible/playbooks/site.yml"):
+        fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: missing {why}")
 shared_route_rules = [
     (
         "Append the same scanned key only after the fingerprints match",
@@ -1700,7 +1767,9 @@ for path, checks in {
         ("--ctorigdstport {{ redis_port }}", "Redis port restriction"),
     ],
     "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml": [
-    ("docker compose --env-file .compose.env up -d --pull always", "pull and start requested image with the Compose allowlist"),
+        ('pull_policy="always"', "normal deployment pulls the selected image"),
+        ('pull_policy="never"', "offline restore avoids registry pulls"),
+        ('docker compose --env-file .compose.env up -d --pull "$pull_policy" --remove-orphans', "pull or start requested image with the Compose allowlist"),
         ("vault_data_protection_certificate_base64 | b64decode", "install encrypted app Data Protection certificate"),
         ("mode: \"0440\"", "restrict certificate file to root and app group"),
         ("http://127.0.0.1:{{ app_port }}/health/ready", "local readiness wait"),
@@ -2247,6 +2316,58 @@ for workflow in workflow_paths:
             ):
                 if needle not in first:
                     fail(f"{workflow}: each deployment job must fail closed on an exact enabled-target match before other steps")
+
+release_status_workflow = read(".github/workflows/release-status.yml")
+for needle, why in (
+    ("workflow_dispatch:", "manual-only read-only status trigger"),
+    ("permissions:\n  actions: read\n  contents: read\n", "read-only Actions and contents permissions"),
+    ("template-release-status-${{ inputs.target }}-${{ inputs.target == 'localsinglenode' && inputs.app_instance || 'primary' }}", "target and instance-specific serialization"),
+    ("cancel-in-progress: false", "non-canceling status serialization"),
+    ("Require trusted main", "trusted main-only status source"),
+    ('test "$GITHUB_REF" = refs/heads/main', "status code restricted to main"),
+    ("Require this deployment target to be enabled", "enabled deployment target gate"),
+    ("Verify node-main runner", "explicit LocalCluster runner identity verification"),
+    ("read-deploy-setting.py runner_name", "configured LocalCluster runner identity"),
+    ("with-deploy-lock.sh", "shared deployment lock for status inspection"),
+    ('value.get("mutation") != "none"', "workflow rejects any reported mutation"),
+    ('value.get("shared_lock") != "held"', "workflow requires the shared lock"),
+    ("GITHUB_STEP_SUMMARY", "bounded human-readable status output"),
+    ("secrets.GITHUB_TOKEN", "short-lived read-only Actions status token"),
+    ("localsinglenode-books", "LocalSingleNode runner label fallback"),
+):
+    if needle not in release_status_workflow:
+        fail(f".github/workflows/release-status.yml: missing {why}: {needle}")
+for forbidden, why in (
+    ("schedule:", "scheduled trigger"),
+    ("pull_request:", "pull request trigger"),
+    ("actions: write", "Actions write permission"),
+    ("packages: write", "package write permission"),
+    ("docker push", "registry publication"),
+    ("gh api -X DELETE", "GitHub resource deletion"),
+):
+    if forbidden in release_status_workflow:
+        fail(f".github/workflows/release-status.yml: must not use {why}: {forbidden}")
+for status_script in (
+    "Deployment/LocalCluster/Scripts/release-status.py",
+    "Deployment/LocalSingleNode/Scripts/release-status.py",
+):
+    for needle, why in (
+        ("pin_release_payload.prune_local_pins(", "the existing local pin inventory"),
+        ("apply=False", "dry-run pin inventory with no deletion"),
+        ('"mutation": "none"', "an explicit no-mutation result"),
+        ("list_active_deployment_runs(", "active deployment run identities"),
+        ("_require_shared_lock()", "the existing deployment lock ownership proof"),
+    ):
+        if needle not in read(status_script):
+            fail(f"{status_script}: missing {why}: {needle}")
+for needle, why in (
+    ("ACTIVE_STATUSES = (\"queued\", \"in_progress\", \"waiting\", \"requested\", \"pending\")", "all active and waiting Actions states"),
+    ("target_sha", "the requested deployment target SHA"),
+    ("run_attempt", "the exact workflow run attempt"),
+    ('"Authorization": f"Bearer {token}"', "the runner-provided short-lived API token"),
+):
+    if needle not in read("Deployment/Common/Scripts/Component/lib/release_status.py"):
+        fail(f"Deployment/Common/Scripts/Component/lib/release_status.py: missing {why}: {needle}")
 if CODEQL_WORKFLOW in workflow_paths:
     codeql = read(CODEQL_WORKFLOW)
     for needle, why in (
@@ -2373,16 +2494,54 @@ for needle, why in [
     ("find-successful-ci-run.py", "receipt selector is invoked"),
     ('--target-sha "$TARGET_SHA"', "selector binds the requested target SHA"),
     ("--read-final-payload-receipt", "GHCR selection requires a run-bound final receipt"),
+    ('--payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "receipt selection uses the configured payload package prefix"),
     ("pull_release_payload.py", "GHCR payload is pulled and validated by digest"),
+    ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "GHCR payload pull uses the configured package prefix"),
+    ("pin_release_payload.py", "validated GHCR payload is retained as an offline local pin"),
+    ('--root "${DEPLOY_ROOT}/release-payloads/${GITHUB_REPOSITORY//\\//-}"', "local pin root is scoped to the configured deployment and repository"),
     ('gh run download "$CI_RUN_ID"', "legacy artifact fallback uses the exact CI run"),
     ('--name "$MIGRATION_ARTIFACT_NAME"', "legacy artifact fallback uses the configured name"),
     ('RELEASE_PAYLOAD_TRANSPORT="ghcr-container"', "GHCR transport is frozen for new receipts"),
     ('RELEASE_PAYLOAD_TRANSPORT="actions-artifact"', "legacy transport is explicit for older runs"),
+    ("--restore \"$pin_dir\"", "local-pin recovery restores the named immutable pin"),
+    ('RELEASE_PAYLOAD_TRANSPORT="local-pin"', "local restore is identified to Ansible"),
+    ("without Actions or GHCR payload access", "offline restore is summarized as an offline path"),
 ]:
     if needle not in single_selection:
         fail(f".github/workflows/cd-localsinglenode.yml: missing locked artifact selection behavior: {why}")
+for needle, why in [
+    ("local_payload_pin_key:", "manual dispatch accepts an exact local pin key"),
+    ("if: inputs.local_payload_pin_key == ''", "local-pin recovery skips GHCR login"),
+    ("release_payload_transport=$RELEASE_PAYLOAD_TRANSPORT", "Ansible receives the frozen payload transport"),
+]:
+    if needle not in instance_cd:
+        fail(f".github/workflows/cd-localsinglenode.yml: missing {why}")
+single_instance_resolver = read("Deployment/LocalSingleNode/Scripts/resolve-app-instance.py")
+if '"DEPLOY_ROOT": config["deploy_root"]' not in single_instance_resolver:
+    fail("Deployment/LocalSingleNode/Scripts/resolve-app-instance.py: selected instance deploy root must be exported for local payload pins")
 if "actions/download-artifact@" in instance_cd:
     fail(".github/workflows/cd-localsinglenode.yml: release artifact selection and download must share the host lock")
+single_stack = read(single + "/ansible/roles/single_node_stack/tasks/main.yml")
+for needle, why in [
+    ("when: (release_payload_transport | default('ghcr-container')) != 'local-pin'", "local-pin recovery skips the network image pull"),
+    ("--pull never", "local-pin recovery starts the cached exact image without pulling"),
+    ("app_image_ref in ((staged_image.stdout | from_json)[0].RepoDigests | default([]))", "cached local image must match the pinned digest"),
+    ("release_payload_pin_key", "single-node release marker retains its exact local pin key"),
+    ("release-state/previous.json", "previous single-node release remains available for recovery"),
+]:
+    if needle not in single_stack:
+        fail(f"Deployment/LocalSingleNode/ansible/roles/single_node_stack/tasks/main.yml: missing {why}")
+for path, why in [
+    ("Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh", "LocalCluster local pin retention runs under the artifact maintenance owner"),
+    (single + "/Scripts/prune-release-artifacts.sh", "LocalSingleNode local pin retention runs under the artifact maintenance owner"),
+]:
+    for needle in ("pin_release_payload.py", "--prune-root", "--current-marker", "--recovery-marker", "--max-candidates-per-profile 3", "--max-unprotected-bytes 1073741824", "--apply"):
+        require_contains(path, needle, why)
+for path, needle in [
+    (".github/workflows/cd-localcluster.yml", '-e "release_payload_pin_key=${RELEASE_PAYLOAD_PIN_KEY}"'),
+    (".github/workflows/cd-localsinglenode.yml", '-e "release_payload_pin_key=$RELEASE_PAYLOAD_PIN_KEY"'),
+]:
+    require_contains(path, needle, "selected immutable pin key is passed into the deployed release marker")
 
 single_maintenance = read(".github/workflows/localsinglenode-maintenance.yml")
 single_artifact_job = single_maintenance.split("  prune-release-artifacts:", 1)[-1]
@@ -2392,6 +2551,8 @@ for needle, why in [
     ("prune-release-artifacts:", "artifact retention job"),
     ("template-artifact-retention", "retention concurrency group"),
     ("actions: write", "permission to delete old artifacts"),
+    ("ci_report_store.py prune", "bounded local CI report retention"),
+    ("with-deploy-lock.sh python3 Scripts/CI/ci_report_store.py prune", "local CI report pruning under the deployment lock"),
     ("bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh", "artifact pruning under the deployment lock"),
     ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
     ("Require green main CI for unchanged operation code", "verified operation source"),

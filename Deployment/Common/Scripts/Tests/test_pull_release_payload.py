@@ -94,6 +94,36 @@ class PullReleasePayloadTests(unittest.TestCase):
         self.assertEqual(pull.call_args.args[0], self.identity)
         self.assertEqual(pull.call_args.args[1], self.digest)
 
+    def test_reader_requires_the_configured_private_payload_prefix(self) -> None:
+        private_image = registry_payload.derive_release_payload_image(self.identity.app_image, "private-")
+        self.receipt["payload_image"] = private_image
+        self.receipt["payload_ref"] = f"{private_image}@{self.digest}"
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            selection_path = self.write_selection(directory)
+            selection = MODULE._read_selection(selection_path)
+            identity, digest = MODULE.resolve_identity(
+                selection,
+                repository=self.identity.repository,
+                profile=self.identity.profile,
+                acceptance_profile=None,
+                runtime=self.identity.runtime,
+                app_image=self.identity.app_image,
+                bundle_name=self.identity.bundle_filename,
+                payload_image_prefix="private-",
+            )
+            self.assertEqual(identity.payload_image, private_image)
+            self.assertEqual(digest, self.digest)
+            with self.assertRaisesRegex(registry_payload.PayloadError, "differs from the expected release"):
+                MODULE.resolve_identity(
+                    selection,
+                    repository=self.identity.repository,
+                    profile=self.identity.profile,
+                    acceptance_profile=None,
+                    runtime=self.identity.runtime,
+                    app_image=self.identity.app_image,
+                    bundle_name=self.identity.bundle_filename,
+                )
     def test_receipt_mismatch_stops_before_registry_pull(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

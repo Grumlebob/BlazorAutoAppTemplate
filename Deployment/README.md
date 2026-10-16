@@ -12,7 +12,7 @@ All targets use shared image and migration settings. CI can publish from a `main
 - [LocalCluster guide](LocalCluster/HowToDeployLocalCluster.md): cluster preparation, inventory, Cloudflare and deployment.
 - [Cloud guide](Cloud/HowToDeployCloud.md): OpenTofu infrastructure, Ansible and Cloudflare.
 - [Fork guide](../docs/HowToForkThisRepo.md): application identity and target routing.
-- [Release contract](Common/ReleaseContract.md): source, CI attempt, artifact, image and target checks.
+- [Release contract](Common/ReleaseContract.md): source, CI attempt, GHCR payload, image and target checks.
 
 ## Enable targets
 

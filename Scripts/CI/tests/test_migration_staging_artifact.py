@@ -32,6 +32,7 @@ class MigrationStagingArtifactTests(unittest.TestCase):
             "GITHUB_SHA": "a" * 40,
             "GITHUB_RUN_ID": "12345",
             "GITHUB_RUN_ATTEMPT": "2",
+            "RESOLVED_FRONTEND_PROFILE": "BlazorAuto",
         }
         self.provenance = {
             "schema_version": 1,
@@ -92,10 +93,32 @@ class MigrationStagingArtifactTests(unittest.TestCase):
         with self.assertRaises(staging.StagingArtifactError):
             staging.parse_migration_list(json.dumps([base, base]))
 
+    def test_create_rejects_unsupported_frontend_profile(self) -> None:
+        self.provenance_path.unlink()
+        invalid_context = {**self.context, "RESOLVED_FRONTEND_PROFILE": "unsupported"}
+        with patch.object(staging.subprocess, "run") as run:
+            with self.assertRaises(staging.StagingArtifactError):
+                staging.create_staging_artifact(
+                    self.root, self.bundle_name, "net10.0", Path(__file__).resolve().parents[3], invalid_context
+                )
+        run.assert_not_called()
+
+    def test_ci_publisher_passes_resolved_profile_to_staging_creator(self) -> None:
+        workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Create migration staging provenance")
+        end = workflow.index("      - name: Validate migration staging artifact", start)
+        step = workflow[start:end]
+        self.assertIn(
+            "          RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}",
+            step,
+        )
+
     def test_create_records_exact_command_context_sdk_and_hash(self) -> None:
         migration_output = FIXTURE.read_text(encoding="utf-8")
         responses = iter(
             [
+                type("Completed", (), {"stdout": ""})(),
                 type("Completed", (), {"stdout": migration_output})(),
                 type("Completed", (), {"stdout": "10.0.303\n"})(),
             ]
@@ -109,12 +132,17 @@ class MigrationStagingArtifactTests(unittest.TestCase):
                 Path(__file__).resolve().parents[3],
                 self.context,
             )
+        build_command = [
+            "dotnet", "build", "BlazorAutoApp/BlazorAutoApp.csproj", "--configuration", "Release",
+            "--no-restore", "-p:FrontendProfile=BlazorAuto",
+        ]
         expected_command = [
             "dotnet", "ef", "migrations", "list", "--no-connect", "--json", "--no-color",
             "--no-build", "--project", "BlazorAutoApp/BlazorAutoApp.csproj",
             "--startup-project", "BlazorAutoApp/BlazorAutoApp.csproj", "--configuration", "Release",
         ]
         self.assertEqual(run.call_args_list, [
+            call(build_command, cwd=Path(__file__).resolve().parents[3], check=True, capture_output=True, text=True),
             call(expected_command, cwd=Path(__file__).resolve().parents[3], check=True, capture_output=True, text=True),
             call(["dotnet", "--version"], cwd=Path(__file__).resolve().parents[3], check=True, capture_output=True, text=True),
         ])

@@ -6,6 +6,7 @@ Shared deployment behavior lives here only when it works independently of a targ
 - [SSH host trust](SshTrust.md) owns manual host-fingerprint verification.
 - The [public tunnel helper](Scripts/setup-public-tunnel.sh) is integrated by [LocalSingleNode public setup](../LocalSingleNode/PublicSetup.md).
 - `Scripts/` holds shared release, toolchain, settings, lock, runner and cleanup helpers. Target guides own their invocation steps.
+- `pin_release_payload.py` validates exact GHCR release bytes before storing a repository-scoped local pin. LocalCluster and LocalSingleNode recover by explicit pin key without Actions or GHCR access; their existing locked maintenance owners protect the current and previous release, retain the newest three other pins per profile, and cap unprotected bytes at 1 GiB.
 - Runner residue cleanup requires `--runner-root`, `--app-name` or `--all-localcluster-runners`; it never infers target settings.
 - `ansible/roles/` holds reusable host building blocks; target-specific roles stay with their target.
 - `caddy/Caddyfile` imports each app-owned site. `observability/` holds shared dashboards, alerting configuration, helpers and runbooks.

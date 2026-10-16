@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -111,6 +112,41 @@ class CiPayloadReceiptTests(unittest.TestCase):
         self.assertEqual(parsed["content_sha256"], self.published["content_sha256"])
         self.assertEqual(line, MODULE.format_receipt_line(parsed))
 
+    def test_final_receipt_and_expected_identity_bind_configured_payload_prefix(self) -> None:
+        identity = replace(self.identity, payload_image_prefix="private-")
+        payload_image = identity.payload_image
+        published = {
+            **self.published,
+            "payload_image": payload_image,
+            "payload_ref": f"{payload_image}@{self.published['payload_digest']}",
+        }
+        receipt = MODULE.final_receipt(identity, published)
+        self.assertEqual(MODULE.validate_receipt(receipt)["payload_image"], payload_image)
+        expected = MODULE.expected_final_identity(
+            repository=identity.repository,
+            commit_sha=identity.commit_sha,
+            run_id=identity.run_id,
+            run_attempt=identity.run_attempt,
+            profile=identity.profile,
+            acceptance_profile=identity.acceptance_profile,
+            runtime=identity.runtime,
+            app_image=identity.app_image,
+            payload_image_prefix="private-",
+        )
+        self.assertEqual(expected["payload_image"], payload_image)
+        self.assertNotEqual(
+            MODULE.expected_final_identity(
+                repository=identity.repository,
+                commit_sha=identity.commit_sha,
+                run_id=identity.run_id,
+                run_attempt=identity.run_attempt,
+                profile=identity.profile,
+                acceptance_profile=identity.acceptance_profile,
+                runtime=identity.runtime,
+                app_image=identity.app_image,
+            )["payload_image"],
+            payload_image,
+        )
     def test_emitter_hashes_exact_inputs_and_publishes_one_run_bound_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

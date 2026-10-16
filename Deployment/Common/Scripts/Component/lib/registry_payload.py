@@ -67,10 +67,11 @@ class ReleasePayloadIdentity:
     bundle_filename: str | None
     manifest_sha256: str
     bundle_sha256: str | None
+    payload_image_prefix: str = ""
 
     @property
     def payload_image(self) -> str:
-        return derive_release_payload_image(self.app_image)
+        return derive_release_payload_image(self.app_image, self.payload_image_prefix)
 
     @property
     def tag(self) -> str:
@@ -111,6 +112,7 @@ def _validate_identity(identity: ReleasePayloadIdentity) -> None:
         raise PayloadError("bundle runtime must be linux-x64 or linux-arm64")
     try:
         validate_app_image(identity.app_image)
+        identity.payload_image
     except ValueError as error:
         raise PayloadError(str(error)) from error
     if not isinstance(identity.app_image_digest, str) or not DIGEST_RE.fullmatch(identity.app_image_digest):

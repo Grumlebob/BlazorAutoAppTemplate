@@ -260,6 +260,7 @@ def verify_payload_receipt(
     acceptance_profile: str | None,
     runtime: str,
     app_image: str,
+    payload_image_prefix: str = "",
 ) -> dict[str, object]:
     """Bind the selected final payload digest to its successful publisher step log."""
     if result.get("outcome") != "success":
@@ -314,6 +315,7 @@ def verify_payload_receipt(
             acceptance_profile=acceptance_profile,
             runtime=runtime,
             app_image=app_image,
+            payload_image_prefix=payload_image_prefix,
         )
         receipt = select_receipt(records, expected)
     except (KeyError, TypeError, ValueError, ReceiptError) as error:
@@ -359,6 +361,7 @@ def main() -> int:
     parser.add_argument("--payload-acceptance-profile", help="expected release acceptance profile")
     parser.add_argument("--payload-runtime", help="expected migration bundle runtime")
     parser.add_argument("--payload-app-image", help="expected application image path from release settings")
+    parser.add_argument("--payload-app-image-prefix", default="", help="configured prefix for the release payload package")
     parser.add_argument("--json", action="store_true", help="emit one structured outcome object")
     args = parser.parse_args()
     repo = args.repository.strip()
@@ -462,6 +465,7 @@ def main() -> int:
                 acceptance_profile=args.payload_acceptance_profile,
                 runtime=args.payload_runtime,
                 app_image=args.payload_app_image,
+                payload_image_prefix=args.payload_app_image_prefix,
             )
         # A rerun beginning during job or receipt verification invalidates frozen evidence.
         if result["outcome"] in {"success", "legacy_artifact"} and args.runs_json_file is None:

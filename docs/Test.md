@@ -12,6 +12,10 @@ bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results
 
 Run this when validating both compositions. It needs Docker. CI also builds and smoke-tests both profile images; the current workflow stages are in [ci.yml](../.github/workflows/ci.yml). Do not run build and test concurrently in the same checkout.
 
+## GitHub Actions reports
+
+CI stores TRX and React unit-test reports on the self-hosted runner, not in GitHub artifact storage. Each terminal job summary reports test totals, the runner name, and a retrieval command. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; the store also has a 1 GiB cap. The LocalSingleNode maintenance workflow prunes expired reports under the shared deployment lock.
+
 ## Local Gate
 
 For ordinary Markdown-only changes, follow the documentation exception in [AGENTS.md](../AGENTS.md#changes-and-checks). Mixed PRs use the full gate below.
@@ -21,7 +25,9 @@ Run every command successfully before pushing non-Markdown changes. Use Linux or
 ```bash
 git diff --check
 dotnet restore BlazorAutoApp.sln
-python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py
+python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py Scripts/CI/tests/test_ci_report_store.py
+python3 -m unittest Scripts/CI/tests/test_workflow_policy.py
+python3 Scripts/CI/workflow_policy.py --repo-root .
 dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh

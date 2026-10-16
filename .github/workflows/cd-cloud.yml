@@ -85,12 +85,20 @@ jobs:
           PUBLIC_HOSTNAME="$(bash Deployment/Cloud/Scripts/read-cloud-setting.sh public_hostname)"
           MIGRATION_BUNDLE_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name)"
           MIGRATION_ARTIFACT_NAME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_artifact_name)"
+          MIGRATION_RUNTIME="$(bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime)"
+          RELEASE_PAYLOAD_PREFIX="$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_prefix)"
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
           {
             echo "APP_NAME=${APP_NAME}"
             echo "APP_IMAGE=${APP_IMAGE}"
             echo "PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}"
             echo "MIGRATION_BUNDLE_NAME=${MIGRATION_BUNDLE_NAME}"
             echo "MIGRATION_ARTIFACT_NAME=${MIGRATION_ARTIFACT_NAME}"
+            echo "MIGRATION_RUNTIME=${MIGRATION_RUNTIME}"
+            echo "RELEASE_PAYLOAD_PREFIX=${RELEASE_PAYLOAD_PREFIX}"
+            echo "FRONTEND_PROFILE=${FRONTEND_PROFILE}"
+            echo "ACCEPTANCE_PROFILE=${ACCEPTANCE_PROFILE}"
             echo "SOURCE_REPO_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             echo "APP_VERSION=${GITHUB_SHA}"
           } >> "$GITHUB_ENV"
@@ -102,13 +110,32 @@ jobs:
             printf '%s\n' "${PUBLIC_HOSTNAME}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Require successful CI for this commit
+      - name: Select successful CI receipt for this commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CI_RUN_ID="$(bash Deployment/Common/Scripts/find-successful-ci-run.sh)"
-          echo "CI_RUN_ID=${CI_RUN_ID}" >> "$GITHUB_ENV"
-          echo "Using successful CI run: ${CI_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          selection_file="${RUNNER_TEMP}/selected-release-payload.json"
+          ci_result="$(python3 Deployment/Common/Scripts/Component/lib/find-successful-ci-run.py \
+            --target-sha "$GITHUB_SHA" --read-final-payload-receipt \
+            --payload-profile "$FRONTEND_PROFILE" \
+            --payload-acceptance-profile "$ACCEPTANCE_PROFILE" \
+            --payload-runtime "$MIGRATION_RUNTIME" \
+            --payload-app-image "$APP_IMAGE" \
+            --payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX" --json)" || {
+            echo "No successful main CI receipt for ${GITHUB_SHA}: ${ci_result:-no result}" >&2
+            exit 1
+          }
+          printf '%s' "$ci_result" > "$selection_file"
+          CI_RUN_ID="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["selected"]["id"])' "$ci_result")"
+          CI_RUN_ATTEMPT="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["selected"]["run_attempt"])' "$ci_result")"
+          CI_SELECTION_FILE="$selection_file"
+          {
+            echo "CI_SELECTION_FILE=${CI_SELECTION_FILE}"
+            echo "CI_RUN_ID=${CI_RUN_ID}"
+            echo "CI_RUN_ATTEMPT=${CI_RUN_ATTEMPT}"
+          } >> "$GITHUB_ENV"
+          echo "Using successful CI run: ${CI_RUN_ID} attempt ${CI_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
         uses: docker/login-action@v4.6.0
@@ -120,14 +147,30 @@ jobs:
       - name: Verify image exists
         run: docker manifest inspect "${APP_IMAGE}:${APP_VERSION}" >/dev/null
 
-      - name: Download migration bundle from CI
+      - name: Retrieve migration bundle from immutable payload
         if: inputs.run_migrations == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ env.MIGRATION_ARTIFACT_NAME }}
-          path: artifacts/migrations
-          run-id: ${{ env.CI_RUN_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          outcome="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["outcome"])' "$CI_SELECTION_FILE")"
+          case "$outcome" in
+            success)
+              python3 Deployment/Common/Scripts/Component/lib/pull_release_payload.py \
+                --selection-file "$CI_SELECTION_FILE" --output-dir artifacts/migrations \
+                --repository "$SOURCE_REPO_URL" --profile "$FRONTEND_PROFILE" \
+                --acceptance-profile "$ACCEPTANCE_PROFILE" --runtime "$MIGRATION_RUNTIME" \
+                --app-image "$APP_IMAGE" --payload-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+                --bundle-name "$MIGRATION_BUNDLE_NAME"
+              echo "Retrieved migration bundle from immutable GHCR payload." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            legacy_artifact)
+              mkdir -p artifacts/migrations
+              gh run download "$CI_RUN_ID" --name "$MIGRATION_ARTIFACT_NAME" --dir artifacts/migrations
+              echo "Selected a legacy Actions artifact for this pre-receipt CI run." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *) echo "Unsupported CI payload outcome: ${outcome}" >&2; exit 1 ;;
+          esac
 
       - name: Prepare migration bundle
         if: inputs.run_migrations == 'true'
