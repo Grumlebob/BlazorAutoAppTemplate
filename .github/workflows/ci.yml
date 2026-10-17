@@ -220,6 +220,11 @@ jobs:
             Deployment/Common/Scripts/Tests/test_ci_provenance.py \
             Deployment/Common/Scripts/Tests/test_release_contract.py \
             Deployment/Common/Scripts/Tests/test_registry_payload.py \
+            Deployment/Common/Scripts/Tests/test_registry_retention.py \
+            Deployment/Common/Scripts/Tests/test_registry_inventory.py \
+            Deployment/Common/Scripts/Tests/test_registry_inventory_cli.py \
+            Deployment/Common/Scripts/Tests/test_registry_gc.py \
+            Deployment/Common/Scripts/Tests/test_registry_lock_guard.py \
             Deployment/Common/Scripts/Tests/test_ci_payload_receipt.py \
             Deployment/Common/Scripts/Tests/test_pull_release_payload.py \
             Deployment/Common/Scripts/Tests/test_pin_release_payload.py \

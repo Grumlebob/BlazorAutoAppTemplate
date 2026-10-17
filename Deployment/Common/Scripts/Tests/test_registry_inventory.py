@@ -87,8 +87,56 @@ class FixtureClient:
         self.calls.append("config:" + digest)
         return self.configs[digest]
 
+    def add_bootstrap(self, *, layers=None, padding=""):
+        config_digest, config = encode({"config": {"Labels": {"org.opencontainers.image.title": "bootstrap"}}, "padding": padding})
+        digest, raw = encode({
+            "schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "config": {"digest": config_digest, "size": len(config)}, "layers": layers or [],
+        })
+        self.configs[config_digest] = config
+        self.manifests[digest] = raw
+        self.versions.append({"id": 90, "name": digest, "created_at": "2026-10-01T00:00:00Z",
+                              "metadata": {"container": {"tags": ["bootstrap-reviewed"]}}})
+        return PACKAGE, digest
+
 
 class RegistryInventoryTests(unittest.TestCase):
+    def test_explicit_config_only_bootstrap_is_counted_protected_and_never_fakes_ci_provenance(self):
+        client = FixtureClient()
+        reference = client.add_bootstrap()
+        value, states = inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client,
+                                                     retained_manifests=frozenset({reference}))
+        self.assertEqual(4, len(value.versions))
+        self.assertEqual(1, len(value.payloads))
+        self.assertEqual({(101, 1): "completed"}, states)
+        self.assertEqual(value, retention.inventory_from_record(retention.inventory_record(value)))
+        usage = retention.inventory_usage(value)
+        self.assertGreater(usage["retained_manifest_bytes"], 0)
+        self.assertEqual(usage["final_bytes"] + usage["retained_manifest_bytes"], usage["total_bytes"])
+        references = retention.Protection(frozenset(), frozenset(), frozenset(), states, True)
+        plan = retention.plan_retention(value, references, now=retention.datetime(2026, 10, 20, tzinfo=retention.timezone.utc))
+        self.assertEqual({1, 2, 3}, {item.version_id for item in plan.delete})
+        self.assertEqual(usage["retained_manifest_bytes"], plan.protected_bytes)
+
+    def test_bootstrap_without_an_exact_reviewed_reference_still_stops_inventory(self):
+        client = FixtureClient()
+        reference = client.add_bootstrap()
+        for retained in (frozenset(), frozenset({(PACKAGE, "sha256:" + "f" * 64)}),
+                         frozenset({("ghcr.io/foreign/app-release-payload", reference[1])})):
+            with self.subTest(retained=retained), self.assertRaises(retention.RetentionError):
+                inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client, retained_manifests=retained)
+
+    def test_retained_bootstrap_cannot_hide_layers_large_configs_or_payload_children(self):
+        for parameters in ({"layers": [{"digest": "sha256:" + "d" * 64, "size": 12}]}, {"padding": "x" * 65536}):
+            client = FixtureClient()
+            reference = client.add_bootstrap(**parameters)
+            with self.subTest(parameters=tuple(parameters)), self.assertRaises(retention.RetentionError):
+                inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client, retained_manifests=frozenset({reference}))
+        client = FixtureClient()
+        child = PACKAGE, client.versions[1]["name"]
+        with self.assertRaises(retention.RetentionError):
+            inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client, retained_manifests=frozenset({child}))
+
     def test_empty_attestation_labels_use_parent_ownership_but_foreign_child_labels_are_rejected(self):
         client = FixtureClient()
         client.attestation_config = {"config": {"Labels": {}}}

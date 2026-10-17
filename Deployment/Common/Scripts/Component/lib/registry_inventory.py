@@ -176,6 +176,8 @@ def collect_inventory(
     repository: str,
     packages: Mapping[str, str],
     client: RegistryClient,
+    *,
+    retained_manifests: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[Inventory, dict[tuple[int, int], str]]:
     """Verify package linkage, complete manifest graphs and exact CI attempts."""
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) or not packages:
@@ -184,6 +186,10 @@ def collect_inventory(
     payloads = []
     states = {}
     owner = repository.split("/")[0]
+    if (len(retained_manifests) > 100 or any(
+            package not in packages or not DIGEST.fullmatch(digest)
+            for package, digest in retained_manifests)):
+        raise RetentionError("retained bootstrap references must name exact configured packages and digests")
     for package, visibility in sorted(packages.items()):
         if not PACKAGE.fullmatch(package) or visibility not in {"private", "public", "internal"}:
             raise RetentionError("configured package identity or visibility is invalid")
@@ -278,6 +284,12 @@ def collect_inventory(
             return identities
 
         for digest in sorted(roots):
+            if (package, digest) in retained_manifests:
+                version = package_versions[digest]
+                if (version.children or len(version.blobs) != 1
+                        or version.manifest_bytes + sum(size for _, size in version.blobs) > 65536):
+                    raise RetentionError("retained bootstrap must be a bounded config-only manifest")
+                continue
             identities = source_identities(digest)
             if len(identities) != 1:
                 raise RetentionError("registry root has unknown or conflicting payload ownership")
@@ -312,4 +324,8 @@ def collect_inventory(
             version = package_versions[digest]
             payloads.append(Payload(package, digest, kind, profile, run_id, attempt, version.created, revision))
         versions.extend(package_versions.values())
-    return Inventory(repository, tuple(versions), tuple(payloads), frozenset(packages), True), states
+    result = Inventory(repository, tuple(versions), tuple(payloads), frozenset(packages), True, retained_manifests)
+    # Also reject missing references and references to a payload descendant.
+    from registry_retention import inventory_usage
+    inventory_usage(result)
+    return result, states

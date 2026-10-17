@@ -19,6 +19,19 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RegistryInventoryCliTests(unittest.TestCase):
+    def test_explicit_bootstrap_reference_is_reported_without_changing_release_admission(self):
+        client = FixtureClient()
+        reference = client.add_bootstrap()
+        base = ["--repository", REPOSITORY, "--username", "fixture", "--package", PACKAGE + "=private"]
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "fixture"}):
+            code, output, error = self.invoke(base + ["--retain-manifest", "@".join(reference)], lambda *args: client)
+            duplicate, _, duplicate_error = self.invoke(base + ["--retain-manifest", "@".join(reference)] * 2, lambda *args: client)
+        self.assertEqual(0, code, error)
+        self.assertEqual(1, json.loads(output)["retained_manifests"])
+        self.assertEqual("not-evaluated", json.loads(output)["protection"])
+        self.assertEqual(1, duplicate)
+        self.assertIn("duplicate", duplicate_error)
+
     def invoke(self, arguments, factory):
         output, error = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):

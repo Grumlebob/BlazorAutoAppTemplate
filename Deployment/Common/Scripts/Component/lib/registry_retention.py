@@ -70,6 +70,9 @@ class Inventory:
     payloads: tuple[Payload, ...]
     owned_packages: frozenset[str]
     complete: bool
+    # Explicitly reviewed config-only bootstrap manifests are retained forever.
+    # They are never presented as CI-produced payloads or deletion candidates.
+    retained_manifests: frozenset[tuple[str, str]] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -155,6 +158,10 @@ def _index(inventory: Inventory):
 
     roots: dict[tuple[str, str], Payload] = {}
     covered: set[tuple[str, str]] = set()
+    if (not isinstance(inventory.retained_manifests, frozenset) or len(inventory.retained_manifests) > 100
+            or any(not isinstance(key, tuple) or len(key) != 2
+                   or any(not isinstance(part, str) for part in key) for key in inventory.retained_manifests)):
+        raise RetentionError("retained bootstrap identities are malformed")
     for payload in inventory.payloads:
         key = payload.package, payload.digest
         if (key not in versions or key in roots or payload.kind not in {"final", "staging", "harness"}
@@ -168,6 +175,14 @@ def _index(inventory: Inventory):
             raise RetentionError("payload timestamp differs from its immutable registry version")
         roots[key] = payload
         covered.update(closure(key))
+    for key in inventory.retained_manifests:
+        if key not in versions or key in covered:
+            raise RetentionError("retained bootstrap identity is missing or overlaps a CI payload")
+        version = versions[key]
+        if (version.children or len(version.blobs) != 1
+                or version.manifest_bytes + sum(size for _, size in version.blobs) > 65536):
+            raise RetentionError("retained bootstrap must be a bounded config-only manifest")
+        covered.add(key)
     if set(versions) != covered:
         raise RetentionError("unclassified registry versions prevent retention and publication admission")
     # A graph member cannot also masquerade as an independent payload root.
@@ -182,6 +197,7 @@ def inventory_record(inventory: Inventory) -> dict:
     _index(inventory)
     return {
         "repository": inventory.repository, "complete": True, "owned_packages": sorted(inventory.owned_packages),
+        "retained_manifests": [list(key) for key in sorted(inventory.retained_manifests)],
         "versions": [{
             "package": item.package, "version_id": item.version_id, "digest": item.digest,
             "tags": sorted(item.tags), "created": item.created.isoformat(), "children": sorted(item.children),
@@ -196,7 +212,8 @@ def inventory_record(inventory: Inventory) -> dict:
 
 
 def inventory_from_record(value: Any) -> Inventory:
-    if (not isinstance(value, dict) or set(value) != {"repository", "complete", "owned_packages", "versions", "payloads"}
+    fields = {"repository", "complete", "owned_packages", "versions", "payloads"}
+    if (not isinstance(value, dict) or set(value) not in (fields, fields | {"retained_manifests"})
             or value["complete"] is not True or not isinstance(value["owned_packages"], list)
             or not isinstance(value["versions"], list) or len(value["versions"]) > 10000
             or not isinstance(value["payloads"], list) or len(value["payloads"]) > 10000):
@@ -219,7 +236,14 @@ def inventory_from_record(value: Any) -> Inventory:
                 raise RetentionError("frozen registry payload schema is invalid")
             payloads.append(Payload(item["package"], item["digest"], item["kind"], item["profile"], item["run_id"],
                                     item["run_attempt"], datetime.fromisoformat(item["created"]), item["commit_sha"]))
-        result = Inventory(value["repository"], tuple(versions), tuple(payloads), frozenset(value["owned_packages"]), True)
+        retained = value.get("retained_manifests", [])
+        if (not isinstance(retained, list) or len(retained) > 100
+                or any(not isinstance(key, list) or len(key) != 2
+                       or any(not isinstance(part, str) for part in key) for key in retained)
+                or len(retained) != len({tuple(key) for key in retained})):
+            raise RetentionError("frozen retained bootstrap references are invalid")
+        result = Inventory(value["repository"], tuple(versions), tuple(payloads), frozenset(value["owned_packages"]), True,
+                           frozenset(tuple(key) for key in retained))
         _index(result)
     except (KeyError, TypeError, ValueError) as error:
         raise RetentionError("frozen registry inventory is malformed or incomplete") from error
@@ -247,6 +271,7 @@ def inventory_usage(inventory: Inventory) -> dict[str, int]:
                 selected.update(closures[key])
         groups[kind + "_bytes"] = size(selected)
     groups["total_bytes"] = size(set(versions))
+    groups["retained_manifest_bytes"] = size(set(inventory.retained_manifests))
     return groups
 
 
@@ -264,7 +289,7 @@ def plan_retention(
     if type(max_deletions) is not int or not 1 <= max_deletions <= MAX_DELETIONS:
         raise RetentionError("registry deletion batches must contain at most 100 versions")
     versions, roots, closures = _index(inventory)
-    protected = set(protection.digests)
+    protected = set(protection.digests) | set(inventory.retained_manifests)
     if not protected.issubset(versions):
         raise RetentionError("a protected registry reference is missing from the inventory")
     for package, tag in protection.tags:
