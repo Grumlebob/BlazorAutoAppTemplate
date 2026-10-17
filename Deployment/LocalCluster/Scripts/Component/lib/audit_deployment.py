@@ -1638,6 +1638,9 @@ for needle, why in [
     ("--admission-kind final", "final release reserves full payload size before publication"),
     ("--reserved-bytes", "registry admission accounts for incoming payload bytes"),
     ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is required for final admission"),
+    ('retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is retained by exact digest during admission"),
+    ('retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is retained by exact digest during admission"),
+    ('"${retained_bootstraps[@]}"', "admission verifies reviewed bootstrap manifests"),
 ]:
     if needle not in publish_main:
         fail(f".github/workflows/ci.yml: missing {why}")
@@ -1654,6 +1657,9 @@ for needle, why in [
     ('name: GHCR registry retention', "dedicated registry maintenance workflow"),
     ("schedule:", "scheduled registry retention"),
     ('cron: "37 3 * * *"', "daily bounded registry retention"),
+    ('retained_bootstraps=(--retain-manifest "${{ steps.packages.outputs.primary }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is retained by exact digest during registry maintenance"),
+    ('retained_bootstraps+=(--retain-manifest "${{ steps.packages.outputs.additional_payload_image }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is retained by exact digest during registry maintenance"),
+    ('"${retained_bootstraps[@]}"', "registry maintenance verifies reviewed bootstrap manifests"),
     ("REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}", "scheduled or explicitly opted-in manual registry deletion"),
     ('if [[ "$REGISTRY_RETENTION_APPLY" == "true" ]]; then apply+=(--apply); fi', "manual registry preview unless apply_registry is true"),
     ("localcluster_protection", "LocalCluster current/recovery protections"),
