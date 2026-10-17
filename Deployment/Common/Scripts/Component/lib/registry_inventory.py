@@ -198,10 +198,19 @@ def collect_inventory(
             raise RetentionError("registry package owner differs from the repository owner")
         path = f"/users/{urllib.parse.quote(owner, safe='')}/packages/container/{urllib.parse.quote(name, safe='')}"
         metadata = client.github(path)
-        if (not isinstance(metadata, dict) or metadata.get("name") != name or metadata.get("visibility") != visibility
-                or not isinstance(metadata.get("repository"), dict)
-                or metadata["repository"].get("full_name", "").casefold() != repository.casefold()):
-            raise RetentionError("registry package linkage or visibility differs from the configured owner")
+        if (not isinstance(metadata, dict) or metadata.get("name") != name
+                or metadata.get("visibility") != visibility):
+            raise RetentionError("registry package name or visibility differs from the configured owner")
+        linked_repository = metadata.get("repository")
+        if linked_repository is not None and (
+                not isinstance(linked_repository, dict)
+                or not isinstance(linked_repository.get("full_name"), str)
+                or linked_repository["full_name"].casefold() != repository.casefold()):
+            raise RetentionError("registry package is linked to a different repository")
+        # The owner-scoped package endpoint may omit repository linkage details
+        # for a repository-scoped workflow token. Any payload root is still
+        # required below to match this repository's exact OCI source labels and
+        # a successful CI run attempt from this repository.
         raw_versions = []
         for page in range(1, MAX_VERSIONS // 100 + 1):
             batch = client.github(f"{path}/versions?per_page=100&page={page}")
