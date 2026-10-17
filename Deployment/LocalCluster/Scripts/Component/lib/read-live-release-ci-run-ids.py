@@ -68,6 +68,49 @@ def validated_run_ids(host_results: list[dict[str, Any]], source_repo_url: str, 
     return [next(iter(identities))[0]]
 
 
+def ansible_failure_summary(host_results: list[tuple[str, dict[str, Any]]]) -> str:
+    """Report safe per-host failure categories without exposing Ansible messages."""
+    failures: list[str] = []
+    for host_name, result in host_results:
+        if result.get("rc") == 0 and result.get("unreachable") is not True:
+            continue
+        safe_host = re.sub(r"[^A-Za-z0-9_.-]", "?", host_name) or "unknown-host"
+        message = str(result.get("msg") or result.get("stderr") or "").casefold()
+        if "permission denied" in message:
+            reason = "SSH authentication failed"
+        elif (
+            "host key verification failed" in message
+            or "remote host identification has changed" in message
+        ):
+            reason = "SSH host-key verification failed"
+        elif (
+            "could not resolve hostname" in message
+            or "name or service not known" in message
+            or "temporary failure in name resolution" in message
+        ):
+            reason = "DNS resolution failed"
+        elif any(
+            term in message
+            for term in (
+                "no route to host",
+                "network is unreachable",
+                "connection timed out",
+                "operation timed out",
+            )
+        ):
+            reason = "SSH network connection failed"
+        elif "connection refused" in message:
+            reason = "SSH connection refused"
+        elif result.get("unreachable") is True:
+            reason = "SSH connection failed"
+        else:
+            reason = "remote identity check failed"
+        failures.append(f"{safe_host}: {reason}")
+    if not failures:
+        return "Ansible could not inspect every app server"
+    return "Ansible could not inspect every app server (" + "; ".join(failures) + ")"
+
+
 def remote_identity_command(app_name: str, deploy_root: str) -> str:
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", app_name):
         raise ValueError("app_name is malformed")
@@ -110,9 +153,7 @@ def inspect_live_run_ids(app_name: str, deploy_root: str, repository: str, sourc
             text=True,
             timeout=180,
         )
-        if result.returncode != 0:
-            raise ValueError("Ansible could not inspect every app server")
-        host_results = []
+        host_results: list[tuple[str, dict[str, Any]]] = []
         for path in sorted(Path(temporary).iterdir()):
             if not path.is_file():
                 continue
@@ -122,8 +163,10 @@ def inspect_live_run_ids(app_name: str, deploy_root: str, repository: str, sourc
                 raise ValueError("Ansible returned malformed host identity data") from exc
             if not isinstance(value, dict):
                 raise ValueError("Ansible returned malformed host identity data")
-            host_results.append(value)
-        return validated_run_ids(host_results, source_repo_url, repository)
+            host_results.append((path.name, value))
+        if result.returncode != 0:
+            raise ValueError(ansible_failure_summary(host_results))
+        return validated_run_ids([value for _, value in host_results], source_repo_url, repository)
 
 
 def main() -> int:

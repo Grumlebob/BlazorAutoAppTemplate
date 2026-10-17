@@ -49,6 +49,24 @@ class ValidatedLiveRunIdsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "could not inspect every app server"):
             reader.validated_run_ids([{"rc": 255, "stdout": ""}], SOURCE, REPOSITORY)
 
+    def test_ansible_failure_summary_identifies_auth_failure_without_raw_message(self):
+        summary = reader.ansible_failure_summary([
+            ("node-app1", {"unreachable": True, "msg": "Failed to connect: Permission denied (publickey)"}),
+        ])
+        self.assertEqual(
+            "Ansible could not inspect every app server (node-app1: SSH authentication failed)",
+            summary,
+        )
+        self.assertNotIn("publickey", summary)
+
+    def test_ansible_failure_summary_reports_dns_and_network_categories(self):
+        summary = reader.ansible_failure_summary([
+            ("node-app1", {"unreachable": True, "msg": "Could not resolve hostname"}),
+            ("node-app2", {"unreachable": True, "msg": "No route to host"}),
+        ])
+        self.assertIn("node-app1: DNS resolution failed", summary)
+        self.assertIn("node-app2: SSH network connection failed", summary)
+
     def test_no_running_app_server_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "no app-server identity"):
             reader.validated_run_ids([], SOURCE, REPOSITORY)
