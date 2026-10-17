@@ -31,6 +31,10 @@ on:
         description: Restart this app's public connector and verify recovery; requires acceptance_only=true
         type: boolean
         default: false
+      prune_archived_diagnostics:
+        description: Delete only test-report artifacts preserved in the reviewed archive manifest (max 100 per run)
+        type: boolean
+        default: false
   schedule:
     - cron: "17 3 * * *"
     - cron: "27 3 * * *"
@@ -244,6 +248,16 @@ jobs:
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
           ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false' }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh
+
+      - name: Prune archived diagnostic artifacts under the shared deployment lock
+        if: github.event_name == 'workflow_dispatch' && inputs.prune_archived_diagnostics == true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: >-
+          bash Deployment/Common/Scripts/with-deploy-lock.sh
+          python3 Deployment/Common/Scripts/prune-archived-diagnostic-artifacts.py
+          --manifest Plans/ZeroCostDiagnosticArchiveManifest-20261017.json --apply
 
       - name: Remove temporary app configuration
         if: always()

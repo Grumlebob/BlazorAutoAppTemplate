@@ -29,11 +29,56 @@ permissions:
   packages: read
 
 concurrency:
-  group: cd-localcluster
+  group: template-registry-payloads
   cancel-in-progress: false
 
 jobs:
+  registry_coordination:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 10
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localcluster
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable (Settings > Secrets and variables > Actions > Variables), for example 'localcluster,localsinglenode'."
+            exit 1
+          fi
+
+      - name: Require main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Verify the registry coordination host
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require no unresolved GHCR deletion reservation
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: |
+          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/Common/Scripts/registry-retention.py --assert-clear
+
   deploy:
+    needs: registry_coordination
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     timeout-minutes: 60
     environment:

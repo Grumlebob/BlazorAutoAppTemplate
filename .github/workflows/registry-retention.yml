@@ -1,0 +1,311 @@
+name: GHCR registry retention
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 3 * * *"
+
+permissions:
+  contents: read
+
+# Keep every release consumer, publisher and registry cleanup in one repository
+# coordination group. Each target still reads its own markers under its host lock.
+concurrency:
+  group: template-registry-payloads
+  cancel-in-progress: false
+
+jobs:
+  localcluster_protection:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 15
+    environment:
+      name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      protection: ${{ steps.protect.outputs.protection }}
+    steps:
+      - name: Require main branch and enabled LocalCluster target
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *,localcluster,* ]]
+
+      - name: Verify node-main runner
+        run: |
+          test "$(hostname)" = node-main
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+
+      - name: Provide the existing Ansible vault secret
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ANSIBLE_VAULT_PASSWORD"
+          password_file="$(mktemp "${RUNNER_TEMP}/registry-vault-password.XXXXXX")"
+          chmod 0600 "$password_file"
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$password_file"
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=$password_file" >> "$GITHUB_ENV"
+
+      - name: Read LocalCluster current and recovery releases under the shared lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: |
+          set -euo pipefail
+          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
+          printf '%s\n' "$status" > "$RUNNER_TEMP/localcluster-release-status.json"
+
+      - name: Export verified LocalCluster registry protections
+        id: protect
+        run: |
+          python3 Deployment/Common/Scripts/registry-protection.py \
+            --target localcluster --instance cluster \
+            --status-json "$RUNNER_TEMP/localcluster-release-status.json" >> "$GITHUB_OUTPUT"
+
+      - name: Remove temporary vault secret
+        if: always()
+        run: rm -f -- "${ANSIBLE_VAULT_PASSWORD_FILE:-}"
+
+  localsinglenode_primary:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 15
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      protection: ${{ steps.protect.outputs.protection }}
+    steps:
+      - name: Require main branch and enabled LocalSingleNode target
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *,localsinglenode,* ]]
+
+      - name: Verify the intended native LocalSingleNode host
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve the protected primary app
+        env:
+          INPUT_APP_INSTANCE: primary
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Read primary current and recovery releases under the shared lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: |
+          set -euo pipefail
+          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          printf '%s\n' "$status" > "$RUNNER_TEMP/primary-release-status.json"
+
+      - name: Export verified primary registry protections
+        id: protect
+        run: |
+          python3 Deployment/Common/Scripts/registry-protection.py \
+            --target localsinglenode --instance primary \
+            --status-json "$RUNNER_TEMP/primary-release-status.json" >> "$GITHUB_OUTPUT"
+
+      - name: Remove temporary primary configuration
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+
+  localsinglenode_additional:
+    if: vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != ''
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 15
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      protection: ${{ steps.protect.outputs.protection }}
+    steps:
+      - name: Require main branch and enabled LocalSingleNode target
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *,localsinglenode,* ]]
+
+      - name: Verify the intended native LocalSingleNode host
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve the protected additional app
+        env:
+          INPUT_APP_INSTANCE: additional
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Read additional current and recovery releases under the shared lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+        run: |
+          set -euo pipefail
+          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          printf '%s\n' "$status" > "$RUNNER_TEMP/additional-release-status.json"
+
+      - name: Export verified additional registry protections
+        id: protect
+        run: |
+          python3 Deployment/Common/Scripts/registry-protection.py \
+            --target localsinglenode --instance additional \
+            --status-json "$RUNNER_TEMP/additional-release-status.json" >> "$GITHUB_OUTPUT"
+
+      - name: Remove temporary additional configuration
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+
+  prune_registry:
+    needs: [localcluster_protection, localsinglenode_primary, localsinglenode_additional]
+    if: >-
+      always() && needs.localcluster_protection.result == 'success' &&
+      needs.localsinglenode_primary.result == 'success' &&
+      (vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT == '' || needs.localsinglenode_additional.result == 'success')
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 30
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    steps:
+      - name: Require main branch and enabled deployment targets
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *,localcluster,* && "$targets" == *,localsinglenode,* ]]
+
+      - name: Verify the intended native LocalSingleNode host
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require green main CI for unchanged operation code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+
+      - name: Resolve configured payload packages
+        id: packages
+        env:
+          ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/registry-release-plan.env"
+          GITHUB_OUTPUT="$output" python3 Scripts/CI/frontend_release_plan.py
+          printf 'primary=%s\n' "$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)" >> "$GITHUB_OUTPUT"
+          cat "$output" >> "$GITHUB_OUTPUT"
+
+      - name: Prune bounded GHCR payload roots under the shared deployment lock
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          REGISTRY_COORDINATION_SCOPE_COMPLETE: "true"
+          REGISTRY_PROTECTION_CLUSTER: ${{ needs.localcluster_protection.outputs.protection }}
+          REGISTRY_PROTECTION_PRIMARY: ${{ needs.localsinglenode_primary.outputs.protection }}
+          REGISTRY_PROTECTION_ADDITIONAL: ${{ needs.localsinglenode_additional.outputs.protection }}
+          ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
+        run: |
+          set -euo pipefail
+          packages=(--package "${{ steps.packages.outputs.primary }}=private")
+          if [[ -n "${{ steps.packages.outputs.additional_payload_image }}" ]]; then
+            packages+=(--package "${{ steps.packages.outputs.additional_payload_image }}=private")
+          fi
+          protections=(--protection-json "$REGISTRY_PROTECTION_CLUSTER" --protection-json "$REGISTRY_PROTECTION_PRIMARY")
+          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL" ]]; then
+            protections+=(--protection-json "$REGISTRY_PROTECTION_ADDITIONAL")
+          fi
+          additional=()
+          if [[ "$ADDITIONAL_ENABLED" == true ]]; then additional+=(--require-additional); fi
+          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/Common/Scripts/registry-retention.py \
+              "${packages[@]}" "${protections[@]}" "${additional[@]}" --apply

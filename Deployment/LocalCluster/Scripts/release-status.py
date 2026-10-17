@@ -27,6 +27,7 @@ from release_status import (  # noqa: E402
     list_active_deployment_runs,
     pin_state,
     summarize_marker,
+    verified_registry_payload_references,
     verify_offline_pin_restore,
 )
 
@@ -250,6 +251,9 @@ def snapshot() -> dict:
         "current_pin": current_pin,
         "recovery_release": recovery,
         "recovery_pin": recovery_pin,
+        "registry_payload_references": verified_registry_payload_references(
+            {"current": current, "recovery": recovery}, marker_pins, pin_root,
+        ),
         "offline_pin_restore": offline_pin_restore,
         "live_identity": verify_live_identity(current, repository_url=repository_url),
         "active_deployments": active,

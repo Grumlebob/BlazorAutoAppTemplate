@@ -92,6 +92,8 @@ class RetentionPlan:
     protected_bytes: int
     final_candidate_bytes: int
     transfer_candidate_bytes: int
+    protected_final_bytes: int
+    protected_transfer_bytes: int
     final_bytes_after: int
     transfer_bytes_after: int
     admission_blocked: bool
@@ -336,7 +338,9 @@ def plan_retention(
     transfer_bytes = size(members(transfer) - protected)
     protected_final = members({key for key in roots if key not in disposable_roots and roots[key].kind == "final"})
     protected_transfer = members({key for key in roots if key not in disposable_roots and roots[key].kind != "final"})
-    protected_over_cap = size(protected_final) > FINAL_BYTES or size(protected_transfer) > TRANSFER_BYTES
+    protected_final_bytes = size(protected_final)
+    protected_transfer_bytes = size(protected_transfer)
+    protected_over_cap = protected_final_bytes > FINAL_BYTES or protected_transfer_bytes > TRANSFER_BYTES
     keep_final: set[tuple[str, str]] = set()
     for profile in {roots[key].profile for key in final}:
         recent = [key for key in final if roots[key].profile == profile and now - _time(roots[key].created) <= FINAL_AGE]
@@ -373,7 +377,8 @@ def plan_retention(
     protected_bytes = size(protected)
     return RetentionPlan(
         tuple(versions[key] for key in deletion_order), protected_bytes,
-        final_bytes, transfer_bytes, final_after, transfer_after,
+        final_bytes, transfer_bytes, protected_final_bytes, protected_transfer_bytes,
+        final_after, transfer_after,
         final_after > FINAL_BYTES or transfer_after > TRANSFER_BYTES
         or protected_over_cap,
         deferred,
@@ -386,7 +391,9 @@ def require_publication_capacity(plan: RetentionPlan, *, kind: str, reserved_byt
         raise RetentionError("publication kind and reserved size must be valid")
     if plan.admission_blocked:
         raise RetentionError("payload store requires coordinated retention before publication")
-    limit, used = (FINAL_BYTES, plan.final_candidate_bytes) if kind == "final" else (TRANSFER_BYTES, plan.transfer_candidate_bytes)
+    limit, used = (FINAL_BYTES, plan.protected_final_bytes + plan.final_candidate_bytes) if kind == "final" else (
+        TRANSFER_BYTES, plan.protected_transfer_bytes + plan.transfer_candidate_bytes,
+    )
     # Planned deletion does not free capacity until exact remote absence is
     # reconciled and a new inventory is obtained under the same coordination.
     if used + reserved_bytes > limit:

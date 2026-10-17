@@ -17,6 +17,7 @@ if str(LIB) not in sys.path:
     sys.path.insert(0, str(LIB))
 
 import ci_payload_receipt  # noqa: E402
+import registry_lock_guard  # noqa: E402
 import registry_payload  # noqa: E402
 
 
@@ -171,6 +172,12 @@ def pull_from_selection(
         bundle_name=bundle_name,
         payload_image_prefix=payload_image_prefix,
     )
+    try:
+        registry_lock_guard.assert_selection_available(
+            identity.payload_image, digest, repository=repository,
+        )
+    except (OSError, ValueError) as error:
+        raise registry_payload.PayloadError("selected GHCR payload conflicts with a pending exact deletion reservation") from error
     files = _pull_with_isolated_login(
         identity,
         digest,

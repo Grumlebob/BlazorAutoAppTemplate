@@ -71,6 +71,14 @@ class LocalClusterReleaseStatusTests(TestCase):
 
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(status.pin_release_payload, "_require_shared_lock"), \
+                patch.object(status.pin_release_payload, "validate", return_value={
+                    "transport": "ghcr-container",
+                    "target_sha": current["source_sha"],
+                    "run_id": current["ci_run_id"],
+                    "run_attempt": current["ci_run_attempt"],
+                    "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+                    "payload_digest": "sha256:" + "e" * 64,
+                }), \
                 patch.object(status, "load_settings", return_value={"deploy_root": "/opt/books", "app_name": "books"}), \
                 patch.object(status, "load_release_settings", return_value=release_settings), \
                 patch.object(status, "read_remote_marker", side_effect=[current, recovery]), \
@@ -95,6 +103,13 @@ class LocalClusterReleaseStatusTests(TestCase):
 
         self.assertEqual(result["current_pin"], "verified")
         self.assertEqual(result["recovery_pin"], "verified")
+        self.assertEqual(result["registry_payload_references"], [{
+            "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+            "payload_digest": "sha256:" + "e" * 64,
+            "ci_run_id": "12341",
+            "ci_run_attempt": "1",
+            "source_sha": "a" * 40,
+        }])
         self.assertEqual(result["offline_pin_restore"]["recovery"]["pin_key"], recovery_pin)
         self.assertEqual(restore.call_args_list[1].kwargs["validated_pin_key"], recovery_pin)
         self.assertEqual(result["mutation"], "none")
