@@ -101,6 +101,27 @@ class ReleaseAcceptanceTests(unittest.TestCase):
             }), encoding="utf-8")
             self.assertEqual("123456", resolve_ci_run_id(path, "https://github.com/example/books"))
 
+    def test_current_and_recovery_markers_expose_their_exact_ci_runs(self):
+        marker = {
+            "manifest_schema_version": 2,
+            "sha": "a" * 40,
+            "source_sha": "a" * 40,
+            "source_repo_url": "https://github.com/example/books",
+            "ci_run_attempt": "1",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recovery_dir = root / "release-state"
+            recovery_dir.mkdir()
+            for relative_path, run_id in (
+                ("release.json", "123456"),
+                ("release-state/previous.json", "654321"),
+            ):
+                path = root / relative_path
+                path.write_text(json.dumps({**marker, "ci_run_id": run_id}), encoding="utf-8")
+                with self.subTest(marker=relative_path):
+                    self.assertEqual(run_id, resolve_ci_run_id(path, "https://github.com/example/books"))
+
     def test_missing_or_foreign_ci_identity_fails_closed(self):
         valid = {
             "manifest_schema_version": 2,
