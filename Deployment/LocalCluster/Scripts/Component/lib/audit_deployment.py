@@ -2465,7 +2465,7 @@ elif (
 
 # LocalSingleNode: a peer target with strict provenance and loopback-only services.
 single = "Deployment/LocalSingleNode"
-for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "Scripts/verify-release-identity.sh", "Scripts/prune-release-artifacts.sh", "Scripts/Tests/test-verify-release-identity.sh", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
+for path in ("compose/docker-compose.yml", "AgentSetup.md", "Scripts/bootstrap-node.sh", "Scripts/setup-status.sh", "Scripts/setup-next-step.sh", "Scripts/doctor.sh", "Scripts/run-maintenance.sh", "Scripts/restart-public-connector-check.sh", "Scripts/verify-release-identity.sh", "Scripts/prune-release-artifacts.sh", "Scripts/Tests/test-verify-release-identity.sh", "Scripts/Tests/test_prune_release_artifacts.py", "ansible/playbooks/PrepareSingleNode.yml", "ansible/playbooks/site.yml"):
     require_file(single + "/" + path)
 single_compose = read(single + "/compose/docker-compose.yml")
 for binding in re.findall(r'(?m)^      - "([^"\n]+:[0-9${}A-Z_]+)"$', single_compose):
@@ -2596,15 +2596,20 @@ for needle, why in [
         fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why} in the artifact job")
 single_pruner = read(single + "/Scripts/prune-release-artifacts.sh")
 for needle, why in [
-    ("read_release_acceptance.py", "exact live release identity protection"),
+    ("read_release_acceptance.py", "exact current and recovery release identity protection"),
     ("--ci-run-id", "accepted CI run identity"),
     ("--expected-source-repo-url", "release marker repository binding"),
+    ('"$deploy_root/release-state/previous.json"', "exact recovery release marker identity"),
     ("--deployment-workflow-file cd-localcluster.yml", "LocalCluster recovery history protection"),
     ("--deployment-workflow-file cd-localsinglenode.yml", "LocalSingleNode recovery history protection"),
-    ("--protect-run-id", "exact live release artifact protection"),
+    ('--protect-run-id "$live_run_id"', "exact current release artifact protection"),
+    ('--protect-run-id "$recovery_run_id"', "exact recovery release artifact protection"),
 ]:
     if needle not in single_pruner:
         fail(f"{single}/Scripts/prune-release-artifacts.sh: missing {why}")
+single_pruner_tests = read(single + "/Scripts/Tests/test_prune_release_artifacts.py")
+if "test_pruner_protects_current_and_recovery_ci_runs" not in single_pruner_tests:
+    fail(f"{single}/Scripts/Tests/test_prune_release_artifacts.py: missing current/recovery artifact protection regression test")
 artifact_pruner = read("Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py")
 for needle, why in [
     ("workflow_dispatch_input_names(", "legacy deployment recovery accepts only understood dispatch inputs"),

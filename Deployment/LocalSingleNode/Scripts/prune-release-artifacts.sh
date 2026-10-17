@@ -58,13 +58,17 @@ source_repo_url="${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}"
 live_run_id="$(python3 "$SCRIPT_DIR/lib/read_release_acceptance.py" \
   --ci-run-id --expected-source-repo-url "$source_repo_url" "$deploy_root/release.json")"
 [[ "$live_run_id" =~ ^[1-9][0-9]*$ ]] || { echo "accepted release CI run ID is invalid" >&2; exit 1; }
+recovery_run_id="$(python3 "$SCRIPT_DIR/lib/read_release_acceptance.py" \
+  --ci-run-id --expected-source-repo-url "$source_repo_url" "$deploy_root/release-state/previous.json")"
+[[ "$recovery_run_id" =~ ^[1-9][0-9]*$ ]] || { echo "recovery release CI run ID is invalid" >&2; exit 1; }
 [[ "$(cat "$LOCK_DIR/token" 2>/dev/null || true)" == "$LOCK_TOKEN" ]] || {
   echo "LocalSingleNode lock token changed before artifact selection" >&2
   exit 1
 }
 
 # The shared pruner also pins live targets and the two newest successful target
-# SHAs from both deployment workflows; this exact CI run covers failed deploys.
+# SHAs from both deployment workflows. Keep the accepted and recovery release
+# CI artifacts even when their deployment SHAs fall outside that recent floor.
 bash "$COMMON/prune-actions-artifacts.sh" \
   --artifact-name "$MIGRATION_ARTIFACT_NAME" \
   --keep 2 \
@@ -72,7 +76,8 @@ bash "$COMMON/prune-actions-artifacts.sh" \
   --max-deletions 100 \
   --deployment-workflow-file cd-localcluster.yml \
   --deployment-workflow-file cd-localsinglenode.yml \
-  --protect-run-id "$live_run_id"
+  --protect-run-id "$live_run_id" \
+  --protect-run-id "$recovery_run_id"
 
 # Preview under the same deployment lock; a missing or ambiguous release marker
 # makes the helper fail closed before either invocation can delete a pin.

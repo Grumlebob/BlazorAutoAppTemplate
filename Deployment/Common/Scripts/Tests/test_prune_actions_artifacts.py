@@ -350,6 +350,32 @@ class MainDeletionTests(unittest.TestCase):
             prune.main()
         self.assertEqual(["GET"], calls)
 
+    def test_multiple_protected_run_ids_are_parsed_and_preserved(self) -> None:
+        captured: list[set[int]] = []
+        original_select = prune.select_deletions
+
+        def select(*args, **kwargs):
+            captured.append(args[2])
+            return original_select(*args, **kwargs)
+
+        argv = self.argv + [
+            "--protect-run-id", "38898186194",
+            "--protect-run-id", "38809591433",
+            "--dry-run",
+        ]
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.dict(os.environ, self.environment, clear=True),
+            mock.patch.object(prune, "list_artifacts", return_value=self.artifacts),
+            mock.patch.object(prune, "list_active_producer_run_ids", return_value=set()),
+            mock.patch.object(prune, "list_deployment_shas", return_value=set()),
+            mock.patch.object(prune, "select_deletions", side_effect=select),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(0, prune.main())
+
+        self.assertEqual([{38898186194, 38809591433}], captured)
+
 
 class ArtifactRetentionGateTests(unittest.TestCase):
     def test_wrapper_defaults_to_dry_run_and_requires_exact_enable_value(self):
