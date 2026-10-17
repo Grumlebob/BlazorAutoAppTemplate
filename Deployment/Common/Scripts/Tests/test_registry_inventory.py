@@ -38,7 +38,10 @@ class FixtureClient:
             "event": "push", "path": ".github/workflows/ci.yml", "status": "completed",
             "head_repository": {"full_name": REPOSITORY},
         }
-        self.metadata = {"name": "app-release-payload", "visibility": "private", "repository": {"full_name": REPOSITORY}}
+        self.metadata = {
+            "name": "app-release-payload", "visibility": "private",
+            "owner": {"login": "example"}, "repository": {"full_name": REPOSITORY},
+        }
         self.calls = []
         self.attestation_config = {}
         self.rebuild()
@@ -171,6 +174,18 @@ class RegistryInventoryTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(retention.RetentionError):
                 inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
             self.assertFalse(any(call.startswith("manifest:") for call in client.calls))
+
+    def test_private_package_metadata_uses_authenticated_user_endpoint_and_checks_owner(self):
+        client = FixtureClient()
+        inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
+        self.assertEqual("/user/packages/container/app-release-payload", client.calls[0])
+
+        client = FixtureClient()
+        client.metadata["owner"] = {"login": "foreign"}
+        with self.assertRaises(retention.RetentionError):
+            inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
+        self.assertEqual("/user/packages/container/app-release-payload", client.calls[0])
+        self.assertFalse(any(call.startswith("manifest:") for call in client.calls))
 
     def test_omitted_or_unavailable_repository_linkage_keeps_exact_payload_provenance_checks(self):
         for linkage in ("omitted", None):

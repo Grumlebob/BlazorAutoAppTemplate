@@ -196,11 +196,17 @@ def collect_inventory(
         registry_owner, name = package.removeprefix("ghcr.io/").split("/", 1)
         if registry_owner.casefold() != owner.casefold():
             raise RetentionError("registry package owner differs from the repository owner")
-        path = f"/users/{urllib.parse.quote(owner, safe='')}/packages/container/{urllib.parse.quote(name, safe='')}"
+        # The /users/{username} endpoint only exposes public package metadata.
+        # The authenticated-user endpoint supports private packages and Actions tokens.
+        path = f"/user/packages/container/{urllib.parse.quote(name, safe='')}"
         metadata = client.github(path)
         if (not isinstance(metadata, dict) or metadata.get("name") != name
                 or metadata.get("visibility") != visibility):
             raise RetentionError("registry package name or visibility differs from the configured owner")
+        package_owner = metadata.get("owner")
+        if (not isinstance(package_owner, dict) or not isinstance(package_owner.get("login"), str)
+                or package_owner["login"].casefold() != owner.casefold()):
+            raise RetentionError("registry package owner differs from the configured owner")
         linked_repository = metadata.get("repository")
         if linked_repository is not None and (
                 not isinstance(linked_repository, dict)
