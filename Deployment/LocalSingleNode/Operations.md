@@ -34,7 +34,7 @@ Use its reported checks to identify what needs attention. Run `acceptance-check.
 
 ## Maintenance
 
-The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; release artifact retention runs daily at 03:17 UTC for the primary app and 03:27 UTC for a configured additional app, and also runs on manual dispatch. It also prunes expired runner-local CI reports. GitHub artifact deletion stays in dry-run mode unless the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; leave it unset until current accepted/recovery pins and live operations are verified.
+The **LocalSingleNode maintenance** workflow runs against the selected app and uses the shared deployment lock. `backup_now` defaults to true; it creates a fresh protected backup and verifies an isolated restore. Keep `acceptance_only=false` for normal maintenance. Host maintenance stays manual; release artifact retention runs daily at 03:17 UTC for the primary app and 03:27 UTC for a configured additional app, and also runs on manual dispatch. Set `artifact_only=true` to skip app maintenance. Manual GitHub artifact deletion stays in preview mode unless both `apply_artifacts=true` and the repository variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` is exactly `true`; scheduled deletion requires that variable alone. Leave the variable unset until current accepted/recovery pins and live operations are verified. The workflow also prunes expired runner-local CI reports.
 
 Use these options only when needed:
 

@@ -1186,6 +1186,7 @@ artifact_retention_job = maintenance.split("  prune-migration-artifacts:", 1)[-1
 dispatch_configuration = maintenance.split("  workflow_dispatch:", 1)[-1].split("  schedule:", 1)[0]
 dispatch_expectations = [
     ("\n      artifact_only:\n", "artifact-only input declaration"),
+    ("\n      apply_artifacts:\n", "manual artifact-apply input declaration"),
     ("\n        type: boolean\n", "boolean artifact-only input"),
     ("\n        default: false\n", "default-off artifact-only input"),
 ]
@@ -1196,6 +1197,8 @@ if "if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true
     fail(".github/workflows/localcluster-docker-maintenance.yml: host or Docker cleanup must be skipped for artifact-only dispatches and schedules")
 if "if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'" not in artifact_retention_job:
     fail(".github/workflows/localcluster-docker-maintenance.yml: manual and daily runs must run artifact retention")
+if "ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}" not in artifact_retention_job:
+    fail(".github/workflows/localcluster-docker-maintenance.yml: manual artifact deletion must require apply_artifacts=true and the repository retention variable")
 for needle, why in [
     ("Require main branch", "main-ref-only manual pruning"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
@@ -1613,6 +1616,14 @@ if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan
     fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
 
 registry_workflow = read(".github/workflows/registry-retention.yml")
+registry_dispatch = registry_workflow.split("  workflow_dispatch:", 1)[-1].split("  schedule:", 1)[0]
+for needle, why in [
+    ("\n    inputs:\n      apply_registry:\n", "manual registry-apply input declaration"),
+    ("type: boolean", "boolean registry-apply input"),
+    ("default: false", "default-off registry-apply input"),
+]:
+    if needle not in registry_dispatch:
+        fail(f".github/workflows/registry-retention.yml: missing {why}")
 for path, workflow in [
     (".github/workflows/ci.yml", read(".github/workflows/ci.yml")),
     (".github/workflows/cd-localcluster.yml", deploy_lan),
@@ -1643,12 +1654,14 @@ for needle, why in [
     ('name: GHCR registry retention', "dedicated registry maintenance workflow"),
     ("schedule:", "scheduled registry retention"),
     ('cron: "37 3 * * *"', "daily bounded registry retention"),
+    ("REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}", "scheduled or explicitly opted-in manual registry deletion"),
+    ('if [[ "$REGISTRY_RETENTION_APPLY" == "true" ]]; then apply+=(--apply); fi', "manual registry preview unless apply_registry is true"),
     ("localcluster_protection", "LocalCluster current/recovery protections"),
     ("localsinglenode_primary", "primary LocalSingleNode current/recovery protections"),
     ("localsinglenode_additional", "optional additional-app current/recovery protections"),
     ("REGISTRY_COORDINATION_SCOPE_COMPLETE", "all consumer scopes required before deletion"),
     ("with-deploy-lock.sh", "registry deletion runs under the shared deployment lock"),
-    ("--apply", "registry retention applies only from the main-only maintenance workflow"),
+    ("--apply", "registry retention applies only on schedule or opted-in manual dispatch"),
 ]:
     if needle not in registry_workflow:
         fail(f".github/workflows/registry-retention.yml: missing {why}")
@@ -2614,6 +2627,19 @@ for path, needle in [
 
 single_maintenance = read(".github/workflows/localsinglenode-maintenance.yml")
 single_artifact_job = single_maintenance.split("  prune-release-artifacts:", 1)[-1]
+single_maintenance_job = single_maintenance.split("  maintenance:", 1)[-1].split("  prune-release-artifacts:", 1)[0]
+single_dispatch = single_maintenance.split("  workflow_dispatch:", 1)[-1].split("  schedule:", 1)[0]
+for needle, why in [
+    ("\n      artifact_only:\n", "artifact-only dispatch input"),
+    ("\n      apply_artifacts:\n", "manual artifact-apply input"),
+    ("default: false", "default-off artifact preview and apply inputs"),
+]:
+    if needle not in single_dispatch:
+        fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")
+if "if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true" not in single_maintenance_job:
+    fail(".github/workflows/localsinglenode-maintenance.yml: app maintenance must be skipped for artifact-only dispatches and schedules")
+if "ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}" not in single_artifact_job:
+    fail(".github/workflows/localsinglenode-maintenance.yml: manual artifact deletion must require apply_artifacts=true and the repository retention variable")
 for needle, why in [
     ('cron: "17 3 * * *"', "daily primary artifact retention schedule"),
     ('cron: "27 3 * * *"', "daily additional-app artifact retention schedule"),

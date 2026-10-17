@@ -3,6 +3,14 @@ run-name: "LocalSingleNode maintenance @ ${{ github.sha }}"
 on:
   workflow_dispatch:
     inputs:
+      artifact_only:
+        description: Run artifact retention without app maintenance; preview unless apply_artifacts is true
+        type: boolean
+        default: false
+      apply_artifacts:
+        description: Apply GitHub Actions artifact retention during this manual dispatch
+        type: boolean
+        default: false
       app_instance:
         description: Select the primary app or the protected additional app
         required: true
@@ -43,7 +51,7 @@ permissions:
   actions: read
 jobs:
   maintenance:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true
     concurrency:
       group: localsinglenode-maintenance
       cancel-in-progress: false
@@ -246,7 +254,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
-          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false' }}
+          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalSingleNode/Scripts/prune-release-artifacts.sh
 
       - name: Prune archived diagnostic artifacts under the shared deployment lock

@@ -174,8 +174,10 @@ The dry run lists old unused LocalCluster image tags. The helper removes only re
 The LocalCluster Docker Maintenance workflow runs on node-main. Host and Docker
 cleanup are manual and use the shared deployment lock. A separate artifact
 retention job runs daily at 03:17 UTC and on manual dispatch; it uses the same
-lock as release selection and deletion. Set the `artifact_only` dispatch input
-to run retention without host or Docker maintenance. Review both jobs in
+lock as release selection and deletion. Manual dispatch previews GitHub artifact
+retention by default. Set `apply_artifacts=true` to allow deletion; the repository
+variable `ACTIONS_ARTIFACT_RETENTION_ENABLED` must also be exactly `true`.
+Set the `artifact_only` dispatch input to run retention without host or Docker maintenance. Review both jobs in
 .github/workflows/localcluster-docker-maintenance.yml before changing their
 schedules.
 
