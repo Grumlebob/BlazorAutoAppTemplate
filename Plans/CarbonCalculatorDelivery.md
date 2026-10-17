@@ -1,13 +1,11 @@
 # CarbonCalculator: product foundation, vertical slices and public delivery
 
 Status: detailed implementation contract; current direct-navigation design approved by the owner on 2026-10-15. Product implementation and deployment have not started.
-Revised: 2026-10-15 after a feature/acceptance audit. D02 saved-project ownership and public launch level still need owner decisions.
+Revised: 2026-10-17 after authentication/ownership readiness review. D02 is resolved: verified email/password accounts and private server-saved projects across devices, using PostgreSQL. Public launch level remains an owner decision.
 
-Authentication follow-up: the owner asked whether a reusable template authentication foundation would improve this product. [ReactAuthenticationFoundation.md](ReactAuthenticationFoundation.md) records the inspected code, alternatives and recommendation: shared ASP.NET Core Identity/cookies with a React account UI, then authenticated server-owned CarbonCalculator projects. This supersedes the earlier preference for device-only storage as the recommendation, but no authentication implementation or final D02 credential/ownership decision is approved yet. Existing device-local details are an unselected alternative; do not implement them by default.
+The template authentication foundation is complete and reviewed, not future work. Reuse ASP.NET Core Identity, app cookies, React account/session UI, antiforgery, PostgreSQL key storage and encrypted mail outbox. Accounts remain separate per product; no SSO. [AccountsAndOwnership.md](Support/CarbonCalculator/AccountsAndOwnership.md) owns the product journey, schema, access, retention, deletion, email and recovery rules. [Accounts](../docs/Accounts.md) describes inherited behavior; [ReactAuthenticationFoundation.md](ReactAuthenticationFoundation.md) is implementation history. Product ownership endpoints, live email and deployment still require their own implementation/evidence.
 
-Authentication architecture follow-up, 2026-10-15: the owner selected **ASP.NET Core Identity + app cookies**, with **separate accounts for each cloned product** and no shared cross-product identity/SSO. Reuse authentication code from the template while isolating each app's users, sessions, keys and authorization. [The long-term production recommendation](ReactAuthenticationFoundation.md#11-long-term-production-recommendation-after-the-account-isolation-decision) adds verified email/password with working recovery, optional TOTP/recovery and phased passkeys; external sign-in is optional. Credential policy and authenticated server ownership remain recommendations pending selection, not authorization to implement authentication or retain conflicting persistence contracts.
-
-Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. **Fieldwork colors and a combination of the progressive workspace (B) with route exploration (C) are selected.** The owner clarified that the user works at a construction site, records purchased/received materials from invoices or delivery notes, and needs help with transport carbon/A4 evidence. A supplier's invoice address can differ from the actual factory, warehouse or depot. Invoice scanning is a future feature. The owner has approved the current direct-navigation design. Do not reopen screen approval; saved-project ownership and public launch level remain decisions. Design approval does not start native setup or deployment.
+Owner follow-up, 2026-10-15: an additional CarbonCalculator-specific runner registration on the existing native node is approved; preserve its current runner. **Fieldwork colors and a combination of the progressive workspace (B) with route exploration (C) are selected.** The owner clarified that the user works at a construction site, records purchased/received materials from invoices or delivery notes, and needs help with transport carbon/A4 evidence. A supplier's invoice address can differ from the actual factory, warehouse or depot. Invoice scanning is a future feature. The owner has approved the current direct-navigation design. Do not reopen screen approval; D02 now selects private account-owned server projects; public launch level remains a decision. Design approval does not start native setup or deployment.
 
 Latest screen refinement: use one **Dashboard** containing the scoped transport estimate, material breakdown and searchable delivery records. Put **Add delivery** beside the delivery-list heading. Each delivery provides direct **Material**, **Transport** and **Documents** links into the corresponding section of one editable delivery workspace. Remove the separate “To review” card and review/details/assessment sequence. Use **Save delivery** and **Export report** as concrete actions. Use a secondary **About** page for address, A4 and method explanations. Support invoice/delivery-note attachments separately from future scanning; the mockup uses sample files only. Omit promotional filler and future-feature controls.
 
@@ -24,13 +22,13 @@ This request authorizes planning, source inspection, local design previews and p
 Read in this order:
 
 1. This section, preparation evidence and the approved design brief in sections 2–3.
-2. [FeatureSpecification.md](Support/CarbonCalculator/FeatureSpecification.md): user behavior, data/state contracts, incomplete records, storage, attachments, totals and failure handling.
+2. [AccountsAndOwnership.md](Support/CarbonCalculator/AccountsAndOwnership.md): selected account journey, PostgreSQL ownership and lifecycle. Then [FeatureSpecification.md](Support/CarbonCalculator/FeatureSpecification.md): user behavior, data/state contracts, incomplete records, storage, attachments, totals and failure handling.
 3. Product boundaries, architecture, contracts and free-service decisions in sections 4–9.
 4. Packet protocol/order in sections 10–12 and [ImplementationPackets.md](Support/CarbonCalculator/ImplementationPackets.md): granular checkpoints inside each visible slice.
-5. [Acceptance.md](Support/CarbonCalculator/Acceptance.md): all 61 original handoff IDs and 40 added product criteria, with required proof.
+5. [Acceptance.md](Support/CarbonCalculator/Acceptance.md): all 61 original handoff IDs and 52 added product criteria, with required proof.
 6. Acceptance, operator dependencies, progress and open decisions in sections 13–17.
 
-The main plan owns scope/authority/deployment; feature specification owns behavior; implementation checkpoints own substep detail; acceptance owns proof obligations. Update related documents together. These specifications are not competing progress ledgers.
+The main plan owns scope/authority/deployment; account contract owns authentication/ownership/lifecycle; feature specification owns calculator behavior; implementation checkpoints own substep detail; acceptance owns proof obligations. Update related documents together. These specifications are not competing progress ledgers.
 
 All proposed CarbonCalculator paths, endpoints, commands and acceptance profiles below are **design targets until implemented**. Existing template links describe the inspected baseline; replace them with retained downstream runbooks when cleanup changes paths.
 
@@ -73,9 +71,9 @@ Private preparation is under `Plans.local/CarbonCalculator/` in the controller's
 
 The previews are planning artifacts. The original color previews use fixed figures; the new journey previews have local illustrative state and simple sample arithmetic so edits and choices demonstrate the proposed flow. Neither is a production calculator or live integration. All sample routes are marked as fixture/schematic. The source bundle's `reviewedBy` text requests independent rechecking before external use; importing `approved` strings does not constitute a new numerical or rights review.
 
-### Follow-up audit for this revision
+### Earlier follow-up audit, 2026-10-15
 
-The owner approved the final direct-navigation design. Template release-transport PR #290 was rechecked as merged at `a1274eb16e2e9085857029e5caa57670b40e4aa3`; it is no longer an open dependency. P01 still chooses a current successful exact-main baseline. Rechecked official standard-method, routing-options, browser-storage and structured-data sources for this revision. No key, live route, node mutation or product implementation was used. The three companion specifications now record 17 features, granular checkpoints and all 61 source IDs plus 40 added product criteria.
+The owner approved the final direct-navigation design. Template release-transport PR #290 was rechecked as merged at `a1274eb16e2e9085857029e5caa57670b40e4aa3`; it is no longer an open dependency. P01 still chooses a current successful exact-main baseline. Rechecked official standard-method, routing-options, browser-storage and structured-data sources for this revision. No key, live route, node mutation or product implementation was used. The earlier three companion specifications recorded 17 calculator features, granular checkpoints and all 61 source IDs plus the original 40 added product criteria. The 2026-10-17 review adds the account contract, AC41–AC52 and P08B, based on completed template authentication and the owner’s selected PostgreSQL ownership policy. It performs no live provider/mail/node operation.
 
 ### Source review already performed
 
@@ -107,18 +105,18 @@ Implement at 320, 390, 768, 1024 and 1440 CSS px, 200% zoom, keyboard-only and r
 
 | Earlier gap | Concrete contract now specified |
 | --- | --- |
-| Save meant tab-only state despite project-oriented UI | D02 resolves ownership/lifetime; device-local contract and investigated authenticated-server alternative |
+| Save meant tab-only state despite project-oriented UI | D02 selects durable PostgreSQL projects owned by the Identity user; P08B adapts completed accounts |
 | Saving required too much calculation readiness | Incomplete saves; separate current/stale/input-needed/coverage states |
-| Dashboard could hide stale/incompatible contributions | Server-owned grouped aggregation, signed retained snapshots, coverage and filter-independent project total |
+| Dashboard could hide stale/incompatible contributions | Authorized stored snapshots and grouped server aggregation, coverage and filter-independent project total |
 | Delivery/invoice identity was underspecified | Stable record/lot identity, document-line/physical-delivery refs and duplicate warnings without rejecting repeated invoices |
 | Edits and racing requests could contradict results | Numeric/routing/context fingerprints, dependency invalidation and edit-revision checks |
 | Source consent had no defined lifetime | Exact/proxy/metadata-only states with revision-bound consent and withdrawal behavior |
 | Standard-method quantity basis was implicit | Received versus incorporated quantity retained with category/edition eligibility |
-| Attachments lacked ownership/recovery detail | Local versus short-lived server originals, limits, private capabilities, safe retrieval/deletion and backup |
+| Attachments lacked ownership/recovery detail | Durable private originals, PostgreSQL ownership, bounded staging and consistent database/files/key recovery |
 | Report export was confused with project backup | Separate immutable Report JSON and editable Project backup/import with honest originals availability |
-| Acceptance lists were only referenced | Every T01–T30, R1–R7 and V3-01–V3-24 mapped, plus AC01–AC40 |
+| Acceptance lists were only referenced | Every T01–T30, R1–R7 and V3-01–V3-24 mapped, plus AC01–AC52 |
 
-The remaining product choices are D02 and public launch level. Source rights, terminal access and provider availability remain evidence tasks rather than assumed successes.
+The remaining product choice is public launch level. Source rights, terminal access and provider availability remain evidence tasks rather than assumed successes.
 
 ### Preview evidence and limits
 
@@ -135,7 +133,7 @@ The reference standard-line example is timber 148 + brick 45 = 193 kg CO₂e und
 ### Required for the complete first delivery
 
 - Real address/city search with candidate confirmation and explicit location precision.
-- Receiver-oriented project/site context with saved material-delivery records, stable identity, optional document/line references, direct Material/Transport/Documents access, incomplete saves and private attachments. D02 chooses persistence/ownership before implementation; supplier invoice/contact addresses, dispatch evidence and production locations remain separate.
+- Receiver-oriented project/site context with saved material-delivery records, stable identity, optional document/line references, direct Material/Transport/Documents access, incomplete saves and private attachments. D02 selects private PostgreSQL ownership; supplier invoice/contact addresses, dispatch evidence and production locations remain separate.
 - A reviewed/versioned standard-material A4 transport-line method for useful assessment when detailed origins are missing. Separate its regulatory source/eligibility/coverage from indicative route WTW. Never add both methods for the same movement or claim a complete project result from receipt lines alone.
 - Shared Route Explorer: arbitrary supported origin/destination, optional waypoints, HGV restrictions and ferry policy, usable without a material.
 - Default live HGV road routing through the backend. No key or provider failure produces a useful unavailable/setup state and an explicitly selected offline sample.
@@ -164,7 +162,7 @@ A public road beta does not complete this plan. Do not silently drop ferry valid
 
 ### Deliberate expansion backlog
 
-Keep these outside v1 unless the owner promotes a packet: accounts and cross-device/server projects unless D02 promotes them; organizations and role permissions; report sharing; multi-material line editing and shared-vehicle allocation; invoice scanning/OCR and automatic document extraction; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; complete building/site regulatory LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance. Private supporting attachments are included through P12A. The device-local D02 alternative uses durable device-local projects, not multi-user server storage. One saved delivery row is one homogeneous material receipt; shared invoice references do not imply shared vehicle allocation. Never let speculative supplier discovery replace evidence.
+Keep these outside v1 unless the owner promotes a packet: organizations and role permissions; report sharing; multi-material line editing and shared-vehicle allocation; invoice scanning/OCR and automatic document extraction; digital authorized EPD APIs; real fleet/fuel factors; pricing/tolls/schedules; additional freight modes; complete building/site regulatory LCA; paid plans; full Danish translation; dark theme; analytics; AI assistance; React MFA/passkeys/external sign-in. Accounts, cross-device access to private server-saved projects and attachments are included. One delivery row is one homogeneous material receipt; shared invoice references do not imply shared vehicle allocation. Never let speculative supplier discovery replace evidence.
 
 ## 5. Selected architecture
 
@@ -185,8 +183,10 @@ CarbonCalculator.sln
 CarbonCalculator/
   Features/
     Capabilities/                   # safe operator-independent availability
+    Accounts/                       # retained account lifecycle integration
+    Projects/                       # owner-scoped PostgreSQL CRUD
     SiteReceipts/                   # receipt validation, aggregation and coverage
-    Attachments/                    # short-lived owned evidence copies
+    Attachments/                    # durable originals and bounded staging
     RouteExplorer/
       SearchPlaces/                 # endpoint, request, handler, validation
       FindRoutes/
@@ -204,8 +204,8 @@ CarbonCalculator/
       DeleteSnapshot/
   Infrastructure/
     Providers/HeiGit/
-    Persistence/                    # SQLite, migrations and retention
-    Security/                       # capabilities, rate limits, safe errors
+    Persistence/                    # PostgreSQL migrations and retention
+    Security/                       # session ownership, rate limits, safe errors
   Frontend/                         # SPA/static hosting and security headers
 CarbonCalculator.Core/
   Routing/                          # typed legs, feasibility and ranking
@@ -214,7 +214,8 @@ CarbonCalculator.Core/
   Provenance/                       # source references, revisions, explanations
 CarbonCalculator.React/
   app/features/{site-receipts,route-explorer,materials,calculator,reports,documents,sources}/
-  app/storage/                      # versioned local projects under approved D02
+  app/features/accounts/            # retained account/session controller
+  app/state/                        # owner-bound memory edit buffers
   app/routes/                       # thin route composition
   app/api/                          # generated contract/client/query keys
   app/components/                   # genuinely shared UI primitives
@@ -238,13 +239,11 @@ Cross-cutting concerns enter through a small composition root. Use direct depend
 
 ### Persistence decision
 
-Use EF Core SQLite for the single-node backend, with owned storage for snapshot/capability hashes, route/cache envelopes, request budgets and finalized server evidence metadata/bytes. Persist the snapshot-signing key ring under protected owned storage and include it in restore. Catalogs/factors remain versioned files. Add bounded retention/reconciliation. Under the device-local D02 alternative, saved projects/receipts/local originals live in versioned browser IndexedDB and survive server-copy expiry. Resolve D02 before implementing storage; node backups do not cover browser data.
+Retain the EF Core PostgreSQL context/migration pipeline for Identity and product data. `Projects.OwnerUserId` references the Identity user; deliveries, snapshots and attachment metadata follow the owned project graph. Document bytes live outside webroot in private product-owned storage. Keep Redis and supported runtime/cache uses. Do not introduce SQLite or browser-local persistence; do not remove account/key/mail storage while deleting Books. Catalogs/factors remain reviewed versioned files.
 
-Remove inherited PostgreSQL, Redis and Books once product endpoints replace the sample. Under account-free D02, remove unused Identity/email/social/passkey/account storage and dependencies together. If D02 requires authenticated projects, first specify retained/replacement ownership and migration; do not delete authentication by default. Remove obsolete health probes, dashboards, Compose services, secrets, packages, migration assumptions and acceptance fixtures too. Keep ASP.NET security, diagnostics and the migration/release interface needed by SQLite.
+[AccountsAndOwnership.md §§3–5](Support/CarbonCalculator/AccountsAndOwnership.md#3-postgresql-model-and-server-ownership) defines table invariants, owner-derived queries, transactional revision checks, idempotency, quotas, retention and consistent database/files/key recovery. Reuse the PostgreSQL migration bundle and failure/retry safeguards. Provider/SMTP calls run outside write transactions. Start with one application replica and measure capacity.
 
-SQLite rules: one application replica initially; WAL and finite busy timeout; short transactions; never hold a write transaction during a provider call; owned non-root writable data directory; bounded report/body/cache sizes; proper online SQLite backup or a documented quiesced backup. Copying an active `.db` without its consistency protocol is not a verified backup. More replicas or large collaboration needs trigger a database ADR, not shared SQLite over a network filesystem.
-
-Do not remove release manifest verification because database technology changes. Regenerate the SQLite migration bundle, update Linux runtime/native dependencies, deployment migrations, backup/doctor checks and release tests in the same packet.
+Remove Books APIs/UI/data and unused Blazor/sample dependencies through a keep/move/delete inventory. Retain React accounts, production wrapping inputs, encrypted outbox, probes, supported Redis and migration/release/restore tooling. Update callers and audits together. Preserve needed Identity relationships and migration history; never drop the shared database or copy template users.
 
 ## 6. Domain model and numerical invariants
 
@@ -291,7 +290,7 @@ JSON uses validated finite numbers and ISO UTC times. Document hash canonicaliza
 15. Standard-material transport values and route-based freight scenarios are alternative bases for the same movement. Scope/tag each value; project-wide terminal processes and other additions are not multiplied once per receipt. No project compliance conclusion follows from summing partial receipts.
 16. Preserve received versus incorporated quantity basis and eligibility explicitly. A delivery amount is not silently converted into an approved reporting amount.
 17. Saving an incomplete record is valid. A calculation requiring missing inputs returns typed input-needed; missing/stale records do not enter current project totals.
-18. Retained local contribution envelopes must verify identity, signature and numeric fingerprint before server aggregation. Search/filter state does not change project-wide totals; imported/unverified claims require explicit recalculation.
+18. Aggregation loads only authorized saved snapshots and validates selected record identity, revision and numeric fingerprint. Search/filter state does not change project-wide totals; imported/unverified claims require explicit recalculation. No local-contribution signing system is required.
 
 ### Initial source-based numerical acceptance
 
@@ -354,50 +353,47 @@ Build explanations from the same calculation nodes used for the result and repor
 
 Keep provenance dimensions visible in UI, print and JSON. Route-cache hits retain the original provider retrieval time plus current served time. Do not call a seven-day-old cached model a fresh live request.
 
-## 8. Public API, anonymous privacy and failure contracts
+## 8. API, account ownership and failure contracts
 
 ### Proposed API
+
+Retain `/api/client-config`, `/api/auth/*` and `/auth/*`. Safe capabilities/catalogs and account entry flows are public. Private-data/provider operations require a session; writes require antiforgery. AccountsAndOwnership.md owns the access matrix.
 
 Use `/api/v1` with generated OpenAPI, cancellation propagation, bounded DTOs and safe ProblemDetails. Template `/health/live` and readiness checks retain their operational purpose; provider outages should not restart a healthy process.
 
 | Endpoint | Contract |
 | --- | --- |
 | `GET /api/v1/capabilities` | Safe live-routing configured/temporarily unavailable state, catalog/method versions and enabled ferries; no key fragments, host paths or raw provider details |
+| `GET/POST /api/v1/projects` | Page only current user projects; create with server-derived owner |
+| `GET/PUT/DELETE /api/v1/projects/{projectId}` | Owned read/update/delete with expected revision and durable deletion |
+| `GET/POST /api/v1/projects/{projectId}/deliveries` | Bounded owned list/create; incomplete saves allowed |
+| `GET/PUT/DELETE /api/v1/projects/{projectId}/deliveries/{deliveryId}` | Owner/project-constrained read/update/delete with revision checks |
+| `GET /api/v1/projects/{projectId}/export` / `POST /api/v1/projects/import` | Authorized bounded backup; validated new owned project/fresh child IDs |
 | `POST /api/v1/places/search` | Search text/country hint; selectable candidates with precision/source. Ambiguity is a valid candidate list, not an automatic 422 |
 | `GET /api/v1/materials` | Taxonomy and permitted units, independent of numerical coverage |
 | `GET /api/v1/epds` | Query/filter with explicit numeric/metadata status and fit warnings |
 | `GET /api/v1/epds/{recordId}` | Approved fields and source details; exact variant IDs remain intact |
 | `GET /api/v1/routes/catalog` | Configured ferry directions, availability and exclusion reasons |
 | `POST /api/v1/routes` | Confirmed places, route knowledge, explicit live/demo mode, vehicle/cargo; returns route-set ID, fingerprint, expiry, candidates and recommendation |
-| `POST /api/v1/calculations` | User inputs, selected reviewed EPD/factors and server-issued route-set/selection; returns immutable snapshot plus short-lived report access capability |
-| `POST /api/v1/calculations/recalculate` | Prior report capability or validated imported inputs plus overrides; creates a new snapshot and never mutates the old one |
-| `POST /api/v1/calculations/aggregate` | Bounded signed contribution envelopes/current fingerprints; verifies identity/compatibility and returns grouped totals/coverage, never trusts submitted totals |
-| `GET /api/v1/reports/{id}` | Snapshot only, with capability header; no provider calls or recalculation |
-| `DELETE /api/v1/reports/{id}` | Delete this report with its capability; document retention/backup limits |
-| `POST /api/v1/receipt-evidence` | Create a bounded short-lived anonymous evidence container and return its independent receipt capability |
-| `POST /api/v1/receipt-evidence/{id}/attachments` | Receipt-capability-authorized bounded upload; returns safe metadata, never a public file URL |
-| `GET /api/v1/receipt-evidence/{id}/attachments/{attachmentId}` | Authorized original download; safe content headers and no shared caching |
-| `DELETE /api/v1/receipt-evidence/{id}` / `DELETE /api/v1/receipt-evidence/{id}/attachments/{attachmentId}` | Authorized whole-container or individual deletion; immutable reports retain historical metadata only |
+| `POST /api/v1/calculations` | User inputs, selected reviewed EPD/factors and server-issued route-set/selection; returns an owner-bound immutable snapshot; validate saved project linkage |
+| `POST /api/v1/calculations/recalculate` | Authorized prior report or validated imported inputs plus overrides; creates a new snapshot and never mutates the old one |
+| `POST /api/v1/calculations/aggregate` | Owned project ID/revision and current record refs; loads authorized saved snapshots and returns grouped totals/coverage, never trusts submitted totals |
+| `GET /api/v1/reports/{id}` | Snapshot only, with session/owner authorization; no provider calls or recalculation |
+| `DELETE /api/v1/reports/{id}` | Delete this owned report with antiforgery and reference checks; document retention/backup limits |
+| `POST /api/v1/projects/{projectId}/deliveries/{deliveryId}/attachments` | Owner/antiforgery/idempotency-protected upload and private metadata |
+| `GET/DELETE /api/v1/projects/{projectId}/deliveries/{deliveryId}/attachments/{attachmentId}` | Validate owner/project/delivery graph; safe download or durable deletion |
 
-Server-issued route-set data prevents a caller substituting invented distances into an official-looking result. Bind it to normalized input, mode, method/provider revisions and vehicle settings; reject expired/mismatched sets. A reference by ID alone is not authorization. Use an independent route-set capability or a signed, short-lived server envelope. Never trust client-supplied factor values or EPD impacts; resolve approved revisions server-side.
+Server-issued route-set data prevents a caller substituting invented distances into an official-looking result. Bind it to normalized input, mode, method/provider revisions and vehicle settings; reject expired/mismatched sets. A reference by ID alone is not authorization. Load an unexpired owner-bound server route envelope and validate current session/input fingerprint. An opaque ID never grants access. Never trust client-supplied factor values or EPD impacts; resolve approved revisions server-side.
 
-Suggested failures: 400 malformed JSON; 422 field/domain errors; 404 inaccessible/expired/unknown report; 429 local or upstream quota with safe Retry-After; 502 malformed upstream response; 503 provider unavailable/unconfigured; 504 timeout. Expose stable `code`, field errors, correlation ID and safe retry guidance. Valid but incomplete coverage can be a 200 typed partial result; it must not contain zero-filled missing legs. Do not return provider bodies or secrets.
+Suggested failures: 401 missing/expired session; 403 antiforgery/policy denial; 409 revision/idempotency conflict; 400 malformed JSON; 422 field/domain errors; 404 inaccessible/expired/unknown report; 429 local or upstream quota with safe Retry-After; 502 malformed upstream response; 503 provider unavailable/unconfigured; 504 timeout. Expose stable `code`, field errors, correlation ID and safe retry guidance. Valid but incomplete coverage can be a 200 typed partial result; it must not contain zero-filled missing legs. Do not return provider bodies or secrets.
 
-### Anonymous report design
+### Private saved-work and report design
 
-The handoff's no-auth local database assumption is unsafe for public reports. The device-local D02 alternative is account-free with bounded capability access; authenticated server ownership requires its replacement slice:
+Use [AccountsAndOwnership.md](Support/CarbonCalculator/AccountsAndOwnership.md). Saved projects, deliveries, reports and finalized originals persist across devices until explicit deletion, within visible capacity limits. Unattached temporary results and upload staging expire after 24 hours by default. The old device-local/anonymous-token design is superseded; do not implement a parallel mode.
 
-Resolve D02 before P08A/P12A. Under the device-local alternative, saved projects/receipts/local originals and safe signed snapshots persist in browser IndexedDB; unsaved buffers stay separate and server copies remain short-lived. Explain shared-device access, browser-storage loss and backup. Do not expose anonymous server project CRUD. The newly recommended authenticated-server alternative is specified at decision level in ReactAuthenticationFoundation.md and requires updated ownership/retention contracts before implementation. Dashboard method/coverage invariants apply to either storage choice; scanning remains separate.
+Never put private fields/tokens/scenarios in URLs, logs or analytics. Private query state is memory-only, scoped to application/user/project, hidden during session checks and cleared on owner changes. Bind unsaved drafts to the original owner; require explicit discard before another account replaces them. A failed/offline write is unsaved. Reopening reports reads exact authorized bytes with zero provider calls; explicit recalculation creates a new ID. Imports are untrusted new owned projects, never numerical approval or access to existing foreign data.
 
-1. A report has a random ID and an independent cryptographically random capability of at least 256 bits. Store only its hash, compare safely, and require it in a dedicated header. Knowing an ID does not grant access. There is no report enumeration endpoint.
-2. Server capabilities stay in the tab's `sessionStorage` or memory under the device-local D02 alternative. Safe saved records/snapshots persist separately without server access tokens. Never put addresses, capabilities or whole scenarios in URLs, analytics, source maps, third-party query strings or logs. Explain that local browser scripts can access tab storage; enforce CSP and prevent injection.
-3. Server report retention defaults to 24 hours, bounded by configurable storage and request size limits. Expired reports are not served. Run deletion regularly and document backup expiry separately; do not promise instantaneous erasure from existing backups.
-4. No public share link or permanent server project store under the device-local D02 alternative; device-local projects have their own delete/export lifecycle. Supporting uploads use P12A's capability access, quotas and short-lived retention; show expiry before upload. Explicit JSON export is the durable user-owned calculation copy, containing attachment metadata rather than original documents or access secrets. Original document download is a separate explicit action. Add scoped Clear session, Delete project and server-report/evidence deletion actions explaining remaining local originals/exports/backups.
-5. Route/geocode caching uses a separate documented retention policy, initially up to seven days only if provider terms allow. A hash cache key does not anonymize a payload containing precise coordinates. Limit collected data and restrict volume/backup access.
-6. JSON import is untrusted: enforce schema/version, byte/count/depth limits, finite numbers and safe text/URLs; render no executable HTML. Imported values are labelled imported, not server-verified. Recalculate only after confirmation and new server validation.
-7. Reopening a snapshot must not fetch routing, quietly refresh factors or change any number. Recalculation creates a new ID with an explicit change summary.
-
-Frontend routes: `/` Dashboard including material records, `/receipts/new` new delivery, `/receipts/:id` one editable delivery workspace with direct `#material`, `#transport` and `#documents` section links, `/reports/:id` capability-controlled report export/view, `/about`, `/privacy` and client not-found. Section switching preserves unsaved inputs, chosen method/route and attachments. Preserve section selection on refresh and browser Back/Forward without putting private fields or capabilities into URLs. If retained, `/receipts` redirects to the Dashboard's delivery section rather than rendering a duplicate list. A standalone `/routes` entry remains available through contextual route exploration where useful; it is not an extra primary tab. Catalog selection and specific source/formula inspection are contextual components; general explanations belong on About. Direct navigation and refresh must work. ASP.NET returns true API/asset/reserved-path errors; unknown navigation paths should return a 404 shell through a constrained product route policy rather than turn `/api/*` errors into HTML. Keep reports and attachments `no-store` and excluded from indexing. Public catalog caching is separate from private scenario caching.
+Frontend routes: `/` Dashboard including material records, `/receipts/new` new delivery, `/receipts/:id` one editable delivery workspace with direct `#material`, `#transport` and `#documents` section links, `/reports/:id` owner-authorized report export/view, `/about`, `/privacy` and client not-found. Section switching preserves unsaved inputs, chosen method/route and attachments. Preserve section selection on refresh and browser Back/Forward without putting private fields or account tokens into URLs. If retained, `/receipts` redirects to the Dashboard's delivery section rather than rendering a duplicate list. A standalone `/routes` entry remains available through contextual route exploration where useful; it is not an extra primary tab. Catalog selection and specific source/formula inspection are contextual components; general explanations belong on About. Direct navigation and refresh must work. ASP.NET returns true API/asset/reserved-path errors; unknown navigation paths should return a 404 shell through a constrained product route policy rather than turn `/api/*` errors into HTML. Keep reports and attachments `no-store` and excluded from indexing. Public catalog caching is separate from private scenario caching.
 
 ### Quota and abuse controls
 
@@ -407,7 +403,7 @@ Frontend routes: `/` Dashboard including material records, `/receipts/new` new d
 - Initial provider timeout: 20 seconds; bounded total route operation with cancellation and at most one transient retry. Do not retry authentication, validation or quota failures automatically.
 - Server cache keyed by exact confirmed coordinates, route options, load restrictions, provider/profile/version, waypoint order and ferry terminal revision. Deduplicate simultaneous identical calls.
 - Account-wide provider request budget applies to each underlying leg/search call, retries included. Persist daily counters across restarts; configure limits from actual account allowance with a reserve and provider reset timezone. Include a per-minute budget and a global concurrency cap.
-- Per-client rate limits supplement the global budget. Trust forwarded addresses only from the known Caddy/Cloudflare chain. Do not accept arbitrary spoofed `X-Forwarded-For` as identity.
+- Per-user and per-client limits supplement the global provider-account budget; each product user does not receive the provider account’s whole quota. Trust forwarded addresses only from the known Caddy/Cloudflare chain. Do not accept arbitrary spoofed `X-Forwarded-For` as identity.
 - No automatic focus/reconnect refetch or default mutation retry for expensive routing. Route only on explicit submitted inputs. Returning cached results is labelled with retrieval time.
 - Tests and public acceptance use deterministic fixtures by default. Live calls are a bounded, explicit integration stage; scheduled health checks must not consume the daily routing budget.
 
@@ -425,7 +421,8 @@ The owner permits free software/free tiers now. No automatic paid upgrade, paid 
 | Maps | Leaflet with a policy-compliant configurable basemap | OSM attribution, normal browser referrer/cache behavior, no bulk/offline tiles; text/geometry fallback if tiles fail |
 | Material source | Reviewed local source records linked to official EPDs | Record field-level QA and public-use rights; no assumed unlimited database/API permission |
 | Data expansion | Bounded official ÖKOBAUDAT export/import | Inspect actual current format/license; generic datasets remain generic, not product EPDs |
-| Storage | SQLite plus existing owned disk/backup capacity | Size/retention budget and restore evidence; no hosted DB dependency |
+| Storage | Existing PostgreSQL/Redis plus private document disk/backup capacity | Size/retention budget and restore evidence; no hosted DB dependency |
+| Account mail | Existing/free TLS SMTP and verified sender | Local fixtures prove implementation; authorized real inbox checks gate public registration/recovery |
 | Reports | HTML print and JSON export | Browser Print to PDF; no paid PDF SaaS |
 | Monitoring | Existing structured logs, health, app-scoped metrics and maintenance | No new hosted telemetry subscription or collection of precise addresses |
 
@@ -464,7 +461,7 @@ Initial import into a genuinely empty repository follows the existing [standalon
 
 | Slice | Packets | Visible outcome | Depends on |
 | --- | --- | --- | --- |
-| VS0 — Independent product | P01–P08; design work D01 | Safe own repo, React/LocalSingleNode only, meaningful CI and native capacity | Owner source/target intent |
+| VS0 — Independent product | P01–P08, P08B; design work D01 | Safe own repo, React/LocalSingleNode only, meaningful CI and native capacity | Owner source/target intent |
 | VS1 — Explore a real route | P09–P10 | Confirm new places, live HGV polyline/km/time, honest errors, usable map/table | VS0 and provider key for live acceptance |
 | VS2 — Assess a site material receipt | P08A, P11, P11A, P11B, P12, P12A, P12B | Unified receipt workspace, separate route/standard bases, timber indicators, provenance, private report and supporting attachments | VS1; standard-method work can progress independently of live keys |
 | VS3 — Five useful materials | P13–P14 | All five scenarios, missing-info recovery, warehouse ledger and load checks | VS2 |
@@ -472,9 +469,9 @@ Initial import into a genuinely empty repository follows the existing [standalon
 | VS5 — Add reviewed data without rewriting UI | P17 | Staged importer and second-provider dataset through same use case | VS3 and source/format evidence |
 | VS6 — Launch and sustain | P18–P21 | Native/private release, public HTTPS, acceptance, update/rollback/restore and handover | All required product slices, chosen design and operator access |
 
-D01 captures the approved design. D02 precedes dependent persistence/authentication decisions. P01/P02 preparation and source reviews can proceed while D02 is pending. P03 may move early for CI capacity. Terminal/source research can begin immediately; missing keys do not block pure domain, importer or design work. Do not create horizontal “all backend, then all frontend, then test everything” phases.
+D01 captures approved design; D02 is selected. P01/P02 retain completed accounts and review fixes. P03 may move early for CI capacity. Missing keys/email access do not block source research, pure domain work or isolated account tests.
 
-Concrete product order: P08A after D02/P08; P09–P10 for real routes; P11/P11A for calculations; P12 for persistent snapshots/key storage; P11B for signed Dashboard aggregation; P12A for evidence; P12B for portability. P11B's pure rules can start earlier, but its shipping gate requires P12. Numbered packet labels group work; this dependency order prevents a signing/runtime completion cycle.
+Concrete order: P08 shell, P08B accounts/thin owned-project entry, P08A project/delivery persistence; P09–P10 routes; P11/P11A calculations; P12 durable snapshots; P11B authorized aggregation; P12A private originals; P12B portability. PostgreSQL/ownership support starts before P08A, not P12. P11B pure rules can start earlier, but shipping requires P12. This order avoids a persistence/aggregation cycle.
 
 Optional early publication uses the explicit beta gate in [Acceptance.md §7](Support/CarbonCalculator/Acceptance.md#7-release-evidence-rules), only after owner selection. Otherwise follow the complete-v1 path; no imaginary beta profile or skipped full-v1 gate.
 
@@ -493,16 +490,14 @@ Exit: approved direction retained as an implementation brief; no further screen 
 
 ### D02 — Saved-project ownership and lifetime
 
-Resolve authentication and saved-project ownership before P08A/P12A and authentication removal. ReactAuthenticationFoundation.md now recommends Identity/cookies/React and server-owned projects; FeatureSpecification.md retains the device-local alternative. Record the selected policy, update dependent contracts and implement one model. Independent foundation/domain/source work can continue.
-
-Already resolved: ASP.NET Core Identity + app cookies, with separate accounts for every cloned product. Do not add central SSO, shared user tables, parent-domain session cookies or copied key rings. Still resolve the credential policy and saved-project ownership model; the architecture selection alone does not authorize implementation.
+Selected by the owner on 2026-10-17: verified email/password accounts, private server-saved projects across devices, and PostgreSQL. Each project has one Identity owner; no organizations, sharing, SSO or browser-local fallback. Reuse completed template accounts. AccountsAndOwnership.md is binding. Public launch level is separate. This planning revision does not authorize product implementation/deployment.
 
 ### P01 — Recheck baseline and execution prerequisites
 
-1. Fetch template main and inspect open PRs, especially #290. Require successful CI on the chosen source SHA; record it and pinned .NET/Node/npm versions.
+1. Fetch template main and relevant open PRs. Require successful CI on the chosen SHA and ancestry containing auth review `45aa44308340285e54568a5a2262bcf0a6deec17`; record it and pinned tooling. #290 is already merged.
 2. Read current standalone, React-only and single-node-only guides. Verify React host, generated contracts, release provenance, SSH/public setup and initial-import behavior in code.
 3. Inspect CarbonCalculator visibility, emptiness, permissions and Actions. If nonempty, stop the import path and reconcile destination work through a PR.
-4. Inspect account budget/limits and release storage behavior. Prefer merged, verified #290 if available. If still open, record the actual missing transport as a dependency; do not cherry-pick another agent's unmerged work silently or call it merged.
+4. Inspect account budget/limits and release storage behavior. Verify merged release transport and current retention/contracts; do not reopen historical blockers or copy unmerged work.
 5. Recheck the intended existing node and runner scope using safe read-only APIs/private settings. Record shared apps and ownership boundaries without exposing secrets.
 6. Preserve source manifest, previews and private operator facts for the downstream handoff. Do not commit machine paths/IPs or credential files.
 
@@ -538,7 +533,7 @@ Exit: CarbonCalculator jobs run on eligible capacity; existing runner/apps conti
 
 1. Follow [ReactOnlyClone.md](../docs/Frontend/ReactOnlyClone.md); inventory every active client/Razor/profile/build/test dependency before deletion.
 2. Move browser tools/shared assets still used by React/tests out of the client. Keep the generated API command functional.
-3. Remove `.Client`, host Razor/account UI, Blazor composition, WASM dependencies/assets and obsolete styles. Narrow Docker, MSBuild, local scripts and CI to React.
+3. Remove `.Client`, host Razor/account UI, Blazor composition, WASM dependencies/assets and obsolete styles. Retain shared Identity/account services, React endpoints, key/outbox storage and tests before deleting Razor adapters. Prove React-only sign-in/recovery/revocation; Blazor cleanup must not remove selected accounts. Narrow Docker, MSBuild, local scripts and CI to React.
 4. Remove the same-repository second-profile instance mechanism, its workflow inputs/docs and unsupported profile pairs. Preserve primary app identity/ownership checks.
 5. Replace architecture/hosting/audit rules and fixtures with React-only assertions. Remove the old Razor Tailwind regeneration instruction from downstream AGENTS.
 6. Run local/CI/image checks and inspect production output for no Blazor runtime or `_framework` payload.
@@ -569,7 +564,7 @@ Exit: operational commands use CarbonCalculator names; Linux builds/publishes/re
 ### P07 — Turn template documentation into product documentation
 
 1. Rewrite README, requirements, local development, architecture, testing and operations around CarbonCalculator.
-2. Remove inherited template plans/support files, fork/clone instructions and unused quality/tooling docs after extracting useful operational knowledge. Keep this product plan and `Plans/README.md`.
+2. Remove inherited template plans/support files, fork/clone instructions and unused quality/tooling docs after extracting useful operational knowledge. Keep this product plan, its four support contracts and `Plans/README.md`. Preserve/adapt the canonical Accounts guide and replace historical template-plan links before deleting their targets.
 3. Preserve current LocalSingleNode/public/SSH/maintenance runbooks; remove setup-a-fork language from the finished product. Update audits that previously read deleted guides in the same packet.
 4. Keep upstream attribution/license and a compact source-baseline record. Do not blanket-replace historical URLs.
 5. Add the product favicon and honest page metadata. Keep private inputs out of docs and source archives.
@@ -584,16 +579,28 @@ Exit: a new contributor sees one production product and current commands, with n
 4. Do not retain Books as the final acceptance target or reduce acceptance to HTTP 200. Until product checks exist, call the shell incomplete and keep public launch gated.
 5. Verify React build output and strict CSP; select map dependency versions after compatibility review, not `latest` scaffold commands.
 
-Exit: product routes and release pairing work; acceptance explicitly detects missing product behavior. **Checkpoint C1** becomes eligible when VS0 and D01's required implementation brief are verified.
+Exit: product routes and release pairing work; acceptance explicitly detects missing product behavior. **Checkpoint C1** becomes eligible after P08B, when VS0 and D01’s brief are verified.
+
+### P08B — Adapt completed accounts and prove ownership
+
+Run after P08, before P08A. Follow AccountsAndOwnership.md and ImplementationPackets.md §2.
+
+1. Retain/enable account UI/session controller, endpoints, antiforgery, PostgreSQL Identity/key store and encrypted mail outbox under product identity.
+2. Add thin `Projects` migration with immutable owner FK, revision/index. Prove create/list/read through real API/generated client and empty React project entry. P08A completes CRUD/deliveries.
+3. Prove register/confirm/login/logout/recovery/email-change/revocation using isolated PostgreSQL/TLS SMTP. Test two users, foreign IDs, forged owner input, admin without bypass, wrong antiforgery, misconfiguration, expiry and session/app changes.
+4. Establish owner-bound memory drafts/query keys, stale-response cancellation and account export/deletion hooks; later packets extend lifecycle in the same change.
+5. Track real SMTP/sender verification at P18. Local implementation does not wait for live mail access; no deployment is authorized here.
+
+Exit: real React accounts reach an empty private project context and two-user ownership is enforced. Template proof alone is insufficient.
 
 ### P08A — Durable project and incomplete-delivery workspace
 
-Prerequisites: P08, approved D01 and resolved D02. Detailed ten-step implementation: [ImplementationPackets.md §3](Support/CarbonCalculator/ImplementationPackets.md#3-p08a--project-and-delivery-persistence-through-the-approved-shell).
+Prerequisites: P08B, approved D01 and selected D02. Detailed ten-step implementation: [ImplementationPackets.md §3](Support/CarbonCalculator/ImplementationPackets.md#3-p08a--project-and-delivery-persistence-through-the-approved-shell).
 
 1. Implement project create/select/site context and approved delivery section routes.
-2. Add versioned local persistence under D02, separate saved records/edit buffers, atomic save and failure recovery.
+2. Extend owner-scoped PostgreSQL schema/APIs; separate saved records from memory edit buffers, with atomic saves and failure recovery.
 3. Save incomplete records with stable identity; add open/update/delete, dirty-leave and revision conflicts.
-4. Add project isolation, two-tab behavior, direct section links and bounded search/filter/order.
+4. Add user/project isolation, cross-device revision conflicts, direct section links and bounded server-side search/filter/order.
 5. Prove browser reopen, partial saves, failed writes, cancelled deletion and no provider calls during record work.
 
 Exit: saved project/delivery behavior is real and honest about storage scope before calculations land.
@@ -645,23 +652,23 @@ Inputs: D01, P11's validated receipt/mass and reviewed official method sources. 
 
 Exit: a receipt can produce a traceable standard-material transport line without inventing its origin, while indicative live-route work remains independently required. This packet adds an alternative method; it does not replace mandatory live routing, ferry inference or source-backed material slices.
 
-### P12 — Immutable anonymous reports and persistent runtime transition
+### P12 — Immutable owned reports and saved runtime
 
-1. Add EF SQLite schema/migrations for route/cache envelopes, snapshot/capability hashes, evidence metadata, expiry and persisted budgets. Persist the contribution-signing key ring under protected owned storage. Catalog inputs remain versioned files, not a public edit API.
-2. Implement report access/deletion, token-safe client state, immutable read, JSON export/import and print layout. A report read/print/export must make zero provider calls.
-3. Keep schema/method/catalog/factor/terminal/route revisions and original source values in each snapshot. Recalculate creates a new snapshot with an explicit comparison to the previous version.
-4. Remove Books APIs/data and unused PostgreSQL/Redis storage/services/secrets/migrations. Remove Identity/account/mail only under approved account-free D02 or after a proven replacement identity migration. Update dependency graph, local tooling, Docker, Compose, probes, operations, CI and audit together.
-5. Update SQLite migration bundle/native dependencies, app volume ownership, doctor and backup/restore hooks. Do not deploy a PostgreSQL bundle against SQLite or pretend an empty/no-op artifact proves migration validation.
-6. Prove wrong/missing token denial, expiry, deletion, XSS-safe import, size limits, report restart persistence and immutable results after catalog/factor changes. Verify logs and error responses contain no capability/key/address.
+1. Extend PostgreSQL with owner-bound immutable snapshot bytes, selected record refs, route/cache envelopes and persisted budgets. Reuse inherited Identity/key/outbox/migration runtime; catalogs stay versioned files.
+2. Implement owned read/delete, exact-byte JSON export and print with zero provider calls. Saved reports persist until deletion; unattached temporary results expire by default.
+3. Retain all schema/method/source/route revisions. Recalculate creates a new ID/comparison; check revision/fingerprint before selecting it for a record.
+4. Remove Books sample code/data through reviewed migrations; preserve accounts, PostgreSQL, supported Redis, wrapping inputs and release/backup machinery.
+5. Extend account export/deletion and project cleanup to snapshots; reject foreign linkage/imports. No anonymous access tokens or local-contribution signing system.
+6. Prove two-user denial/revocation, temporary expiry, restart persistence, bounded import and unchanged old reports after source updates. No tokens/keys/private addresses in logs.
 
-Exit: private reproducible reports and a product-owned persistent runtime, with no inherited sample/account database dependency. Complete P08A/P11B/P12A/P12B before claiming VS2 or **Checkpoint C2**; the live route gate also remains required.
+Exit: owned reproducible reports and retained account/product runtime work together. P08A/P11B/P12A/P12B and live routing remain required for VS2/**Checkpoint C2**.
 
 ### P11B — Consistent Dashboard, calculation state and evidence
 
 Detailed nine-step implementation: [ImplementationPackets.md §7](Support/CarbonCalculator/ImplementationPackets.md#7-p11b--dashboard-totals-edit-invalidation-and-source-inspection).
 
 1. Implement numeric/routing/context fingerprints, staleness and late-response protection.
-2. Sign immutable contribution envelopes; persist/rotate/restore signing keys and verify inputs before aggregation.
+2. Load authorized stored snapshots and check record identity/revision/fingerprint before aggregation; never trust browser totals/imported claims.
 3. Aggregate compatible current non-overlapping assessments in C#, with groups, coverage and no JavaScript emissions engine.
 4. Render compact estimate/breakdown and existing useful filters; searching does not alter project-wide totals.
 5. Generate source/formula drawers from calculation nodes and keep historical reports immutable.
@@ -671,14 +678,15 @@ Exit: Dashboard/list/delivery values agree without a review workflow.
 
 ### P12A — Private supporting documents, separate from scanning
 
-1. Resolve D02; implement owned local originals/metadata before explicit short-lived server uploads. Add bounded multipart upload, private retrieval/removal, generated contracts and React attach/list/preview-or-download/remove controls. Use an independent anonymous receipt capability, hashed server-side, for pre-assessment drafts; authorize every document operation through its receipt owner. Never treat a document ID or filename as access. Do not create public listing or sharing endpoints.
-2. Store bytes in the product-owned persistent volume outside webroot; use generated storage IDs and SQLite metadata for receipt ownership, original display name, detected media type, byte length, SHA-256 and expiry. Never use the supplied filename as a filesystem path. Default to PDF/JPEG/PNG only, 10 MiB per file, three files per receipt and a configurable global disk budget. Enforce limits while streaming, validate signatures against allowed types, sanitize names and reject HTML/SVG/executables. Configure per-client upload limits and bounded anonymous receipt creation; return useful quota errors without leaking paths.
-3. Show upload progress, failure/retry, filename/type/size, explicit removal and expiry. Download through an authorized same-origin endpoint with safe content headers and `no-store`; use authenticated blob retrieval so capabilities never enter URLs. Default PDFs to download; only offer a sandboxed preview after validating the isolation policy. Render images through a safe bounded path. Do not execute embedded document content or fetch remote resources from uploaded files. Add a free malware-scanning adapter only if available capacity and operations support it; never label an unscanned file safe.
-4. Preserve attachment metadata/content hashes in immutable report snapshots, without exporting raw documents, capability tokens or public download URLs. A snapshot describes the evidence at calculation time; removal/expiry makes the original unavailable without rewriting that history. Linking a report to document bytes requires the receipt capability as well as report access. An imported JSON attachment description does not restore a file or grant access.
-5. Apply a 24-hour default expiry to server document copies and display it before explicit upload. Under the device-local D02 alternative, local saved originals remain until explicit deletion/browser-storage loss; server expiry does not remove them. Delete unreferenced/expired bytes and metadata with scoped cleanup; Clear session offers deletion of its server copies before dropping tab capabilities; Delete project separately removes local records/originals under D02. Bound interrupted-upload staging. Extend the backup/restore runbook to cover both SQLite and document bytes consistently, with documented backup expiry. No paid storage service or account system is required.
-6. Verify owner versus wrong/missing capability, expired/deleted documents, guessed IDs, filename traversal, spoofed types, oversized/count/global limits, interrupted uploads, storage failure, safe headers, no token/address logging, restart persistence and orphan cleanup. Exercise attach/preview or download/remove and report metadata in the browser. Prove attaching a document does not alter material quantity, confirm dispatch or run OCR.
+Follow twelve checkpoints in ImplementationPackets.md §9 and limits/lifecycle in AccountsAndOwnership.md §4 and FeatureSpecification.md F12.
 
-Exit: local originals and short-lived server copies follow their explicit ownership/lifetime without confusing expiry and local deletion. Follow the twelve detailed checkpoints and limits in the companion documents. Scanning and extracted-field review remain a later packet. The local design preview continues to use sample files only.
+1. Attach to a saved owned incomplete delivery, with explicit save first. API/UI covers upload/progress/retry/download-or-safe-preview/remove; no anonymous containers/public links.
+2. Stage bounded validated bytes outside webroot with PostgreSQL metadata, nested ownership checks and recoverable promotion. Enforce concurrent file/count/project/user/global quotas.
+3. Finalized originals survive logout/restart until deletion. Staging expires; removal denies access immediately and queues owned physical cleanup. Restore covers metadata/bytes/keys consistently.
+4. Snapshot safe metadata/hash without raw files/secrets. Deleted originals do not rewrite numerical history; imported descriptions never restore files or authorize access.
+5. Prove two-user/nested-ID/antiforgery/revocation denial, safe headers, hostile files, quotas, abort/retry/restart/orphans and project/account deletion. Attach never changes quantity, confirms dispatch or runs OCR.
+
+Exit: durable private originals follow account/project lifecycle across devices. Preview samples remain illustrative; scanning is future work.
 
 ### P12B — Editable project backup and restore
 
@@ -688,7 +696,7 @@ Detailed seven-step implementation: [ImplementationPackets.md §10](Support/Carb
 2. Export editable records, safe snapshots and an originals manifest, excluding tokens/private URLs/raw files by default.
 3. Validate bounded untrusted imports, preview counts/missing originals and create a new project/fresh record IDs by default.
 4. Apply import atomically with duplicate warning and failure recovery; imported approval/signature claims are not trusted.
-5. Prove new-browser restore after server expiry and malformed/unsupported/duplicate imports without overwriting existing work.
+5. Prove authorized new-browser reopen and import after original project deletion; reject malformed/unsupported/duplicate imports without overwriting existing work.
 
 Exit: users can recover editable records without a false promise that ordinary JSON includes invoice bytes.
 
@@ -748,25 +756,25 @@ Exit: reviewed second-provider data works end to end without a new screen-specif
 
 ### P18 — Release readiness and final production acceptance
 
-1. Reconcile Acceptance.md's T01–T30, R1–R7, V3-01–V3-24 and AC01–AC40 against actual tests/artifacts/exact SHAs. Read original requirements before changing an ID. Include non-ID importer obligations. Record gaps; no written row is a passed test.
+1. Reconcile Acceptance.md's T01–T30, R1–R7, V3-01–V3-24 and AC01–AC52 against actual tests/artifacts/exact SHAs. Read original requirements before changing an ID. Include non-ID importer obligations. Record gaps; no written row is a passed test.
 2. Finish `CarbonCalculatorPublicV1` acceptance with safe catalog/capability checks, deterministic five-material/route/ledger/report journey, reserved-route denial and release/data/method identity.
 3. Keep live integration checks separate and bounded. CI mock-provider success does not prove HeiGIT access; public readiness does not require spending a route call every health check.
-4. Review session/report privacy, retention, log redaction, proxy trust, provider budget, source rights and public notices using actual behavior. Verify no routing key in JS/source maps/image metadata.
+4. Review account/session/report privacy, owner authorization, deletion/export, retention, log redaction, proxy trust, provider budget, source rights and public notices. Validate protected sender/SMTP configuration and local account journeys; record the controlled real-inbox AC50 check for P19/P20 once the target is reachable, before public launch. Local capture alone cannot pass that gate. Verify no routing key in JS/source maps/image metadata.
 5. Review chosen UI across device sizes, keyboard/contrast/focus/reflow/reduced-motion and map alternatives. Test print at A4 with long sources; no clipped formulas/units or missing footer caveats.
 6. Perform the handoff's five-beginner evaluation: at least four correctly distinguish making/moving and modelled/actual after self-guided use. The agent can prepare tasks and record feedback; genuine human participants cannot be replaced by invented answers. Recruit through the owner only when external participants are actually needed.
 7. Measure production bundle, lazy map loading and representative mobile performance; record conditions. Initial goals: LCP ≤2.5 s and CLS ≤0.1 where meaningful; do not equate lab scores with field data or set a 100 Lighthouse score as release proof.
-8. Produce exact-main successful release manifest, image/payload digest, source SHA, run/attempt, React/acceptance pair and method/data revision. Record SQLite schema compatibility and bounded storage/evidence policy.
+8. Produce exact-main successful release manifest, image/payload digest, source SHA, run/attempt, React/acceptance pair and method/data revision. Record PostgreSQL schema compatibility and bounded storage/evidence policy.
 
-Exit: all mandatory slices and release checks have actual evidence; only native/public execution remains. **Checkpoint C3** is eligible here.
+Exit: all mandatory local slices and release checks have actual evidence; native/public acceptance, including the controlled real-inbox AC50 gate on the reachable product, remains. An image may be published before that check; public launch may not. **Checkpoint C3** is eligible here.
 
 ### P19 — Native app installation and LAN acceptance
 
 1. Recheck operator authorization, intended existing native node and CarbonCalculator ownership. Inspect prior P03 setup state; do not rerun first bootstrap or rename the host by habit.
 2. Run app-scoped collision/doctor checks. Choose free ports/subnet/runtime/backup roots through private settings. Preserve other apps' containers, volumes, Caddy sites, tunnels, runner service and shared lock.
-3. Verify final migration/database/backup settings and server-only key provisioning. The owner supplies only authentication material unavailable through existing protected access.
+3. Verify final migration/database/backup settings, product account identity, wrapping keys, production SMTP/sender readiness and server-only routing key provisioning. The owner supplies only authentication material unavailable through existing protected access.
 4. Select the published P18 source/digest and dispatch one authorized LocalSingleNode deployment from verified main, using actual documented inputs. Record the run ID immediately; resume observation of that run after interruption.
-5. Require manifest/payload/image verification before migration, product acceptance after start, and controller-independent LAN/browser checks against `CarbonCalculatorPublicV1`.
-6. Verify persistence across app restart and report/token rules; confirm unrelated existing applications still respond and their identities/resources were not changed.
+5. Require manifest/payload/image verification before migration, product acceptance after start, and controller-independent LAN/browser checks against `CarbonCalculatorPublicV1`. Once the configured HTTPS target is reachable, perform the authorized controlled real-inbox confirmation/recovery check under AC50 here or in P20 before unrestricted public launch.
+6. Verify persistence across app restart and account/report ownership rules; confirm unrelated existing applications still respond and their identities/resources were not changed.
 
 Exit: correct product release works on LAN on the existing shared node. No controller or WSL node bootstrap.
 
@@ -785,9 +793,9 @@ Exit: intended HTTPS product passes external acceptance; a DNS record, screensho
 ### P21 — Recovery, maintenance, handover and cleanup
 
 1. Publish a small compatible update through PR/local gate/exact-head CI/green main, deploy it, and prove expected behavior/identity.
-2. Roll back to a compatible prior image through retained scoped scripts and verify product/data identity; roll forward again. A code rollback does not undo an incompatible SQLite migration. Use expand/contract migrations or a reviewed restore procedure.
+2. Roll back to a compatible prior image through retained scoped scripts and verify product/data identity; roll forward again. A code rollback does not undo an incompatible PostgreSQL migration. Use expand/contract migrations or a reviewed restore procedure.
 3. Prove app restart and dedicated connector restart recovery without disturbing other apps. Do not reboot a shared node by default; only do so for an authorized concrete recovery concern.
-4. Create a consistent backup of SQLite, finalized server evidence and signing keys, then restore into an isolated owned target. Verify schema/data/snapshot signatures, attachment content and original capability/expiry behavior without publishing or overwriting production. Record checksums and restore evidence. Browser-local project/original backups are a separate P12B/user export concern, not covered by the node backup.
+4. Create a consistent backup of PostgreSQL Identity/product/key/outbox state, finalized documents and protected wrapping-key recovery inputs; restore into an isolated owned target with SMTP/provider egress disabled. Prove owner denials, exact report bytes, originals, temporary expiry, deletion reconciliation and the disaster-restore reauthentication policy in AccountsAndOwnership.md. Record checksums/recovery point; never publish or overwrite production.
 5. Document app-scoped doctor, logs, budget exhaustion, secret rotation, source updates, catalog approval/import, retention, report expiry, backup/restore and compatible rollback. Use real commands from implemented tooling.
 6. Reconcile every required acceptance ID and pending owner question. Record explicit owner deferrals; a unilateral smaller release is not whole-plan completion.
 7. Fetch/prune, verify integrated content and no task/PR/process/lock dependency, then remove finished worktrees and local/remote branches. Record full deleted branch SHAs. Archive only unique necessary evidence/notes outside removed checkouts with verified SHA-256; never whole checkouts/build output.
@@ -807,14 +815,15 @@ Exit: public product, update/recovery/data-restore evidence, maintainable docume
 | Loads | Weight/volume allocation and correct per-load gross routing restrictions | 60 t routed as one vehicle or cargo multiplied twice |
 | Ferry inference | Directional terminal review, live approaches, reference sea leg, ranking/sensitivity | Harbour centroid + static road km labelled live |
 | Boundaries | Ledger tests, replacement A4, upstream exclusion, no mixed-method total | Negative timber total cancels freight in a headline |
-| Reports | Immutable snapshots, capability denial, expiry/delete/export/import and no reread provider calls | Guessable public report lookup or silent recomputation |
+| Accounts/ownership | Enabled inherited account flows, PostgreSQL owner graph, revocation, two-user denial, export/deletion and real mail launch proof | Template auth tests alone or UI-only access controls treated as product authorization |
+| Reports | Immutable owned snapshots, session/owner denial, temporary expiry/delete/export/import and no reread provider calls | Guessable public report lookup or silent recomputation |
 | Quota/free-only | Account allowance evidence, global persisted budget, no unexpected retries/artifact spend | Self-hosted CI assumed to make all storage free |
 | Expansion | Real bounded staged ÖKOBAUDAT import, reviewed result through same UI | An empty adapter class advertised as integration |
 | UX | Chosen design, responsive/keyboard/print checks and actual beginner feedback | Generated mockup screenshot used as app evidence |
 | Delivery | Exact-head CI, exact-main publication, digest/profile/revision and LAN/public browser acceptance | Green PR or DNS setup treated as live deployment |
-| Recovery | Compatible rollback/forward and isolated consistent SQLite restore | A backup file exists but has never been restored |
+| Recovery | Compatible rollback/forward and isolated consistent PostgreSQL/files/wrapping-key restore | A backup file exists but has never been restored |
 
-Use the retained [Acceptance.md](Support/CarbonCalculator/Acceptance.md), already mapping all original IDs and AC01–AC40; extend it downstream with columns: original ID, packet, test/artifact path, last evidence, status and reason. Values are `pending`, `passed`, `blocked` or `owner-deferred`; never make “not applicable” a quiet scope deletion.
+Use the retained [Acceptance.md](Support/CarbonCalculator/Acceptance.md), already mapping all original IDs and AC01–AC52; extend it downstream with columns: original ID, packet, test/artifact path, last evidence, status and reason. Values are `pending`, `passed`, `blocked` or `owner-deferred`; never make “not applicable” a quiet scope deletion.
 
 ## 14. Operator dependencies and genuine manual work
 
@@ -823,7 +832,8 @@ These are dependencies of later execution, not reasons to stop planning. Reuse e
 | Input/action | Current state | Agent work first | Human involvement only when required |
 | --- | --- | --- | --- |
 | Design | Current direct-navigation design explicitly approved | Capture brief and implement real responsive behavior | No further mockup/color/layout approval |
-| Saved-project ownership D02 | Current-device versus authenticated cross-device persistence unresolved | Investigate Identity/cookie foundation and authenticated server projects; retain device-local alternative and prepare independent slices | Owner chooses once before dependent storage/authentication work |
+| Account mail | No product sender delivery proven | Inspect existing protected free SMTP/sender access; local TLS fixture first, authorized real inbox check before launch | Only unavailable credentials, provider verification or controlled inbox action |
+| Saved-project ownership D02 | Selected verified email/password/private PostgreSQL projects across devices | Reuse completed accounts; implement P08B and owner-scoped lifecycle | Ownership resolved; missing real sender access may require protected credentials/verification |
 | Runner interpretation | Additional CarbonCalculator registration approved on 2026-10-15; preserve current template runner | Verify current scope and prepare supported same-node setup when execution starts | No further confirmation of the registration choice is needed; any returned native human step still applies |
 | Native privileged setup | New app-specific runner/bootstrap is likely | Prepare checkout/identity and native status result | Run the exact `human` root command returned by the native runbook; never give a speculative sudo command now |
 | HeiGIT account/key | No key used by this planning task | Check protected existing configuration by presence only; implement adapter/tests/quota controls | If absent, owner registers/verifies a free account and enters the key through protected secret input, never chat |
@@ -846,13 +856,16 @@ Initial checkpoint:
 ```text
 Authoritative repository: template for planning; CarbonCalculator after P02
 Current packet: planning delivered; implementation not started
-Next action: resolve D02 saved-project ownership and public launch level;
+Next action: on later execution authorization, verify P01 auth baseline, then
+  follow P08/P08B/P08A; D02 selects private PostgreSQL projects; public launch
+  level remains open;
   current direct-navigation design, Fieldwork colors, B+C pattern and additional
   same-node runner are approved
 Completed preparation: source copy + SHA-256 manifest, 23 supplied tests,
   template/runner/remote inspection, original style references and three interactive
   journey previews with browser interaction/layout evidence; approved final direct
-  navigation; 17-feature specification, granular checkpoints and 101 mapped criteria
+  navigation; 17 calculator features plus accounts contract, granular checkpoints and
+  113 mapped criteria (61 original + AC01–AC52)
 Pending mandatory evidence: all product packets, live key/provider checks,
   source publication review, terminal approaches, public/recovery acceptance
 Live authorization: none transferred from Portfolio/template
@@ -898,12 +911,13 @@ Complete checks/integration/evidence/closeout for each packet before advancing.
 
 ## 16. Open product decisions
 
-Only these choices warrant asking now; technical defaults and design are specified:
+Only this product choice remains; technical defaults and design are specified:
 
-1. **D02 authentication/ownership:** the owner requested investigation of reusable template authentication. The current recommendation is the ASP.NET Core Identity/cookie/React foundation and authenticated server-owned projects in ReactAuthenticationFoundation.md. Select local email/password versus external-only sign-in and whether cross-product SSO is needed, then update storage/retention/authorization and authentication cleanup together. Device-local storage remains a specified alternative, not the selected default. No authentication implementation or final ownership choice is approved by the investigation request.
-2. **Public launch level:** publish a clearly labelled road-only beta after its useful/safe gates, or wait for complete v1 including ferry comparison and second-provider import? Design review is complete; no launch option is approved yet. An early beta never reduces complete-v1 requirements.
+1. **Public launch level:** publish an explicitly labelled road-only beta after its useful/safe gates, or wait for complete v1 including ferry comparison and second-provider import? No launch option is approved yet. Until selected, continue complete-v1 implementation without adding a speculative beta profile. Early beta never reduces complete-v1 requirements.
 
-Resolved: the owner approved the current direct-navigation design, a CarbonCalculator-specific runner registration on the existing node, Fieldwork colors and B+C combined on 2026-10-15. The construction-site receiver and invoice/delivery-note context supersedes outbound-shipping language. Invoice scanning remains future work. Preserve the current runner and do not ask the settled decisions again.
+Resolved D02 on 2026-10-17: verified email/password accounts and private server-saved projects across devices using PostgreSQL, separate per product. Organizations/sharing/SSO and React MFA/passkeys remain future work. Do not ask these settled choices again.
+
+Previously resolved: the owner approved the current direct-navigation design, a CarbonCalculator-specific runner registration on the existing node, Fieldwork colors and B+C combined on 2026-10-15. The construction-site receiver and invoice/delivery-note context supersedes outbound-shipping language. Invoice scanning remains future work. Preserve the current runner and do not ask the settled decisions again.
 
 No need to ask the owner to select an ORM, state library, validation framework, API versioning pattern or deployment ports. Revisit a default only when evidence or a new product requirement makes it unsuitable.
 
@@ -914,7 +928,7 @@ The **planning task** is complete when this detailed plan is reviewed, integrate
 The **implementation goal** is complete only when:
 
 1. CarbonCalculator is independent, private, React/ASP.NET and LocalSingleNode-only; cleanup and actual downstream gates are complete.
-2. All mandatory vertical slices have real evidence, including D02-consistent saved projects/incomplete deliveries, approved direct navigation, supplier/dispatch evidence, standard-material transport and compatible Dashboard aggregation, five materials, real routing, ferry inference, private documents, immutable reports/project backup, warehouse/load/boundary behavior and second-provider import.
+2. All mandatory vertical slices have real evidence, including account flows, two-user denial, account export/deletion, durable PostgreSQL projects/incomplete deliveries, approved direct navigation, supplier/dispatch evidence, standard-material transport and compatible Dashboard aggregation, five materials, real routing, ferry inference, private documents, immutable reports/project backup, warehouse/load/boundary behavior and second-provider import.
 3. The requested HTTPS product serves the verified immutable release with correct method/data revisions and passes independent public acceptance.
 4. Free-only operation, scoped shared-node ownership, update/compatible rollback, consistent data restore and maintainable handover are proven.
 5. Required work is complete or explicitly deferred by the owner with recorded reason; workspace cleanup and authoritative next-work notes are finished.
