@@ -67,8 +67,7 @@ public sealed class AccountMigrationTests
 
     private static async Task<PostgreSqlContainer> StartDatabaseAsync()
     {
-        var container = new PostgreSqlBuilder(TestContainerImages.PostgreSql)
-            .WithCreateParameterModifier(TestContainerImages.ConfigurePostgreSqlData)
+        var container = TestContainerImages.CreatePostgreSqlFixture()
             .WithLabel(TestContainerLabels.For("account-migration-tests"))
             .WithCleanUp(true)
             .Build();

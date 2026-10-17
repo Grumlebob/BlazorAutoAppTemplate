@@ -22,6 +22,8 @@ def main(argv=None, *, client_factory=RegistryClient) -> int:
     parser.add_argument("--username", default=os.environ.get("GITHUB_ACTOR", ""))
     parser.add_argument("--package", action="append", required=True,
                         help="Exact configured payload image and expected visibility: ghcr.io/owner/app-release-payload=private")
+    parser.add_argument("--retain-manifest", action="append", default=[],
+                        help="Preserve an explicitly reviewed config-only bootstrap: ghcr.io/owner/app-release-payload@sha256:...")
     args = parser.parse_args(argv)
     try:
         packages = {}
@@ -35,11 +37,21 @@ def main(argv=None, *, client_factory=RegistryClient) -> int:
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
         if not args.repository or not args.username or not token:
             raise RetentionError("repository, username and an existing workflow token are required")
-        inventory, states = collect_inventory(args.repository, packages, client_factory(args.username, token))
+        retained = set()
+        for reference in args.retain_manifest:
+            if reference.count("@") != 1:
+                raise RetentionError("retained bootstrap requires an exact package and manifest digest")
+            key = tuple(reference.split("@", 1))
+            if key in retained:
+                raise RetentionError("retained bootstrap list contains a duplicate")
+            retained.add(key)
+        inventory, states = collect_inventory(args.repository, packages, client_factory(args.username, token),
+                                              retained_manifests=frozenset(retained))
         result = {
             "schema_version": 1, "observed_utc": datetime.now(timezone.utc).isoformat(),
             "repository": args.repository, "packages": packages, "versions": len(inventory.versions),
             "payload_roots": len(inventory.payloads), "verified_ci_attempts": len(states),
+            "retained_manifests": len(inventory.retained_manifests),
             "stored": inventory_usage(inventory), "protection": "not-evaluated", "mutation": "none",
         }
         print(json.dumps(result, sort_keys=True))
