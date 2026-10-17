@@ -37,7 +37,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: cd-localsinglenode
+  group: template-registry-payloads
   cancel-in-progress: false
 
 jobs:

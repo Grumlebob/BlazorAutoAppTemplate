@@ -1488,7 +1488,7 @@ for needle, why in [
     ("environment:", "GitHub deployment environment"),
     ("LOCALCLUSTER_ENVIRONMENT", "optional side-by-side GitHub environment variable"),
     ("concurrency:", "deployment concurrency guard"),
-    ("group: cd-localcluster", "CD concurrency group"),
+    ("group: template-registry-payloads", "shared deployment and registry concurrency group"),
     ("LOCALCLUSTER_RUNNER_LABEL", "optional side-by-side runner label variable"),
     ("localcluster", "shared LocalCluster runner label"),
     ("Require main branch", "main branch deployment guard"),
@@ -1611,6 +1611,50 @@ if "Deploy Ship To LAN" in deploy_lan or "Deploy App To LAN" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: workflow name must be explicitly CD-oriented")
 if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan or "dotnet tool restore" in deploy_lan:
     fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
+
+registry_workflow = read(".github/workflows/registry-retention.yml")
+for path, workflow in [
+    (".github/workflows/ci.yml", read(".github/workflows/ci.yml")),
+    (".github/workflows/cd-localcluster.yml", deploy_lan),
+    (".github/workflows/cd-localsinglenode.yml", read(".github/workflows/cd-localsinglenode.yml")),
+    (".github/workflows/registry-retention.yml", registry_workflow),
+]:
+    if "group: template-registry-payloads" not in workflow or "cancel-in-progress: false" not in workflow:
+        fail(f"{path}: publication, deployment, and retention must share a non-cancellable registry coordination group")
+publish_main = read(".github/workflows/ci.yml").split("  publish-main:", 1)[-1]
+for needle, why in [
+    ("Enforce final GHCR payload capacity before any registry publication", "final registry admission gate"),
+    ("--admission-kind final", "final release reserves full payload size before publication"),
+    ("--reserved-bytes", "registry admission accounts for incoming payload bytes"),
+    ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is required for final admission"),
+]:
+    if needle not in publish_main:
+        fail(f".github/workflows/ci.yml: missing {why}")
+if publish_main.find("Enforce final GHCR payload capacity before any registry publication") > publish_main.find("- name: Build Docker image"):
+    fail(".github/workflows/ci.yml: final GHCR capacity gate must precede publication builds")
+for needle, why in [
+    ("registry_coordination:", "LocalCluster deployment waits for the shared registry reservation check"),
+    ("needs: registry_coordination", "LocalCluster deploy job depends on registry reservation check"),
+    ("registry-retention.py --assert-clear", "unresolved deletion reservations block LocalCluster deployment"),
+]:
+    if needle not in deploy_lan:
+        fail(f".github/workflows/cd-localcluster.yml: missing {why}")
+for needle, why in [
+    ('name: GHCR registry retention', "dedicated registry maintenance workflow"),
+    ("schedule:", "scheduled registry retention"),
+    ('cron: "37 3 * * *"', "daily bounded registry retention"),
+    ("localcluster_protection", "LocalCluster current/recovery protections"),
+    ("localsinglenode_primary", "primary LocalSingleNode current/recovery protections"),
+    ("localsinglenode_additional", "optional additional-app current/recovery protections"),
+    ("REGISTRY_COORDINATION_SCOPE_COMPLETE", "all consumer scopes required before deletion"),
+    ("with-deploy-lock.sh", "registry deletion runs under the shared deployment lock"),
+    ("--apply", "registry retention applies only from the main-only maintenance workflow"),
+]:
+    if needle not in registry_workflow:
+        fail(f".github/workflows/registry-retention.yml: missing {why}")
+pull_payload_reader = read("Deployment/Common/Scripts/Component/lib/pull_release_payload.py")
+if "assert_selection_available" not in pull_payload_reader:
+    fail("Deployment/Common/Scripts/Component/lib/pull_release_payload.py: payload selection must honor live deletion reservations")
 manual_deploy = read("Deployment/LocalCluster/Scripts/deploy.sh")
 for needle, why in [
     ('git -C "$REPO_ROOT" show "${APP_VERSION}:frontend-profile.txt"', "manual deploy profile resolved from selected source commit"),
@@ -2584,6 +2628,11 @@ for needle, why in [
     ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
     ("verify-operation-source.py", "green CI source gate"),
+    ("prune_archived_diagnostics:", "off-by-default archived diagnostic cleanup input"),
+    ("inputs.prune_archived_diagnostics == true", "manual-only archived diagnostic deletion"),
+    ("prune-archived-diagnostic-artifacts.py", "manifest-bound diagnostic artifact cleanup"),
+    ("Plans/ZeroCostDiagnosticArchiveManifest-20261017.json", "exact preserved archive manifest"),
+    ("with-deploy-lock.sh", "archived diagnostic cleanup under shared deployment lock"),
 ]:
     if needle not in single_maintenance:
         fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")

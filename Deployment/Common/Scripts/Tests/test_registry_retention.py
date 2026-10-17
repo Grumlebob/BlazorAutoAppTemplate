@@ -102,6 +102,19 @@ class RegistryRetentionTests(unittest.TestCase):
         with self.assertRaises(retention.RetentionError):
             retention.require_publication_capacity(plan, kind="final", reserved_bytes=1)
 
+    def test_publication_capacity_counts_protected_and_disposable_bytes_together(self):
+        inventory = fixture([
+            payload(1, age=1, size=retention.FINAL_BYTES - 50),
+            payload(2, age=20, size=100),
+        ])
+        plan = retention.plan_retention(
+            inventory, protection(inventory, digests={(PACKAGE, digest(1))}), now=NOW,
+        )
+        self.assertEqual([2], [item.version_id for item in plan.delete])
+        self.assertFalse(plan.admission_blocked)
+        with self.assertRaises(retention.RetentionError):
+            retention.require_publication_capacity(plan, kind="final", reserved_bytes=1)
+
     def test_shared_manifest_is_not_deleted_while_a_retained_root_uses_it(self):
         old, old_root = payload(1, age=20)
         current, current_root = payload(2, age=1)

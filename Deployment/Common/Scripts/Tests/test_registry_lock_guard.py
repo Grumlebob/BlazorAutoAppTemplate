@@ -117,6 +117,11 @@ class SharedRegistryGuardTests(unittest.TestCase):
         with self.assertRaises(RetentionError):
             guard_module.assert_selection_available(PACKAGE, VERSION.digest, repository=REPO)
 
+    def test_registry_guard_requires_lock_without_importing_pin_module(self):
+        with patch.dict(os.environ, {"LOCALCLUSTER_DEPLOY_LOCK_DIR": "", "LOCALCLUSTER_DEPLOY_LOCK_TOKEN": ""}):
+            with self.assertRaises(RetentionError):
+                self.guard()
+
     @unittest.skipUnless(os.name == "posix", "shared deployment wrapper requires Linux")
     def test_real_process_lock_excludes_selection_while_a_registry_reservation_is_active(self):
         wrapper = LIB.parents[1] / "with-deploy-lock.sh"

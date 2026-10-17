@@ -17,6 +17,7 @@ from release_status import (
     pin_state,
     summarize_marker,
     verify_offline_pin_restore,
+    verified_registry_payload_references,
 )
 import pin_release_payload
 
@@ -97,6 +98,37 @@ class ReleaseStatusTests(TestCase):
                   "release_payload_pin_key": "legacy-123-" + "e" * 64}
         summary = summarize_marker(marker, repository_url=self.repository_url, app_image=self.marker["image"])
         self.assertEqual(pin_state(summary, {marker["release_payload_pin_key"]}), "verified")
+
+    def test_registry_protection_resolves_exact_ghcr_digest_from_a_verified_local_pin(self):
+        summary = summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"])
+        metadata = {
+            "transport": "ghcr-container", "target_sha": summary["source_sha"],
+            "run_id": summary["ci_run_id"], "run_attempt": summary["ci_run_attempt"],
+            "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+            "payload_digest": "sha256:" + "f" * 64,
+        }
+        with patch.object(pin_release_payload, "validate", return_value=metadata) as validate:
+            references = verified_registry_payload_references(
+                {"current": summary, "recovery": None},
+                {"current": summary["release_payload_pin_key"], "recovery": None},
+                Path("/verified/pins"),
+            )
+        validate.assert_called_once_with(Path("/verified/pins") / summary["release_payload_pin_key"])
+        self.assertEqual(references[0]["payload_digest"], metadata["payload_digest"])
+
+    def test_registry_protection_rejects_a_pin_that_differs_from_its_release_marker(self):
+        summary = summarize_marker(self.marker, repository_url=self.repository_url, app_image=self.marker["image"])
+        metadata = {
+            "transport": "ghcr-container", "target_sha": "b" * 40,
+            "run_id": summary["ci_run_id"], "run_attempt": summary["ci_run_attempt"],
+            "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+            "payload_digest": "sha256:" + "f" * 64,
+        }
+        with patch.object(pin_release_payload, "validate", return_value=metadata):
+            with self.assertRaisesRegex(ReleaseStatusError, "differs"):
+                verified_registry_payload_references(
+                    {"current": summary}, {"current": summary["release_payload_pin_key"]}, Path("/verified/pins"),
+                )
 
     def test_inferred_legacy_pin_requires_local_inventory_validation(self):
         legacy = {

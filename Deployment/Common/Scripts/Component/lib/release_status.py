@@ -120,6 +120,46 @@ def pin_state(
     raise ReleaseStatusError("registry release has no durable local pin")
 
 
+def verified_registry_payload_references(
+    releases: dict[str, dict[str, Any] | None],
+    marker_pins: dict[str, str | None],
+    pin_root: Path,
+) -> list[dict[str, str]]:
+    """Return immutable GHCR roots proven by the exact current/recovery local pins."""
+    references = []
+    for slot in ("current", "recovery"):
+        release = releases.get(slot)
+        if release is None:
+            continue
+        pin_key = marker_pins.get(slot)
+        is_registry = (release.get("payload_transport") == "ghcr-container"
+                       or (release.get("payload_transport") == "local-pin"
+                           and str(release.get("release_payload_pin_key") or "").startswith("ghcr-")))
+        if not is_registry:
+            continue
+        if not isinstance(pin_key, str) or not pin_key.startswith("ghcr-") or pin_key == "ambiguous":
+            raise ReleaseStatusError(f"{slot} GHCR marker has no verified local pin")
+        try:
+            pin = pin_release_payload.validate(pin_root / pin_key)
+        except (OSError, ValueError) as error:
+            raise ReleaseStatusError(f"{slot} GHCR local pin is unavailable") from error
+        if (pin.get("transport") != "ghcr-container"
+                or pin.get("target_sha") != release.get("source_sha")
+                or str(pin.get("run_id")) != release.get("ci_run_id")
+                or str(pin.get("run_attempt")) != release.get("ci_run_attempt")
+                or not isinstance(pin.get("payload_image"), str)
+                or not isinstance(pin.get("payload_digest"), str)):
+            raise ReleaseStatusError(f"{slot} GHCR pin differs from its release marker")
+        references.append({
+            "payload_image": pin["payload_image"],
+            "payload_digest": pin["payload_digest"],
+            "ci_run_id": str(pin["run_id"]),
+            "ci_run_attempt": str(pin["run_attempt"]),
+            "source_sha": pin["target_sha"],
+        })
+    return references
+
+
 def verify_offline_pin_restore(
     release: dict[str, Any] | None,
     pin_root: Path,

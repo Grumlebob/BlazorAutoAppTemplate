@@ -8,6 +8,10 @@ Cloud CD selects the same exact CI receipt and retrieves the migration bundle fr
 
 The main publisher job needs `packages: write`; repository Actions permissions must allow `GITHUB_TOKEN` to grant that job-scoped permission. Validation stays read-only. CD uses `GITHUB_TOKEN` with `packages: read`. No GitHub token goes into the vault. Manual node credentials, when needed for a private application image, need only `read:packages`.
 
+The private release-payload packages use a bounded GHCR budget: at most 1 GiB of final releases and 2 GiB of transfer/harness payloads. Main publication checks available capacity before pushing, counting current roots and protected releases; planned deletion never frees space. The daily `GHCR registry retention` workflow reads verified current and recovery markers from every enabled target, then prunes at most 100 unreferenced versions under the existing deployment lock. Publication, LocalCluster and LocalSingleNode CD, and GHCR retention share one non-cancellable Actions concurrency group. A pending exact deletion reservation blocks payload selection and LocalCluster deployment until exact absence is verified and inventory is refreshed.
+
+The LocalSingleNode maintenance workflow also has an off-by-default manual input for the reviewed legacy diagnostic archive. It checks the exact archived artifact and producer attempt, deletes at most 100 exact IDs per run, and verifies each deleted ID returns 404. It does not select artifacts by name or age.
+
 For a new receipt, if the GHCR payload is missing or cannot be retrieved, stop. Run the full CI workflow again for the selected source SHA and deploy only after that run publishes a fresh receipt and payload. Do not rerun only the publisher job after a failed CI run. Legacy pre-receipt runs use their exact Actions artifact while it remains available; if it is missing or expired, run the full CI workflow again for the same source SHA.
 
 ## Select a published source

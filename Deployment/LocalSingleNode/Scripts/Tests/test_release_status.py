@@ -50,10 +50,23 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
             (root / "release-state/previous.json").write_text(json.dumps(recovery), encoding="utf-8")
             inventory = {
                 "outcome": "consistent", "pins": 2, "protected": [pin_current, pin_recovery],
+                "marker_pins": {"current": pin_current, "recovery": pin_recovery},
                 "protected_bytes": 100, "candidate_bytes": 20, "planned_delete": [],
                 "blocked_reason": None, "dry_run": True,
             }
+            def validated_pin(pin_path):
+                release = current if pin_path.name == pin_current else recovery
+                return {
+                    "transport": "ghcr-container",
+                    "target_sha": release["source_sha"],
+                    "run_id": release["ci_run_id"],
+                    "run_attempt": release["ci_run_attempt"],
+                    "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+                    "payload_digest": "sha256:" + ("e" if release is current else "f") * 64,
+                }
+
             with patch.object(status.pin_release_payload, "_require_shared_lock"), \
+                    patch.object(status.pin_release_payload, "validate", side_effect=validated_pin), \
                     patch.object(status.pin_release_payload, "prune_local_pins", return_value=inventory), \
                     patch.object(status, "list_active_deployment_runs", return_value=[{"run_id": "77"}]), \
                     patch.object(status, "verify_live_identity", return_value="verified"), \
@@ -66,6 +79,11 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
 
         self.assertEqual(result["current_pin"], "verified")
         self.assertEqual(result["recovery_pin"], "verified")
+        self.assertEqual(len(result["registry_payload_references"]), 2)
+        self.assertEqual(
+            {reference["ci_run_id"] for reference in result["registry_payload_references"]},
+            {"12341", "12342"},
+        )
         self.assertEqual(result["active_deployments"], [{"run_id": "77"}])
         self.assertEqual(result["mutation"], "none")
         self.assertTrue(result["pin_inventory"]["dry_run"])
@@ -91,6 +109,14 @@ class LocalSingleNodeReleaseStatusTests(TestCase):
                 "blocked_reason": None, "dry_run": True,
             }
             with patch.object(status.pin_release_payload, "_require_shared_lock"), \
+                    patch.object(status.pin_release_payload, "validate", return_value={
+                        "transport": "ghcr-container",
+                        "target_sha": current["source_sha"],
+                        "run_id": current["ci_run_id"],
+                        "run_attempt": current["ci_run_attempt"],
+                        "payload_image": "ghcr.io/grumlebob/private-books-release-payload",
+                        "payload_digest": "sha256:" + "e" * 64,
+                    }), \
                     patch.object(status.pin_release_payload, "prune_local_pins", return_value=inventory), \
                     patch.object(status, "list_active_deployment_runs", return_value=[]), \
                     patch.object(status, "verify_live_identity", return_value="verified"), \

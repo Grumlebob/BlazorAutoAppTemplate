@@ -17,7 +17,7 @@ import stat
 from typing import Callable
 import uuid
 
-from pin_release_payload import _require_shared_lock
+from shared_deploy_lock import require_shared_lock
 from registry_retention import (
     DIGEST, PACKAGE, Inventory, Protection, RetentionError, Version,
     inventory_from_record, inventory_record, normalize_repository, plan_retention,
@@ -149,7 +149,7 @@ class SharedLockGuard:
         self.reservation_id = reservation_id
         self.refresh_protection = refresh_protection
         self.now = now
-        self.lock_dir, self.token = _require_shared_lock()
+        self.lock_dir, self.token = require_shared_lock(RetentionError)
         self.path = self.lock_dir / JOURNAL
         if inventory is None:
             journal = self._owned(reservation_id)
@@ -159,7 +159,7 @@ class SharedLockGuard:
         self.inventory = inventory
 
     def _lock(self) -> None:
-        directory, token = _require_shared_lock()
+        directory, token = require_shared_lock(RetentionError)
         if directory != self.lock_dir or token != self.token:
             raise RetentionError("registry reservation lost its shared deployment lock")
 
@@ -243,7 +243,7 @@ class SharedLockGuard:
 
 def assert_selection_available(package: str, digest: str, *, repository: str) -> None:
     """Reject a reserved digest before a locked reader retrieves or pins it."""
-    lock_dir, _ = _require_shared_lock()
+    lock_dir, _ = require_shared_lock(RetentionError)
     path = lock_dir / JOURNAL
     if not path.exists() and not path.is_symlink():
         return

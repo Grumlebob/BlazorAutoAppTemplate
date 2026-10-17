@@ -23,6 +23,7 @@ if str(LIB) not in sys.path:
 import ci_payload_receipt  # noqa: E402
 import pull_release_payload  # noqa: E402
 import registry_payload  # noqa: E402
+from shared_deploy_lock import require_shared_lock  # noqa: E402
 from release_manifest import ManifestError, sha256_file, validate_manifest_payload  # noqa: E402
 
 MANIFEST = registry_payload.MANIFEST_FILENAME
@@ -620,22 +621,7 @@ def _restore_files(pin_dir: Path, output_dir: Path, metadata: dict[str, Any]) ->
 
 
 def _require_shared_lock() -> tuple[Path, str]:
-    lock_text = os.environ.get("LOCALCLUSTER_DEPLOY_LOCK_DIR", "")
-    token = os.environ.get("LOCALCLUSTER_DEPLOY_LOCK_TOKEN", "")
-    if not lock_text or not token:
-        raise PinError("local release pin retention requires the shared deployment lock")
-    lock_dir = Path(lock_text)
-    token_path = lock_dir / "token"
-    if (lock_dir.is_symlink() or not lock_dir.is_dir() or token_path.is_symlink()
-            or not token_path.is_file()):
-        raise PinError("shared deployment lock identity is unavailable")
-    try:
-        actual = token_path.read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeDecodeError) as error:
-        raise PinError("shared deployment lock token cannot be read") from error
-    if actual != token:
-        raise PinError("shared deployment lock token changed")
-    return lock_dir.resolve(), token
+    return require_shared_lock(PinError)
 
 
 def _read_release_marker(path: Path, repository: str) -> dict[str, Any] | None:
