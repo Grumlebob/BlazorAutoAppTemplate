@@ -1,6 +1,6 @@
 # CarbonCalculator acceptance and source traceability
 
-Status: specification only, 2026-10-15. **Every implementation row below is pending.** Accepted mockups and the 23 supplied source-data tests do not pass these product gates. No product tests were run by this planning revision.
+Status: specification only, 2026-10-17. **Every implementation row below is pending.** Accepted mockups and the 23 supplied source-data tests do not pass these product gates. No product tests were run by this planning revision.
 
 This ledger preserves all 30 T IDs, seven R IDs and 24 V3 IDs from the supplied handoff. Source: the SHA-256-preserved `Calculator.md` sections 22/33 and `docs/LIVE_ROUTING.md`. Copy the originals privately into downstream source intake during P02. [FeatureSpecification.md](FeatureSpecification.md) supersedes the handoff's framework and UI composition; [ImplementationPackets.md](ImplementationPackets.md) defines executable checkpoints.
 
@@ -11,7 +11,7 @@ Each row's proof is a proposed test/evidence target, not an existing test. Durin
 | Level | Target responsibility | What it cannot prove |
 | --- | --- | --- |
 | Domain | Actual C# quantity, matching, method, load, ledger, aggregation and ranking policies | Provider/network access or browser usability |
-| API | Real application host, generated contracts, capability/validation, persistence, upstream adapter fixtures | Real upstream quota/key/service availability |
+| API | Real application host, generated contracts, session/ownership/antiforgery, validation, persistence, upstream adapter fixtures | Real upstream quota/key/service availability |
 | Browser | Real ASP.NET/React app against deterministic providers and owned isolated data | Live provider success or five real humans' understanding |
 | Live | Bounded explicit new geocode/HGV/terminal calls with sanitized evidence | Carrier history, exact manufacture or measured emissions |
 | Release | Exact-main CI/publication, immutable identity, deployment/public/recovery | Completion of untested feature behavior |
@@ -97,7 +97,7 @@ The source's Node CLI examples are evidence helpers, not the product backend. Eq
 | V3-23 | Active provider URLs use HeiGIT, not deprecated host | P09, P18 | Source/config/request audit; old-host strings permitted only as rejection tests/history |
 | V3-24 | Metadata-only steel/gypsum still permits transport-only | P13 | Browser exact missing-production plus valid freight outcome |
 
-## 5. Added product acceptance AC01–AC40
+## 5. Added product acceptance AC01–AC52
 
 These additions close gaps between the source prototype and the approved construction-site product. They do not replace any original ID.
 
@@ -107,12 +107,12 @@ These additions close gaps between the source prototype and the approved constru
 | AC02 | Add delivery beside list; no To review card, duplicate list or review route | P08A, P11B | Browser Dashboard desktop/mobile/keyboard |
 | AC03 | Material/Transport/Documents deep links target the same record directly | P08A | Router/direct refresh/Back/Forward and selected-section focus |
 | AC04 | Section switching preserves dirty fields, attachments and route selection | P08A, P12A | Browser edit buffer across all sections and About |
-| AC05 | Save survives browser close under approved D02; failed writes are not success | P08A | New page/browser profile behavior and quota/transaction failure |
+| AC05 | Save survives browser close under approved D02; failed writes are not success | P08A | Same account on another browser/device; server transaction/network/quota failure |
 | AC06 | Incomplete delivery saves with missing quantity/origin/EPD/provider | P08A, P11B | Browser partial-save/reopen and no numeric zero substitution |
 | AC07 | Edit/save preserves stable ID without duplicate counting | P08A, P11B | Store transaction/revision tests and aggregate count |
 | AC08 | Dirty leave offers Save/Discard/Stay; section switch needs no warning | P08A | Browser route/project navigation with unsaved fields |
 | AC09 | Projects isolate records, documents, filters and destination edits | P08A, P12A | Two-project browser/API scope denial |
-| AC10 | Two-tab conflict preserves both edits and never silently overwrites | P08A | IndexedDB revision/concurrent browser contexts |
+| AC10 | Two-tab conflict preserves both edits and never silently overwrites | P08A | PostgreSQL conditional revisions across independent signed-in browser contexts/devices |
 | AC11 | Duplicate warning permits deliberate additional receipt/shared invoice | P11B | Same/different date/material/line cases |
 | AC12 | Received date stays local calendar date across timezones | P08A | Store/export/import/date display around timezone boundaries |
 | AC13 | Saved incomplete/stale records excluded from current aggregate with coverage | P11B | Domain/API/browser totals and filter link |
@@ -123,14 +123,14 @@ These additions close gaps between the source prototype and the approved constru
 | AC18 | Standard category/edition/received-versus-incorporated basis explicit | P11A | Eligibility/mapping/source revision and qualified receipt result |
 | AC19 | Project additions are excluded, never multiplied once per delivery | P11A | Domain/API/print scope and no invented compliance total |
 | AC20 | Input edit invalidates only dependent results; late request cannot overwrite | P11B | Fingerprint/request-race and contextual/numeric change matrix |
-| AC21 | Unknown/forged/rebound local snapshots cannot enter verified current total | P11B, P12B | Signature/key-revision/replay/ID mapping cases |
+| AC21 | Unknown/forged/imported/rebound snapshots cannot enter verified current total | P11B, P12B | Owner/record/fingerprint/revision and import ID-mapping cases |
 | AC22 | Genuine complete zero differs from no estimate | P11B | Domain tagged values and UI empty/zero states |
 | AC23 | Attach/preview-or-download/remove reachable directly from Dashboard | P12A | Browser real selected-file lifecycle |
 | AC24 | Attachment never extracts quantity/dispatch or authenticates a fact | P12A | Browser input snapshots before/after attach |
-| AC25 | Wrong/missing evidence capability and guessed IDs deny retrieval/deletion | P12A | API ownership and inaccessible response consistency |
+| AC25 | Missing/revoked session, foreign/nested IDs and wrong antiforgery deny document access/writes | P12A | API owner/antiforgery and inaccessible-response consistency |
 | AC26 | File type/magic/size/count/image-pixel/global limits enforced | P12A | Hostile upload fixtures and bounded memory/disk outcomes |
 | AC27 | Interrupted/retried upload is idempotent and leaves no accessible partial bytes | P12A | API cancel/restart/promotion/reconciliation cases |
-| AC28 | Local original survives server expiry under D02; unavailable copies labelled | P12A | Clock-controlled expiry and browser local download |
+| AC28 | Finalized original persists across logout/restart/devices; only abandoned staging expires; deleted originals unavailable | P12A | Clock-controlled staging cleanup and authorized cross-device download |
 | AC29 | Removed attachment stays historical metadata without leaking old access | P12A | Immutable snapshot plus deletion/expiry and no public URL |
 | AC30 | Report JSON omits tokens/raw files and reproduces exact source values | P12 | Serialization/privacy and no-network read |
 | AC31 | Project backup/import distinct from report and honest about absent originals | P12B | Fresh browser restore preview and originals manifest |
@@ -138,11 +138,28 @@ These additions close gaps between the source prototype and the approved constru
 | AC33 | About owns general lessons; working forms retain specific source access | P08, P11B | Browser no teaching dropdown/card and accessible contextual drawer |
 | AC34 | Quota and cache count each real provider leg/retry across restarts | P09, P18 | Persisted counters, concurrent dedupe and provider-call accounting |
 | AC35 | No-key/offline/tiles failure preserves useful records/material/standard results | P10, P11A | Browser failure matrix; no fixture labelled live |
-| AC36 | Public/private API, assets, deep links, CSP and caching behave correctly | P08, P18–P20 | Host/browser/public reserved paths and capability/content cache checks |
-| AC37 | SQLite/documents/signing-key restore preserves signature/expiry/access behavior | P12, P21 | Isolated consistent restore, checksums and original expiry clock |
+| AC36 | Public/private API, assets, deep links, CSP and caching behave correctly | P08, P18–P20 | Host/browser/public reserved paths and session/owner/private-content cache checks |
+| AC37 | PostgreSQL Identity/product/key store plus files/wrapping-key restore preserves owner denials and selected restore session policy | P12, P21 | Isolated consistent restore, checksums and temporary expiry, deletion reconciliation and forced reauthentication |
 | AC38 | Accepted UI works at 320/390/768/1024/1440 px, zoom, keyboard and print | P18 | Real browser/a11y/manual print evidence, map alternatives |
 | AC39 | Private independent repo, React/single-node cleanup and own release identity | P01–P08 | Inventory/local gate/exact-head/main publication and manifest |
 | AC40 | Shared-node release/update/rollback/publication preserves other apps | P19–P21 | Authorized runs/digests, independent checks and scoped cleanup |
+
+Additional account/ownership requirements from the selected 2026-10-17 product design follow. These extend the original AC IDs; they do not reset or pass any earlier row. [AccountsAndOwnership.md](AccountsAndOwnership.md) defines their detailed contracts.
+
+| ID | Required behavior | Packet | Proposed evidence |
+| --- | --- | --- | --- |
+| AC41 | Enabled inherited email/password account journey reaches private projects | P08B | Real PostgreSQL/Identity cookies/TLS SMTP registration, confirmation, login, logout, password recovery and email change; no copied users/default passwords |
+| AC42 | PostgreSQL Projects has immutable session-derived owner FK and constrained child graph | P08B, P08A | Migrations/indexes/FKs; forged owner, foreign list/read/write, nested parent swaps and Admin-without-bypass tests |
+| AC43 | Cookie-authenticated product writes require antiforgery; revoked/absent sessions cannot access private data | P08B, P12A | JSON 401/403, foreign/missing 404 shape, multipart and calculation POST protection, no redirects/private edge caching |
+| AC44 | Private caches/requests/confirmations/drafts cannot cross app/account generations | P08B, P08A | Two users/tabs, logout/reset/email-change revocation, checking/unavailable, late responses, hidden owner-bound draft and explicit discard |
+| AC45 | Saved projects, reports and finalized originals persist across devices until deletion | P08A, P12, P12A | Same user/new browser, restart and clock beyond 24 hours; temporary route/upload expiry remains separate |
+| AC46 | Concurrent saves and lost acknowledgements cannot duplicate or overwrite committed work | P08A, P12, P12A, P12B | Conditional revisions, two-device 409, scoped idempotency/hash conflict, uncertain-commit and late-result selection cases |
+| AC47 | Project/account deletion revokes all owned data access and durably cleans files without resurrection | P08A, P12, P12A | Real account current-password deletion, child cleanup, deletion/upload race, crash/retry/orphan job and other-user preservation |
+| AC48 | Account/project exports cover owned product data; import never grants owner/access/approval claims | P08A, P12, P12A, P12B | Account export projects/manifests; no credential hashes/stamps/secrets/raw files; foreign owner IDs, fresh IDs, missing originals and atomic failure |
+| AC49 | Aggregation loads authorized stored current snapshots; no browser-authoritative totals or parallel signing store | P11B, P12B | Foreign record refs, stale fingerprints/revisions, duplicates, imported claims, full-project pagination/filter independence |
+| AC50 | Product self-registration/recovery has real free-service email evidence before public launch | P18–P20 | Protected configuration validation, authorized controlled inbox confirmation/recovery, sender requirements, quota/failure guidance; fixtures alone do not pass |
+| AC51 | Consistent isolated restore recovers records/files/keys and safely reconciles sessions/mail/deletions | P21 | External egress disabled, checksums/recovery point, exact report bytes, two-user denial, original files, forced reauthentication and stale mail cancellation |
+| AC52 | Concurrent user/project/global limits remain bounded and account mode cannot silently disable | P08B, P08A, P12A, P18 | Startup/release capability failure, atomic project/record/upload quotas, disk reserve, global provider budget across product users and no private state in browser persistence |
 
 ## 6. Source sections without a unique test ID
 
@@ -156,7 +173,7 @@ These additions close gaps between the source prototype and the approved constru
 | Original §§16–17/31 | Source/formula graph and transparent immutable reports | F13–F14, P11B/P12, V3-18/V3-19 |
 | Original §§21/30 | Bounded staged importer plus one reviewed second-provider dataset | F16, P17; add actual importer/selection proof before complete v1 |
 | Original §§4/31 | Teaching presentation adapted to owner's About/direct-workspace design | F13/F17, AC01–AC04/AC33; do not restore rejected tutorial dropdowns |
-| Original framework/install/auth paths | Next.js/Drizzle/local-no-auth replaced by ASP.NET/React/EF SQLite and approved D02 | Delivery plan §§5/8/12; no Node production server |
+| Original framework/install/auth paths | Next.js/Drizzle/local-no-auth replaced by ASP.NET/React/EF PostgreSQL and selected account-owned projects | Delivery plan §§5/8/12; no Node production server |
 
 ## 7. Release evidence rules
 
@@ -166,10 +183,11 @@ Use a real `React/CarbonCalculatorRoadBeta` acceptance pair through profile reso
 
 | Beta requirement | Required proof before publication |
 | --- | --- |
-| Approved Dashboard and storage | D02 resolved; P08A complete, stable/partial saves, direct sections and browser-storage truthfulness |
+| Approved Dashboard and storage | D02 resolved; P08A complete, stable/partial saves, direct sections and cross-device PostgreSQL saves and session ownership |
 | Source-backed useful calculator | Reviewed timber and brick standard lines, timber production/transport-only/per-unit behavior, source drawers and compatible totals |
 | Real road routing | R1–R4, road-only portions of R5–R7 and V3-02–V3-07 with new live inputs; no fixture labelled live |
-| Records/documents/reports | P11B/P12/P12A/P12B complete with ownership, import, expiry, safe retrieval and no leaked capabilities |
+| Records/documents/reports | P11B/P12/P12A/P12B complete with ownership, import, temporary expiry, safe retrieval, account revocation and no leaked access secrets |
+| Accounts/email/lifecycle | AC41–AC52 applicable account, ownership, deletion/export and real sender gates; a beta does not waive privacy or recovery |
 | Public safety/operations | Actual quotas, CSP, caching/privacy, scoped deployment, exact release identity, update/rollback and isolated runtime restore |
 | Honest feature availability | Ferry unavailable, unsupported materials numeric-unavailable, warehouse/importer controls absent until implemented; remaining full-v1 IDs explicitly pending |
 
@@ -181,4 +199,4 @@ Complete v1 uses `React/CarbonCalculatorPublicV1` and requires all mandatory sou
 - Link every passed row to an actual file/run and exact source SHA. If a test changes after its last run, the result is stale until rerun at the required gate.
 - Before a public beta, enumerate which rows are required and which complete-v1 rows remain pending. No launch-level decision silently defers a mandatory final-v1 feature.
 - Before complete v1, all mandatory source and added product rows have evidence or an explicit owner deferral. Formal compliance certification remains outside scope, not a missing certification blocker.
-- Runtime recovery includes SQLite, finalized evidence bytes and snapshot-signing keys. A backup filename or key-presence check alone is insufficient.
+- Runtime recovery includes PostgreSQL Identity/product/key/outbox data, finalized document bytes and protected wrapping-key recovery inputs. A backup filename or key-presence check alone is insufficient.

@@ -1,6 +1,6 @@
 # CarbonCalculator implementation checkpoints
 
-Status: planned work only, 2026-10-15. Use [the delivery plan](../../CarbonCalculatorDelivery.md) for the full packet order and gates, [FeatureSpecification.md](FeatureSpecification.md) for behavior and [Acceptance.md](Acceptance.md) for proof obligations. The owner approved the latest design; no packet requires another mockup selection.
+Status: planned work only, 2026-10-17. Use [the delivery plan](../../CarbonCalculatorDelivery.md) for the full packet order and gates, [FeatureSpecification.md](FeatureSpecification.md) for behavior and [Acceptance.md](Acceptance.md) for proof obligations. The owner approved the latest design; no packet requires another mockup selection.
 
 This file splits the product work into reviewable changes. A numbered checkpoint can be a small PR, but its parent packet is complete only when the whole visible slice works. Do not create one broad backend phase followed by one broad frontend phase. Every public operation includes validation, generated contract, UI state/error handling and evidence in its slice.
 
@@ -14,18 +14,15 @@ This file splits the product work into reviewable changes. A numbered checkpoint
 4. Treat unimplemented controls in the preview as illustrative. Do not copy the prototype's duplicated function overrides, inline event handlers or local emissions formulas into React.
 5. Mark D01 complete after the implementation brief is retained. Responsive/accessibility acceptance still occurs against real implementation; another color/layout approval is not a prerequisite.
 
-### D02 — Resolve saved-project ownership/lifetime
+### D02 — Selected accounts, ownership and lifetime
 
-1. Follow the owner's authentication investigation in [ReactAuthenticationFoundation.md](../../ReactAuthenticationFoundation.md). The current recommendation is a reusable Identity/cookie/React foundation and authenticated server-owned projects. Device-local storage in FeatureSpecification.md is an unselected alternative. Record the chosen credential/ownership policy before implementing either.
-2. Record the answer and storage/lifetime statement in Requirements and Privacy before P08A or P12A. The old tab-only design is superseded as a recommendation, not silently promoted to production.
-3. If device-local is approved, use IndexedDB and the local/server split below. If cross-device is chosen, prepare a focused account/ownership/migration packet, update the schema/access rules and revise authentication cleanup before implementing dependent storage. Do not ship anonymous server CRUD as a shortcut.
-4. Keep foundation import, profile cleanup, source QA, pure domain work and provider adapters progressing while the answer is pending.
+Selected on 2026-10-17: verified email/password accounts and server-saved private PostgreSQL projects across devices. Read [AccountsAndOwnership.md](AccountsAndOwnership.md) before dependent work; it replaces IndexedDB/anonymous-token storage and SQLite. Reuse the completed template account foundation; no auth redesign or another owner decision. Keep separate product identities, users, sessions and keys. Public launch level remains open; planning is not deployment authorization.
 
-## 2. Foundation packets P01–P08
+## 2. Foundation packets P01–P08 and P08B
 
 | Checkpoint | Concrete output | Failure that must stop promotion |
 | --- | --- | --- |
-| P01 baseline | Full upstream SHA with exact-main successful CI, current guide/workflow inventory and destination-state evidence | Empty-repo import assumed without checking remote |
+| P01 baseline | Full upstream SHA containing account review `45aa44308340285e54568a5a2262bcf0a6deec17` with exact-main successful CI, current guide/workflow inventory and destination-state evidence | Empty-repo import assumed without checking remote |
 | P02 seed | Own private origin, safe app/image identity, Actions held until eligible runner, retained upstream provenance | A tool still defaults to template/Books or destination contains unknown work |
 | P03 capacity | CarbonCalculator-specific eligible runner on the existing node, separate registration/service state, green product main | Existing template runner removed/rebound; inherited runner labels target another app |
 | P04 React-only | Blazor dependency removal and replacement audits, retained browser test tooling, React-only build/image | Razor/WASM build path still accepted or shared assets deleted first |
@@ -33,23 +30,27 @@ This file splits the product work into reviewable changes. A numbered checkpoint
 | P06 rename | Explicit project/path/manifest/namespace map, Linux build and generated-contract drift check | Source/run/image/migration identity differs between publication and CD |
 | P07 product docs | Current README/Requirements/Test/Operations and attribution; obsolete fork language removed | Required audit rules silently deleted with a guide |
 | P08 SPA shell | Known routes, section navigation semantics, safe reserved-path/404 behavior, strict CSP and acceptance-profile binding | API/asset errors return HTML, private paths are prerendered or Books acceptance remains final |
+| P08B accounts, after P08 | Enabled inherited React accounts and PostgreSQL owner-scoped thin project entry; local TLS SMTP and two-user/antiforgery/revocation proof | Accounts disabled, shared app identity/key ring, foreign IDs accepted, or template tests substituted for product ownership proof |
+
+P08B runs before P08A. Preserve Identity/React endpoints, antiforgery, key store and encrypted mail outbox during Blazor cleanup. Add thin Projects owner FK/revision/index and real create/list/read/empty UI; P08A completes CRUD and child data. Prove account flows with real Identity cookies/isolated PostgreSQL/TLS SMTP, forged-owner/nested-ID denial, admin without bypass, session changes, owner-bound drafts and stale-response cancellation. Record account export/deletion hooks now and extend them with every later entity. P18 prepares production mail; controlled real-inbox verification at P19/P20 gates public launch, not local implementation.
 
 Keep the full removal inventories and local/PR/main gates in the main plan. Do not rename code that P04/P05 will delete. P03 uses the already approved extra registration on the existing node, never a bootstrap of the controller PC.
 
 ## 3. P08A — Project and delivery persistence through the approved shell
 
-Prerequisites: P08, D01 and D02. No routing key is required. This packet introduces an actual useful editable record, with calculation explicitly input-needed until its handler lands.
+Prerequisites: P08B, D01 and selected D02. No routing key is required. This packet introduces an actual useful editable record, with calculation explicitly input-needed until its handler lands.
 
-1. Add feature-owned UI state modules under `app/features/site-receipts`: project context, delivery edit buffer, validation model and local-store adapter. Use route composition only for navigation. Do not put the complete application in a global mutable object.
-2. Define/version IndexedDB stores for projects, deliveries, attachment blobs/metadata and saved snapshots. Keep browser schema migration separate from EF server migration. Add atomic upgrade/rollback-safe failure behavior; do not erase a database on an unsupported version.
+1. Add feature-owned UI state modules under `app/features/site-receipts`: project context, delivery edit buffer, validation model and generated owner-scoped API/query adapter. Use route composition only for navigation. Do not put the complete application in a global mutable object.
+2. Extend PostgreSQL project/delivery schema with FKs, owner-constrained handlers, revision tokens and transactional idempotency. Keep saved records distinct from memory edit buffers; migrations never erase existing data on unsupported versions.
+
 3. Implement create/select/rename project with name and optional unresolved site. An empty installation is empty; sample project loading is explicit and separately labelled.
 4. Implement Add delivery with one generated stable ID, empty quantity/supplier/origin/reference and optional received date. Add Material/Transport/Documents section routes and preserve raw edit strings while switching.
-5. Save incomplete records atomically without calculation. Return to the original Dashboard context and show success only after the transaction commits. Add specific retry/export behavior for write/quota failure.
-6. Implement open/edit/update for the same ID with local revision checks. Notify other tabs of changes and offer reload/save-as-new on conflict. Do not overwrite an unsaved buffer.
+5. Save incomplete records atomically without calculation. Return to the original Dashboard context and show success only after the transaction commits. Add specific retry/export behavior for network/storage/quota failure.
+6. Implement open/edit/update for the same ID with atomic server revision checks. Notify other tabs of changes and handle independent device updates and offer reload/save-as-new on conflict. Do not overwrite an unsaved buffer.
 7. Implement leave handling: Save, Discard, Stay when dirty; section switches are safe without a prompt. The browser-close warning is best effort, not the sole protection.
-8. Implement delivery and project deletion with named/count-aware confirmation and owned attachment reference cleanup. Delete only the current owner's records; keep exported copies outside app control.
-9. Add bounded local search/filter/order/paging and direct Dashboard links to each delivery section. No provider calls occur during search, section switching, save or project selection.
-10. Exercise refresh/browser restart, two projects, partial save, edit without duplication, two-tab conflict, failed writes, unknown deep link and cancelled/completed deletion. Use fresh storage profiles for deterministic evidence.
+8. Implement delivery and project deletion with named/count-aware confirmation and owned attachment access removal and durable byte cleanup. Delete only the current owner's records; keep exported copies outside app control.
+9. Add bounded owner/project-scoped server search/filter/order/paging and direct Dashboard links to each delivery section. No provider calls occur during search, section switching, save or project selection.
+10. Exercise refresh/browser restart, two projects, partial save, edit without duplication, two-tab conflict, failed writes, unknown deep link and cancelled/completed deletion. Use two isolated signed-in users/devices for deterministic ownership, conflict and revocation evidence. Extend account/project deletion/export in this packet.
 
 Exit: the real React app can save/reopen a project and an incomplete delivery, navigate directly to its useful sections and preserve data under D02. It must not show a fabricated estimate yet.
 
@@ -94,12 +95,13 @@ Exit: independent source-backed standard material lines work end to end. Live ro
 
 ## 7. P11B — Dashboard totals, edit invalidation and source inspection
 
-Start pure fingerprint/aggregation rules alongside P11/P11A. Complete P12's persistent runtime/key ring before shipping signed aggregation. Packet labels group work; the concrete dependency order is P11/P11A, P12, P11B, P12A, P12B. Do not introduce a P11B/P12 completion cycle.
+Start pure fingerprint/aggregation rules alongside P11/P11A. Complete P12's saved snapshot support before shipping aggregation; PostgreSQL already exists from P08B/P08A. Packet labels group work; the concrete dependency order is P11/P11A, P12, P11B, P12A, P12B. Do not introduce a P11B/P12 completion cycle.
 
 1. Define separate fingerprints for routing inputs, numeric calculation inputs and report context. Add the dependency table from FeatureSpecification.md as named domain/UI rules.
 2. Mark edited results stale immediately; keep the prior snapshot immutable. Ignore a late response if its fingerprint/edit revision no longer matches. Preserve source history without counting old results as current.
-3. Sign immutable snapshot envelopes with the app's persisted signing key ring; do not include access tokens in signatures/exports. Verification checks schema/key revision and normalized content. Unknown keys require explicit recalculation rather than trusting client totals.
-4. Implement `AggregateProjectTransport` as server-owned pure aggregation. Validate signed/authorized inputs, stable record identity, quantity basis, method-group compatibility and non-overlap. Reject duplicate record/snapshot contributions and bounded-body violations.
+3. Load snapshots from the authorized project instead of verifying signed browser contribution envelopes. Validate ownership, record identity/revision, input fingerprint and immutable payload hash; imported claims remain historical until recalculation. No new signing key ring.
+4. Implement server-owned aggregation over current selected saved assessments, compatible quantity/method groups and non-overlapping movement identities. Reject foreign/duplicate record refs, stale revisions and bounds violations. Extend account export/deletion to new aggregate metadata if any is retained.
+
 5. Render headline/breakdown/coverage from that response. Keep standard and WTW/method revisions separate; no estimate means no estimate. Search/paging does not alter the project-wide total.
 6. Put excluded/input-needed/stale counts into the estimate's compact coverage and existing list filters. Do not recreate To review as a second list/card.
 7. Generate contextual Calculation and source drawers from the actual nodes, with safe links, provenance, exact substitutions and count/exclude reasons. About receives the general explanations.
@@ -110,45 +112,45 @@ Exit: Dashboard and delivery calculations agree, use no independent JavaScript e
 
 ## 8. P12 — Server runtime and immutable reports
 
-1. Introduce EF SQLite migrations for provider caches, route envelopes, global budgets, snapshots/capability hashes, signing-key metadata and short-lived evidence metadata. Approved catalogs remain versioned files.
-2. Add capability issue/read/delete with independent random tokens, hash-only server storage, safe comparisons, expiry and generic inaccessible responses. No global report list.
-3. Implement report snapshot/signature serialization and no-network read/print/JSON export. Preserve source and method revisions; rerun creates a new ID and explicit comparison.
-4. Copy the safe signed immutable snapshot into the local project on explicit save/export. Server capability remains tab-local; a local copy does not keep the server object alive.
-5. Remove Books/PostgreSQL/Redis sample infrastructure. Remove or replace inherited authentication only after D02 is resolved. Update health/Compose/secrets/migrations/tooling/CI/audit together.
-6. Build/verify a real SQLite migration bundle and Linux native dependencies. Persist runtime data, key ring and app document paths under owned volumes with non-root write permissions.
-7. Implement retention as an app-scoped bounded job; deny expired objects on read even if deletion lags. Document deletion/backups separately.
-8. Exercise expiry/wrong capability, restart, concurrent writes, migration from previous schema, source updates after old reports and no provider calls during read/print/export.
+1. Extend PostgreSQL migrations for owned immutable reports, route/cache/budget data and temporary expiry. Reuse account/Identity/key/outbox runtime and release migration tooling; catalogs remain versioned files.
+2. Authorize report create/read/delete/export through current session and owner graph; antiforgery protects writes. No anonymous capability API. Validate nested IDs and selected result fingerprint/revision.
+3. Serialize exact immutable snapshot bytes; read/print/JSON export make no network/provider call. Explicit recalculation creates a new ID/comparison.
+4. Persist saved reports until explicit deletion; unattached standalone results expire by default. Browser keeps parsed private data only in owner-scoped memory; explicit user downloads are separate.
+5. Remove Books sample endpoints/UI/data with reviewed schema cleanup while retaining PostgreSQL, supported Redis, account storage, protected wrapping inputs and real migration/release tooling.
+6. Add snapshot linkage to project/account export/deletion; reject imported owner/approval claims and cross-project result rebinding. Avoid replaying provider/mutation work on uncertain commits.
+7. Implement bounded temporary expiry and durable deletion reconciliation. Deny expired/deleted/inaccessible objects even when physical cleanup lags; disclose backup retention.
+8. Exercise two-user/antiforgery/revocation denial, restart, concurrency, previous-schema migration, exact-byte exports and unchanged old reports after catalog updates. No extra local-signature trust mechanism.
 
 Exit: reproducible private reports and persistent runtime work without template sample dependencies. VS2/C2 still require P12A/P12B and all applicable product behavior.
 
 ## 9. P12A — Documents as a complete vertical feature
 
-1. Resolve D02 and store selected local files under atomic record/blob ownership. Set count/size/project caps and handle denied persistence/browser quota without losing existing data.
-2. Add attach/list/remove with file picker, optional accessible drop area, safe filename/type/size and duplicate-byte warning. File selection does not parse or populate business fields.
-3. Implement explicit short-lived server evidence-container creation and bounded upload under independent receipt capabilities. Add idempotency for container/upload retries; reused keys with different payload fail.
-4. Stream into owned temporary storage while enforcing limits. Validate signature/type/hash and bounded images before promotion; ensure failed validation/abort leaves no accessible partial file.
-5. Commit SQLite metadata and final bytes through a documented recoverable promotion protocol. On restart reconcile scoped staged/unreferenced files rather than guessing successful upload from file existence.
-6. Add authorized retrieval/deletion with safe headers/no caching and consistent inaccessible responses. PDF download is required; inline preview requires a proven sandbox. Local originals remain downloadable after server expiry.
-7. Link attachment ID/page to user-entered evidence only through explicit selection. Preserve source/evidence distinction; no OCR or dispatch verification runs.
-8. Add metadata/hash snapshots to reports; removing/expiring bytes preserves immutable historical metadata and displays original-unavailable state.
-9. Add bounded cleanup, per-client/global storage controls, capacity health, staging/orphan retention and server deletion retry state. Set initial numeric limits from FeatureSpecification.md and confirm host capacity before launch.
-10. Extend backup/restore to SQLite, key ring and finalized server files consistently. Local browser originals need user-owned downloads/backups and are not covered by the node backup.
-11. Exercise spoofed MIME/type, traversal, malformed/oversized images, wrong owner, expiry, interrupted upload, two retries, quota, restart promotion/reconciliation and no capability/document content in logs.
-12. Exercise browser attach/download or preview/remove, duplicate handling, save/reopen and report metadata. Prove no entered quantity/dispatch field changes merely because a file was attached.
+1. Require an explicitly saved owned incomplete delivery before upload. Use AccountsAndOwnership.md §4 limits; no browser persistence or anonymous receipt container.
+2. Add file picker/optional accessible drop area, progress/failure/retry, duplicate-byte warning within this delivery, download-or-safe-preview and remove. Selecting a file never extracts business values.
+3. Use session/antiforgery and full nested owner graph checks on upload/list/read/remove. Scope idempotency receipts and byte reservations to user/project/operation; differing replay payload conflicts.
+4. Stream to owned staging with byte/type/hash/pixel bounds. Reject active/spoofed types, traversal and malformed images; abort leaves no accessible partial file.
+5. Promote finalized bytes/PostgreSQL metadata through a documented recoverable protocol. Reconcile staged/unreferenced files on restart; filesystem presence alone is not upload success.
+6. Finalized originals persist across logout/restart/another signed-in device. Safe download headers/no-store are required; PDF inline preview needs proven isolation.
+7. Link document/page to a user-entered fact only through explicit selection. No automatic OCR, dispatch confirmation or source approval.
+8. Snapshot safe attachment metadata/hash; removal makes original unavailable without rewriting retained numerical reports. Raw bytes/tokens stay out of JSON.
+9. Enforce concurrent per-user/project/global caps and bounded staging expiry. Remove access immediately on delete, commit independent deletion jobs and retry scoped cleanup after crashes.
+10. Extend account/project export/deletion and consistent PostgreSQL/files/key recovery. Stop late uploads/saves from recreating deleted data; do not delete another owner's bytes.
+11. Exercise foreign/nested IDs, revoked sessions, antiforgery, type/MIME/traversal/pixel/size/count/storage limits, abort/retry/promotion/cleanup and no private-content logs.
+12. Exercise real browser attach/download/remove, explicit initial save, cross-device reopen and account/project deletion. Verify quantities/dispatch stay unchanged.
 
-Exit: supporting evidence behaves predictably across local save, explicit server copy, expiry, deletion and recovery. Future scanning is still unimplemented.
+Exit: supporting evidence behaves predictably across server save, cross-device access, temporary staging expiry, deletion and recovery. Future scanning is still unimplemented.
 
 ## 10. P12B — Portable project backup and restore
 
-1. Define versioned `ProjectBackup` separately from `CalculationReport`; include editable record IDs/references, original user values, safe snapshots and an originals manifest. Never include capabilities, private server URLs or paths.
+1. Define versioned `ProjectBackup` separately from `CalculationReport`; include editable record IDs/references, original user values, historical snapshots and an originals manifest. Never include capabilities, private server URLs or paths.
 2. Add Project backup and Report JSON actions with truthful filenames/labels and scope. Clearly state that ordinary JSON excludes document bytes; provide separate original downloads.
 3. Build an import validator with bounded bytes/depth/records/source refs and explicit supported versions. Reject unsafe URLs/text/unsupported schemas before permanent writes.
 4. Show a preview: project name, record/material counts, numerical trust state, missing originals and duplicate-batch warning. Default to creating a new project and fresh record IDs.
-5. Apply import in one local transaction or a recoverable staged operation. Existing project edits must survive a failed import. Never restore source approval flags or network-fetch external attachment URLs from imported data.
-6. Preserve signed snapshots as historical evidence; verify them before any current aggregate use. Fresh local IDs and mapping changes can require recalculation/re-signing. Never edit a signed envelope to make a new identity appear verified.
-7. Exercise same-browser reopen and new-browser restore with no original server objects, hostile/older/newer schema imports, duplicate imports and quota failures. Recalculation remains explicit and separate.
+5. Apply import in one owner-scoped PostgreSQL transaction or a recoverable staged operation. Existing project edits must survive a failed import. Never restore source approval flags or network-fetch external attachment URLs from imported data.
+6. Preserve imported snapshots as historical/unverified evidence; new owned IDs never inherit current numerical approval. Explicit server recalculation creates current results after validation. Ignore supplied owner IDs and do not rebind old report/attachment access.
+7. Exercise signed-in reopen on another device and import after original project deletion, hostile/older/newer schema imports, duplicate imports and quota failures. Recalculation remains explicit and separate.
 
-Exit: users can retain and restore their editable project/calculation evidence without pretending absent originals or expired server capabilities were backed up. An optional file-inclusive archive is deferred unless separately implemented and bounded.
+Exit: users can retain and restore their editable project/calculation evidence without pretending absent originals or private access to deleted originals was backed up. An optional file-inclusive archive is deferred unless separately implemented and bounded.
 
 ## 11. P13–P14 — Material breadth and warehouse/load behavior
 
@@ -198,14 +200,14 @@ Staging output records original document/hash, parsed candidate rows, original/n
 ## 14. P18–P21 — Launch and recovery evidence
 
 1. Resolve the owner launch-level decision. Road beta has a documented reduced publication gate; complete v1 still requires all mandatory rows in Acceptance.md. No default assumption of an early launch.
-2. Complete deterministic feature/API/browser acceptance against the approved navigation, local/server storage contract, quantities, source matching, grouping, reports and uploads. Live provider checks remain separate and bounded.
+2. Complete deterministic feature/API/browser acceptance against the approved navigation and selected account-owned PostgreSQL storage contract, quantities, source matching, grouping, reports and uploads. Live provider checks remain separate and bounded.
 3. Reconcile all 61 source IDs and added AC IDs; record test/artifact, exact SHA and actual status. No row is passed by its written requirement alone.
 4. Evaluate the real UI with five genuine beginners; prepare neutral tasks and record original feedback. Four must distinguish making versus moving and estimated versus actual. Agents cannot impersonate participants.
-5. Produce an exact-main release with immutable image/payload digest, source/run/profile/schema/method/catalog identities. Confirm storage/key-ring compatibility and no browser-exposed provider secret.
+5. Produce an exact-main release with immutable image/payload digest, source/run/profile/schema/method/catalog identities. Confirm storage/key-store/wrapping-key compatibility and no browser-exposed provider secret.
 6. On the approved shared node, run only the product-owned deployment path for that immutable target. Record the dispatched run ID before watching and preserve other applications/resources.
 7. Publish only the owned requested hostname/tunnel through retained scripts; reuse safe existing credentials. Verify external HTTPS/deep links/API/private caching and the exact release identity.
-8. Prove normal update, compatible rollback/forward, app/connector restart and isolated SQLite/documents/key-ring restore. Restore must enforce original expiry/capability rules and signature verification.
-9. Hand over real runbooks for provider budget, failed uploads, browser-local backup, server expiry, source updates, key rotation, doctor and release recovery. Distinguish recoverable node data from browser data the node does not hold.
+8. Prove normal update, compatible rollback/forward, app/connector restart and isolated PostgreSQL/documents/wrapping-key restore. Disable external mail/provider egress; verify owner denials, exact snapshots, deletion reconciliation and the disaster-restore reauthentication policy.
+9. Hand over real runbooks for provider budget, failed uploads, account/project export and deletion, temporary expiry, source updates, key rotation, doctor and release recovery. Distinguish server-saved work from unsaved memory edits and downloaded user copies. P18 prepares and validates sender/mail configuration; P19/P20 proves authorized real inbox delivery, confirmation and recovery on the reachable HTTPS product before public launch.
 10. Close finished PRs/worktrees/branches only after integrated-content verification, dependency/dirty/ignored review and evidence preservation. Do not remove a live preview or another task's checkout as cleanup.
 
 Exit: the chosen launch level is publicly proven; complete-v1 status is reserved for the full source/feature/recovery contract. Remaining external inputs have concrete owner/action/state records.
