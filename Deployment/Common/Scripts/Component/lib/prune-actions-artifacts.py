@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -150,6 +151,184 @@ def list_active_producer_run_ids(
     return run_ids
 
 
+def workflow_dispatch_input_names(workflow_text: str) -> set[str] | None:
+    """Read simple workflow_dispatch.inputs mappings; unsupported YAML fails closed."""
+    key_pattern = re.compile(
+        r"""^([ \t]*)(?:'([^']+)'|"([^"]+)"|([A-Za-z_][A-Za-z0-9_-]*))\s*:\s*(.*)$"""
+    )
+    on_seen = False
+    dispatch_seen = False
+    dispatch_indent = 0
+    inputs_seen = False
+    input_key_indent: int | None = None
+    names: set[str] = set()
+    inputs_indent: int | None = None
+
+    for line in workflow_text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = key_pattern.fullmatch(line)
+        indent = len(line) - len(line.lstrip(" \t"))
+        if not match:
+            if on_seen and not dispatch_seen and "workflow_dispatch" in line:
+                return None
+            if dispatch_seen and not inputs_seen and "inputs" in line:
+                return None
+            if (
+                inputs_seen
+                and inputs_indent is not None
+                and indent > inputs_indent
+                and (input_key_indent is None or indent <= input_key_indent)
+            ):
+                return None
+            continue
+
+        key = match.group(2) or match.group(3) or match.group(4)
+        value = match.group(5).strip()
+        has_inline_value = bool(value and not value.startswith("#"))
+        if indent == 0:
+            if key == "on":
+                if has_inline_value:
+                    return None
+                on_seen = True
+                dispatch_seen = False
+                inputs_seen = False
+                continue
+            if on_seen:
+                break
+        if not on_seen:
+            continue
+        if not dispatch_seen:
+            if indent > 0 and key == "workflow_dispatch":
+                if has_inline_value:
+                    return None
+                dispatch_seen = True
+                dispatch_indent = indent
+            continue
+        if not inputs_seen:
+            if indent <= dispatch_indent:
+                break
+            if key == "inputs":
+                if has_inline_value:
+                    return None
+                inputs_seen = True
+                inputs_indent = indent
+            continue
+        if inputs_indent is None or indent <= inputs_indent:
+            break
+        if input_key_indent is None:
+            input_key_indent = indent
+        if indent < input_key_indent:
+            break
+        if indent == input_key_indent:
+            names.add(key)
+
+    return names if dispatch_seen else None
+
+
+def workflow_job_step(workflow_text: str, job_name: str, step_name: str) -> str | None:
+    jobs_header = re.search(r"(?m)^jobs:\s*(?:#.*)?$", workflow_text)
+    if jobs_header is None:
+        return None
+    after_jobs = workflow_text[jobs_header.end():]
+    job_header = re.search(
+        rf"(?m)^  {re.escape(job_name)}:\s*(?:#.*)?$", after_jobs
+    )
+    if job_header is None:
+        return None
+    job_body_start = jobs_header.end() + job_header.end()
+    after_job = workflow_text[job_body_start:]
+    next_job = re.search(r"(?m)^  [A-Za-z_][A-Za-z0-9_-]*:\s*(?:#.*)?$", after_job)
+    job_body = after_job[:next_job.start()] if next_job else after_job
+    steps_header = re.search(r"(?m)^    steps:\s*(?:#.*)?$", job_body)
+    if steps_header is None:
+        return None
+    steps = job_body[steps_header.end():]
+    step_header = re.search(
+        rf"(?m)^      - name:\s*{re.escape(step_name)}\s*$", steps
+    )
+    if step_header is None:
+        return None
+    after_step = steps[step_header.end():]
+    next_step = re.search(r"(?m)^      - ", after_step)
+    return after_step[:next_step.start()] if next_step else after_step
+
+
+def legacy_dispatch_head_sha(
+    api_root: str, repo: str, token: str, workflow_file: str, run: dict[str, Any]
+) -> str | None:
+    """Resolve old fixed-title runs only when their own workflow proves GITHUB_SHA was deployed."""
+    head_sha = run.get("head_sha")
+    if not isinstance(head_sha, str) or not COMMIT_SHA_RE.fullmatch(head_sha):
+        return None
+    if run.get("event") != "workflow_dispatch":
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.yml", workflow_file):
+        return None
+    expected_path = f".github/workflows/{workflow_file}"
+    run_path = str(run.get("path") or "").split("@", 1)[0]
+    if run_path != expected_path:
+        return None
+    head_repository = run.get("head_repository")
+    if not isinstance(head_repository, dict) or head_repository.get("full_name") != repo:
+        return None
+
+    workflow_path = urllib.parse.quote(expected_path, safe="/")
+    query = urllib.parse.urlencode({"ref": head_sha})
+    payload = github_request(
+        api_root,
+        "GET",
+        f"/repos/{repo}/contents/{workflow_path}?{query}",
+        token,
+        ignore_not_found=True,
+    )
+    if not isinstance(payload, dict) or payload.get("encoding") != "base64":
+        return None
+    encoded = payload.get("content")
+    if not isinstance(encoded, str):
+        return None
+    try:
+        decoded = base64.b64decode(re.sub(r"\s+", "", encoded), validate=True).decode("utf-8")
+    except (ValueError, UnicodeError):
+        return None
+
+    input_names = workflow_dispatch_input_names(decoded)
+    if input_names is None or not input_names.issubset({"run_migrations"}):
+        return None
+    workflow_text = decoded.replace("\r\n", "\n").replace("\r", "\n")
+    load_settings_step = workflow_job_step(workflow_text, "deploy", "Load deployment settings")
+    if load_settings_step is None:
+        return None
+    deploys_head_tag = re.search(
+        r'(?m)^[ \t]*echo[ \t]+"APP_VERSION=\x24\{GITHUB_SHA\}"[ \t]*$',
+        load_settings_step,
+    )
+    if not deploys_head_tag:
+        return None
+    for step_name in ("Deploy with migrations", "Deploy without migrations"):
+        deploy_step = workflow_job_step(workflow_text, "deploy", step_name)
+        if (
+            deploy_step is None
+            or not re.search(r"(?m)^[ \t]*ansible-playbook\b", deploy_step)
+            or not re.search(
+                r'(?m)^[ \t]*-e[ \t]+"app_version=\x24\{APP_VERSION\}"[ \t]*\\?[ \t]*$',
+                deploy_step,
+            )
+        ):
+            return None
+    return head_sha
+
+
+def deployment_target_sha(
+    api_root: str, repo: str, token: str, workflow_file: str, run: dict[str, Any]
+) -> str | None:
+    title = str(run.get("display_title") or run.get("name") or "")
+    title_shas = COMMIT_SHA_RE.findall(title)
+    if title_shas:
+        return title_shas[-1]
+    return legacy_dispatch_head_sha(api_root, repo, token, workflow_file, run)
+
+
 def list_deployment_shas(
     api_root: str, repo: str, token: str, workflow_files: list[str]
 ) -> set[str]:
@@ -158,10 +337,9 @@ def list_deployment_shas(
     for workflow_file in workflow_files:
         for status in ACTIVE_STATUSES:
             for run in list_workflow_runs(api_root, repo, token, workflow_file, status):
-                title = str(run.get("display_title") or run.get("name") or "")
-                title_shas = COMMIT_SHA_RE.findall(title)
-                if title_shas:
-                    shas.add(title_shas[-1])
+                target_sha = deployment_target_sha(api_root, repo, token, workflow_file, run)
+                if target_sha:
+                    shas.add(target_sha)
                 else:
                     fail("deployment run has no verifiable target SHA; refusing artifact deletion")
         recent_successes = list_workflow_runs(
@@ -169,11 +347,9 @@ def list_deployment_shas(
         )
         successful_shas: list[str] = []
         for run in recent_successes:
-            title = str(run.get("display_title") or run.get("name") or "")
-            title_shas = COMMIT_SHA_RE.findall(title)
-            if not title_shas:
+            target_sha = deployment_target_sha(api_root, repo, token, workflow_file, run)
+            if not target_sha:
                 fail("successful deployment run has no verifiable target SHA; refusing artifact deletion")
-            target_sha = title_shas[-1]
             if target_sha not in successful_shas:
                 successful_shas.append(target_sha)
             if len(successful_shas) == 2:

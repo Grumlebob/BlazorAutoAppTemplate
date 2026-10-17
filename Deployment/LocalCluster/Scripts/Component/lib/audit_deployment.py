@@ -2605,6 +2605,25 @@ for needle, why in [
 ]:
     if needle not in single_pruner:
         fail(f"{single}/Scripts/prune-release-artifacts.sh: missing {why}")
+artifact_pruner = read("Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py")
+for needle, why in [
+    ("workflow_dispatch_input_names(", "legacy deployment recovery accepts only understood dispatch inputs"),
+    ("workflow_job_step(", "legacy deployment SHA proof is scoped to the deploy job's named steps"),
+    ("legacy_dispatch_head_sha(", "fixed-title deployments require their own workflow source to prove GITHUB_SHA targeting"),
+    ("head_repository.get(\"full_name\") != repo", "legacy workflow content must come from the deployment repository"),
+    ("input_names.issubset({\"run_migrations\"})", "legacy fallback rejects alternate target inputs"),
+]:
+    if needle not in artifact_pruner:
+        fail(f"Deployment/Common/Scripts/Component/lib/prune-actions-artifacts.py: missing {why}")
+artifact_pruner_tests = read("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py")
+for needle, why in [
+    ("test_legacy_fixed_title_uses_head_sha_only_when_historical_workflow_binds_it", "historical target resolution regression test"),
+    ("test_legacy_fixed_title_with_target_sha_input_fails_closed", "target override rejection regression test"),
+    ("test_legacy_fixed_title_without_head_binding_fails_closed", "missing binding rejection regression test"),
+    ("test_legacy_fixed_title_ignores_matching_lines_outside_deploy_job", "other-job source lines rejection regression test"),
+]:
+    if needle not in artifact_pruner_tests:
+        fail(f"Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py: missing {why}")
 for role in ("single_node_stack", "single_node_public"):
     require_contains(single + f"/ansible/roles/{role}/tasks/main.yml", "LOCALSINGLENODE_SETTINGS_FILE: \"{{ instance_settings_file | default('') }}\"", "collision check uses selected instance settings through privilege elevation")
 require_contains(single + "/Scripts/lib/ls_settings.py", 'os.environ.get("LOCALSINGLENODE_SETTINGS_FILE")', "selected instance settings shared by runtime verification and acceptance")

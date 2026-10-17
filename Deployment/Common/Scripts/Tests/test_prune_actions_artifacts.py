@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import importlib.util
 import io
@@ -127,6 +128,54 @@ class LockTests(unittest.TestCase):
 
 
 class DeploymentReferenceTests(unittest.TestCase):
+    def legacy_run(self, target_sha: str) -> dict:
+        return {
+            "display_title": "CD - Deploy LocalCluster",
+            "event": "workflow_dispatch",
+            "head_sha": target_sha,
+            "head_repository": {"full_name": "owner/repo"},
+            "path": ".github/workflows/cd.yml",
+        }
+
+    def legacy_workflow(
+        self,
+        input_name: str = "run_migrations",
+        *,
+        bind_head: bool = True,
+        deploy_job: str = "deploy",
+    ) -> dict:
+        dollar = chr(36)
+        lines = [
+            "name: CD - Deploy LocalCluster",
+            "on:",
+            "  workflow_dispatch:",
+            "    inputs:",
+            f"      {input_name}:",
+            "        type: boolean",
+            "jobs:",
+            f"  {deploy_job}:",
+            "    steps:",
+            "      - name: Load deployment settings",
+            "        run: |",
+        ]
+        if bind_head:
+            lines.append(f'          echo "APP_VERSION={dollar}{{GITHUB_SHA}}"')
+        lines.extend([
+            "      - name: Deploy with migrations",
+            "        run: |",
+            "          ansible-playbook site.yml \\",
+            f'            -e "app_version={dollar}{{APP_VERSION}}" \\',
+            "      - name: Deploy without migrations",
+            "        run: |",
+            "          ansible-playbook site.yml \\",
+            f'            -e "app_version={dollar}{{APP_VERSION}}"',
+        ])
+        text = "\n".join(lines) + "\n"
+        return {
+            "encoding": "base64",
+            "content": base64.b64encode(text.encode("utf-8")).decode("ascii"),
+        }
+
     def test_active_and_two_newest_successful_targets_are_protected(self):
         calls = []
         live_target = "a" * 40
@@ -156,6 +205,66 @@ class DeploymentReferenceTests(unittest.TestCase):
         self.assertNotIn(("cd-localcluster.yml", "completed"), calls)
         self.assertIn(("cd-localsinglenode.yml", "in_progress"), calls)
         self.assertTrue(all(any(observed == active for _, observed in calls) for active in prune.ACTIVE_STATUSES))
+
+    def test_legacy_fixed_title_uses_head_sha_only_when_historical_workflow_binds_it(self):
+        target = "a" * 40
+        run = self.legacy_run(target)
+
+        def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
+            return [run] if status == "success" else []
+
+        with (
+            mock.patch.object(prune, "list_workflow_runs", side_effect=runs),
+            mock.patch.object(prune, "github_request", return_value=self.legacy_workflow()) as request,
+        ):
+            shas = prune.list_deployment_shas("https://api.example", "owner/repo", "token", ["cd.yml"])
+
+        self.assertEqual({target}, shas)
+        self.assertIn(f"/repos/owner/repo/contents/.github/workflows/cd.yml?ref={target}", request.call_args.args[2])
+
+    def test_legacy_fixed_title_with_target_sha_input_fails_closed(self):
+        target = "a" * 40
+        run = self.legacy_run(target)
+
+        def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
+            return [run] if status == "success" else []
+
+        with (
+            mock.patch.object(prune, "list_workflow_runs", side_effect=runs),
+            mock.patch.object(prune, "github_request", return_value=self.legacy_workflow("target_sha")),
+        ):
+            with self.assertRaisesRegex(SystemExit, "no verifiable target SHA"):
+                prune.list_deployment_shas("https://api.example", "owner/repo", "token", ["cd.yml"])
+
+    def test_legacy_fixed_title_without_head_binding_fails_closed(self):
+        target = "a" * 40
+        run = self.legacy_run(target)
+
+        def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
+            return [run] if status == "success" else []
+
+        with (
+            mock.patch.object(prune, "list_workflow_runs", side_effect=runs),
+            mock.patch.object(prune, "github_request", return_value=self.legacy_workflow(bind_head=False)),
+        ):
+            with self.assertRaisesRegex(SystemExit, "no verifiable target SHA"):
+                prune.list_deployment_shas("https://api.example", "owner/repo", "token", ["cd.yml"])
+
+    def test_legacy_fixed_title_ignores_matching_lines_outside_deploy_job(self):
+        target = "a" * 40
+        run = self.legacy_run(target)
+
+        def runs(api_root, repo, token, workflow_file, status, *, max_runs=None):
+            return [run] if status == "success" else []
+
+        with (
+            mock.patch.object(prune, "list_workflow_runs", side_effect=runs),
+            mock.patch.object(
+                prune, "github_request", return_value=self.legacy_workflow(deploy_job="other")
+            ),
+        ):
+            with self.assertRaisesRegex(SystemExit, "no verifiable target SHA"):
+                prune.list_deployment_shas("https://api.example", "owner/repo", "token", ["cd.yml"])
 
     def test_ambiguous_recent_success_history_fails_closed(self):
         target = "a" * 40
