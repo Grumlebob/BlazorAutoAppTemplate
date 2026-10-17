@@ -164,12 +164,31 @@ class RegistryInventoryTests(unittest.TestCase):
         self.assertEqual(value.payloads[0].digest, plan.delete[0].digest)
 
     def test_visibility_and_repository_linkage_are_checked_before_manifest_access(self):
-        for field, replacement in (("visibility", "public"), ("repository", {"full_name": "foreign/app"}), ("name", "other-release-payload")):
+        for field, replacement in (("visibility", "public"), ("repository", {"full_name": "foreign/app"}),
+                                   ("repository", {"full_name": None}), ("name", "other-release-payload")):
             client = FixtureClient()
             client.metadata[field] = replacement
             with self.subTest(field=field), self.assertRaises(retention.RetentionError):
                 inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
             self.assertFalse(any(call.startswith("manifest:") for call in client.calls))
+
+    def test_omitted_or_unavailable_repository_linkage_keeps_exact_payload_provenance_checks(self):
+        for linkage in ("omitted", None):
+            client = FixtureClient()
+            if linkage == "omitted":
+                del client.metadata["repository"]
+            else:
+                client.metadata["repository"] = linkage
+            value, _ = inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
+            self.assertEqual(1, len(value.payloads))
+            self.assertEqual(REPOSITORY, value.repository)
+
+        client = FixtureClient()
+        del client.metadata["repository"]
+        client.labels["localcluster.ci.repository"] = "foreign/app"
+        client.rebuild()
+        with self.assertRaises(retention.RetentionError):
+            inventory.collect_inventory(REPOSITORY, {PACKAGE: "private"}, client)
 
     def test_exact_attempt_sha_main_ref_workflow_and_repository_must_match_labels(self):
         for field, replacement in (
