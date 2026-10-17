@@ -1,4 +1,5 @@
 app_name: books
+inventory_dns_suffix: home
 app_port: 8080
 postgres_port: 5432
 redis_port: 6379
