@@ -6,7 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       artifact_only:
-        description: Run artifact retention without host or Docker maintenance
+        description: Run artifact retention without host or Docker maintenance; preview unless apply_artifacts is true
+        type: boolean
+        required: false
+        default: false
+      apply_artifacts:
+        description: Apply GitHub Actions artifact retention during this manual dispatch
         type: boolean
         required: false
         default: false
@@ -117,5 +122,5 @@ jobs:
       - name: Prune old migration bundle artifacts under the shared deployment lock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false' }}
+          ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh bash Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh

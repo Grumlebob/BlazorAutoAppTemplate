@@ -677,12 +677,14 @@ jobs:
           PY
           )"
           packages=(--package "${PRIMARY_PAYLOAD_IMAGE}=private")
+          retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
           if [[ -n "$ADDITIONAL_PAYLOAD_IMAGE" ]]; then
             packages+=(--package "${ADDITIONAL_PAYLOAD_IMAGE}=private")
+            retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
           fi
           bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" --admission-kind final --reserved-bytes "$reserved_bytes"
+              "${packages[@]}" "${retained_bootstraps[@]}" --admission-kind final --reserved-bytes "$reserved_bytes"
 
       - name: Build Docker image
         env:

@@ -2,6 +2,12 @@ name: GHCR registry retention
 
 on:
   workflow_dispatch:
+    inputs:
+      apply_registry:
+        description: Delete eligible unprotected GHCR versions during this manual dispatch
+        type: boolean
+        required: false
+        default: false
   schedule:
     - cron: "37 3 * * *"
 
@@ -294,11 +300,16 @@ jobs:
           REGISTRY_PROTECTION_PRIMARY: ${{ needs.localsinglenode_primary.outputs.protection }}
           REGISTRY_PROTECTION_ADDITIONAL: ${{ needs.localsinglenode_additional.outputs.protection }}
           ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
+          REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}
         run: |
           set -euo pipefail
+          apply=()
+          if [[ "$REGISTRY_RETENTION_APPLY" == "true" ]]; then apply+=(--apply); fi
           packages=(--package "${{ steps.packages.outputs.primary }}=private")
+          retained_bootstraps=(--retain-manifest "${{ steps.packages.outputs.primary }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
           if [[ -n "${{ steps.packages.outputs.additional_payload_image }}" ]]; then
             packages+=(--package "${{ steps.packages.outputs.additional_payload_image }}=private")
+            retained_bootstraps+=(--retain-manifest "${{ steps.packages.outputs.additional_payload_image }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
           fi
           protections=(--protection-json "$REGISTRY_PROTECTION_CLUSTER" --protection-json "$REGISTRY_PROTECTION_PRIMARY")
           if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL" ]]; then
@@ -308,4 +319,4 @@ jobs:
           if [[ "$ADDITIONAL_ENABLED" == true ]]; then additional+=(--require-additional); fi
           bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" "${protections[@]}" "${additional[@]}" --apply
+              "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}"
