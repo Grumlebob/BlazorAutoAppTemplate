@@ -501,8 +501,15 @@ jobs:
         env:
           REPORT_STATUS: ${{ job.status }}
         run: |
+          report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate"
+          mkdir -p "$report_source"
+          if [[ -e BlazorAutoApp.Test/TestResults/Playwright || -L BlazorAutoApp.Test/TestResults/Playwright ]]; then
+            test ! -e "$report_source/playwright"
+            test ! -L "$report_source/playwright"
+            cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"
+          fi
           python3 Scripts/CI/ci_report_store.py save \
-            --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate" \
+            --source "$report_source" \
             --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job validate \
             --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
             --runner-name "${RUNNER_NAME:-$(hostname)}"
@@ -832,8 +839,15 @@ jobs:
         env:
           REPORT_STATUS: ${{ job.status }}
         run: |
+          report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main"
+          mkdir -p "$report_source"
+          if [[ -e BlazorAutoApp.Test/TestResults/Playwright || -L BlazorAutoApp.Test/TestResults/Playwright ]]; then
+            test ! -e "$report_source/playwright"
+            test ! -L "$report_source/playwright"
+            cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"
+          fi
           python3 Scripts/CI/ci_report_store.py save \
-            --source "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main" \
+            --source "$report_source" \
             --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job publish-main \
             --status "$REPORT_STATUS" --step-summary "$GITHUB_STEP_SUMMARY" \
             --runner-name "${RUNNER_NAME:-$(hostname)}"

@@ -1406,6 +1406,17 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         fail(".github/workflows/ci.yml: publisher must rebuild, bind, and validate its exact migration bundle before image or registry work")
     if publisher_job.find("ci-docker-smoke.sh") < 0 or publisher_job.find("ci-docker-smoke.sh") > publisher_job.find("Push Docker image"):
         fail(".github/workflows/ci.yml: publish-main must smoke-test the image before pushing it")
+
+    # Every terminal job retains browser diagnostics with its bounded local reports.
+    _report_step = workflow_step('validate', 'Store CI reports on this runner')
+    if 'cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
+        fail(".github/workflows/ci.yml: terminal report storage must include browser diagnostics")
+    _report_step = workflow_step('publish-main', 'Store CI reports on this runner')
+    if 'cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
+        fail(".github/workflows/ci.yml: terminal report storage must include browser diagnostics")
+    _smoke_reports = read("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh")
+    if _smoke_reports.count("/${GITHUB_JOB:-validate}/docker-smoke/") != 3:
+        fail("Docker browser smoke must retain TRX under its terminal job report source")
     if any("ci_report_store.py save" not in workflow_step(job_id, "Store CI reports on this runner")
            for job_id in ("validate", "publish-main")):
         fail(".github/workflows/ci.yml: both terminal jobs must store bounded reports locally")

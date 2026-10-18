@@ -14,7 +14,7 @@ Run this when validating both compositions. It needs Docker. CI also builds and 
 
 ## GitHub Actions reports
 
-CI stores TRX and React unit-test reports on the self-hosted runner, not in GitHub artifact storage. Each terminal job summary reports test totals, the runner name, and a retrieval command. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; the store also has a 1 GiB cap. The LocalSingleNode maintenance workflow prunes expired reports under the shared deployment lock.
+CI stores full TRX and React unit-test reports, plus available browser screenshots and traces, on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, and a retrieval command. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; the store also has a 1 GiB cap. The LocalSingleNode maintenance workflow prunes expired reports under the shared deployment lock.
 
 ## Local Gate
 
