@@ -8,6 +8,16 @@ on:
         type: boolean
         required: false
         default: false
+      capacity_recovery_ci_run_id:
+        description: Optional exact failed main CI run; only passed validation and a sole prepublication capacity failure qualify
+        type: string
+        required: false
+        default: ""
+      capacity_recovery_ci_attempt:
+        description: Exact attempt of that capacity-blocked CI run; supply together with its run ID
+        type: string
+        required: false
+        default: ""
   schedule:
     - cron: "37 3 * * *"
 
@@ -275,10 +285,21 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Require green main CI for unchanged operation code
+      - name: Verify validated main source for registry retention
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
+          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
+          REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_registry == true }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CAPACITY_RECOVERY_CI_RUN_ID" || -n "$CAPACITY_RECOVERY_CI_ATTEMPT" ]]; then
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            python3 Deployment/Common/Scripts/verify-registry-capacity-recovery.py \
+              --run-id "$CAPACITY_RECOVERY_CI_RUN_ID" --attempt "$CAPACITY_RECOVERY_CI_ATTEMPT"
+          else
+            python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+          fi
 
       - name: Resolve configured payload packages
         id: packages

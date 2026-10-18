@@ -1627,6 +1627,16 @@ if "dotnet ef migrations bundle" in deploy_lan or "dotnet restore" in deploy_lan
     fail(".github/workflows/cd-localcluster.yml: CD must consume CI artifacts instead of rebuilding them")
 
 registry_workflow = read(".github/workflows/registry-retention.yml")
+for needle in ("capacity_recovery_ci_run_id:", "capacity_recovery_ci_attempt:",
+               "CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}",
+               "CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}",
+               "verify-registry-capacity-recovery.py", "verify-operation-source.py"):
+    if needle not in registry_workflow:
+        fail("Registry retention must bind explicit capacity recovery inputs and preserve normal source verification")
+require_file("Deployment/Common/Scripts/verify-registry-capacity-recovery.py")
+require_file("Deployment/Common/Scripts/Tests/test_registry_capacity_recovery.py")
+require_contains(".github/workflows/ci.yml", "Deployment/Common/Scripts/Tests/test_registry_capacity_recovery.py",
+                 "capacity recovery source proof regression coverage")
 registry_dispatch = registry_workflow.split("  workflow_dispatch:", 1)[-1].split("  schedule:", 1)[0]
 for needle, why in [
     ("\n    inputs:\n      apply_registry:\n", "manual registry-apply input declaration"),

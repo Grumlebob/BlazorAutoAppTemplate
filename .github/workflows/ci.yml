@@ -225,6 +225,7 @@ jobs:
             Deployment/Common/Scripts/Tests/test_registry_inventory_cli.py \
             Deployment/Common/Scripts/Tests/test_registry_protection.py \
             Deployment/Common/Scripts/Tests/test_registry_retention_cli.py \
+            Deployment/Common/Scripts/Tests/test_registry_capacity_recovery.py \
             Deployment/Common/Scripts/Tests/test_registry_gc.py \
             Deployment/Common/Scripts/Tests/test_registry_lock_guard.py \
             Deployment/Common/Scripts/Tests/test_prune_archived_diagnostic_artifacts.py \
