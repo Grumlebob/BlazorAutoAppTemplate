@@ -14,6 +14,11 @@ export PATH="$TMP_ROOT/bin:$PATH"
 cp "$SOURCE/run-localcluster-maintenance.sh" "$SOURCE/localcluster-capacity-thresholds.sh" "$SOURCE/check-node-main-capacity.sh" "$TMP_ROOT/Deployment/LocalCluster/Scripts/"
 cp "$COMMON_SOURCE/with-deploy-lock.sh" "$TMP_ROOT/Deployment/Common/Scripts/"
 cp "$COMMON_SOURCE/Component/with-deploy-lock.sh" "$TMP_ROOT/Deployment/Common/Scripts/Component/"
+cat > "$TMP_ROOT/Deployment/LocalCluster/Scripts/protected-release-images.sh" <<'SH'
+#!/usr/bin/env bash
+[[ "${PROTECTION_STATUS:-0}" == 0 ]] || exit 1
+printf '%s\n' 'ghcr.io/fixture-owner/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+SH
 cat > "$TMP_ROOT/Deployment/LocalCluster/Scripts/prune-ci-residue.py" <<'PY'
 import os
 from pathlib import Path
@@ -33,8 +38,14 @@ set -euo pipefail
 test -f "$LOCALCLUSTER_DEPLOY_LOCK_DIR/token"
 case "$(basename "$0")" in
   prune-actions-runner-residue.sh) echo runner >> "$CALLS"; exit "${RUNNER_STATUS:-0}" ;;
-  prune-docker-residue.sh) echo docker >> "$CALLS"; exit "${DOCKER_STATUS:-0}" ;;
-  *) echo remote >> "$CALLS"; exit "${REMOTE_STATUS:-0}" ;;
+  prune-docker-residue.sh)
+    echo docker >> "$CALLS"
+    [[ "$*" == *--release-protection-verified* && "$*" == *--protect-image* ]] || exit 75
+    exit "${DOCKER_STATUS:-0}" ;;
+  *)
+    echo remote >> "$CALLS"
+    [[ "$*" == *--release-protection-verified* && "$*" == *--protect-image* ]] || exit 75
+    exit "${REMOTE_STATUS:-0}" ;;
 esac
 SH
 done
@@ -65,6 +76,8 @@ run_case 0
 [[ "$(paste -sd, "$CALLS")" == runner,ci-residue,docker,remote ]]
 run_case 0 --capacity-only
 [[ "$(paste -sd, "$CALLS")" == runner,docker ]]
+PROTECTION_STATUS=1 run_case 75
+PROTECTION_STATUS=1 run_case 0 --capacity-only
 CI_STATUS=75 run_case 75
 grep -Fxq remote "$CALLS"
 CI_STATUS=1 run_case 1

@@ -76,12 +76,22 @@ stage runner 180 bash "$COMMON_SCRIPT_DIR/prune-actions-runner-residue.sh" \
 if [[ "$CAPACITY_ONLY" == false ]]; then
   stage ci-residue 300 python3 "$SCRIPT_DIR/prune-ci-residue.py" --apply --limit 25
 fi
+image_protection=()
+if references="$(bash "$SCRIPT_DIR/protected-release-images.sh")"; then
+  image_protection+=(--release-protection-verified)
+  while IFS= read -r reference; do
+    [[ -z "$reference" ]] || image_protection+=(--protect-image "$reference")
+  done <<< "$references"
+else
+  echo "Release image protection unavailable; image deletion will defer." >&2
+fi
 stage docker 180 bash "$SCRIPT_DIR/prune-docker-residue.sh" \
+  "${image_protection[@]}" \
   --force --min-free-mb "$LOCALCLUSTER_LOAD_BALANCER_MIN_FREE_MB" \
   --dangling-image-until 168h --localcluster-image-until 168h \
   --defer-if-skipped
 if [[ "$CAPACITY_ONLY" == false ]]; then
-  stage remote-docker 300 bash "$SCRIPT_DIR/prune-cluster-docker-residue.sh"
+  stage remote-docker 300 bash "$SCRIPT_DIR/prune-cluster-docker-residue.sh" "${image_protection[@]}"
 fi
 echo "Unreferenced volumes (report only; Docker volumes are never pruned by maintenance):"
 stage volume-inventory 30 docker volume ls -q --filter dangling=true

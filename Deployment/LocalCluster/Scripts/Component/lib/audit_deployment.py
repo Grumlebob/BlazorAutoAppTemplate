@@ -2951,6 +2951,17 @@ require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 't
 require_contains("Deployment/Common/Scripts/Tests/test_cloudflare_tunnel.py", 'test_malformed_owned_configuration_is_refused', "malformed tunnel configuration refusal regression")
 
 
+for needle in ("protected_application_image_references", "protected_refs = protected_references()", "intersection(protected_refs)"):
+    require_contains("Deployment/LocalSingleNode/Scripts/lib/maintenance.py", needle, "verified current/recovery and pending image protection")
+require_contains("Deployment/LocalCluster/Scripts/run-localcluster-maintenance.sh", "protected-release-images.sh", "cluster image retention uses existing release status authority")
+require_contains("Deployment/LocalCluster/Scripts/prune-docker-residue.sh", 'RELEASE_PROTECTION_VERIFIED', "standalone image cleanup defers without verified protection")
+require_contains("Deployment/Common/Scripts/Component/lib/release_status.py", "verify_cached_application_image", "offline recovery verifies exact cached application image")
+require_contains("Deployment/LocalCluster/Scripts/release-status.py", "application_image_inspector=verify_cluster_cached_application_image", "offline cluster recovery checks app nodes")
+maintenance_step = read(".github/workflows/localsinglenode-maintenance.yml").split("- name: Protected backup and scoped maintenance", 1)[1].split("- name:", 1)[0]
+for binding in ("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}"):
+    if binding not in maintenance_step:
+        fail("Scoped maintenance must pass protected release-status inputs: " + binding.split(":", 1)[0])
+
 if failures:
     print("Deployment audit failed:")
     for failure in failures:

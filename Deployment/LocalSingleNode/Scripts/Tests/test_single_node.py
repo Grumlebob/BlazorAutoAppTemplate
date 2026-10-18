@@ -367,6 +367,29 @@ class RunnerRecoveryTests(unittest.TestCase):
 
 
 class MaintenanceTests(unittest.TestCase):
+    def test_recovery_digest_and_pending_target_survive_old_image_cleanup(self):
+        now = datetime.now(timezone.utc)
+        release = dict(image='ghcr.io/fixture-owner/books', digest='sha256:' + 'a' * 64, source_repo_url='https://github.com/fixture-owner/fixture-repo')
+        base = dict(Created=(now - timedelta(hours=169)).isoformat(), Config=dict(Labels={'org.opencontainers.image.source': release['source_repo_url']}))
+        recovery = release['image'] + '@sha256:' + 'b' * 64
+        pending = release['image'] + ':' + 'c' * 40
+        images = [{**base, 'Id': 'recovery', 'RepoDigests': [recovery]},
+                  {**base, 'Id': 'pending', 'RepoTags': [pending]},
+                  {**base, 'Id': 'obsolete', 'RepoTags': [release['image'] + ':obsolete']}]
+        self.assertEqual(['obsolete'], maintenance.candidates(images, [], release, now, (recovery, pending)))
+
+    def test_missing_protection_prevents_all_docker_mutation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'release.json').write_text('{}')
+            with patch.object(maintenance, 'settings', return_value={'deploy_root': str(root)}), \
+                    patch.object(maintenance, 'protected_references', side_effect=ValueError('protection unavailable')), \
+                    patch.object(maintenance, 'command') as command:
+                with self.assertRaisesRegex(ValueError, 'protection unavailable'):
+                    maintenance.main()
+                command.assert_not_called()
+
+
     def test_bootstrap_refreshes_mdns_for_the_approved_hostname(self):
         text = (TARGET / 'ansible/playbooks/PrepareSingleNode.yml').read_text()
         task = text.split('- name: Enable native name resolution', 1)[1].split('- name: Enable Caddy', 1)[0]

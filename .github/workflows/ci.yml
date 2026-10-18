@@ -233,6 +233,7 @@ jobs:
             Deployment/Common/Scripts/Tests/test_pin_release_payload.py \
             Deployment/Common/Scripts/Tests/test_import_legacy_release_payload.py \
             Deployment/Common/Scripts/Tests/test_release_status.py \
+            Deployment/Common/Scripts/Tests/test_application_image_protection.py \
             Deployment/Common/Scripts/Tests/test_release_settings.py \
             Scripts/CI/tests/test_ci_report_store.py
 

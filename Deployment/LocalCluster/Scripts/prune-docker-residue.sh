@@ -27,6 +27,7 @@ DATA_RUNNER_IMAGE_REFS=()
 CANDIDATE_IMAGE_REPOSITORIES=()
 DEFERRED_COUNT=0
 DEFER_IF_SKIPPED="false"
+RELEASE_PROTECTION_VERIFIED="false"
 
 usage() {
   cat >&2 <<'USAGE'
@@ -57,6 +58,7 @@ Options:
   --network-until <duration>        Unused network retention for host-wide prunes. Default: 24h.
   --remove-image <image:tag>        Remove a specific image tag unless it is protected.
   --protect-image <image:tag>       Add an image tag to the protected set.
+  --release-protection-verified    Internal: caller verified current/recovery pins and pending targets under the lock.
   --help, -h                        Show this help.
 USAGE
 }
@@ -361,6 +363,11 @@ valid_image_ref() {
 }
 
 remove_image_if_requested() {
+  if [[ "$RELEASE_PROTECTION_VERIFIED" != true ]]; then
+    echo "Image removal deferred: verified release protection is unavailable." >&2
+    DEFERRED_COUNT=$((DEFERRED_COUNT + 1))
+    return 0
+  fi
   local image_ref="$1"
   if ! valid_image_ref "$image_ref"; then
     echo "skip invalid or empty --remove-image value: ${image_ref:-<empty>}"
@@ -403,7 +410,48 @@ repository_is_candidate() {
   return 1
 }
 
+prune_owned_dangling_images() {
+  [[ "$RELEASE_PROTECTION_VERIFIED" == true && -n "$CI_REPOSITORY" ]] || return 0
+  local inventory image_id inspected eligible cutoff
+  inventory="$(docker image ls --no-trunc --filter dangling=true \
+    --filter "label=localcluster.ci.repository=$CI_REPOSITORY" --format '{{.ID}}')" \
+    || fail "could not inventory owned dangling images"
+  cutoff=$(( $(date -u +%s) - $(duration_seconds "$DANGLING_IMAGE_UNTIL") ))
+  while IFS= read -r image_id; do
+    [[ -n "$image_id" ]] || continue
+    normalize_image_id "$image_id" >/dev/null || fail "dangling image identity is malformed"
+    is_protected_image "$image_id" "$image_id" && continue
+    inspected="$(docker image inspect "$image_id")" || fail "could not inspect dangling image"
+    eligible="$(python3 - "$inspected" "$CI_REPOSITORY" "$cutoff" <<'PY'
+import json
+import sys
+from datetime import datetime
+rows = json.loads(sys.argv[1])
+if not isinstance(rows, list) or len(rows) != 1:
+    raise SystemExit('Dangling image inspection is incomplete')
+image = rows[0]
+labels = image.get('Config', {}).get('Labels') or {}
+owned = (labels.get('localcluster.ci.repository', '').casefold() == sys.argv[2].casefold()
+         and labels.get('localcluster.ci.owner') == 'ci-build')
+# Digest-addressed payloads and all tagged images are handled by their own retention authority.
+eligible = (owned and not image.get('RepoTags') and not image.get('RepoDigests')
+            and datetime.fromisoformat(image['Created'].replace('Z', '+00:00')).timestamp() < int(sys.argv[3]))
+print('true' if eligible else 'false')
+PY
+    )" || fail "dangling image ownership could not be verified"
+    [[ "$eligible" == true ]] || continue
+    # No --force: a new container or tag reference prevents removal.
+    [[ -z "$(docker ps -aq --filter "ancestor=$image_id")" ]] || continue
+    run_or_print docker image rm "$image_id"
+  done <<< "$inventory"
+}
+
 prune_old_unprotected_localcluster_images() {
+  if [[ "$RELEASE_PROTECTION_VERIFIED" != true ]]; then
+    echo "App image retention deferred: verified release protection is unavailable." >&2
+    DEFERRED_COUNT=$((DEFERRED_COUNT + 1))
+    return 0
+  fi
   local retention="${1:-$LOCALCLUSTER_IMAGE_UNTIL}"
   if [[ "${#CANDIDATE_IMAGE_REPOSITORIES[@]}" -eq 0 ]]; then
     echo "no LocalCluster image repositories discovered for old tag cleanup"
@@ -528,6 +576,10 @@ print_not_touched() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --release-protection-verified)
+      RELEASE_PROTECTION_VERIFIED="true"
+      shift
+      ;;
     --dry-run)
       DRY_RUN="true"
       shift
@@ -641,18 +693,12 @@ if [[ "$SHOULD_RUN_RETENTION" == "true" ]]; then
   # dangling images labelled by this repository's CI are eligible here; CI
   # containers and networks are removed by prune-ci-residue.py, which checks
   # that their run attempt has finished.
-  if [[ -n "$CI_REPOSITORY" ]]; then
-    run_or_print docker image prune -f \
-      --filter "label=localcluster.ci.repository=${CI_REPOSITORY}" \
-      --filter "until=${DANGLING_IMAGE_UNTIL}"
-  else
-    echo "no CI repository known (GITHUB_REPOSITORY or LOCALCLUSTER_CI_REPOSITORY); skipping labelled CI image prune"
-  fi
+  prune_owned_dangling_images
   prune_old_unprotected_localcluster_images
   if [[ "$INCLUDE_UNLABELLED_HOST_RESIDUE" == "true" ]]; then
     echo "warning: host-wide prunes requested; they affect every app on this Docker daemon" >&2
     run_or_print docker container prune -f --filter "until=${CONTAINER_UNTIL}"
-    run_or_print docker image prune -f --filter "until=${DANGLING_IMAGE_UNTIL}"
+    echo "Host-wide image prune is prohibited; only individually protected repository images are eligible."
     run_or_print docker network prune -f --filter "until=${NETWORK_UNTIL}"
   else
     echo "host-wide container/image/network prunes skipped; pass --include-unlabelled-host-residue to run them"

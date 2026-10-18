@@ -1,14 +1,29 @@
 """Delete only proven, old repository images; preserve every container image and all volumes."""
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 
 from ls_settings import ROOT, command, runner_app, settings
 
+sys.path.insert(0, str(ROOT / "Deployment/Common/Scripts/Component/lib"))
+import pin_release_payload
+from release_status import protected_application_image_references
 
-def candidates(images, containers, release, now):
+
+def protected_references():
+    pin_release_payload._require_shared_lock()
+    status = json.loads(command(sys.executable, str(ROOT / "Deployment/LocalSingleNode/Scripts/release-status.py")))
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    return protected_application_image_references(
+        status, repository=repository,
+        app_image=os.environ.get("APP_IMAGE", ""),
+    )
+
+
+def candidates(images, containers, release, now, protected_refs=()):
     protected = {container["Image"] for container in containers}
     result = []
     for image in images:
@@ -18,6 +33,8 @@ def candidates(images, containers, release, now):
             continue
         labels = image.get("Config", {}).get("Labels") or {}
         refs = (image.get("RepoTags") or []) + (image.get("RepoDigests") or [])
+        if set(refs).intersection(protected_refs):
+            continue
         source = release["source_repo_url"].rstrip('/')
         repository = source.removeprefix("https://github.com/")
         source_proven = labels.get("org.opencontainers.image.source", "").rstrip('/').casefold() == source.casefold()
@@ -40,6 +57,8 @@ def main():
     config = settings()
     root = Path(config["deploy_root"])
     release = json.loads((root / "release.json").read_text())
+    # Resolve both release pins and pending targets before any image mutation.
+    protected_refs = protected_references()
     # A successful backup must be recent before cleanup starts.
     timestamp = datetime.fromisoformat((Path(config["backup_root"]) / "last-success").read_text().strip())
     now = datetime.now(timezone.utc)
@@ -49,7 +68,10 @@ def main():
     containers = json.loads(command("docker", "inspect", *ids)) if ids else []
     ids = list(dict.fromkeys(command("docker", "image", "ls", "-aq", "--no-trunc").splitlines()))
     images = json.loads(command("docker", "image", "inspect", *ids)) if ids else []
-    for image in candidates(images, containers, release, now):
+    for image in candidates(images, containers, release, now, protected_refs):
+        current = json.loads(command("docker", "image", "inspect", image))
+        if image not in candidates(current, [], release, now, protected_references()):
+            continue
         # Recheck all container references immediately before removing without --force.
         used = command("docker", "ps", "-aq", "--filter", "ancestor=" + image)
         if used:
@@ -64,7 +86,6 @@ def main():
     print(command("docker", "volume", "ls", "--filter", "dangling=true"))
     print(command("df", "-h", "/opt"))
     print(command("df", "-i", "/opt"))
-    print("Recent protected backup verified")
     return 0
 
 

@@ -27,6 +27,19 @@ spec.loader.exec_module(status)
 
 
 class LocalClusterReleaseStatusTests(TestCase):
+    def test_offline_image_inspection_checks_every_app_node_without_pull(self):
+        release = {"image": "ghcr.io/fixture-owner/app", "digest": "sha256:" + "a" * 64}
+        reference = release["image"] + "@" + release["digest"]
+        row = {"Id": "sha256:" + "b" * 64, "RepoDigests": [reference]}
+        records = [{"stdout": json.dumps([row])}, {"stdout": json.dumps([row])}]
+        with patch.object(status, "ansible_results", return_value=records) as ansible:
+            status.verify_cluster_cached_application_image(release)
+        self.assertEqual(ansible.call_args.args[:2], ("ansible.builtin.command", "docker image inspect " + reference))
+        records[1] = {"stdout": "[]"}
+        with patch.object(status, "ansible_results", return_value=records):
+            with self.assertRaisesRegex(status.ReleaseStatusError, "no pull was attempted"):
+                status.verify_cluster_cached_application_image(release)
+
     def test_snapshot_restores_inventory_validated_legacy_recovery_pin(self):
         current_pin = "ghcr-" + "a" * 64 + "-" + "b" * 64
         recovery_pin = "legacy-123-" + "c" * 64

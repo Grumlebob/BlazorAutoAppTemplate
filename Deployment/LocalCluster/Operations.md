@@ -2,6 +2,8 @@
 
 Use this guide after initial setup. It covers routine releases, diagnosis, backup and recovery, and shared-host maintenance. For the settings and task-specific commands, use [LocalCluster settings](Settings.md).
 
+Image maintenance reads the existing release status under the shared deployment lock. It protects verified current/recovery image digests and pending target tags on the controller and app nodes. Missing protection defers image deletion, including low-disk cleanup. The internal `--release-protection-verified` option is supplied only after this inspection; it is a cooperative guard, not an authorization boundary. Payload packages use their separate retention authority. Offline recovery checks inspect the exact cached application digest on every app node without pulling from GHCR.
+
 ## Routine deployments
 
 Run on GitHub:
