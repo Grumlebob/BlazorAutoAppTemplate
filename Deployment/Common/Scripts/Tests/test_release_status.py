@@ -20,6 +20,7 @@ from release_status import (
     verified_registry_payload_references,
 )
 import pin_release_payload
+import release_status
 
 
 class JsonResponse:
@@ -187,7 +188,8 @@ class ReleaseStatusTests(TestCase):
             }, clear=False), \
                     patch.object(pin_release_payload, "_require_shared_lock"), \
                     patch.object(pin_release_payload, "validate", return_value=metadata), \
-                    patch.object(pin_release_payload, "restore", side_effect=restore):
+                    patch.object(pin_release_payload, "restore", side_effect=restore), \
+                    patch.object(release_status, "verify_cached_application_image") as image_inspect:
                 result = verify_offline_pin_restore(
                     summary,
                     temp_root / "pins",
@@ -199,6 +201,7 @@ class ReleaseStatusTests(TestCase):
                 )
                 self.assertEqual(os.environ["GITHUB_TOKEN"], "fixture-github-token")
                 self.assertEqual(os.environ["GHCR_TOKEN"], "fixture-ghcr-token")
+                image_inspect.assert_called_once_with(summary)
             self.assertEqual(list(temp_root.iterdir()), [])
 
         self.assertEqual(credential_state, [{
@@ -213,6 +216,7 @@ class ReleaseStatusTests(TestCase):
             "pin_key": self.marker["release_payload_pin_key"],
             "transport": "ghcr-container",
             "file_count": 2,
+            "application_image": "verified-local-digest",
         })
 
     def test_offline_pin_restore_rejects_missing_pin_and_changed_restored_checksum(self):
@@ -317,7 +321,8 @@ class ReleaseStatusTests(TestCase):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(pin_release_payload, "_require_shared_lock"), \
                 patch.object(pin_release_payload, "validate", return_value=metadata), \
-                patch.object(pin_release_payload, "restore", side_effect=restore):
+                patch.object(pin_release_payload, "restore", side_effect=restore), \
+                patch.object(release_status, "verify_cached_application_image") as image_inspect:
             result = verify_offline_pin_restore(
                 summary,
                 Path(temporary) / "pins",
@@ -328,12 +333,14 @@ class ReleaseStatusTests(TestCase):
                 temp_root=Path(temporary),
                 validated_pin_key=pin_key,
             )
+            image_inspect.assert_called_once_with(summary)
 
         self.assertEqual(result, {
             "outcome": "verified",
             "pin_key": pin_key,
             "transport": "actions-artifact",
             "file_count": 2,
+            "application_image": "verified-local-digest",
         })
 
     def test_lists_active_deployment_runs_and_freezes_dispatch_target_sha(self):

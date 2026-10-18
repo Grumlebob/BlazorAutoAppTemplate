@@ -2,6 +2,8 @@
 
 Use this guide after initial setup. It covers routine releases, diagnosis, backup and recovery, and shared-host maintenance. For the settings and task-specific commands, use [LocalCluster settings](Settings.md).
 
+Image maintenance reads the existing release status under the shared deployment lock. It protects verified current/recovery image digests and pending target tags on the controller and app nodes. Missing protection defers image deletion, including low-disk cleanup. The internal `--release-protection-verified` option is supplied only after this inspection; it is a cooperative guard, not an authorization boundary. Payload packages use their separate retention authority. Offline recovery checks inspect the exact cached application digest on every app node without pulling from GHCR.
+
 ## Routine deployments
 
 Run on GitHub:
@@ -44,6 +46,24 @@ bash ./Deployment/LocalCluster/Scripts/open-observability-tunnel.sh
 Keep the tunnel open and visit `http://127.0.0.1:3000`. Pass an unused local port as the first argument when 3000 is busy. If using an existing trusted node-main login instead of the app's deploy key, set `CONTROLPC_SSH_TARGET="<install-user>@<node-main-address>"` for that command. Verify host trust before connecting; use [shared operations](../../docs/Observability/Operations.md) for queries and recovery.
 
 ## Diagnose a failed deploy
+
+If an existing controller has no app deployment directory, CD creates only that
+configured directory under the deployment lock before pinning a verified release.
+It refuses symlinks and existing directories owned by another account.
+
+For an older encrypted vault missing both Data Protection entries, run **Prepare
+LocalCluster encrypted Data Protection vault** from reviewed `main`. It uses the
+existing protected vault password, creates a real encrypted certificate only when
+both entries are absent, and preserves existing credentials and complete pairs.
+Partial entries fail without replacement. This prepares ciphertext on the existing
+controller; it does not deploy, migrate, edit GitHub secrets or bootstrap nodes.
+
+Retrieve `recovery/vault-data-protection.yml` beneath the configured deployment
+root through the authenticated controller connection. Integrate only that encrypted
+file as `Deployment/LocalCluster/inventory/prod/vault.yml` through a reviewed PR and
+the required checks before deploying. The workflow refuses to overwrite a prepared
+output; after interruption, inspect and retrieve the existing output first. Never
+copy decrypted vault contents or private key values into logs, artifacts or PR text.
 
 Start with doctor, then preflight and node report:
 

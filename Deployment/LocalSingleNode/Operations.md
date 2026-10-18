@@ -1,5 +1,7 @@
 # LocalSingleNode operations
 
+Scoped image maintenance requires verified current/recovery pins and pending deployment targets under the shared lock. It preserves their application image digests and tags. Missing protection prevents image deletion. Offline recovery checks restore the exact payload and inspect its cached application image digest without a registry pull; a missing cached image fails the drill.
+
 Use this guide for an already prepared native node. Workflow dispatches, reboot, restore and app removal require operator authorization. Use [AgentSetup](AgentSetup.md) for authorized first setup or resume, [ApplicationInstances](ApplicationInstances.md) for a second app, and [PublicSetup](PublicSetup.md) for tunnel and HTTPS changes. Commands that say “on the node” require its repository checkout.
 
 ## Release and rollback

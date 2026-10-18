@@ -13,6 +13,7 @@ APP_SERVERS_MIN_FREE_MB="$LOCALCLUSTER_APP_SERVERS_MIN_FREE_MB"
 NODE_DB_MIN_FREE_MB="$LOCALCLUSTER_NODE_DB_MIN_FREE_MB"
 REMOTE_SCRIPT=""
 REMOTE_SCRIPT_INSTALLED="false"
+IMAGE_PROTECTION=()
 
 usage() {
   cat >&2 <<USAGE
@@ -104,6 +105,9 @@ prune_group() {
   remote_command+=" --dangling-image-until 168h"
   remote_command+=" --localcluster-image-until 168h --low-disk-localcluster-image-until 0h"
   remote_command+=" --builder-until 48h --low-disk-builder-until 0h --defer-if-skipped"
+  for argument in "${IMAGE_PROTECTION[@]}"; do
+    remote_command+=" $(shell_quote "$argument")"
+  done
 
   echo "Pruning Docker residue on ${group}; required /opt free space: ${min_free_mb}MiB"
   run_ansible "$group" -m ansible.builtin.copy -a \
@@ -118,6 +122,15 @@ prune_group() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --release-protection-verified)
+      IMAGE_PROTECTION+=("$1")
+      shift
+      ;;
+    --protect-image)
+      [[ $# -ge 2 ]] || fail "--protect-image requires a value"
+      IMAGE_PROTECTION+=("$1" "$2")
+      shift 2
+      ;;
     --app-servers-min-free-mb)
       [[ $# -ge 2 ]] || fail "--app-servers-min-free-mb requires a value"
       APP_SERVERS_MIN_FREE_MB="$2"

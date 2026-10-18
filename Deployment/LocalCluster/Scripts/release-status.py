@@ -29,6 +29,7 @@ from release_status import (  # noqa: E402
     summarize_marker,
     verified_registry_payload_references,
     verify_offline_pin_restore,
+    verify_cached_application_image,
 )
 
 
@@ -81,6 +82,18 @@ def ansible_results(module: str, arguments: str, destination: Path) -> list[dict
     if not records:
         raise ReleaseStatusError("Ansible returned no app server status")
     return records
+
+
+def verify_cluster_cached_application_image(release: dict[str, Any]) -> None:
+    def inspect(reference):
+        with tempfile.TemporaryDirectory(prefix="template-offline-image-inspect-") as directory:
+            records = ansible_results("ansible.builtin.command", "docker image inspect " + reference, Path(directory))
+        rows = None
+        for record in records:
+            rows = json.loads(record["stdout"])
+            verify_cached_application_image(release, inspect=lambda _: rows)
+        return rows
+    verify_cached_application_image(release, inspect=inspect)
 
 
 def read_remote_marker(path: str, *, required: bool) -> dict | None:
@@ -214,6 +227,7 @@ def snapshot() -> dict:
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
                 validated_pin_key=marker_pins.get("current") if current_pin == "verified" else None,
+                application_image_inspector=verify_cluster_cached_application_image,
             ),
             "recovery": verify_offline_pin_restore(
                 recovery, pin_root,
@@ -223,6 +237,7 @@ def snapshot() -> dict:
                 payload_image_prefix=release_settings["release_payload_prefix"],
                 temp_root=temp_root,
                 validated_pin_key=marker_pins.get("recovery") if recovery_pin == "verified" else None,
+                application_image_inspector=verify_cluster_cached_application_image,
             ),
         }
     active = list_active_deployment_runs(

@@ -233,6 +233,7 @@ jobs:
             Deployment/Common/Scripts/Tests/test_pin_release_payload.py \
             Deployment/Common/Scripts/Tests/test_import_legacy_release_payload.py \
             Deployment/Common/Scripts/Tests/test_release_status.py \
+            Deployment/Common/Scripts/Tests/test_application_image_protection.py \
             Deployment/Common/Scripts/Tests/test_release_settings.py \
             Scripts/CI/tests/test_ci_report_store.py
 
@@ -260,6 +261,8 @@ jobs:
           python3 Deployment/LocalCluster/Scripts/Tests/test_prune_ci_residue.py
           python3 Deployment/LocalCluster/Scripts/Tests/test_runner_identity.py
           python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_doc_slice_loader.py -v
+          python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_prepare_release_pin_root.py -v
+          python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_prepare_data_protection_vault.py -v
           python3 -m unittest Deployment/LocalCluster/Scripts/Tests/test_read_live_release_ci_run_ids.py -v
           python3 -m unittest Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py
 

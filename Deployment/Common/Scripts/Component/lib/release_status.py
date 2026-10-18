@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import tempfile
 from pathlib import Path
 import urllib.error
@@ -160,6 +161,61 @@ def verified_registry_payload_references(
     return references
 
 
+def protected_application_image_references(status: dict, *, repository: str, app_image: str) -> tuple[str, ...]:
+    """Derive image protection from the existing verified release status authority."""
+    if (not isinstance(status, dict) or type(status.get("schema_version")) is not int or status.get("schema_version") != 1
+            or str(status.get("repository", "")).casefold() != repository.casefold()
+            or status.get("shared_lock") != "held" or status.get("mutation") != "none"
+            or status.get("live_identity") != "verified"):
+        raise ReleaseStatusError("verified locked release status is unavailable for image cleanup")
+    if not isinstance(app_image, str) or not re.fullmatch(r"ghcr\.io/[a-z0-9][a-z0-9._/-]*[a-z0-9]", app_image):
+        raise ReleaseStatusError("configured application image is malformed")
+    references = set()
+    for slot in ("current", "recovery"):
+        release = status.get(slot + "_release")
+        if not isinstance(release, dict) or status.get(slot + "_pin") != "verified":
+            raise ReleaseStatusError("current and recovery image protection must both be verified")
+        digest, source = release.get("digest"), release.get("source_sha")
+        if (release.get("image") != app_image or not isinstance(digest, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+                or not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source)):
+            raise ReleaseStatusError("protected application image identity is malformed")
+        references.update((app_image + "@" + digest, app_image + ":" + source))
+    active = status.get("active_deployments")
+    if not isinstance(active, list):
+        raise ReleaseStatusError("active deployment image protection is unavailable")
+    for deployment in active:
+        source = deployment.get("target_sha") if isinstance(deployment, dict) else None
+        if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+            raise ReleaseStatusError("active deployment target image is unknown")
+        references.add(app_image + ":" + source)
+    return tuple(sorted(references))
+
+
+def verify_cached_application_image(release: dict[str, Any], *, inspect=None) -> None:
+    """Inspect the exact local image without pulling or contacting a registry."""
+    image, digest = release.get("image"), release.get("digest")
+    if (not isinstance(image, str) or not re.fullmatch(r"ghcr\.io/[a-z0-9][a-z0-9._/-]*[a-z0-9]", image)
+            or not isinstance(digest, str) or not SHA256.fullmatch(digest)):
+        raise ReleaseStatusError("offline application image identity is malformed")
+    reference = image + "@" + digest
+    try:
+        if inspect is None:
+            result = subprocess.run(
+                ["docker", "image", "inspect", reference], capture_output=True, text=True,
+                check=True, timeout=30,
+            )
+            rows = json.loads(result.stdout)
+        else:
+            rows = inspect(reference)
+        if (not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict)
+                or reference not in (rows[0].get("RepoDigests") or [])
+                or not SHA256.fullmatch(str(rows[0].get("Id", "")))):
+            raise ValueError("local image digest does not match")
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
+        raise ReleaseStatusError("exact offline application image is unavailable; no pull was attempted") from error
+
+
 def verify_offline_pin_restore(
     release: dict[str, Any] | None,
     pin_root: Path,
@@ -170,6 +226,7 @@ def verify_offline_pin_restore(
     payload_image_prefix: str,
     temp_root: Path,
     validated_pin_key: str | None = None,
+    application_image_inspector=None,
 ) -> dict[str, Any]:
     """Restore one exact local pin with GitHub and registry credentials unavailable."""
     if release is None:
@@ -181,7 +238,11 @@ def verify_offline_pin_restore(
     if not isinstance(pin_key, str) or not PIN_KEY.fullmatch(pin_key):
         raise ReleaseStatusError("release has no exact local pin for offline restore")
 
-    credentials = ("GITHUB_TOKEN", "GH_TOKEN", "GHCR_TOKEN", "GHCR_USERNAME", "DOCKER_CONFIG")
+    credentials = (
+        "GITHUB_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GHCR_TOKEN", "GHCR_USERNAME", "DOCKER_CONFIG",
+        "ACTIONS_RUNTIME_TOKEN", "ACTIONS_RESULTS_URL", "ACTIONS_CACHE_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    )
     saved_credentials = {name: os.environ.pop(name) for name in credentials if name in os.environ}
     try:
         pin_release_payload._require_shared_lock()
@@ -232,6 +293,7 @@ def verify_offline_pin_restore(
                 path = output_dir / name
                 if path.is_symlink() or not path.is_file() or sha256_file(path) != digest:
                     raise ReleaseStatusError("offline restore did not reproduce the pinned payload checksums")
+            (application_image_inspector or verify_cached_application_image)(release)
     except ReleaseStatusError:
         raise
     except (OSError, ValueError, KeyError, TypeError) as error:
@@ -244,6 +306,7 @@ def verify_offline_pin_restore(
         "pin_key": pin_key,
         "transport": metadata["transport"],
         "file_count": len(expected_files),
+        "application_image": "verified-local-digest",
     }
 
 

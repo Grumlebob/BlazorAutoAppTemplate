@@ -265,7 +265,13 @@ public sealed class ReactPackagedAccountsE2ETests : BlazorE2ETestBase
         Assert.Equal(200, response.Status);
         await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Create an account" })).ToBeVisibleAsync();
         await page.GetByLabel("Email").FillAsync(email);
-        await page.GetByLabel("Email").PressAsync("Enter");
+        // Keyboard input does not auto-wait for the submit button's session check.
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Create an account", Exact = true }))
+            .ToBeEnabledAsync();
+        var registration = await page.RunAndWaitForResponseAsync(
+            () => page.GetByLabel("Email").PressAsync("Enter"),
+            response => response.Request.Method == "POST" && new Uri(response.Url).AbsolutePath == "/api/auth/register");
+        Assert.Equal(202, registration.Status);
         await Expect(page.GetByRole(AriaRole.Status)).ToContainTextAsync("Request received", new LocatorAssertionsToContainTextOptions { Timeout = 30_000 });
 
         var confirmationLink = await WaitForMailLinkAsync(email, "/auth/confirm-email");

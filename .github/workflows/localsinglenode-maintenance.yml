@@ -126,6 +126,8 @@ jobs:
       - name: Protected backup and scoped maintenance
         if: inputs.acceptance_only != true
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
           BACKUP_NOW: ${{ inputs.backup_now }}
         run: |
           args=()

@@ -442,7 +442,7 @@ def same_artifact_identity(left: dict[str, Any], right: dict[str, Any]) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Safely prune old GitHub Actions artifacts with a matching name.")
     parser.add_argument("--artifact-name", required=True, help="Artifact name to prune.")
-    parser.add_argument("--keep", type=int, default=2, help="Newest unprotected artifacts to retain.")
+    parser.add_argument("--keep", type=int, default=2, help="Newest unprotected artifacts to retain; zero retires a legacy family.")
     parser.add_argument("--max-unprotected-bytes", type=int, default=536870912, help="512 MiB default candidate bound.")
     parser.add_argument("--max-deletions", type=int, default=100, help="Maximum exact artifacts handled per run.")
     parser.add_argument("--repo", default=optional_env("GITHUB_REPOSITORY"), help="owner/name; defaults to GITHUB_REPOSITORY.")
@@ -468,8 +468,8 @@ def main() -> int:
         fail("--artifact-name must not be empty")
     if not args.token:
         fail("--token, GITHUB_TOKEN, or GH_TOKEN is required")
-    if args.keep < 1:
-        fail("--keep must be at least one")
+    if args.keep < 0:
+        fail("--keep must be nonnegative")
     if args.max_unprotected_bytes < 1:
         fail("--max-unprotected-bytes must be positive")
     if not 1 <= args.max_deletions <= 100:

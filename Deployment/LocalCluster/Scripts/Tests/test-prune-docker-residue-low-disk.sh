@@ -69,6 +69,7 @@ case "\${1:-}" in
     fi
     ;;
   ps)
+    if [[ "\$*" == *"ancestor="* ]]; then exit 0; fi
     if [[ "\$*" == *"{{.Image}}"* ]]; then
       echo "${TEST_IMAGE}:protected"
     else
@@ -79,6 +80,14 @@ case "\${1:-}" in
   image)
     case "\${2:-}" in
       inspect)
+        if [[ "\$*" != *--format* ]]; then
+          label=example/repo
+          digests='[]'
+          [[ "\${DANGLING_FIXTURE:-}" != foreign ]] || label=foreign/repo
+          [[ "\${DANGLING_FIXTURE:-}" != payload ]] || digests='["ghcr.io/fixture-owner/app-release-payload@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]'
+          printf '[{"Id":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","Created":"2020-01-01T00:00:00Z","RepoTags":[],"RepoDigests":%s,"Config":{"Labels":{"localcluster.ci.repository":"%s","localcluster.ci.owner":"ci-build"}}}]\n' "\$digests" "\$label"
+          exit 0
+        fi
         target="\${5:-}"
         if [[ "\$*" == *"{{.Created}}"* ]]; then
           date -u -d '1 hour ago' '+%Y-%m-%dT%H:%M:%SZ'
@@ -90,6 +99,13 @@ case "\${1:-}" in
         exit 0
         ;;
       ls)
+        if [[ "\$*" == *"dangling=true"* ]]; then
+          case "\${DANGLING_FIXTURE:-}" in
+            owned|foreign|payload) echo sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc ;;
+            protected) echo "sha256:\$protected_id" ;;
+          esac
+          exit 0
+        fi
         printf '%s\t${TEST_IMAGE}\told\n' "\${old_id:0:12}"
         exit "\${IMAGE_LIST_STATUS:-0}"
         ;;
@@ -125,6 +141,7 @@ EOF
 chmod +x "$FAKE_BIN/docker"
 
 PATH="$FAKE_BIN:$PATH" bash "$SCRIPT" \
+  --release-protection-verified \
   --force \
   --min-free-mb 20480 \
   --dangling-image-until 168h \
@@ -147,6 +164,7 @@ grep -Fq "/opt free disk is 40960MiB; required minimum is 20480MiB." "$TMP_ROOT/
 
 set +e
 PATH="$FAKE_BIN:$PATH" bash "$SCRIPT" \
+  --release-protection-verified \
   --force \
   --defer-if-skipped \
   --remove-image ${TEST_IMAGE}:protected \
@@ -164,6 +182,7 @@ grep -Fq "skip protected image: ${TEST_IMAGE}:protected" "$TMP_ROOT/deferred.log
 : > "$COMMAND_LOG"
 inventory_status=0
 PATH="$FAKE_BIN:$PATH" IMAGE_LIST_STATUS=1 bash "$SCRIPT" \
+  --release-protection-verified \
   --force --min-free-mb 0 --localcluster-image-until 0h \
   > "$TMP_ROOT/inventory-failure.log" 2>&1 || inventory_status=$?
 [[ "$inventory_status" -eq 1 ]] || fail "partial inventory failure was hidden"
@@ -176,9 +195,10 @@ grep -Fq 'could not inventory Docker images' "$TMP_ROOT/inventory-failure.log" \
 # Routine maintenance: only this repository's labelled CI images, no host-wide prunes.
 : > "$COMMAND_LOG"
 PATH="$FAKE_BIN:$PATH" GITHUB_REPOSITORY=example/repo bash "$SCRIPT" \
+  --release-protection-verified \
   --force --min-free-mb 0 > "$TMP_ROOT/routine.log" 2>&1
-grep -Fq "image prune -f --filter label=localcluster.ci.repository=example/repo --filter until=168h" "$COMMAND_LOG" \
-  || fail "expected the labelled CI image prune for this repository"
+grep -Fq "image ls --no-trunc --filter dangling=true --filter label=localcluster.ci.repository=example/repo" "$COMMAND_LOG" \
+  || fail "expected individual labelled CI image inspection for this repository"
 if grep -Eq "^(container|network) prune|builder prune|^image prune -f --filter until=" "$COMMAND_LOG"; then
   fail "routine maintenance ran a host-wide prune"
 fi
@@ -189,9 +209,36 @@ fi
 # Host-wide prunes only with the explicit opt-in.
 : > "$COMMAND_LOG"
 PATH="$FAKE_BIN:$PATH" bash "$SCRIPT" \
+  --release-protection-verified \
   --force --min-free-mb 0 --include-unlabelled-host-residue > "$TMP_ROOT/host-wide.log" 2>&1
-for expected in "container prune -f --filter until=24h" "network prune -f --filter until=24h" "image prune -f --filter until=168h"; do
+for expected in "container prune -f --filter until=24h" "network prune -f --filter until=24h"; do
   grep -Fq "$expected" "$COMMAND_LOG" || fail "expected opt-in host-wide prune: $expected"
+done
+if grep -Fq 'image prune' "$COMMAND_LOG"; then fail "host-wide image prune bypassed release protection"; fi
+
+# Standalone calls without the existing release authority must never remove images.
+: > "$COMMAND_LOG"
+status=0
+PATH="$FAKE_BIN:$PATH" bash "$SCRIPT" --force --min-free-mb 0 --defer-if-skipped \
+  --localcluster-image-until 0h --remove-image "${TEST_IMAGE}:old" > "$TMP_ROOT/no-protection.log" 2>&1 || status=$?
+[[ "$status" == 75 ]] || fail "missing release protection did not defer"
+if grep -Eq 'image (rm|prune)' "$COMMAND_LOG"; then fail "image mutation without release protection"; fi
+
+# Recovery references protect the same image ID even through another old tag.
+: > "$COMMAND_LOG"
+PATH="$FAKE_BIN:$PATH" bash "$SCRIPT" --release-protection-verified \
+  --protect-image "${TEST_IMAGE}:old" --force --min-free-mb 0 --localcluster-image-until 0h > "$TMP_ROOT/recovery-protected.log" 2>&1
+if grep -Fq 'image rm' "$COMMAND_LOG"; then fail "recovery image was removed"; fi
+for fixture in owned foreign payload protected; do
+  : > "$COMMAND_LOG"
+  PATH="$FAKE_BIN:$PATH" GITHUB_REPOSITORY=example/repo DANGLING_FIXTURE="$fixture" bash "$SCRIPT" --release-protection-verified \
+    --force --min-free-mb 0 > "$TMP_ROOT/dangling-$fixture.log" 2>&1 \
+    || { cat "$TMP_ROOT/dangling-$fixture.log" >&2; fail "dangling fixture failed: $fixture"; }
+  if [[ "$fixture" == owned ]]; then
+    grep -Fq 'image rm sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' "$COMMAND_LOG" || fail "eligible owned dangling image was not removed"
+  elif grep -Fq 'image rm' "$COMMAND_LOG"; then
+    fail "foreign, payload or protected dangling image was removed"
+  fi
 done
 grep -Fq "Docker volumes are protected" "$TMP_ROOT/host-wide.log" || fail "expected the volume protection statement"
 

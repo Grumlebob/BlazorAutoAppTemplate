@@ -1,0 +1,98 @@
+name: Prepare LocalCluster encrypted Data Protection vault
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-registry-payloads
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 10
+    environment:
+      name: ${{ vars.LOCALCLUSTER_ENVIRONMENT || 'localcluster' }}
+    steps:
+      - name: Require trusted main and an enabled existing target
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          targets=",${DEPLOY_TARGETS// /},"
+          [[ "$targets" == *,localcluster,* ]]
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Checkout reviewed main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Activate validated Ansible generation
+        run: |
+          bash Deployment/LocalCluster/Scripts/install-ansible.sh --check
+          ansible_root="$(readlink -f "${HOME}/.local/share/books-ansible/current")"
+          test -x "${ansible_root}/bin/ansible-vault"
+          echo "${ansible_root}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify node-main runner
+        run: |
+          expected_node="$(ansible-inventory -i Deployment/LocalCluster/inventory/prod/hosts.yml --list |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["load_balancer"]["hosts"][0])')"
+          test -n "$expected_node"
+          test "$(hostname)" = "$expected_node"
+          test "$(id -un)" = deploy
+
+      - name: Provide the existing protected vault password
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$VAULT_PASSWORD"
+          umask 077
+          password_file="$(mktemp "${RUNNER_TEMP}/vault-preparation-password.XXXXXX")"
+          printf '%s' "$VAULT_PASSWORD" > "$password_file"
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=$password_file" >> "$GITHUB_ENV"
+
+      - name: Prepare ciphertext under the existing deployment lock
+        run: |
+          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -euo pipefail <<'LOCKED'
+            root="$(bash Deployment/LocalCluster/Scripts/read-deploy-setting.sh deploy_root)"
+            bash Deployment/LocalCluster/Scripts/prepare-release-pin-root.sh "$root"
+            recovery="$root/recovery"
+            test ! -L "$recovery"
+            if [[ ! -e "$recovery" ]]; then mkdir -m 0700 "$recovery"; fi
+            test -d "$recovery" && test -w "$recovery"
+            test "$(stat -c %u "$recovery")" = "$(id -u)"
+            output="$recovery/vault-data-protection.yml"
+            if [[ -e "$output" || -L "$output" ]]; then
+              echo "Prepared encrypted vault already exists; retrieve and review it before another preparation." >&2
+              exit 1
+            fi
+            bash Deployment/LocalCluster/Scripts/setup-secrets.sh --prepare-data-protection-only
+            python3 - "$output" <<'PY'
+          import os
+          from pathlib import Path
+          import sys
+          source = Path('Deployment/LocalCluster/inventory/prod/vault.yml')
+          content = source.read_bytes()
+          if not content.startswith(b'$ANSIBLE_VAULT;'):
+              raise SystemExit('Prepared output is not encrypted Ansible Vault content')
+          descriptor = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(descriptor, 'wb') as stream:
+              stream.write(content)
+              stream.flush()
+              os.fsync(stream.fileno())
+          PY
+            echo "Encrypted vault prepared at $output. Integrate only this ciphertext through a reviewed PR before deployment." >> "$GITHUB_STEP_SUMMARY"
+          LOCKED
+
+      - name: Remove the temporary vault password
+        if: always()
+        run: rm -f -- "${ANSIBLE_VAULT_PASSWORD_FILE:-}"
