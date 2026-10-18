@@ -83,6 +83,15 @@ class SelectDeletionsTests(unittest.TestCase):
         delete, *_ = self.selection(limit=2)
         self.assertEqual([1, 2], self.ids(delete))
 
+    def test_zero_floor_retires_legacy_copies_but_preserves_every_consumer_and_batch_bound(self) -> None:
+        delete, protected, protected_bytes, floor_bytes = self.selection(
+            keep=0, protected={1001}, active_producers={1003}, active_shas={f"{6:040x}"}, limit=2,
+        )
+        self.assertEqual([2, 4], self.ids(delete))
+        self.assertEqual([1, 3, 6], self.ids(protected))
+        self.assertEqual(30, protected_bytes)
+        self.assertEqual(0, floor_bytes)
+
     def test_expired_artifacts_are_not_selected_for_deletion(self) -> None:
         artifacts = self.artifacts + [{**artifact(99, 1999, 0), "expired": True}]
         delete, *_ = self.selection(artifacts)
@@ -312,6 +321,17 @@ class MainDeletionTests(unittest.TestCase):
             mock.patch.object(prune, "list_active_producer_run_ids", return_value=set()),
             mock.patch.object(prune, "list_deployment_shas", return_value=set()),
         )
+
+    def test_cli_zero_floor_previews_retirement_without_deleting_protected_copies(self) -> None:
+        output = io.StringIO()
+        with mock.patch.object(sys, "argv", self.argv + ["--keep", "0", "--protect-run-id", "11", "--dry-run"]), \
+                mock.patch.dict(os.environ, self.environment, clear=True), \
+                self.patches()[0], self.patches()[1], self.patches()[2], \
+                mock.patch.object(prune, "github_request") as request, contextlib.redirect_stdout(output):
+            self.assertEqual(0, prune.main())
+        self.assertIn("keep=0 protected=1", output.getvalue())
+        self.assertIn("delete=2 dry_run=True", output.getvalue())
+        request.assert_not_called()
 
     def test_delete_requires_rechecked_identity_and_exact_404_receipt(self) -> None:
         calls = []

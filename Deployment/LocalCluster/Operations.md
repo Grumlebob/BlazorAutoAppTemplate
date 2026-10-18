@@ -45,6 +45,24 @@ Keep the tunnel open and visit `http://127.0.0.1:3000`. Pass an unused local por
 
 ## Diagnose a failed deploy
 
+If an existing controller has no app deployment directory, CD creates only that
+configured directory under the deployment lock before pinning a verified release.
+It refuses symlinks and existing directories owned by another account.
+
+For an older encrypted vault missing both Data Protection entries, run **Prepare
+LocalCluster encrypted Data Protection vault** from reviewed `main`. It uses the
+existing protected vault password, creates a real encrypted certificate only when
+both entries are absent, and preserves existing credentials and complete pairs.
+Partial entries fail without replacement. This prepares ciphertext on the existing
+controller; it does not deploy, migrate, edit GitHub secrets or bootstrap nodes.
+
+Retrieve `recovery/vault-data-protection.yml` beneath the configured deployment
+root through the authenticated controller connection. Integrate only that encrypted
+file as `Deployment/LocalCluster/inventory/prod/vault.yml` through a reviewed PR and
+the required checks before deploying. The workflow refuses to overwrite a prepared
+output; after interruption, inspect and retrieve the existing output first. Never
+copy decrypted vault contents or private key values into logs, artifacts or PR text.
+
 Start with doctor, then preflight and node report:
 
 ```bash
