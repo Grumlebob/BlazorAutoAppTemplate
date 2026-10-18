@@ -181,6 +181,7 @@ if [[ "$(basename "$0")" == dotnet ]]; then
       if [[ "$previous" == "--results-directory" ]]; then results_dir="$argument"; fi
       previous="$argument"
     done
+    [[ "$results_dir" == */test-results/123-2/${GITHUB_JOB:-validate}/docker-smoke/* || "$results_dir" == */test-results/local-*/${GITHUB_JOB:-validate}/docker-smoke/* ]] || exit 39
     [[ -n "$results_dir" ]] || exit 5
     mkdir -p "$results_dir"
     cat > "$results_dir/$result_name" <<'XML'
@@ -196,6 +197,7 @@ XML
     if [[ "$previous" == "--results-directory" ]]; then results_dir="$argument"; fi
     previous="$argument"
   done
+  [[ "$results_dir" == */test-results/123-2/${GITHUB_JOB:-validate}/docker-smoke/* || "$results_dir" == */test-results/local-*/${GITHUB_JOB:-validate}/docker-smoke/* ]] || exit 39
   [[ -n "$results_dir" ]] || exit 5
   mkdir -p "$results_dir"
   cat > "$results_dir/blazor-browser-smoke.trx" <<'XML'
@@ -221,6 +223,7 @@ run_case() {
 }
 run_case 0
 FRONTEND_PROFILE=React run_case 0
+GITHUB_JOB=publish-main FRONTEND_PROFILE=React run_case 0
 FRONTEND_PROFILE=React REMOVE_CALLER_DIRECTORY=1 run_case 0
 FRONTEND_PROFILE=React FRONTEND_ACCEPTANCE_PROFILE=BlazorAutoV1 run_case 2
 FAIL_IMAGE_LABEL=1 run_case 1

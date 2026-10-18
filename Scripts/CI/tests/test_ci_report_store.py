@@ -256,5 +256,75 @@ class CiReportStoreTests(unittest.TestCase):
         self.assertTrue(unknown.exists())
 
 
+class WorkflowReportCollectionTests(unittest.TestCase):
+    def test_terminal_steps_retrieve_all_reports_and_refuse_unsafe_collection(self) -> None:
+        import os
+        import shutil
+        import subprocess
+        import yaml
+
+        repository_root = SCRIPT.parents[2]
+        workflow = yaml.safe_load((repository_root / ".github/workflows/ci.yml").read_text())
+        project = 'BlazorAutoApp.Test'
+        for job in ("validate", "publish-main"):
+            steps = workflow["jobs"][job]["steps"]
+            step = next(item for item in steps if "ci_report_store.py save" in item.get("run", ""))
+            self.assertIn("always()", step["if"])
+            if job == "publish-main":
+                self.assertNotIn("trivy_scan.outcome", step["if"])
+            for scenario in ("complete", "symlink", "collision"):
+                with self.subTest(job=job, scenario=scenario), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    workspace = root / "workspace"
+                    script = workspace / "Scripts/CI/ci_report_store.py"
+                    script.parent.mkdir(parents=True)
+                    shutil.copy2(SCRIPT, script)
+                    results = root / "runner/test-results/123-2"
+                    if not False or job == "publish-main":
+                        results /= job
+                    (results / "docker-smoke").mkdir(parents=True)
+                    trx = b'<TestRun><ResultSummary><Counters total="1" executed="1" passed="0" failed="1" /></ResultSummary></TestRun>'
+                    (results / "docker-smoke/smoke.trx").write_bytes(trx)
+                    diagnostics = workspace / project / "TestResults/Playwright"
+                    diagnostics.mkdir(parents=True)
+                    (diagnostics / "failure.png").write_bytes(b"fixture screenshot")
+                    (diagnostics / "trace.zip").write_bytes(b"fixture browser trace")
+                    if scenario == "symlink":
+                        (diagnostics / "unsafe").symlink_to(root / "outside")
+                    elif scenario == "collision":
+                        (results / "playwright").mkdir()
+                        (results / "playwright/existing").write_bytes(b"preserve")
+                    if False and job == "publish-main":
+                        quality = workspace / "TestResults/QualityTools"
+                        quality.mkdir(parents=True)
+                        (quality / "trivy.json").write_bytes(b'{"Results":[]}')
+                    env = dict(os.environ, RUNNER_TEMP=str(root / "runner"), GITHUB_RUN_ID="123",
+                               GITHUB_RUN_ATTEMPT="2", GITHUB_JOB=job, GITHUB_REPOSITORY='Grumlebob/BlazorAutoAppTemplate',
+                               CI_REPORT_ROOT=str(root / "store"), GITHUB_STEP_SUMMARY=str(root / "summary"),
+                               REPORT_STATUS="failure", RUNNER_NAME="fixture-runner")
+                    completed = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+                                               cwd=workspace, env=env, capture_output=True, text=True)
+                    manifests = list((root / "store").rglob("ci-report.json"))
+                    if scenario != "complete":
+                        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                        self.assertEqual(manifests, [])
+                        if scenario == "collision":
+                            self.assertEqual((results / "playwright/existing").read_bytes(), b"preserve")
+                        continue
+                    self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                    self.assertEqual(len(manifests), 1)
+                    metadata = json.loads(manifests[0].read_text())
+                    self.assertEqual(metadata["status"], "failure")
+                    self.assertEqual(metadata["trx_counts"]["failed"], 1)
+                    destination = root / "retrieved"
+                    kwargs = {} if False else {"repository": 'Grumlebob/BlazorAutoAppTemplate'}
+                    store.restore_report(manifests[0].parent.parent, "123", "2", job, destination, **kwargs)
+                    self.assertEqual((destination / "docker-smoke/smoke.trx").read_bytes(), trx)
+                    self.assertEqual((destination / "playwright/failure.png").read_bytes(), b"fixture screenshot")
+                    self.assertEqual((destination / "playwright/trace.zip").read_bytes(), b"fixture browser trace")
+                    if False and job == "publish-main":
+                        self.assertEqual((destination / "quality/trivy.json").read_bytes(), b'{"Results":[]}')
+
+
 if __name__ == "__main__":
     unittest.main()

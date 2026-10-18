@@ -317,7 +317,7 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
   [[ -n "$postgres_host_port" ]] || { echo "postgres did not publish port 5432" >&2; exit 1; }
   cd "$REPO_ROOT"
   pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
-  react_disabled_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-disabled"
+  react_disabled_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/React-disabled"
   mkdir -p "$react_disabled_results_dir"
   cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
@@ -451,7 +451,7 @@ EOF
     -FrontendProfile React -AcceptanceProfile ReactPublicV1 \
     -ForwardedProto https -BaseUrl "http://127.0.0.1:${enabled_http_port}"
 
-  react_enabled_results_dir="$runner_temp/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/React-enabled"
+  react_enabled_results_dir="$runner_temp/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/React-enabled"
   mkdir -p "$react_enabled_results_dir"
   cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
@@ -502,7 +502,7 @@ else
 
   cd "$REPO_ROOT"
   pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
-  browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/docker-smoke/BlazorAuto"
+  browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/BlazorAuto"
   mkdir -p "$browser_results_dir"
   cd "$REPO_ROOT"
   E2E_CLEANUP_CONNECTION_STRING="Host=127.0.0.1;Port=${postgres_host_port};Database=app;Username=postgres;Password=${postgres_password};GSS Encryption Mode=Disable" \
