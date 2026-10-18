@@ -243,13 +243,44 @@ class CiSelectionTests(unittest.TestCase):
                 runtime="linux-x64",
                 app_image=app_image,
             )
+            legacy = MODULE.verify_payload_receipt(
+                selection,
+                [job],
+                repository="owner/repo",
+                token="test-token",
+                profile="BlazorAuto",
+                acceptance_profile="BlazorAutoV1",
+                runtime="linux-x64",
+                app_image=app_image,
+                payload_image_prefix="private-",
+            )
+            wrong_image = MODULE.verify_payload_receipt(
+                selection,
+                [job],
+                repository="owner/repo",
+                token="test-token",
+                profile="BlazorAuto",
+                acceptance_profile="BlazorAutoV1",
+                runtime="linux-x64",
+                app_image="ghcr.io/grumlebob/other-books",
+                payload_image_prefix="private-",
+            )
         self.assertEqual(result["outcome"], "success")
         self.assertEqual(result["payload_receipt"]["payload_digest"], payload_digest)
         rechecked = MODULE.verify_current_run(
             result, run(9, "2026-09-24T11:00:00Z"), "owner/repo", self.target, self.workflow
         )
         self.assertEqual(rechecked["payload_receipt"]["payload_digest"], payload_digest)
-        fetch_logs.assert_called_once_with("owner/repo", 44, "test-token", api_root=MODULE.API_ROOT)
+        self.assertEqual(legacy["outcome"], "legacy_artifact")
+        self.assertEqual(legacy["transport"], "actions-artifact")
+        legacy_rechecked = MODULE.verify_current_run(
+            legacy, run(9, "2026-09-24T11:00:00Z"), "owner/repo", self.target, self.workflow
+        )
+        self.assertEqual(legacy_rechecked["outcome"], "legacy_artifact")
+        self.assertEqual(legacy_rechecked["transport"], "actions-artifact")
+        self.assertEqual(wrong_image["outcome"], "invalid_provenance")
+        self.assertEqual(fetch_logs.call_count, 3)
+        fetch_logs.assert_called_with("owner/repo", 44, "test-token", api_root=MODULE.API_ROOT)
 
     def test_payload_receipt_lookup_rejects_missing_or_expired_receipts(self) -> None:
         selection = self.select([run(9, "2026-09-24T11:00:00Z")])
