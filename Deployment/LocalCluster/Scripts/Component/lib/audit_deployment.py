@@ -1254,6 +1254,8 @@ for needle, why in [
         fail(f".github/workflows/cd-cloud.yml: missing immutable migration payload behavior: {why}")
 cloud_payload = workflow_step_text(cd_cloud, "Retrieve migration bundle from immutable payload")
 for needle, why in [
+    ("with-deploy-lock.sh bash -euo pipefail", "Cloud payload retrieval shares the registry deployment lock"),
+    ("registry-retention.py --assert-clear", "Cloud retrieval requires no unresolved exact deletion reservation"),
     ("pull_release_payload.py", "Cloud migration payload is pulled and validated by digest"),
     ('--payload-image-prefix "$RELEASE_PAYLOAD_PREFIX"', "Cloud payload pull uses the configured package prefix"),
     ('gh run download "$CI_RUN_ID"', "Cloud legacy fallback uses the exact CI run"),
