@@ -151,8 +151,10 @@ jobs:
         if: inputs.run_migrations == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
         run: |
-          set -euo pipefail
+          bash Deployment/Common/Scripts/with-deploy-lock.sh bash -euo pipefail <<'LOCKED'
+          python3 Deployment/Common/Scripts/registry-retention.py --assert-clear
           outcome="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["outcome"])' "$CI_SELECTION_FILE")"
           case "$outcome" in
             success)
@@ -171,6 +173,7 @@ jobs:
               ;;
             *) echo "Unsupported CI payload outcome: ${outcome}" >&2; exit 1 ;;
           esac
+          LOCKED
 
       - name: Prepare migration bundle
         if: inputs.run_migrations == 'true'

@@ -105,13 +105,79 @@ class PullReleasePayloadTests(unittest.TestCase):
             with patch.object(MODULE.registry_lock_guard, "assert_selection_available",
                               side_effect=ValueError("reserved")), \
                  patch.object(MODULE.registry_payload, "pull_and_extract_release_payload") as pull:
-                with self.assertRaisesRegex(registry_payload.PayloadError, "pending exact deletion reservation"):
+                with self.assertRaisesRegex(registry_payload.PayloadError, "GHCR deletion reservation"):
                     MODULE.pull_from_selection(
                         selection, directory / "output", repository=self.identity.repository,
                         profile=self.identity.profile, acceptance_profile=None, runtime=self.identity.runtime,
                         app_image=self.identity.app_image, bundle_name=self.identity.bundle_filename,
                     )
             pull.assert_not_called()
+
+    def test_unlocked_prefetch_skips_reservation_check_only_without_lock_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            selection = self.write_selection(directory)
+            manifest = directory / "release-manifest.json"
+            bundle = directory / self.identity.bundle_filename
+            no_lock = {
+                "LOCALCLUSTER_DEPLOY_LOCK_DIR": "",
+                "LOCALCLUSTER_DEPLOY_LOCK_TOKEN": "",
+            }
+            with patch.dict(os.environ, no_lock), \
+                 patch.object(MODULE.registry_lock_guard, "assert_selection_available") as selection_guard, \
+                 patch.object(MODULE.registry_payload, "pull_and_extract_release_payload",
+                              return_value={"manifest": manifest, "bundle": bundle}) as pull:
+                result = MODULE.pull_from_selection(
+                    selection, directory / "output", repository=self.identity.repository,
+                    profile=self.identity.profile, acceptance_profile=None, runtime=self.identity.runtime,
+                    app_image=self.identity.app_image, bundle_name=self.identity.bundle_filename,
+                    allow_unlocked_read=True,
+                )
+        self.assertEqual(result["payload_digest"], self.digest)
+        selection_guard.assert_not_called()
+        pull.assert_called_once()
+
+    def test_reservation_failure_without_lock_reports_missing_lock_not_a_deletion(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            selection = self.write_selection(directory)
+            no_lock = {
+                "LOCALCLUSTER_DEPLOY_LOCK_DIR": "",
+                "LOCALCLUSTER_DEPLOY_LOCK_TOKEN": "",
+            }
+            with patch.dict(os.environ, no_lock), \
+                 patch.object(MODULE.registry_payload, "pull_and_extract_release_payload") as pull:
+                with self.assertRaisesRegex(registry_payload.PayloadError, "shared deployment lock"):
+                    MODULE.pull_from_selection(
+                        selection, directory / "output", repository=self.identity.repository,
+                        profile=self.identity.profile, acceptance_profile=None, runtime=self.identity.runtime,
+                        app_image=self.identity.app_image, bundle_name=self.identity.bundle_filename,
+                    )
+            pull.assert_not_called()
+
+    def test_unlocked_prefetch_keeps_reservation_check_when_lock_context_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            selection = self.write_selection(directory)
+            lock_context = {
+                "LOCALCLUSTER_DEPLOY_LOCK_DIR": "/tmp/lock-fixture",
+                "LOCALCLUSTER_DEPLOY_LOCK_TOKEN": "fixture-token",
+            }
+            with patch.dict(os.environ, lock_context), \
+                 patch.object(MODULE.registry_lock_guard, "assert_selection_available",
+                              side_effect=ValueError("payload digest is reserved")) as selection_guard, \
+                 patch.object(MODULE.registry_payload, "pull_and_extract_release_payload") as pull:
+                with self.assertRaisesRegex(registry_payload.PayloadError, "payload digest is reserved"):
+                    MODULE.pull_from_selection(
+                        selection, directory / "output", repository=self.identity.repository,
+                        profile=self.identity.profile, acceptance_profile=None, runtime=self.identity.runtime,
+                        app_image=self.identity.app_image, bundle_name=self.identity.bundle_filename,
+                        allow_unlocked_read=True,
+                    )
+        selection_guard.assert_called_once_with(
+            self.identity.payload_image, self.digest, repository=self.identity.repository,
+        )
+        pull.assert_not_called()
 
     def test_reader_requires_the_configured_private_payload_prefix(self) -> None:
         private_image = registry_payload.derive_release_payload_image(self.identity.app_image, "private-")

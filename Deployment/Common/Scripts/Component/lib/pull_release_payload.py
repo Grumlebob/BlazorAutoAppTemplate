@@ -159,6 +159,7 @@ def pull_from_selection(
     payload_image_prefix: str = "",
     registry_username: str | None = None,
     token_file: Path | None = None,
+    allow_unlocked_read: bool = False,
 ) -> dict[str, Any]:
     selection = _read_selection(selection_path)
     receipt = selection["receipt"]
@@ -172,12 +173,19 @@ def pull_from_selection(
         bundle_name=bundle_name,
         payload_image_prefix=payload_image_prefix,
     )
-    try:
-        registry_lock_guard.assert_selection_available(
-            identity.payload_image, digest, repository=repository,
-        )
-    except (OSError, ValueError) as error:
-        raise registry_payload.PayloadError("selected GHCR payload conflicts with a pending exact deletion reservation") from error
+    has_lock_context = bool(
+        os.environ.get("LOCALCLUSTER_DEPLOY_LOCK_DIR")
+        or os.environ.get("LOCALCLUSTER_DEPLOY_LOCK_TOKEN")
+    )
+    if not allow_unlocked_read or has_lock_context:
+        try:
+            registry_lock_guard.assert_selection_available(
+                identity.payload_image, digest, repository=repository,
+            )
+        except (OSError, ValueError) as error:
+            raise registry_payload.PayloadError(
+                f"could not verify GHCR deletion reservation state: {error}"
+            ) from error
     files = _pull_with_isolated_login(
         identity,
         digest,
@@ -222,6 +230,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bundle-name", default="")
     parser.add_argument("--registry-username")
     parser.add_argument("--token-file", type=Path)
+    parser.add_argument(
+        "--allow-unlocked-read",
+        action="store_true",
+        help="allow read-only payload prefetch without a shared lock; locked readers still check reservations",
+    )
     return parser.parse_args()
 
 
@@ -240,6 +253,7 @@ def main() -> int:
             payload_image_prefix=args.payload_image_prefix,
             registry_username=args.registry_username,
             token_file=args.token_file,
+            allow_unlocked_read=args.allow_unlocked_read,
         )
     except (OSError, registry_payload.PayloadError, ci_payload_receipt.ReceiptError, ValueError) as error:
         print(f"release payload pull failed: {error}", file=sys.stderr)
