@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import importlib.util
 import json
 from pathlib import Path
@@ -51,9 +52,11 @@ class RegistryProtectionTests(unittest.TestCase):
         line = CLI.format_output(value, github_output=True)
         name, encoded = line.split("=", 1)
 
-        self.assertEqual(name, "protection_b64")
+        self.assertEqual(name, "protection_gzip_b64")
         self.assertNotIn("{", line)
-        self.assertEqual(json.loads(base64.b64decode(encoded, validate=True)), value)
+        payload = base64.b64decode(encoded, validate=True)
+        self.assertEqual(payload[:2], b"\x1f\x8b")
+        self.assertEqual(json.loads(gzip.decompress(payload)), value)
 
     def test_missing_registry_pin_for_ghcr_current_marker_fails_closed(self):
         value = self.status()

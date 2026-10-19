@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
 import json
 import re
 import sys
@@ -90,8 +91,8 @@ def format_output(value: dict, *, github_output: bool) -> str:
     serialized = json.dumps(value, sort_keys=True, separators=(",", ":"))
     if not github_output:
         return "protection=" + serialized
-    encoded = base64.b64encode(serialized.encode("utf-8")).decode("ascii")
-    return "protection_b64=" + encoded
+    encoded = base64.b64encode(gzip.compress(serialized.encode("utf-8"), mtime=0)).decode("ascii")
+    return "protection_gzip_b64=" + encoded
 
 
 def main(argv=None) -> int:
@@ -100,7 +101,7 @@ def main(argv=None) -> int:
     parser.add_argument("--target", choices=("localcluster", "localsinglenode"), required=True)
     parser.add_argument("--instance", choices=("cluster", "primary", "additional"), required=True)
     parser.add_argument("--github-output", action="store_true",
-                        help="Emit the validated protection snapshot as base64 for a cross-job GitHub output")
+                        help="Emit the validated protection snapshot as gzip-compressed base64 for a cross-job GitHub output")
     args = parser.parse_args(argv)
     try:
         if args.status_json.is_symlink() or not args.status_json.is_file() or args.status_json.stat().st_size > 1024 * 1024:
