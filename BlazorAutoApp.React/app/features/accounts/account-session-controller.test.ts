@@ -113,6 +113,69 @@ describe("account session controller", () => {
     expect(controller.getSnapshot()).toMatchObject({ status: "authenticated", session: { user: { id: "user-b" } } });
   });
 
+  it("keeps an account mutation response when a refresh discovers its new session first", async () => {
+    const loginResponse = deferred<Response>();
+    let userId: string | null = null;
+    let loginSignal: AbortSignal | undefined;
+    const fetcher = vi.fn(async (request: Request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/api/client-config") {
+        return json({ schemaVersion: 1, accountsEnabled: true, applicationId: applicationIdA });
+      }
+      if (path === "/api/auth/session") {
+        return json(session(userId, "csrf-token"));
+      }
+      if (path === "/api/auth/login") {
+        loginSignal = request.signal;
+        return loginResponse.promise;
+      }
+      return json({ title: "Not found" }, 404, "application/problem+json");
+    });
+    const controller = createController(fetcher);
+    await controller.refresh();
+
+    const login = apiResult(controller.api.POST("/api/auth/login", { body: { email: "reader@example.test", password: "test" } }));
+    await vi.waitFor(() => expect(loginSignal).toBeDefined());
+    userId = "user-a";
+    await controller.refresh();
+
+    expect(loginSignal?.aborted).toBe(false);
+    loginResponse.resolve(json({ message: "Signed in." }));
+    await expect(login).resolves.toEqual({ message: "Signed in." });
+    expect(controller.getSnapshot()).toMatchObject({ status: "authenticated", session: { user: { id: "user-a" } } });
+  });
+
+  it("still aborts a preserved account mutation when the provider is disposed", async () => {
+    const loginResponse = deferred<Response>();
+    let userId: string | null = null;
+    let loginSignal: AbortSignal | undefined;
+    const fetcher = async (request: Request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/api/client-config") {
+        return json({ schemaVersion: 1, accountsEnabled: true, applicationId: applicationIdA });
+      }
+      if (path === "/api/auth/session") return json(session(userId, "csrf-token"));
+      if (path === "/api/auth/login") {
+        loginSignal = request.signal;
+        return loginResponse.promise;
+      }
+      return json({ title: "Not found" }, 404, "application/problem+json");
+    };
+    const controller = createController(fetcher);
+    await controller.refresh();
+
+    const login = apiResult(controller.api.POST("/api/auth/login", { body: { email: "reader@example.test", password: "test" } }));
+    await vi.waitFor(() => expect(loginSignal).toBeDefined());
+    userId = "user-a";
+    await controller.refresh();
+    expect(loginSignal?.aborted).toBe(false);
+
+    controller.dispose();
+    expect(loginSignal?.aborted).toBe(true);
+    loginResponse.resolve(json({ message: "Signed in." }));
+    await expect(login).rejects.toHaveProperty("name", "AbortError");
+  });
+
   it("blocks a private mutation when the cookie owner changed after the request captured its owner", async () => {
     let owner = "user-a";
     const privateWrites: Request[] = [];
@@ -371,13 +434,13 @@ function accountResponse(request: Request, userId: string, csrfToken: string): R
   return json({ title: "Not found" }, 404, "application/problem+json");
 }
 
-function session(userId: string, csrfToken: string) {
+function session(userId: string | null, csrfToken: string) {
   return {
     enabled: true,
     registrationEnabled: true,
     emailEnabled: true,
     csrfToken,
-    user: { id: userId, email: `${userId}@example.test`, roles: [] },
+    user: userId ? { id: userId, email: `${userId}@example.test`, roles: [] } : null,
   };
 }
 
