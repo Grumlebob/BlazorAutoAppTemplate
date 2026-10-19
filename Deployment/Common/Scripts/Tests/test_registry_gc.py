@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 
 LIB = Path(__file__).resolve().parents[1] / "Component/lib"
@@ -65,13 +66,20 @@ class FixtureRegistry:
         self.present = True
         self.interrupt_after_delete = False
         self.still_present = False
+        self.stale_reads_after_delete = 0
+        self.stale_reads_remaining = 0
+        self.version_calls = 0
         self.delete_calls = 0
         self.metadata = {"id": VERSION.version_id, "name": VERSION.digest, "created_at": VERSION.created.isoformat(),
                          "metadata": {"container": {"tags": sorted(VERSION.tags)}}}
 
     def version(self, package, version_id):
+        self.version_calls += 1
         if (package, version_id) != (VERSION.package, VERSION.version_id):
             raise AssertionError("Only the exact reserved version may be queried")
+        if not self.present and self.stale_reads_remaining:
+            self.stale_reads_remaining -= 1
+            return deepcopy(self.metadata)
         return deepcopy(self.metadata) if self.present else None
 
     def delete_version(self, package, version_id):
@@ -79,6 +87,7 @@ class FixtureRegistry:
             raise AssertionError("DELETE preceded persisted deletion intent")
         self.delete_calls += 1
         self.present = self.still_present
+        self.stale_reads_remaining = self.stale_reads_after_delete
         if self.interrupt_after_delete:
             self.interrupt_after_delete = False
             raise TimeoutError("fixture response lost after remote deletion")
@@ -115,6 +124,17 @@ class RegistryDeletionTests(unittest.TestCase):
         self.assertEqual("absent", guard.state)
         self.assertNotIn("complete", guard.events)
 
+    def test_exact_absence_polling_reuses_one_delete_after_transient_visibility_lag(self):
+        guard = FixtureGuard()
+        registry = FixtureRegistry(guard)
+        registry.stale_reads_after_delete = 2
+        with patch.object(gc.time, "sleep") as sleep:
+            receipts = gc.apply_deletions((VERSION,), registry=registry, guard=guard)
+        self.assertEqual(1, registry.delete_calls)
+        self.assertEqual(4, registry.version_calls)
+        self.assertEqual([0.5, 1.0], [call.args[0] for call in sleep.call_args_list])
+        self.assertEqual(404, receipts[0]["api_status"])
+
     def test_changed_tags_digest_created_time_or_version_id_prevent_delete(self):
         changes = [
             {"name": "sha256:" + "b" * 64}, {"id": 124}, {"created_at": "2026-10-02T00:00:00Z"},
@@ -142,10 +162,12 @@ class RegistryDeletionTests(unittest.TestCase):
         guard = FixtureGuard()
         registry = FixtureRegistry(guard)
         registry.still_present = True
-        with self.assertRaises(gc.DeletionUncertain):
+        with patch.object(gc.time, "sleep") as sleep, self.assertRaises(gc.DeletionUncertain):
             gc.apply_deletions((VERSION,), registry=registry, guard=guard)
         self.assertEqual("delete_requested", guard.state)
         self.assertNotIn("absent", guard.events)
+        self.assertEqual(6, registry.version_calls)
+        self.assertEqual(list(gc.ABSENCE_RETRY_DELAYS), [call.args[0] for call in sleep.call_args_list])
 
     def test_duplicate_batch_is_rejected_before_reservation(self):
         guard = FixtureGuard()
