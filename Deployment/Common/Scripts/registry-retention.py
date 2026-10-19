@@ -179,12 +179,22 @@ def _reservation_id() -> str:
 
 def _result(plan, inventory, *, outcome: str, receipts: tuple[dict, ...], admission: dict | None) -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "outcome": outcome,
         "repository": inventory.repository,
         "versions_scanned": len(inventory.versions),
         "payload_roots": len(inventory.payloads),
         "candidate_versions": len(plan.delete),
+        "preview_candidates": [
+            {
+                "package": item.package,
+                "version_id": item.version_id,
+                "digest": item.digest,
+                "tags": sorted(item.tags),
+                "created": item.created.isoformat(),
+            }
+            for item in plan.delete
+        ] if outcome == "preview" else None,
         "verified_absent_versions": len(receipts),
         "receipts": list(receipts),
         "usage": inventory_usage(inventory),

@@ -50,6 +50,19 @@ class ReleasePlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_plan("unknown", "", SETTINGS)
 
+    def test_registry_retention_resolves_profile_before_building_package_plan(self):
+        workflow_path = ROOT / ".github" / "workflows" / "registry-retention.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Resolve configured payload packages")
+        end = workflow.index("      - name: Prune bounded GHCR payload roots", start)
+        step = workflow[start:end]
+
+        self.assertIn('profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"', step)
+        self.assertIn(
+            'RESOLVED_FRONTEND_PROFILE="$profile" GITHUB_OUTPUT="$output" python3 Scripts/CI/frontend_release_plan.py',
+            step,
+        )
+
 
 class ReleaseFixture:
     def setUp(self):

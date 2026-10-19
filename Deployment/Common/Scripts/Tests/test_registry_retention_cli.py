@@ -157,6 +157,29 @@ class RegistryRetentionCliTests(unittest.TestCase):
         self.assertEqual(result.digests, {(current.package, current.digest), (recovery.package, recovery.digest)})
         self.assertEqual(result.active_consumers, {(current.run_id, 1), (recovery.run_id, 1)})
 
+    def test_preview_reports_exact_candidate_ids_without_mutation(self):
+        inventory, states = make_inventory()
+        candidate = inventory.versions[0]
+        with (mock.patch.dict("os.environ", {"GITHUB_TOKEN": "fixture"}),
+              mock.patch.object(CLI.shared_deploy_lock, "require_shared_lock", return_value=(self.lock, "fixture-token")),
+              mock.patch.object(CLI, "collect_inventory", return_value=(inventory, states)),
+              mock.patch.object(CLI.registry_gc, "apply_deletions") as delete):
+            result = CLI.run(
+                self.args(apply=False), client_factory=lambda *unused: object(),
+                active_runs_provider=lambda *args, **kwargs: [],
+            )
+
+        self.assertEqual(result["schema_version"], 2)
+        self.assertEqual(result["candidate_versions"], 1)
+        self.assertEqual(result["preview_candidates"], [{
+            "package": candidate.package,
+            "version_id": candidate.version_id,
+            "digest": candidate.digest,
+            "tags": sorted(candidate.tags),
+            "created": candidate.created.isoformat(),
+        }])
+        delete.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -54,6 +54,7 @@ export class AccountSessionController {
   private readonly onAccountChange?: (applicationId: string) => void;
   private readonly listeners = new Set<() => void>();
   private readonly activeRequests = new Set<AbortController>();
+  private readonly accountMutationRequests = new Set<AbortController>();
   private readonly requestGenerations = new WeakMap<Request, number>();
   private snapshot = { ...emptySnapshot };
   private generation = 0;
@@ -76,7 +77,7 @@ export class AccountSessionController {
     });
     this.api = {
       GET: this.guardApiMethod(api.GET),
-      POST: this.guardApiMethod(api.POST),
+      POST: this.guardApiMethod(api.POST, true),
       PUT: this.guardApiMethod(api.PUT),
       DELETE: this.guardApiMethod(api.DELETE),
     };
@@ -142,7 +143,7 @@ export class AccountSessionController {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.advanceGeneration();
+    this.advanceGeneration(undefined, false);
     void this.clearPrivateData();
     this.listeners.clear();
   }
@@ -211,6 +212,7 @@ export class AccountSessionController {
   private async prepareApiRequest(request: Request): Promise<Request> {
     const requestGeneration = this.generation;
     this.requestGenerations.set(request, requestGeneration);
+    const accountMutation = isAccountMutationRequest(request);
     request.headers.set("Accept", "application/json");
     const path = new URL(request.url).pathname;
     const privateRequest = isPrivateRequest(path);
@@ -224,7 +226,7 @@ export class AccountSessionController {
 
     const session = await this.refresh();
     if (privateRequest && capturedOwner !== (session.user?.id ?? null)) throw new AccountChangedError();
-    if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
+    if (request.signal.aborted || (!this.isCurrent(requestGeneration) && !accountMutation)) throw createAbortError();
     if (!session.enabled || !session.csrfToken) {
       throw new ApiError({ kind: "http", status: 503, message: "The account service is unavailable." });
     }
@@ -234,31 +236,35 @@ export class AccountSessionController {
 
   private async sendApiRequest(request: Request): Promise<Response> {
     const requestGeneration = this.requestGenerations.get(request) ?? this.generation;
-    if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
+    const accountMutation = isAccountMutationRequest(request);
+    if (request.signal.aborted || (!this.isCurrent(requestGeneration) && !accountMutation)) throw createAbortError();
     const response = await this.fetcher(request);
-    if (request.signal.aborted || !this.isCurrent(requestGeneration)) throw createAbortError();
+    if (request.signal.aborted || (!this.isCurrent(requestGeneration) && !accountMutation)) throw createAbortError();
     return response;
   }
 
-  private guardApiMethod<TMethod extends (...args: never[]) => Promise<unknown>>(method: TMethod): TMethod {
+  private guardApiMethod<TMethod extends (...args: never[]) => Promise<unknown>>(method: TMethod, isPost = false): TMethod {
     const invoke = method as unknown as (...args: unknown[]) => Promise<unknown>;
     const guarded = async (path: unknown, options?: RequestInit) => {
       const generation = this.generation;
       const controller = new AbortController();
+      const accountMutation = isPost && isAccountMutationPath(path);
       const signal = options?.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
       this.activeRequests.add(controller);
+      if (accountMutation) this.accountMutationRequests.add(controller);
       try {
         // Keep cancellation and ownership checks around the entire typed operation,
         // including openapi-fetch's asynchronous response-body parsing.
         const result = await invoke(path, { ...options, signal });
-        if (signal.aborted || !this.isCurrent(generation)) throw createAbortError();
+        if (signal.aborted || (!this.isCurrent(generation) && !accountMutation)) throw createAbortError();
         return result;
       } catch (error) {
         if (error instanceof AccountChangedError) throw error;
-        if (signal.aborted || !this.isCurrent(generation)) throw createAbortError();
+        if (signal.aborted || (!this.isCurrent(generation) && !accountMutation)) throw createAbortError();
         throw error;
       } finally {
         this.activeRequests.delete(controller);
+        this.accountMutationRequests.delete(controller);
       }
     };
     // Preserve openapi-fetch's path/init generics; only the optional signal changes.
@@ -283,7 +289,7 @@ export class AccountSessionController {
     if (!this.disposed && this.snapshot.applicationId) this.onAccountChange?.(this.snapshot.applicationId);
   }
 
-  private advanceGeneration(refreshAttempt?: { generation: number }): void {
+  private advanceGeneration(refreshAttempt?: { generation: number }, preserveAccountMutations = true): void {
     this.generation += 1;
     if (refreshAttempt) {
       // A refresh that discovers a different identity owns the new generation;
@@ -295,8 +301,12 @@ export class AccountSessionController {
       this.refreshController = undefined;
       this.pendingRefresh = undefined;
     }
-    for (const request of this.activeRequests) request.abort();
-    this.activeRequests.clear();
+    // Background refresh can observe an auth POST's cookie change before its response is consumed.
+    for (const request of this.activeRequests) {
+      if (preserveAccountMutations && this.accountMutationRequests.has(request)) continue;
+      request.abort();
+      this.activeRequests.delete(request);
+    }
     this.publish({ generation: this.generation });
   }
 
@@ -313,6 +323,14 @@ export class AccountSessionController {
 
 function isPrivateRequest(path: string): boolean {
   return path === "/api/books" || path.startsWith("/api/books/") || privateAccountPaths.has(path);
+}
+
+function isAccountMutationRequest(request: Request): boolean {
+  return request.method === "POST" && isAccountMutationPath(new URL(request.url).pathname);
+}
+
+function isAccountMutationPath(path: unknown): boolean {
+  return typeof path === "string" && path.startsWith("/api/auth/");
 }
 
 function isClientConfiguration(value: unknown): value is ClientConfiguration {

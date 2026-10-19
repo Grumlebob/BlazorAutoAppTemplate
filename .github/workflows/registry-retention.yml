@@ -307,8 +307,9 @@ jobs:
           ADDITIONAL_FRONTEND_PROFILES: ${{ vars.ADDITIONAL_FRONTEND_PROFILES }}
         run: |
           set -euo pipefail
+          profile="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
           output="$RUNNER_TEMP/registry-release-plan.env"
-          GITHUB_OUTPUT="$output" python3 Scripts/CI/frontend_release_plan.py
+          RESOLVED_FRONTEND_PROFILE="$profile" GITHUB_OUTPUT="$output" python3 Scripts/CI/frontend_release_plan.py
           printf 'primary=%s\n' "$(bash Deployment/Common/Scripts/read-release-setting.sh release_payload_image)" >> "$GITHUB_OUTPUT"
           cat "$output" >> "$GITHUB_OUTPUT"
 
