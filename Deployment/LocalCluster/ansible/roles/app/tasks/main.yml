@@ -15,12 +15,12 @@
       - >-
         (accounts_admin_seed_email | default('') ~ accounts_public_origin | default('') ~ accounts_email_host | default('') ~ accounts_email_from | default('') ~ vault_accounts_admin_seed_password | default('') ~ vault_accounts_email_username | default('') ~ vault_accounts_email_password | default(''))
         | regex_search('[\r\n]') is none
-      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0)
-      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0))
+      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
       - (accounts_admin_seed_email | default('') | length == 0) == (vault_accounts_admin_seed_password | default('') | length == 0)
       - (vault_accounts_email_username | default('') | length == 0) == (vault_accounts_email_password | default('') | length == 0)
-      - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (vault_accounts_email_username | default('') | length == 0) and (vault_accounts_email_password | default('') | length == 0)
-      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (vault_accounts_email_username | default('') | length == 0) and (vault_accounts_email_password | default('') | length == 0))
+      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
       - (data_protection_legacy_key_store | default('None')) in ['None', 'Redis', 'FileSystem']
       - (data_protection_legacy_redis_key | default('') | regex_search('[\r\n\0]')) is none
       - ((data_protection_legacy_key_store | default('None')) == 'Redis') == ((data_protection_legacy_redis_key | default('') | length) > 0)
