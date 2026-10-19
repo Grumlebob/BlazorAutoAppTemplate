@@ -177,14 +177,22 @@ def _reservation_id() -> str:
     return "manual-" + uuid.uuid4().hex
 
 
-def _result(plan, inventory, *, outcome: str, receipts: tuple[dict, ...], admission: dict | None) -> dict:
+def _result(
+    plan,
+    inventory,
+    *,
+    outcome: str,
+    receipts: tuple[dict, ...],
+    admission: dict | None,
+    candidate_versions: int | None = None,
+) -> dict:
     return {
         "schema_version": 2,
         "outcome": outcome,
         "repository": inventory.repository,
         "versions_scanned": len(inventory.versions),
         "payload_roots": len(inventory.payloads),
-        "candidate_versions": len(plan.delete),
+        "candidate_versions": len(plan.delete) if candidate_versions is None else candidate_versions,
         "preview_candidates": [
             {
                 "package": item.package,
@@ -206,6 +214,99 @@ def _result(plan, inventory, *, outcome: str, receipts: tuple[dict, ...], admiss
     }
 
 
+def _frozen_payload_states(client, repository: str, inventory) -> dict[tuple[int, int], str]:
+    """Recheck producer attempts for a frozen manifest graph during recovery."""
+    states: dict[tuple[int, int], str] = {}
+    revisions: dict[tuple[int, int], str] = {}
+    for payload in inventory.payloads:
+        identity = payload.run_id, payload.run_attempt
+        previous_revision = revisions.get(identity)
+        if previous_revision is not None and previous_revision != payload.commit_sha:
+            raise RetentionError("frozen registry reservation has conflicting CI producer identities")
+        if identity not in states:
+            run = client.github(
+                f"/repos/{repository}/actions/runs/{payload.run_id}/attempts/{payload.run_attempt}"
+            )
+            head_repository = run.get("head_repository") if isinstance(run, dict) else None
+            producer_repository = head_repository.get("full_name") if isinstance(head_repository, dict) else None
+            if (not isinstance(run, dict) or type(run.get("id")) is not int or run.get("id") != payload.run_id
+                    or type(run.get("run_attempt")) is not int
+                    or run.get("run_attempt") != payload.run_attempt
+                    or not isinstance(run.get("head_sha"), str)
+                    or run.get("head_sha") != payload.commit_sha or run.get("head_branch") != "main"
+                    or not isinstance(run.get("status"), str)
+                    or run.get("status") not in ACTIVE | TERMINAL
+                    or not isinstance(run.get("event"), str)
+                    or run.get("event") not in {"push", "workflow_dispatch"}
+                    or not isinstance(run.get("path"), str)
+                    or str(run.get("path", "")).split("@", 1)[0] != ".github/workflows/ci.yml"
+                    or not isinstance(producer_repository, str)
+                    or producer_repository.casefold() != repository.casefold()):
+                raise RetentionError("a frozen payload producer attempt could not be verified for reservation recovery")
+            states[identity] = run["status"]
+        revisions[identity] = payload.commit_sha
+    return states
+
+
+def _resume_exact_reservation(
+    args: argparse.Namespace,
+    *,
+    repository: str,
+    packages: dict[str, str],
+    token: str,
+    client,
+    snapshots: tuple[dict, ...],
+    guard_factory,
+    active_runs_provider,
+) -> dict:
+    holder = {}
+    states: dict[tuple[int, int], str] = {}
+
+    def refresh_protection():
+        guard = holder.get("guard")
+        if guard is None:
+            raise RetentionError("the frozen registry reservation is not loaded")
+        return _protection(
+            snapshots, states, guard.inventory, repository=repository, token=token,
+            active_runs_provider=active_runs_provider,
+        )
+
+    guard = guard_factory(
+        repository=repository,
+        reservation_id=args.reservation_id,
+        inventory=None,
+        refresh_protection=refresh_protection,
+        controller_scope_complete=True,
+    )
+    holder["guard"] = guard
+    states.update(_frozen_payload_states(client, repository, guard.inventory))
+    candidates = guard.reserved_candidates()
+    if (not candidates or len(candidates) > args.max_deletions
+            or any(candidate.package not in packages for candidate in candidates)):
+        raise RetentionError("the exact reserved batch is empty, oversized or outside configured payload packages")
+
+    receipts = registry_gc.apply_deletions(
+        candidates, registry=client, guard=guard, complete_reservation=False,
+    )
+    inventory, current_states = collect_inventory(
+        repository, packages, client, retained_manifests=guard.inventory.retained_manifests,
+    )
+    deleted = {(item["package"], item["digest"]) for item in receipts}
+    if any((item.package, item.digest) in deleted for item in inventory.versions):
+        raise RetentionError("an exact-404 registry version remains in fresh inventory")
+    protection = _protection(
+        snapshots, current_states, inventory, repository=repository, token=token,
+        active_runs_provider=active_runs_provider,
+    )
+    plan = plan_retention(
+        inventory, protection, now=datetime.now(timezone.utc), max_deletions=args.max_deletions,
+    )
+    return _result(
+        plan, inventory, outcome="applied", receipts=receipts, admission=None,
+        candidate_versions=len(candidates),
+    )
+
+
 def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factory=SharedLockGuard,
         active_runs_provider=list_active_deployment_runs) -> dict:
     if args.assert_clear:
@@ -219,6 +320,10 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
     if not args.repository or not args.username or not token:
         raise RetentionError("repository, actor and existing workflow token are required")
+    if args.reservation_id and not args.apply:
+        raise RetentionError("an exact registry reservation can only be resumed by an authorized apply")
+    if args.reservation_id and args.admission_kind:
+        raise RetentionError("exact reservation recovery cannot be combined with publication admission")
     lock_dir, _ = shared_deploy_lock.require_shared_lock(RetentionError)
     journal = lock_dir / JOURNAL
     if not args.apply and (journal.exists() or journal.is_symlink()):
@@ -226,7 +331,7 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
 
     if args.admission_kind and not args.apply:
         _validate_workflow_scope(mode="admission")
-    elif args.apply:
+    if args.apply:
         _validate_workflow_scope(mode="apply")
 
     retained = set()
@@ -239,6 +344,24 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
         retained.add((package, digest))
 
     client = client_factory(args.username, token)
+    if args.admission_kind and not args.apply:
+        inventory, states = collect_inventory(
+            args.repository, packages, client, retained_manifests=frozenset(retained),
+        )
+        admission = {"kind": args.admission_kind, "reserved_bytes": args.reserved_bytes}
+        capacity_plan = plan_retention(
+            inventory, _all_roots_protected(inventory, states), now=datetime.now(timezone.utc),
+        )
+        require_publication_capacity(capacity_plan, **admission)
+        return _result(capacity_plan, inventory, outcome="admitted", receipts=(), admission=admission)
+
+    snapshots = _parse_protections(args.protection_json, require_additional=args.require_additional)
+    if args.apply and args.reservation_id:
+        return _resume_exact_reservation(
+            args, repository=args.repository, packages=packages, token=token, client=client,
+            snapshots=snapshots, guard_factory=guard_factory, active_runs_provider=active_runs_provider,
+        )
+
     inventory, states = collect_inventory(
         args.repository, packages, client, retained_manifests=frozenset(retained),
     )
@@ -248,14 +371,6 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
             raise RetentionError("publication capacity requires a positive reserved byte count")
         admission = {"kind": args.admission_kind, "reserved_bytes": args.reserved_bytes}
 
-    if not args.apply and args.admission_kind:
-        capacity_plan = plan_retention(
-            inventory, _all_roots_protected(inventory, states), now=datetime.now(timezone.utc),
-        )
-        require_publication_capacity(capacity_plan, **admission)
-        return _result(capacity_plan, inventory, outcome="admitted", receipts=(), admission=admission)
-
-    snapshots = _parse_protections(args.protection_json, require_additional=args.require_additional)
     if args.apply:
         guard = guard_factory(
             repository=args.repository,

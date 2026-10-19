@@ -55,8 +55,16 @@ def _matches(candidate: Version, remote: dict) -> bool:
         return False
 
 
-def apply_deletions(candidates: tuple[Version, ...], *, registry: Registry, guard: Guard) -> tuple[dict, ...]:
+def apply_deletions(
+    candidates: tuple[Version, ...],
+    *,
+    registry: Registry,
+    guard: Guard,
+    complete_reservation: bool = True,
+) -> tuple[dict, ...]:
     """Recheck each reserved identity, delete it and prove exact remote absence."""
+    if type(complete_reservation) is not bool:
+        raise RetentionError("registry reservation completion mode must be explicit")
     if not candidates:
         return ()
     if len(candidates) > MAX_DELETIONS:
@@ -96,5 +104,6 @@ def apply_deletions(candidates: tuple[Version, ...], *, registry: Registry, guar
             "reservation_id": reservation, "package": candidate.package, "version_id": candidate.version_id,
             "digest": candidate.digest, "tags": sorted(candidate.tags), "api_status": 404,
         })
-    guard.complete(reservation)
+    if complete_reservation:
+        guard.complete(reservation)
     return tuple(receipts)

@@ -74,6 +74,15 @@ class FakeGuard:
         return None
 
 
+class FakeResumeGuard:
+    def __init__(self, *, inventory, candidates):
+        self.inventory = inventory
+        self.candidates = candidates
+
+    def reserved_candidates(self):
+        return self.candidates
+
+
 class RegistryRetentionCliTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -85,7 +94,7 @@ class RegistryRetentionCliTests(unittest.TestCase):
             repository=REPOSITORY, username="runner", package=[PACKAGE + "=private"],
             retain_manifest=[], protection_json=protections or [
                 snapshot("localcluster", "cluster"), snapshot("localsinglenode", "primary"),
-            ], require_additional=False, reservation_id="run-77-1", max_deletions=100,
+            ], require_additional=False, reservation_id="", max_deletions=100,
             admission_kind=admission_kind, reserved_bytes=reserved_bytes, assert_clear=False, apply=apply,
         )
 
@@ -138,6 +147,59 @@ class RegistryRetentionCliTests(unittest.TestCase):
         self.assertEqual(result["outcome"], "applied")
         self.assertEqual(result["verified_absent_versions"], 1)
         self.assertLess(events.index("exact-404"), events.index("inventory", 1))
+
+    def test_resume_uses_frozen_candidates_before_reinventory(self):
+        frozen, states = make_inventory()
+        candidate = frozen.versions[0]
+        fresh = Inventory(
+            frozen.repository,
+            tuple(item for item in frozen.versions if item.version_id != candidate.version_id),
+            tuple(item for item in frozen.payloads if item.digest != candidate.digest),
+            frozen.owned_packages, True,
+        )
+        events = []
+
+        def apply(candidates, **kwargs):
+            events.append(("delete", candidates))
+            return ({"reservation_id": "run-77-1", "package": candidate.package,
+                     "version_id": candidate.version_id, "digest": candidate.digest, "api_status": 404},)
+
+        def inventory(*args, **kwargs):
+            events.append(("inventory", None))
+            return fresh, {key: value for key, value in states.items() if key[0] != 1}
+
+        def guard_factory(**kwargs):
+            self.assertIsNone(kwargs["inventory"])
+            self.assertEqual(kwargs["reservation_id"], "run-77-1")
+            return FakeResumeGuard(inventory=frozen, candidates=(candidate,))
+
+        args = self.args()
+        args.reservation_id = "run-77-1"
+        with (mock.patch.object(CLI, "_validate_workflow_scope"),
+              mock.patch.dict("os.environ", {"GITHUB_TOKEN": "fixture"}),
+              mock.patch.object(CLI.shared_deploy_lock, "require_shared_lock", return_value=(self.lock, "fixture-token")),
+              mock.patch.object(CLI, "_frozen_payload_states", return_value=states),
+              mock.patch.object(CLI, "collect_inventory", side_effect=inventory),
+              mock.patch.object(CLI.registry_gc, "apply_deletions", side_effect=apply),
+              mock.patch.object(CLI, "list_active_deployment_runs", return_value=[])):
+            result = CLI.run(
+                args, client_factory=lambda *unused: object(), guard_factory=guard_factory,
+                active_runs_provider=lambda *args, **kwargs: [],
+            )
+
+        self.assertEqual(result["outcome"], "applied")
+        self.assertEqual(result["candidate_versions"], 1)
+        self.assertEqual([event[0] for event in events], ["delete", "inventory"])
+
+    def test_reservation_id_cannot_be_used_without_apply(self):
+        args = self.args(apply=False)
+        args.reservation_id = "run-77-1"
+        with (mock.patch.dict("os.environ", {"GITHUB_TOKEN": "fixture"}),
+              mock.patch.object(CLI.shared_deploy_lock, "require_shared_lock", return_value=(self.lock, "fixture-token")),
+              mock.patch.object(CLI, "collect_inventory") as inventory):
+            with self.assertRaises(RetentionError):
+                CLI.run(args, client_factory=lambda *unused: object())
+        inventory.assert_not_called()
 
     def test_snapshot_references_keep_exact_current_and_recovery_payloads(self):
         inventory, states = make_inventory()

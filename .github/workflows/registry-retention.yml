@@ -18,6 +18,16 @@ on:
         type: string
         required: false
         default: ""
+      registry_reservation_run_id:
+        description: Exact failed registry-retention run that owns the pending deletion reservation
+        type: string
+        required: false
+        default: ""
+      registry_reservation_attempt:
+        description: Exact attempt of the failed registry-retention run; supply together with its run ID
+        type: string
+        required: false
+        default: ""
   schedule:
     - cron: "37 3 * * *"
 
@@ -46,11 +56,21 @@ jobs:
       - name: Require main branch and enabled LocalCluster target
         env:
           DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          REGISTRY_RETENTION_APPLY: ${{ inputs.apply_registry == true }}
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
+          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
+          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           targets=",${DEPLOY_TARGETS// /},"
           [[ "$targets" == *,localcluster,* ]]
+          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
+            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
 
       - name: Verify node-main runner
         run: |
@@ -86,10 +106,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
         run: |
           set -euo pipefail
-          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
-            python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
+          lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
+          if [[ -n "$RESERVATION_RUN_ID" && -d "$lock_dir" ]]; then
+            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
+              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
+              --print-lock-token)"
+            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
+            status="$(python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
+          else
+            status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+              python3 Deployment/LocalCluster/Scripts/release-status.py | tail -n 1)"
+          fi
           printf '%s\n' "$status" > "$RUNNER_TEMP/localcluster-release-status.json"
 
       - name: Export verified LocalCluster registry protections
@@ -118,11 +149,21 @@ jobs:
       - name: Require main branch and enabled LocalSingleNode target
         env:
           DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          REGISTRY_RETENTION_APPLY: ${{ inputs.apply_registry == true }}
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
+          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
+          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           targets=",${DEPLOY_TARGETS// /},"
           [[ "$targets" == *,localsinglenode,* ]]
+          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
+            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
 
       - name: Verify the intended native LocalSingleNode host
         env:
@@ -157,10 +198,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
         run: |
           set -euo pipefail
-          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
-            python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
+          if [[ -n "$RESERVATION_RUN_ID" && -d "$lock_dir" ]]; then
+            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
+              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
+              --print-lock-token)"
+            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
+            status="$(python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          else
+            status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+              python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          fi
           printf '%s\n' "$status" > "$RUNNER_TEMP/primary-release-status.json"
 
       - name: Export verified primary registry protections
@@ -190,11 +242,21 @@ jobs:
       - name: Require main branch and enabled LocalSingleNode target
         env:
           DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          REGISTRY_RETENTION_APPLY: ${{ inputs.apply_registry == true }}
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
+          CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
+          CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           targets=",${DEPLOY_TARGETS// /},"
           [[ "$targets" == *,localsinglenode,* ]]
+          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
+            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
 
       - name: Verify the intended native LocalSingleNode host
         env:
@@ -229,10 +291,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
         run: |
           set -euo pipefail
-          status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
-            python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
+          if [[ -n "$RESERVATION_RUN_ID" && -d "$lock_dir" ]]; then
+            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
+              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
+              --print-lock-token)"
+            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
+            status="$(python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          else
+            status="$(bash Deployment/Common/Scripts/with-deploy-lock.sh \
+              python3 Deployment/LocalSingleNode/Scripts/release-status.py | tail -n 1)"
+          fi
           printf '%s\n' "$status" > "$RUNNER_TEMP/additional-release-status.json"
 
       - name: Export verified additional registry protections
@@ -290,9 +363,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
           CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_registry == true }}
         run: |
           set -euo pipefail
+          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
+            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
           if [[ -n "$CAPACITY_RECOVERY_CI_RUN_ID" || -n "$CAPACITY_RECOVERY_CI_ATTEMPT" ]]; then
             [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
             python3 Deployment/Common/Scripts/verify-registry-capacity-recovery.py \
@@ -323,6 +403,8 @@ jobs:
           REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64: ${{ needs.localsinglenode_additional.outputs.protection_gzip_b64 }}
           ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}
+          RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
+          RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
         run: |
           set -euo pipefail
           apply=()
@@ -354,6 +436,30 @@ jobs:
           fi
           additional=()
           if [[ "$ADDITIONAL_ENABLED" == true ]]; then additional+=(--require-additional); fi
-          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+          if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
+            [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            reservation_id="run-${RESERVATION_RUN_ID}-${RESERVATION_ATTEMPT}"
+            lock_dir="${LOCALCLUSTER_DEPLOY_LOCK_DIR:-/tmp/localcluster-deploy.lockdir}"
+            recovery_record="$RUNNER_TEMP/registry-retention-recovery.json"
+            lock_token="$(python3 Deployment/Common/Scripts/registry-retention-recovery.py prepare \
+              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
+              --record "$recovery_record" --print-lock-token)"
+            export LOCALCLUSTER_DEPLOY_LOCK_DIR="$lock_dir" LOCALCLUSTER_DEPLOY_LOCK_TOKEN="$lock_token"
+            retention_status=0
             python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}"
+              "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}" \
+              --reservation-id "$reservation_id" || retention_status=$?
+            python3 Deployment/Common/Scripts/registry-retention-recovery.py release \
+              --owner-run-id "$RESERVATION_RUN_ID" --owner-attempt "$RESERVATION_ATTEMPT" \
+              --record "$recovery_record"
+            exit "$retention_status"
+          else
+            bash Deployment/Common/Scripts/with-deploy-lock.sh \
+              python3 Deployment/Common/Scripts/registry-retention.py \
+                "${packages[@]}" "${retained_bootstraps[@]}" "${protections[@]}" "${additional[@]}" "${apply[@]}"
+          fi
+
+      - name: Remove temporary registry recovery record
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/registry-retention-recovery.json"

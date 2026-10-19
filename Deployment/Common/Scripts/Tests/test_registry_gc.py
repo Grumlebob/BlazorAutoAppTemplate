@@ -105,6 +105,16 @@ class RegistryDeletionTests(unittest.TestCase):
         self.assertEqual(1, registry.delete_calls)
         self.assertEqual("complete", guard.state)
 
+    def test_recovery_can_keep_absence_journal_until_shared_lock_release(self):
+        guard = FixtureGuard()
+        registry = FixtureRegistry(guard)
+        receipts = gc.apply_deletions(
+            (VERSION,), registry=registry, guard=guard, complete_reservation=False,
+        )
+        self.assertEqual(404, receipts[0]["api_status"])
+        self.assertEqual("absent", guard.state)
+        self.assertNotIn("complete", guard.events)
+
     def test_changed_tags_digest_created_time_or_version_id_prevent_delete(self):
         changes = [
             {"name": "sha256:" + "b" * 64}, {"id": 124}, {"created_at": "2026-10-02T00:00:00Z"},
