@@ -195,7 +195,10 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
     def test_capacity_source_continuity_requires_the_same_gate_and_policy(self):
         old_ci = ("jobs:\n  build-test-push:\n    steps:\n      - name: " + module.CAPACITY_STEP
                   + "\n        run: python3 registry-retention.py --admission-kind final\n      - name: Next\n")
-        old_wrapper = "def run(args):\n    require_publication_capacity(plan, **admission)\n"
+        old_wrapper = (
+            "from registry_retention import ACTIVE\n\n"
+            "def run(args):\n    require_publication_capacity(plan, **admission)\n"
+        )
         old_files = {
             "old": {
                 ".github/workflows/ci.yml": old_ci,
@@ -204,7 +207,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
             },
             "new": {
                 ".github/workflows/ci.yml": old_ci.replace("jobs:\n", "name: CI\njobs:\n"),
-                "Deployment/Common/Scripts/registry-retention.py": old_wrapper,
+                "Deployment/Common/Scripts/registry-retention.py": old_wrapper.replace("ACTIVE", "ACTIVE, TERMINAL"),
                 **{path: "same policy\n" for path in module.CAPACITY_SOURCE_FILES},
             },
         }

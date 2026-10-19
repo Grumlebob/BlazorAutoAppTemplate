@@ -148,6 +148,25 @@ class RegistryRetentionCliTests(unittest.TestCase):
         self.assertEqual(result["verified_absent_versions"], 1)
         self.assertLess(events.index("exact-404"), events.index("inventory", 1))
 
+    def test_frozen_payload_states_accepts_exact_completed_producer_attempt(self):
+        inventory, _ = make_inventory(ages=(30,), sizes=[200])
+        payload = inventory.payloads[0]
+        run = {
+            "id": payload.run_id, "run_attempt": payload.run_attempt, "head_sha": payload.commit_sha,
+            "head_branch": "main", "path": ".github/workflows/ci.yml",
+            "status": "completed", "event": "push",
+            "head_repository": {"full_name": REPOSITORY},
+        }
+        client = mock.Mock()
+        client.github.return_value = run
+
+        states = CLI._frozen_payload_states(client, REPOSITORY, inventory)
+
+        self.assertEqual(states, {(payload.run_id, payload.run_attempt): "completed"})
+        client.github.assert_called_once_with(
+            f"/repos/{REPOSITORY}/actions/runs/{payload.run_id}/attempts/{payload.run_attempt}"
+        )
+
     def test_resume_uses_frozen_candidates_before_reinventory(self):
         frozen, states = make_inventory()
         candidate = frozen.versions[0]
