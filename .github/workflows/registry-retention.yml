@@ -357,7 +357,7 @@ jobs:
       needs.localsinglenode_primary.result == 'success' &&
       (vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT == '' || needs.localsinglenode_additional.result == 'success')
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
-    timeout-minutes: 30
+    timeout-minutes: 120
     environment:
       name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     permissions:

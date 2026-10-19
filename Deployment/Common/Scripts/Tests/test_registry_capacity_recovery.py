@@ -417,6 +417,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         self.assertEqual(inputs["registry_reservation_attempt"]["type"], "string")
 
         jobs = workflow["jobs"]
+        self.assertGreaterEqual(jobs["prune_registry"]["timeout-minutes"], 120)
         status_reads = [step for job_name in ("localcluster_protection", "localsinglenode_primary",
                                                "localsinglenode_additional")
                         for step in jobs[job_name]["steps"]
