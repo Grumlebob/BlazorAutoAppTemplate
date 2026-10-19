@@ -26,6 +26,7 @@ from registry_retention import (  # noqa: E402
     FINAL_BYTES,
     MAX_DELETIONS,
     PACKAGE,
+    TERMINAL,
     TRANSFER_BYTES,
     Protection,
     RetentionError,
