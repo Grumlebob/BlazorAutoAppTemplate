@@ -131,12 +131,13 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
             )
 
     def test_lock_blocked_recovery_pairs_prior_capacity_proof_and_exact_reservation(self):
-        current_sha = "b" * 40
-        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": current_sha,
+        blocked_sha = "b" * 40
+        current_sha = "c" * 40
+        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": blocked_sha,
                        "created_at": "2026-10-19T13:00:00Z"}
         current_jobs = deepcopy(self.jobs)
         for job in current_jobs:
-            job.update(run_id=456, run_attempt=1, head_sha=current_sha)
+            job.update(run_id=456, run_attempt=1, head_sha=blocked_sha)
         gate = current_jobs[1]["steps"][0]
         gate.update(started_at="2026-10-19T13:00:00Z", completed_at="2026-10-19T13:00:02Z")
         current_log = (
@@ -151,12 +152,14 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
             "status": "completed", "conclusion": "failure", "created_at": "2026-10-19T11:00:03Z",
             "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
         }
-        with patch.object(module, "verify_capacity_source_continuity"):
+        with patch.object(module, "verify_capacity_source_continuity") as continuity:
             result = module.verify_lock_blocked_recovery(
                 current_run, current_jobs, current_log, prior_run, self.jobs, self.log, reservation_run,
                 repository=self.repository, current_sha=current_sha, current_run_id=456, current_attempt=1,
                 prior_run_id=123, prior_attempt=2, reservation_run_id=789, reservation_attempt=1,
             )
+            self.assertEqual([entry.args for entry in continuity.call_args_list],
+                             [(self.sha, blocked_sha), (blocked_sha, current_sha)])
         self.assertEqual(result["outcome"], "capacity_cleanup_only")
         self.assertEqual(result["capacity_proof_run_id"], 123)
         self.assertEqual(result["ci_run_id"], 456)
@@ -267,12 +270,13 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                         module.main()
 
     def test_full_lock_blocked_proof_rechecks_all_three_runs_and_current_main(self):
-        current_sha = "b" * 40
-        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": current_sha,
+        blocked_sha = "b" * 40
+        current_sha = "c" * 40
+        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": blocked_sha,
                        "created_at": "2026-10-19T13:00:00Z"}
         current_jobs = deepcopy(self.jobs)
         for job in current_jobs:
-            job.update(run_id=456, run_attempt=1, head_sha=current_sha)
+            job.update(run_id=456, run_attempt=1, head_sha=blocked_sha)
         current_jobs[1]["steps"][0].update(started_at="2026-10-19T13:00:00Z",
                                            completed_at="2026-10-19T13:00:02Z")
         current_log = (

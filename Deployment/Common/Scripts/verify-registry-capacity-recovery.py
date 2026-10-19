@@ -245,19 +245,23 @@ def verify_lock_blocked_recovery(
     prior_run_id, prior_attempt, reservation_run_id, reservation_attempt,
 ):
     prior_sha = prior_run.get("head_sha") if isinstance(prior_run, dict) else None
+    blocked_sha = current_run.get("head_sha") if isinstance(current_run, dict) else None
     if not isinstance(prior_sha, str):
         raise ValueError("the prior capacity proof source SHA is unavailable")
+    if not isinstance(blocked_sha, str):
+        raise ValueError("the lock-blocked CI source SHA is unavailable")
     prior_result = verify_capacity_failure(
         prior_run, prior_jobs, prior_log, repository=repository, sha=prior_sha,
         run_id=prior_run_id, attempt=prior_attempt,
     )
-    verify_capacity_source_continuity(prior_sha, current_sha)
+    verify_capacity_source_continuity(prior_sha, blocked_sha)
+    verify_capacity_source_continuity(blocked_sha, current_sha)
     verify_reservation_run(
         reservation_run, repository=repository, prior_sha=prior_sha,
         run_id=reservation_run_id, attempt=reservation_attempt,
     )
     blocked_result = verify_lock_blocked_failure(
-        current_run, current_jobs, current_log, repository=repository, sha=current_sha,
+        current_run, current_jobs, current_log, repository=repository, sha=blocked_sha,
         run_id=current_run_id, attempt=current_attempt,
         reservation_run_id=reservation_run_id, reservation_attempt=reservation_attempt,
     )
