@@ -41,7 +41,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection: ${{ steps.protect.outputs.protection }}
+      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
     steps:
       - name: Require main branch and enabled LocalCluster target
         env:
@@ -97,7 +97,7 @@ jobs:
         run: |
           python3 Deployment/Common/Scripts/registry-protection.py \
             --target localcluster --instance cluster \
-            --status-json "$RUNNER_TEMP/localcluster-release-status.json" >> "$GITHUB_OUTPUT"
+            --status-json "$RUNNER_TEMP/localcluster-release-status.json" --github-output >> "$GITHUB_OUTPUT"
 
       - name: Remove temporary vault secret
         if: always()
@@ -113,7 +113,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection: ${{ steps.protect.outputs.protection }}
+      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
     steps:
       - name: Require main branch and enabled LocalSingleNode target
         env:
@@ -168,7 +168,7 @@ jobs:
         run: |
           python3 Deployment/Common/Scripts/registry-protection.py \
             --target localsinglenode --instance primary \
-            --status-json "$RUNNER_TEMP/primary-release-status.json" >> "$GITHUB_OUTPUT"
+            --status-json "$RUNNER_TEMP/primary-release-status.json" --github-output >> "$GITHUB_OUTPUT"
 
       - name: Remove temporary primary configuration
         if: always()
@@ -185,7 +185,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection: ${{ steps.protect.outputs.protection }}
+      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
     steps:
       - name: Require main branch and enabled LocalSingleNode target
         env:
@@ -240,7 +240,7 @@ jobs:
         run: |
           python3 Deployment/Common/Scripts/registry-protection.py \
             --target localsinglenode --instance additional \
-            --status-json "$RUNNER_TEMP/additional-release-status.json" >> "$GITHUB_OUTPUT"
+            --status-json "$RUNNER_TEMP/additional-release-status.json" --github-output >> "$GITHUB_OUTPUT"
 
       - name: Remove temporary additional configuration
         if: always()
@@ -318,9 +318,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
           REGISTRY_COORDINATION_SCOPE_COMPLETE: "true"
-          REGISTRY_PROTECTION_CLUSTER: ${{ needs.localcluster_protection.outputs.protection }}
-          REGISTRY_PROTECTION_PRIMARY: ${{ needs.localsinglenode_primary.outputs.protection }}
-          REGISTRY_PROTECTION_ADDITIONAL: ${{ needs.localsinglenode_additional.outputs.protection }}
+          REGISTRY_PROTECTION_CLUSTER_B64: ${{ needs.localcluster_protection.outputs.protection_b64 }}
+          REGISTRY_PROTECTION_PRIMARY_B64: ${{ needs.localsinglenode_primary.outputs.protection_b64 }}
+          REGISTRY_PROTECTION_ADDITIONAL_B64: ${{ needs.localsinglenode_additional.outputs.protection_b64 }}
           ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}
         run: |
@@ -332,6 +332,21 @@ jobs:
           if [[ -n "${{ steps.packages.outputs.additional_payload_image }}" ]]; then
             packages+=(--package "${{ steps.packages.outputs.additional_payload_image }}=private")
             retained_bootstraps+=(--retain-manifest "${{ steps.packages.outputs.additional_payload_image }}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
+          fi
+          decode_protection() {
+            local encoded="$1"
+            if (( ${#encoded} == 0 || ${#encoded} > 8192 )) || \
+              [[ ! "$encoded" =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$ ]]; then
+              echo "A cross-job release protection snapshot is missing or malformed." >&2
+              return 1
+            fi
+            printf '%s' "$encoded" | base64 --decode
+          }
+          REGISTRY_PROTECTION_CLUSTER="$(decode_protection "$REGISTRY_PROTECTION_CLUSTER_B64")"
+          REGISTRY_PROTECTION_PRIMARY="$(decode_protection "$REGISTRY_PROTECTION_PRIMARY_B64")"
+          REGISTRY_PROTECTION_ADDITIONAL=""
+          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL_B64" ]]; then
+            REGISTRY_PROTECTION_ADDITIONAL="$(decode_protection "$REGISTRY_PROTECTION_ADDITIONAL_B64")"
           fi
           protections=(--protection-json "$REGISTRY_PROTECTION_CLUSTER" --protection-json "$REGISTRY_PROTECTION_PRIMARY")
           if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL" ]]; then
