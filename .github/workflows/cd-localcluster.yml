@@ -1,5 +1,5 @@
 name: CD - Deploy LocalCluster
-run-name: "CD LocalCluster @ ${{ inputs.target_sha || github.sha }}"
+run-name: "CD LocalCluster @ ${{ inputs.target_sha || github.sha }} request=${{ inputs.request_id || 'manual' }}"
 
 on:
   workflow_dispatch:
@@ -19,6 +19,74 @@ on:
         type: string
       local_payload_pin_key:
         description: Optional exact local recovery pin key for this target SHA. Leave empty to select the successful CI release.
+        required: false
+        default: ""
+        type: string
+      workflow_sha:
+        description: Exact trusted main workflow SHA frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      refresh_rating_ranks:
+        description: Refresh rating ranks during deployment; LocalCluster does not support this effect.
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      ci_run_id:
+        description: Exact successful CI run ID frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      ci_run_attempt:
+        description: Exact successful CI run attempt frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      payload_transport:
+        description: Exact immutable release payload transport frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      payload_image:
+        description: Exact release payload image when the transport is GHCR.
+        required: false
+        default: ""
+        type: string
+      payload_digest:
+        description: Exact release payload digest when the transport is GHCR.
+        required: false
+        default: ""
+        type: string
+      artifact_id:
+        description: Exact Actions artifact ID when the transport is an Actions artifact.
+        required: false
+        default: ""
+        type: string
+      artifact_digest:
+        description: Exact Actions artifact digest when the transport is an Actions artifact.
+        required: false
+        default: ""
+        type: string
+      manifest_sha256:
+        description: Exact release manifest SHA-256 frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      image_digest:
+        description: Exact application image digest frozen by the release coordinator.
+        required: false
+        default: ""
+        type: string
+      operation_id:
+        description: Release coordinator operation ID for run correlation.
+        required: false
+        default: ""
+        type: string
+      request_id:
+        description: Release coordinator request ID used to correlate this dispatch.
         required: false
         default: ""
         type: string
@@ -142,6 +210,77 @@ jobs:
             exit 1
           }
 
+      - name: Validate coordinator dispatch provenance
+        env:
+          INPUT_WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+          INPUT_REFRESH_RATING_RANKS: ${{ inputs.refresh_rating_ranks }}
+          INPUT_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          INPUT_CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt }}
+          INPUT_PAYLOAD_TRANSPORT: ${{ inputs.payload_transport }}
+          INPUT_PAYLOAD_IMAGE: ${{ inputs.payload_image }}
+          INPUT_PAYLOAD_DIGEST: ${{ inputs.payload_digest }}
+          INPUT_ARTIFACT_ID: ${{ inputs.artifact_id }}
+          INPUT_ARTIFACT_DIGEST: ${{ inputs.artifact_digest }}
+          INPUT_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+          INPUT_IMAGE_DIGEST: ${{ inputs.image_digest }}
+          INPUT_OPERATION_ID: ${{ inputs.operation_id }}
+          INPUT_REQUEST_ID: ${{ inputs.request_id }}
+          INPUT_LOCAL_PAYLOAD_PIN_KEY: ${{ inputs.local_payload_pin_key }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$INPUT_REQUEST_ID" ]]; then
+            if [[ -n "$INPUT_WORKFLOW_SHA$INPUT_CI_RUN_ID$INPUT_CI_RUN_ATTEMPT$INPUT_PAYLOAD_TRANSPORT$INPUT_PAYLOAD_IMAGE$INPUT_PAYLOAD_DIGEST$INPUT_ARTIFACT_ID$INPUT_ARTIFACT_DIGEST$INPUT_MANIFEST_SHA256$INPUT_IMAGE_DIGEST$INPUT_OPERATION_ID" ]]; then
+              echo "Coordinator dispatch provenance is incomplete: request_id is required." >&2
+              exit 1
+            fi
+            if [[ "$INPUT_REFRESH_RATING_RANKS" == true ]]; then
+              echo "LocalCluster does not support refresh_rating_ranks." >&2
+              exit 1
+            fi
+            exit 0
+          fi
+
+          [[ "$INPUT_REQUEST_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "request_id is malformed" >&2; exit 1; }
+          [[ "$INPUT_OPERATION_ID" =~ ^[A-Za-z0-9_.-]{1,100}$ ]] || { echo "operation_id is malformed" >&2; exit 1; }
+          [[ "$INPUT_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "workflow_sha is malformed" >&2; exit 1; }
+          [[ "$INPUT_CI_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || { echo "ci_run_id is malformed" >&2; exit 1; }
+          [[ "$INPUT_CI_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "ci_run_attempt is malformed" >&2; exit 1; }
+          [[ "$INPUT_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "manifest_sha256 is malformed" >&2; exit 1; }
+          [[ "$INPUT_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "image_digest is malformed" >&2; exit 1; }
+          [[ "$INPUT_REFRESH_RATING_RANKS" == false ]] || { echo "LocalCluster does not support refresh_rating_ranks." >&2; exit 1; }
+          [[ -z "$INPUT_LOCAL_PAYLOAD_PIN_KEY" ]] || { echo "Coordinator dispatch cannot replace frozen provenance with a local pin." >&2; exit 1; }
+          git cat-file -e "${INPUT_WORKFLOW_SHA}^{commit}"
+          git merge-base --is-ancestor "$INPUT_WORKFLOW_SHA" "$GITHUB_SHA" || {
+            echo "workflow_sha ${INPUT_WORKFLOW_SHA} is not an ancestor of the dispatched main commit ${GITHUB_SHA}." >&2
+            exit 1
+          }
+          git merge-base --is-ancestor "$TARGET_SHA" "$INPUT_WORKFLOW_SHA" || {
+            echo "target_sha ${TARGET_SHA} is not an ancestor of frozen workflow_sha ${INPUT_WORKFLOW_SHA}." >&2
+            exit 1
+          }
+
+          case "$INPUT_PAYLOAD_TRANSPORT" in
+            actions-artifact)
+              [[ "$INPUT_ARTIFACT_ID" =~ ^[1-9][0-9]{0,19}$ ]] || { echo "artifact_id is malformed" >&2; exit 1; }
+              [[ "$INPUT_ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "artifact_digest is malformed" >&2; exit 1; }
+              [[ -z "$INPUT_PAYLOAD_IMAGE$INPUT_PAYLOAD_DIGEST" ]] || { echo "Actions artifact dispatch must not include GHCR payload identity." >&2; exit 1; }
+              ;;
+            ghcr-container)
+              [[ "$INPUT_PAYLOAD_IMAGE" =~ ^ghcr\.io/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$ ]] || { echo "payload_image is malformed" >&2; exit 1; }
+              [[ "$INPUT_PAYLOAD_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "payload_digest is malformed" >&2; exit 1; }
+              ;;
+            *)
+              echo "payload_transport is unsupported: ${INPUT_PAYLOAD_TRANSPORT}" >&2
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "Coordinator operation: ${INPUT_OPERATION_ID}"
+            echo "Coordinator request: ${INPUT_REQUEST_ID}"
+            echo "Frozen target and CI: ${TARGET_SHA}, ${INPUT_CI_RUN_ID}/${INPUT_CI_RUN_ATTEMPT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Resolve target frontend and acceptance profiles
         run: |
           set -euo pipefail
@@ -213,6 +352,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCAL_PAYLOAD_PIN_KEY: ${{ inputs.local_payload_pin_key }}
+          INPUT_REQUEST_ID: ${{ inputs.request_id }}
+          INPUT_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          INPUT_CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt }}
+          INPUT_PAYLOAD_TRANSPORT: ${{ inputs.payload_transport }}
+          INPUT_PAYLOAD_IMAGE: ${{ inputs.payload_image }}
+          INPUT_PAYLOAD_DIGEST: ${{ inputs.payload_digest }}
+          INPUT_ARTIFACT_ID: ${{ inputs.artifact_id }}
+          INPUT_ARTIFACT_DIGEST: ${{ inputs.artifact_digest }}
+          INPUT_MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+          INPUT_IMAGE_DIGEST: ${{ inputs.image_digest }}
         run: |
           bash Deployment/Common/Scripts/with-deploy-lock.sh bash -euo pipefail <<'LOCKED'
             set -euo pipefail
@@ -241,7 +390,8 @@ jobs:
               --payload-profile "$FRONTEND_PROFILE" \
               --payload-acceptance-profile "$ACCEPTANCE_PROFILE" \
               --payload-runtime "$MIGRATION_RUNTIME" \
-              --payload-app-image "$APP_IMAGE" --payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX" --json)" || {
+              --payload-app-image "$APP_IMAGE" --payload-app-image-prefix "$RELEASE_PAYLOAD_PREFIX" \
+              --expected-run-id "$INPUT_CI_RUN_ID" --expected-run-attempt "$INPUT_CI_RUN_ATTEMPT" --json)" || {
               echo "No successful main CI run for ${TARGET_SHA}: ${ci_result:-no result}" >&2
               exit 1
             }
@@ -302,6 +452,36 @@ jobs:
                 exit 1
                 ;;
             esac
+            fi
+            if [[ -n "$INPUT_REQUEST_ID" ]]; then
+              python3 - "$pin_result" <<'PY'
+          import json
+          import os
+          import sys
+
+          payload = json.loads(sys.argv[1])
+          expected = {
+              "target_sha": os.environ["TARGET_SHA"],
+              "run_id": os.environ["INPUT_CI_RUN_ID"],
+              "run_attempt": os.environ["INPUT_CI_RUN_ATTEMPT"],
+              "transport": os.environ["INPUT_PAYLOAD_TRANSPORT"],
+              "manifest_sha256": os.environ["INPUT_MANIFEST_SHA256"],
+              "image_digest": os.environ["INPUT_IMAGE_DIGEST"],
+          }
+          if os.environ["INPUT_PAYLOAD_TRANSPORT"] == "actions-artifact":
+              expected.update({
+                  "artifact_id": os.environ["INPUT_ARTIFACT_ID"],
+                  "artifact_digest": os.environ["INPUT_ARTIFACT_DIGEST"],
+              })
+          else:
+              expected.update({
+                  "payload_image": os.environ["INPUT_PAYLOAD_IMAGE"],
+                  "payload_digest": os.environ["INPUT_PAYLOAD_DIGEST"],
+              })
+          for key, value in expected.items():
+              if str(payload.get(key, "")) != value:
+                  raise SystemExit(f"Selected release payload {key} differs from frozen coordinator provenance.")
+          PY
             fi
             {
               echo "CI_RUN_ID=${CI_RUN_ID}"
