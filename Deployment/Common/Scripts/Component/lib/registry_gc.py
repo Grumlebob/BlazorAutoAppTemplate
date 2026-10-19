@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import re
+import time
 from typing import Protocol
 
 from registry_retention import DIGEST, MAX_DELETIONS, PACKAGE, RetentionError, Version
@@ -43,6 +44,19 @@ class Registry(Protocol):
         """Send DELETE for this exact immutable version."""
 
 
+ABSENCE_RETRY_DELAYS = (0.5, 1.0, 2.0, 3.0)
+
+
+def _confirm_exact_absence(registry: Registry, candidate: Version) -> bool:
+    """Allow bounded GHCR visibility lag without repeating the DELETE request."""
+    for delay in (0.0, *ABSENCE_RETRY_DELAYS):
+        if delay:
+            time.sleep(delay)
+        if registry.version(candidate.package, candidate.version_id) is None:
+            return True
+    return False
+
+
 def _matches(candidate: Version, remote: dict) -> bool:
     try:
         tags = remote["metadata"]["container"]["tags"]
@@ -55,8 +69,16 @@ def _matches(candidate: Version, remote: dict) -> bool:
         return False
 
 
-def apply_deletions(candidates: tuple[Version, ...], *, registry: Registry, guard: Guard) -> tuple[dict, ...]:
+def apply_deletions(
+    candidates: tuple[Version, ...],
+    *,
+    registry: Registry,
+    guard: Guard,
+    complete_reservation: bool = True,
+) -> tuple[dict, ...]:
     """Recheck each reserved identity, delete it and prove exact remote absence."""
+    if type(complete_reservation) is not bool:
+        raise RetentionError("registry reservation completion mode must be explicit")
     if not candidates:
         return ()
     if len(candidates) > MAX_DELETIONS:
@@ -82,19 +104,23 @@ def apply_deletions(candidates: tuple[Version, ...], *, registry: Registry, guar
             guard.delete_requested(reservation, candidate)
             try:
                 registry.delete_version(candidate.package, candidate.version_id)
-                remaining = registry.version(candidate.package, candidate.version_id)
+                confirmed_absent = _confirm_exact_absence(registry, candidate)
             except Exception as error:
                 raise DeletionUncertain(
                     f"registry deletion outcome is unknown for {candidate.package} version {candidate.version_id}; "
                     f"resume reservation {reservation} to reconcile that exact identity"
                 ) from error
-            if remaining is not None:
-                raise DeletionUncertain("registry version is still present; its owned deletion reservation remains pending")
+            if not confirmed_absent:
+                raise DeletionUncertain(
+                    "registry version remains present after bounded exact-ID verification; "
+                    "its owned deletion reservation remains pending"
+                )
         guard.check(reservation, candidate)
         guard.absent(reservation, candidate, 404)
         receipts.append({
             "reservation_id": reservation, "package": candidate.package, "version_id": candidate.version_id,
             "digest": candidate.digest, "tags": sorted(candidate.tags), "api_status": 404,
         })
-    guard.complete(reservation)
+    if complete_reservation:
+        guard.complete(reservation)
     return tuple(receipts)

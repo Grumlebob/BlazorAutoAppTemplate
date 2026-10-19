@@ -154,6 +154,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                                          ("verify-registry-capacity-recovery.py", "recovery")):
                     (scripts / filename).write_text("from pathlib import Path\nPath('called').write_text(" + repr(result) + ")\n")
                 environment = dict(os.environ, CAPACITY_RECOVERY_CI_RUN_ID=run_id, CAPACITY_RECOVERY_CI_ATTEMPT=attempt)
+                environment.update(RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="")
                 completed = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step["run"]],
                                            cwd=root, env=environment, capture_output=True, text=True)
                 if expected is None:
@@ -162,6 +163,60 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                 else:
                     self.assertEqual(completed.returncode, 0, completed.stderr)
                     self.assertEqual((root / "called").read_text(), expected)
+
+    def test_workflow_recovery_binds_exact_reservation_and_refuses_unpaired_effect_inputs(self):
+        import subprocess
+        import yaml
+
+        workflow = yaml.safe_load((SCRIPT.parents[3] / ".github/workflows/registry-retention.yml").read_text())
+        trigger = workflow.get("on", workflow.get(True))
+        inputs = trigger["workflow_dispatch"]["inputs"]
+        self.assertEqual(inputs["registry_reservation_run_id"]["type"], "string")
+        self.assertEqual(inputs["registry_reservation_attempt"]["type"], "string")
+
+        jobs = workflow["jobs"]
+        status_reads = [step for job_name in ("localcluster_protection", "localsinglenode_primary",
+                                               "localsinglenode_additional")
+                        for step in jobs[job_name]["steps"]
+                        if step.get("name", "").startswith("Read ")]
+        self.assertEqual(len(status_reads), 3)
+        for step in status_reads:
+            self.assertIn("registry-retention-recovery.py prepare", step["run"])
+            self.assertIn("with-deploy-lock.sh", step["run"])
+            self.assertEqual(step["env"]["RESERVATION_RUN_ID"], "${{ inputs.registry_reservation_run_id }}")
+
+        source_step = next(step for step in jobs["prune_registry"]["steps"]
+                           if "verify-registry-capacity-recovery.py" in step.get("run", ""))
+        self.assertEqual(source_step["env"]["RESERVATION_RUN_ID"], "${{ inputs.registry_reservation_run_id }}")
+        prune_step = next(step for step in jobs["prune_registry"]["steps"]
+                          if "registry-retention.py" in step.get("run", ""))
+        self.assertIn("--reservation-id", prune_step["run"])
+        self.assertIn("registry-retention-recovery.py release", prune_step["run"])
+        self.assertIn("retention_status=0", prune_step["run"])
+        cleanup = jobs["prune_registry"]["steps"][-1]
+        self.assertEqual(cleanup["if"], "always()")
+        self.assertIn("registry-retention-recovery.json", cleanup["run"])
+
+        gate = jobs["localcluster_protection"]["steps"][0]["run"]
+        base = dict(os.environ, GITHUB_REF="refs/heads/main", DEPLOY_TARGETS="localcluster,localsinglenode",
+                    REGISTRY_RETENTION_APPLY="false", RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="",
+                    CAPACITY_RECOVERY_CI_RUN_ID="", CAPACITY_RECOVERY_CI_ATTEMPT="")
+        normal = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", gate], env=base,
+                                capture_output=True, text=True)
+        self.assertEqual(normal.returncode, 0, normal.stderr)
+        missing_effect_proof = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", gate],
+            env=dict(base, REGISTRY_RETENTION_APPLY="true", RESERVATION_RUN_ID="77",
+                     RESERVATION_ATTEMPT="1"), capture_output=True, text=True,
+        )
+        self.assertNotEqual(missing_effect_proof.returncode, 0)
+        exact_effect_proof = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", gate],
+            env=dict(base, REGISTRY_RETENTION_APPLY="true", RESERVATION_RUN_ID="77",
+                     RESERVATION_ATTEMPT="1", CAPACITY_RECOVERY_CI_RUN_ID="66",
+                     CAPACITY_RECOVERY_CI_ATTEMPT="2"), capture_output=True, text=True,
+        )
+        self.assertEqual(exact_effect_proof.returncode, 0, exact_effect_proof.stderr)
 
 
 if __name__ == "__main__":
