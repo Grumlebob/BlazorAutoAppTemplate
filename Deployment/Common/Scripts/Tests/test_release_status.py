@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import hashlib
+import re
 import sys
 import tempfile
 from unittest import TestCase
@@ -21,6 +22,25 @@ from release_status import (
 )
 import pin_release_payload
 import release_status
+
+
+class CrossRepositoryDispatchContractTests(TestCase):
+    def test_localcluster_dispatch_accepts_and_binds_exact_coordinator_provenance(self):
+        repo_root = Path(__file__).resolve().parents[4]
+        workflow = (repo_root / ".github/workflows/cd-localcluster.yml").read_text(encoding="utf-8")
+        input_block = workflow.split("    inputs:\n", 1)[1].split("\npermissions:\n", 1)[0]
+        declared = set(re.findall(r"^      ([a-z][a-z0-9_]*):$", input_block, re.MULTILINE))
+        required = {
+            "target_sha", "run_migrations", "refresh_rating_ranks", "workflow_sha",
+            "ci_run_id", "ci_run_attempt", "payload_transport", "payload_image",
+            "payload_digest", "artifact_id", "artifact_digest", "manifest_sha256",
+            "image_digest", "operation_id", "request_id",
+        }
+        self.assertTrue(required.issubset(declared), required - declared)
+        self.assertIn("inputs.request_id", workflow.splitlines()[1])
+        self.assertIn('--expected-run-id "$INPUT_CI_RUN_ID"', workflow)
+        self.assertIn('--expected-run-attempt "$INPUT_CI_RUN_ATTEMPT"', workflow)
+        self.assertIn("Selected release payload", workflow)
 
 
 class JsonResponse:
