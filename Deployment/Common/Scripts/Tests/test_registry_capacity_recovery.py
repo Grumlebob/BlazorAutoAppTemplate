@@ -148,7 +148,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         prior_run = {**self.run, "updated_at": "2026-10-19T11:00:02Z"}
         reservation_run = {
             "id": 789, "run_attempt": 1, "head_sha": self.sha, "event": "workflow_dispatch",
-            "head_branch": "main", "path": ".github/workflows/registry-retention.yml@refs/heads/main",
+            "head_branch": "main", "path": ".github/workflows/registry-retention.yml",
             "status": "completed", "conclusion": "failure", "created_at": "2026-10-19T11:00:03Z",
             "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
         }
@@ -173,6 +173,23 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                     {**reservation_run, "head_sha": "c" * 40},
                     repository=self.repository, current_sha=current_sha, current_run_id=456, current_attempt=1,
                     prior_run_id=123, prior_attempt=2, reservation_run_id=789, reservation_attempt=1,
+                )
+
+    def test_reservation_run_matches_github_api_path_without_ref_suffix(self):
+        run = {
+            "id": 789, "run_attempt": 1, "head_sha": self.sha, "event": "workflow_dispatch",
+            "head_branch": "main", "path": ".github/workflows/registry-retention.yml",
+            "status": "completed", "conclusion": "failure",
+            "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
+        }
+        module.verify_reservation_run(
+            run, repository=self.repository, prior_sha=self.sha, run_id=789, attempt=1,
+        )
+        for path in (".github/workflows/registry-retention.yml@refs/heads/main",
+                     ".github/workflows/other.yml"):
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "exact failed trusted workflow run"):
+                module.verify_reservation_run(
+                    {**run, "path": path}, repository=self.repository, prior_sha=self.sha, run_id=789, attempt=1,
                 )
 
     def test_capacity_source_continuity_requires_the_same_gate_and_policy(self):
@@ -287,7 +304,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         prior_run = {**self.run, "updated_at": "2026-10-19T11:00:02Z"}
         reservation_run = {
             "id": 789, "run_attempt": 1, "head_sha": self.sha, "event": "workflow_dispatch",
-            "head_branch": "main", "path": ".github/workflows/registry-retention.yml@refs/heads/main",
+            "head_branch": "main", "path": ".github/workflows/registry-retention.yml",
             "status": "completed", "conclusion": "failure", "created_at": "2026-10-19T11:00:03Z",
             "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
         }

@@ -230,7 +230,7 @@ def verify_capacity_source_continuity(prior_sha, current_sha):
 def verify_reservation_run(run, *, repository, prior_sha, run_id, attempt):
     expected = {"id": run_id, "run_attempt": attempt, "head_sha": prior_sha,
                 "event": "workflow_dispatch", "head_branch": "main",
-                "path": ".github/workflows/registry-retention.yml@refs/heads/main",
+                "path": ".github/workflows/registry-retention.yml",
                 "status": "completed", "conclusion": "failure"}
     if (not isinstance(run, dict) or any(run.get(key) != value for key, value in expected.items())
             or not isinstance(run.get("repository"), dict) or not isinstance(run.get("head_repository"), dict)
