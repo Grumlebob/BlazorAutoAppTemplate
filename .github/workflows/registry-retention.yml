@@ -9,12 +9,22 @@ on:
         required: false
         default: false
       capacity_recovery_ci_run_id:
-        description: Optional exact failed main CI run; only passed validation and a sole prepublication capacity failure qualify
+        description: Exact main CI run with a capacity failure, or a lock timeout owned by this reservation paired with an earlier capacity failure
         type: string
         required: false
         default: ""
       capacity_recovery_ci_attempt:
         description: Exact attempt of that capacity-blocked CI run; supply together with its run ID
+        type: string
+        required: false
+        default: ""
+      prior_capacity_ci_run_id:
+        description: Earlier exact-main capacity failure; only pair with a current CI run blocked by this exact reservation lock
+        type: string
+        required: false
+        default: ""
+      prior_capacity_ci_attempt:
+        description: Exact attempt of the earlier capacity failure; supply together with its run ID
         type: string
         required: false
         default: ""
@@ -61,6 +71,8 @@ jobs:
           RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
           CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
           CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
+          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
+          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
@@ -69,6 +81,11 @@ jobs:
           if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
             [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
             [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
+          if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
+            [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ -n "$RESERVATION_RUN_ID" && -n "$RESERVATION_ATTEMPT" && "$REGISTRY_RETENTION_APPLY" == true ]]
             [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           fi
 
@@ -154,6 +171,8 @@ jobs:
           RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
           CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
           CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
+          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
+          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
@@ -162,6 +181,11 @@ jobs:
           if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
             [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
             [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
+          if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
+            [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ -n "$RESERVATION_RUN_ID" && -n "$RESERVATION_ATTEMPT" && "$REGISTRY_RETENTION_APPLY" == true ]]
             [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           fi
 
@@ -247,6 +271,8 @@ jobs:
           RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
           CAPACITY_RECOVERY_CI_RUN_ID: ${{ inputs.capacity_recovery_ci_run_id }}
           CAPACITY_RECOVERY_CI_ATTEMPT: ${{ inputs.capacity_recovery_ci_attempt }}
+          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
+          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
@@ -255,6 +281,11 @@ jobs:
           if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
             [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
             [[ "$REGISTRY_RETENTION_APPLY" == true ]]
+            [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          fi
+          if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
+            [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+            [[ -n "$RESERVATION_RUN_ID" && -n "$RESERVATION_ATTEMPT" && "$REGISTRY_RETENTION_APPLY" == true ]]
             [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           fi
 
@@ -366,6 +397,8 @@ jobs:
           RESERVATION_RUN_ID: ${{ inputs.registry_reservation_run_id }}
           RESERVATION_ATTEMPT: ${{ inputs.registry_reservation_attempt }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_registry == true }}
+          PRIOR_CAPACITY_CI_RUN_ID: ${{ inputs.prior_capacity_ci_run_id }}
+          PRIOR_CAPACITY_CI_ATTEMPT: ${{ inputs.prior_capacity_ci_attempt }}
         run: |
           set -euo pipefail
           if [[ -n "$RESERVATION_RUN_ID" || -n "$RESERVATION_ATTEMPT" ]]; then
@@ -375,8 +408,15 @@ jobs:
           fi
           if [[ -n "$CAPACITY_RECOVERY_CI_RUN_ID" || -n "$CAPACITY_RECOVERY_CI_ATTEMPT" ]]; then
             [[ "$CAPACITY_RECOVERY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$CAPACITY_RECOVERY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-            python3 Deployment/Common/Scripts/verify-registry-capacity-recovery.py \
-              --run-id "$CAPACITY_RECOVERY_CI_RUN_ID" --attempt "$CAPACITY_RECOVERY_CI_ATTEMPT"
+            capacity_args=(--run-id "$CAPACITY_RECOVERY_CI_RUN_ID" --attempt "$CAPACITY_RECOVERY_CI_ATTEMPT")
+            if [[ -n "$PRIOR_CAPACITY_CI_RUN_ID" || -n "$PRIOR_CAPACITY_CI_ATTEMPT" ]]; then
+              [[ "$PRIOR_CAPACITY_CI_RUN_ID" =~ ^[1-9][0-9]*$ && "$PRIOR_CAPACITY_CI_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+              [[ "$RESERVATION_RUN_ID" =~ ^[1-9][0-9]*$ && "$RESERVATION_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+              capacity_args+=(--prior-capacity-run-id "$PRIOR_CAPACITY_CI_RUN_ID"
+                --prior-capacity-attempt "$PRIOR_CAPACITY_CI_ATTEMPT"
+                --reservation-run-id "$RESERVATION_RUN_ID" --reservation-attempt "$RESERVATION_ATTEMPT")
+            fi
+            python3 Deployment/Common/Scripts/verify-registry-capacity-recovery.py "${capacity_args[@]}"
           else
             python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
           fi
