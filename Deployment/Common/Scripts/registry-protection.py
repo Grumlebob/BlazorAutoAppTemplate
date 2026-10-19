@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import sys
@@ -85,18 +86,28 @@ def protection(status: object, *, target: str, instance: str) -> dict:
     }
 
 
+def format_output(value: dict, *, github_output: bool) -> str:
+    serialized = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    if not github_output:
+        return "protection=" + serialized
+    encoded = base64.b64encode(serialized.encode("utf-8")).decode("ascii")
+    return "protection_b64=" + encoded
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--status-json", type=Path, required=True)
     parser.add_argument("--target", choices=("localcluster", "localsinglenode"), required=True)
     parser.add_argument("--instance", choices=("cluster", "primary", "additional"), required=True)
+    parser.add_argument("--github-output", action="store_true",
+                        help="Emit the validated protection snapshot as base64 for a cross-job GitHub output")
     args = parser.parse_args(argv)
     try:
         if args.status_json.is_symlink() or not args.status_json.is_file() or args.status_json.stat().st_size > 1024 * 1024:
             raise ProtectionError("release status file is unsafe or exceeds its bound")
         status = json.loads(args.status_json.read_text(encoding="utf-8"))
-        print("protection=" + json.dumps(protection(status, target=args.target, instance=args.instance),
-                                           sort_keys=True, separators=(",", ":")))
+        value = protection(status, target=args.target, instance=args.instance)
+        print(format_output(value, github_output=args.github_output))
         return 0
     except (OSError, UnicodeError, json.JSONDecodeError, ProtectionError) as error:
         print(f"Release protection is incomplete; registry deletion is blocked: {error}", file=sys.stderr)

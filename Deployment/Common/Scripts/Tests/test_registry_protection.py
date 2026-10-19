@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -43,6 +45,15 @@ class RegistryProtectionTests(unittest.TestCase):
         ])
         self.assertEqual(result["registry_payload_references"][0]["digest"], "sha256:" + "c" * 64)
         self.assertTrue(result["complete"])
+
+    def test_github_output_encodes_only_the_validated_protection_snapshot(self):
+        value = CLI.protection(self.status(), target="localcluster", instance="cluster")
+        line = CLI.format_output(value, github_output=True)
+        name, encoded = line.split("=", 1)
+
+        self.assertEqual(name, "protection_b64")
+        self.assertNotIn("{", line)
+        self.assertEqual(json.loads(base64.b64decode(encoded, validate=True)), value)
 
     def test_missing_registry_pin_for_ghcr_current_marker_fails_closed(self):
         value = self.status()
