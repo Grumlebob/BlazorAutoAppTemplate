@@ -306,18 +306,50 @@ def verify_payload_receipt(
             expected_run_attempt=str(selected["run_attempt"]),
             expected_sha=str(selected["head_sha"]),
         )
+        identity_arguments = {
+            "repository": f"https://github.com/{repository}",
+            "commit_sha": str(selected["head_sha"]),
+            "run_id": str(selected["id"]),
+            "run_attempt": str(selected["run_attempt"]),
+            "profile": profile,
+            "acceptance_profile": acceptance_profile,
+            "runtime": runtime,
+            "app_image": app_image,
+        }
         expected = expected_final_identity(
-            repository=f"https://github.com/{repository}",
-            commit_sha=str(selected["head_sha"]),
-            run_id=str(selected["id"]),
-            run_attempt=str(selected["run_attempt"]),
-            profile=profile,
-            acceptance_profile=acceptance_profile,
-            runtime=runtime,
-            app_image=app_image,
+            **identity_arguments,
             payload_image_prefix=payload_image_prefix,
         )
-        receipt = select_receipt(records, expected)
+        expected_matches = [
+            record for record in records
+            if all(record.get(field) == value for field, value in expected.items())
+        ]
+        if len(expected_matches) == 1:
+            receipt = select_receipt(records, expected)
+        elif expected_matches:
+            raise ReceiptError("duplicate final payload receipts match the selected payload identity")
+        elif payload_image_prefix:
+            legacy_expected = expected_final_identity(**identity_arguments)
+            legacy_matches = [
+                record for record in records
+                if all(record.get(field) == value for field, value in legacy_expected.items())
+            ]
+            if len(legacy_matches) != 1:
+                raise ReceiptError("expected exactly one receipt matching the selected payload identity")
+            legacy_receipt = select_receipt(records, legacy_expected)
+            if legacy_receipt.get("app_image") != app_image:
+                raise ReceiptError("legacy payload receipt application image does not match the selected release")
+            return {
+                **result,
+                "outcome": "legacy_artifact",
+                "transport": "actions-artifact",
+                "diagnostic": (
+                    "The exact receipt uses the pre-prefix payload package; pin the verified Actions artifact "
+                    "under the current package policy."
+                ),
+            }
+        else:
+            receipt = select_receipt(records, expected)
     except (KeyError, TypeError, ValueError, ReceiptError) as error:
         return {
             "schema_version": 1,
