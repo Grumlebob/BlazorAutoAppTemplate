@@ -41,7 +41,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
+      protection_gzip_b64: ${{ steps.protect.outputs.protection_gzip_b64 }}
     steps:
       - name: Require main branch and enabled LocalCluster target
         env:
@@ -113,7 +113,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
+      protection_gzip_b64: ${{ steps.protect.outputs.protection_gzip_b64 }}
     steps:
       - name: Require main branch and enabled LocalSingleNode target
         env:
@@ -185,7 +185,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      protection_b64: ${{ steps.protect.outputs.protection_b64 }}
+      protection_gzip_b64: ${{ steps.protect.outputs.protection_gzip_b64 }}
     steps:
       - name: Require main branch and enabled LocalSingleNode target
         env:
@@ -318,9 +318,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
           REGISTRY_COORDINATION_SCOPE_COMPLETE: "true"
-          REGISTRY_PROTECTION_CLUSTER_B64: ${{ needs.localcluster_protection.outputs.protection_b64 }}
-          REGISTRY_PROTECTION_PRIMARY_B64: ${{ needs.localsinglenode_primary.outputs.protection_b64 }}
-          REGISTRY_PROTECTION_ADDITIONAL_B64: ${{ needs.localsinglenode_additional.outputs.protection_b64 }}
+          REGISTRY_PROTECTION_CLUSTER_GZIP_B64: ${{ needs.localcluster_protection.outputs.protection_gzip_b64 }}
+          REGISTRY_PROTECTION_PRIMARY_GZIP_B64: ${{ needs.localsinglenode_primary.outputs.protection_gzip_b64 }}
+          REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64: ${{ needs.localsinglenode_additional.outputs.protection_gzip_b64 }}
           ADDITIONAL_ENABLED: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT != '' }}
           REGISTRY_RETENTION_APPLY: ${{ github.event_name == 'schedule' || inputs.apply_registry == true }}
         run: |
@@ -340,13 +340,13 @@ jobs:
               echo "A cross-job release protection snapshot is missing or malformed." >&2
               return 1
             fi
-            printf '%s' "$encoded" | base64 --decode
+            printf '%s' "$encoded" | base64 --decode | gzip --decompress
           }
-          REGISTRY_PROTECTION_CLUSTER="$(decode_protection "$REGISTRY_PROTECTION_CLUSTER_B64")"
-          REGISTRY_PROTECTION_PRIMARY="$(decode_protection "$REGISTRY_PROTECTION_PRIMARY_B64")"
+          REGISTRY_PROTECTION_CLUSTER="$(decode_protection "$REGISTRY_PROTECTION_CLUSTER_GZIP_B64")"
+          REGISTRY_PROTECTION_PRIMARY="$(decode_protection "$REGISTRY_PROTECTION_PRIMARY_GZIP_B64")"
           REGISTRY_PROTECTION_ADDITIONAL=""
-          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL_B64" ]]; then
-            REGISTRY_PROTECTION_ADDITIONAL="$(decode_protection "$REGISTRY_PROTECTION_ADDITIONAL_B64")"
+          if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64" ]]; then
+            REGISTRY_PROTECTION_ADDITIONAL="$(decode_protection "$REGISTRY_PROTECTION_ADDITIONAL_GZIP_B64")"
           fi
           protections=(--protection-json "$REGISTRY_PROTECTION_CLUSTER" --protection-json "$REGISTRY_PROTECTION_PRIMARY")
           if [[ -n "$REGISTRY_PROTECTION_ADDITIONAL" ]]; then
