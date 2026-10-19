@@ -8,6 +8,9 @@ from pathlib import Path
 import sys
 import unittest
 
+import jinja2
+import yaml
+
 ROOT = Path(__file__).resolve().parents[4]
 COMMON_LIB = ROOT / "Deployment/Common/Scripts/Component/lib"
 sys.path.insert(0, str(COMMON_LIB))
@@ -62,6 +65,39 @@ def valid_settings(target: str) -> dict[str, str]:
             }
         )
     return values
+
+
+class AnsibleAccountValidationExpressionTests(unittest.TestCase):
+    def test_account_assertions_compile_for_every_deployment_target(self) -> None:
+        targets = (
+            (
+                ROOT / "Deployment/LocalCluster/ansible/roles/app/tasks/main.yml",
+                "Validate account settings and secret values before staging the app",
+            ),
+            (
+                ROOT / "Deployment/Cloud/ansible/roles/app/tasks/main.yml",
+                "Validate account settings and secret values before staging the app",
+            ),
+            (
+                ROOT / "Deployment/LocalSingleNode/ansible/roles/single_node_stack/tasks/main.yml",
+                "Validate account environment values before rendering dotenv",
+            ),
+        )
+        environment = jinja2.Environment()
+        environment.filters["regex_search"] = lambda *_args, **_kwargs: None
+        environment.filters["bool"] = bool
+        environment.tests["match"] = lambda *_args, **_kwargs: True
+
+        for path, task_name in targets:
+            tasks = yaml.safe_load(path.read_text(encoding="utf-8"))
+            task = next(
+                item for item in tasks
+                if item.get("name") == task_name
+            )
+            expressions = task["ansible.builtin.assert"]["that"]
+            for index, expression in enumerate(expressions):
+                with self.subTest(target=path.relative_to(ROOT), expression=index + 1):
+                    environment.compile_expression(str(expression))
 
 
 def valid_vault_values() -> dict[str, str]:

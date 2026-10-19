@@ -40,12 +40,12 @@
       - vault_data_protection_certificate_password is match('^[A-Fa-f0-9]{64}$')
       - (data_protection_legacy_key_store | default('None')) in ['None', 'Redis', 'FileSystem']
       - ((data_protection_legacy_key_store | default('None')) == 'Redis') == ((data_protection_legacy_redis_key | default('') | length) > 0)
-      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0)
-      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - not (accounts_admin_seed_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_admin_seed_email | default('') | length > 0) and (vault_accounts_admin_seed_password | default('') | length > 0))
+      - not (accounts_registration_enabled | default(false) | bool) or ((accounts_enabled | default(false) | bool) and (accounts_email_host | default('') | length > 0) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
       - (accounts_admin_seed_email | default('') | length == 0) == (vault_accounts_admin_seed_password | default('') | length == 0)
       - (vault_accounts_email_username | default('') | length == 0) == (vault_accounts_email_password | default('') | length == 0)
       - (accounts_email_host | default('') | length > 0) or ((accounts_email_from | default('') | length == 0) and (vault_accounts_email_username | default('') | length == 0) and (vault_accounts_email_password | default('') | length == 0))
-      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0)
+      - (accounts_email_host | default('') | length == 0) or ((accounts_enabled | default(false) | bool) and (accounts_email_from | default('') | length > 0) and (accounts_public_origin | default('') | length > 0))
     fail_msg: "Account deployment settings are incomplete or contain unsupported line breaks."
   no_log: true
 - name: Ensure protected Data Protection certificate directory
