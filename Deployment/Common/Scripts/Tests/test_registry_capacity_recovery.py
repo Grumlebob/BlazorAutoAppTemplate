@@ -88,6 +88,141 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
             with self.subTest(log=log), self.assertRaises(ValueError):
                 self.verify(log=log)
 
+    def test_exact_reservation_lock_timeout_is_bound_to_owner_and_gate_window(self):
+        current_sha = "b" * 40
+        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": current_sha,
+                       "created_at": "2026-10-19T13:00:00Z"}
+        jobs = deepcopy(self.jobs)
+        for job in jobs:
+            job.update(run_id=456, run_attempt=1, head_sha=current_sha)
+        gate = jobs[1]["steps"][0]
+        gate.update(started_at="2026-10-19T13:00:00Z", completed_at="2026-10-19T13:00:02Z")
+        log = (
+            "2026-10-19T13:00:00.1234567Z " + module.LOCK_TIMEOUT + "\n"
+            "2026-10-19T13:00:01.1234567Z lock owner: node-demo:pid=372862:repo=example/repo:"
+            "run=789-1:started=2026-10-19T12:00:00Z\n"
+        )
+        result = module.verify_lock_blocked_failure(
+            current_run, jobs, log, repository=self.repository, sha=current_sha, run_id=456, attempt=1,
+            reservation_run_id=789, reservation_attempt=1,
+        )
+        self.assertEqual(result["outcome"], "reservation_lock_blocked")
+        self.assertEqual(result["lock_owner"], {"host": "node-demo", "pid": 372862,
+                                                 "run_id": 789, "run_attempt": 1})
+
+        bad_logs = (
+            log.replace("run=789-1", "run=790-1"),
+            log.replace(module.LOCK_TIMEOUT, "timed out waiting for another lock"),
+            log + log,
+            log.replace("13:00:01.1234567", "12:59:59.1234567"),
+        )
+        for bad_log in bad_logs:
+            with self.subTest(log=bad_log), self.assertRaises(ValueError):
+                module.verify_lock_blocked_failure(
+                    current_run, jobs, bad_log, repository=self.repository, sha=current_sha,
+                    run_id=456, attempt=1, reservation_run_id=789, reservation_attempt=1,
+                )
+        bad_jobs = deepcopy(jobs)
+        bad_jobs[1]["steps"][1]["conclusion"] = "success"
+        with self.assertRaises(ValueError):
+            module.verify_lock_blocked_failure(
+                current_run, bad_jobs, log, repository=self.repository, sha=current_sha, run_id=456, attempt=1,
+                reservation_run_id=789, reservation_attempt=1,
+            )
+
+    def test_lock_blocked_recovery_pairs_prior_capacity_proof_and_exact_reservation(self):
+        current_sha = "b" * 40
+        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": current_sha,
+                       "created_at": "2026-10-19T13:00:00Z"}
+        current_jobs = deepcopy(self.jobs)
+        for job in current_jobs:
+            job.update(run_id=456, run_attempt=1, head_sha=current_sha)
+        gate = current_jobs[1]["steps"][0]
+        gate.update(started_at="2026-10-19T13:00:00Z", completed_at="2026-10-19T13:00:02Z")
+        current_log = (
+            "2026-10-19T13:00:00.1234567Z " + module.LOCK_TIMEOUT + "\n"
+            "2026-10-19T13:00:01.1234567Z lock owner: node-demo:pid=372862:repo=example/repo:"
+            "run=789-1:started=2026-10-19T12:00:00Z\n"
+        )
+        prior_run = {**self.run, "updated_at": "2026-10-19T11:00:02Z"}
+        reservation_run = {
+            "id": 789, "run_attempt": 1, "head_sha": self.sha, "event": "workflow_dispatch",
+            "head_branch": "main", "path": ".github/workflows/registry-retention.yml@refs/heads/main",
+            "status": "completed", "conclusion": "failure", "created_at": "2026-10-19T11:00:03Z",
+            "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
+        }
+        with patch.object(module, "verify_capacity_source_continuity"):
+            result = module.verify_lock_blocked_recovery(
+                current_run, current_jobs, current_log, prior_run, self.jobs, self.log, reservation_run,
+                repository=self.repository, current_sha=current_sha, current_run_id=456, current_attempt=1,
+                prior_run_id=123, prior_attempt=2, reservation_run_id=789, reservation_attempt=1,
+            )
+        self.assertEqual(result["outcome"], "capacity_cleanup_only")
+        self.assertEqual(result["capacity_proof_run_id"], 123)
+        self.assertEqual(result["ci_run_id"], 456)
+        self.assertEqual(result["reservation_run_id"], 789)
+        self.assertFalse(result["release_authorized"])
+
+        with patch.object(module, "verify_capacity_source_continuity"):
+            with self.assertRaises(ValueError):
+                module.verify_lock_blocked_recovery(
+                    current_run, current_jobs, current_log, prior_run, self.jobs, self.log,
+                    {**reservation_run, "head_sha": "c" * 40},
+                    repository=self.repository, current_sha=current_sha, current_run_id=456, current_attempt=1,
+                    prior_run_id=123, prior_attempt=2, reservation_run_id=789, reservation_attempt=1,
+                )
+
+    def test_capacity_source_continuity_requires_the_same_gate_and_policy(self):
+        old_ci = ("jobs:\n  build-test-push:\n    steps:\n      - name: " + module.CAPACITY_STEP
+                  + "\n        run: python3 registry-retention.py --admission-kind final\n      - name: Next\n")
+        old_wrapper = "def run(args):\n    require_publication_capacity(plan, **admission)\n"
+        old_files = {
+            "old": {
+                ".github/workflows/ci.yml": old_ci,
+                "Deployment/Common/Scripts/registry-retention.py": old_wrapper,
+                **{path: "same policy\n" for path in module.CAPACITY_SOURCE_FILES},
+            },
+            "new": {
+                ".github/workflows/ci.yml": old_ci.replace("jobs:\n", "name: CI\njobs:\n"),
+                "Deployment/Common/Scripts/registry-retention.py": old_wrapper,
+                **{path: "same policy\n" for path in module.CAPACITY_SOURCE_FILES},
+            },
+        }
+
+        def show(sha, path):
+            return old_files["old" if sha == self.sha else "new"][path]
+
+        with patch.object(module, "_git_show", side_effect=show), \
+                patch.object(module.subprocess, "run", return_value=type("Result", (), {"returncode": 0})()):
+            module.verify_capacity_source_continuity(self.sha, "b" * 40)
+
+        changed = deepcopy(old_files)
+        changed["new"][".github/workflows/ci.yml"] = old_ci.replace("registry-retention.py", "other.py")
+
+        def show_changed(sha, path):
+            return changed["old" if sha == self.sha else "new"][path]
+
+        with patch.object(module, "_git_show", side_effect=show_changed), \
+                patch.object(module.subprocess, "run", return_value=type("Result", (), {"returncode": 0})()), \
+                self.assertRaises(ValueError):
+            module.verify_capacity_source_continuity(self.sha, "b" * 40)
+
+        changed["new"][".github/workflows/ci.yml"] = old_ci
+        changed["new"]["Deployment/Common/Scripts/registry-retention.py"] = (
+            "def run(args):\n    require_other_policy(plan, **admission)\n"
+        )
+        with patch.object(module, "_git_show", side_effect=show_changed), \
+                patch.object(module.subprocess, "run", return_value=type("Result", (), {"returncode": 0})()), \
+                self.assertRaises(ValueError):
+            module.verify_capacity_source_continuity(self.sha, "b" * 40)
+
+        changed["new"]["Deployment/Common/Scripts/registry-retention.py"] = old_wrapper
+        changed["new"][module.CAPACITY_SOURCE_FILES[0]] = "changed policy\n"
+        with patch.object(module, "_git_show", side_effect=show_changed), \
+                patch.object(module.subprocess, "run", return_value=type("Result", (), {"returncode": 0})()), \
+                self.assertRaises(ValueError):
+            module.verify_capacity_source_continuity(self.sha, "b" * 40)
+
     def test_pagination_rejects_missing_total_or_partial_inventory(self):
         for payload in ({"jobs": self.jobs}, {"jobs": self.jobs, "total_count": 3}):
             with patch.object(module.finder, "github_get", return_value=payload), self.assertRaises(ValueError):
@@ -131,6 +266,60 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         module.main()
 
+    def test_full_lock_blocked_proof_rechecks_all_three_runs_and_current_main(self):
+        current_sha = "b" * 40
+        current_run = {**self.run, "id": 456, "run_attempt": 1, "head_sha": current_sha,
+                       "created_at": "2026-10-19T13:00:00Z"}
+        current_jobs = deepcopy(self.jobs)
+        for job in current_jobs:
+            job.update(run_id=456, run_attempt=1, head_sha=current_sha)
+        current_jobs[1]["steps"][0].update(started_at="2026-10-19T13:00:00Z",
+                                           completed_at="2026-10-19T13:00:02Z")
+        current_log = (
+            "2026-10-19T13:00:00.1234567Z " + module.LOCK_TIMEOUT + "\n"
+            "2026-10-19T13:00:01.1234567Z lock owner: node-demo:pid=372862:repo=example/repo:"
+            "run=789-1:started=2026-10-19T12:00:00Z\n"
+        )
+        prior_run = {**self.run, "updated_at": "2026-10-19T11:00:02Z"}
+        reservation_run = {
+            "id": 789, "run_attempt": 1, "head_sha": self.sha, "event": "workflow_dispatch",
+            "head_branch": "main", "path": ".github/workflows/registry-retention.yml@refs/heads/main",
+            "status": "completed", "conclusion": "failure", "created_at": "2026-10-19T11:00:03Z",
+            "repository": {"full_name": self.repository}, "head_repository": {"full_name": self.repository},
+        }
+        environment = dict(
+            GITHUB_SHA=current_sha, GITHUB_REPOSITORY=self.repository, GITHUB_TOKEN="fixture-token",
+            GITHUB_REF="refs/heads/main", GITHUB_EVENT_NAME="workflow_dispatch",
+            GITHUB_WORKFLOW_REF=self.repository + "/.github/workflows/registry-retention.yml@refs/heads/main",
+            REGISTRY_RETENTION_APPLY="true",
+        )
+        paths = [
+            "/repos/example/repo/actions/runs/456", "/repos/example/repo/actions/runs/123",
+            "/repos/example/repo/actions/runs/789", "/repos/example/repo/actions/runs/456",
+            "/repos/example/repo/commits/main", "/repos/example/repo/actions/runs/123",
+            "/repos/example/repo/actions/runs/789",
+        ]
+        responses = [current_run, prior_run, reservation_run, current_run, {"sha": current_sha},
+                     prior_run, reservation_run]
+        with patch.dict(os.environ, environment, clear=True), \
+                patch("sys.argv", [str(SCRIPT), "--run-id", "456", "--attempt", "1",
+                                    "--prior-capacity-run-id", "123", "--prior-capacity-attempt", "2",
+                                    "--reservation-run-id", "789", "--reservation-attempt", "1"]), \
+                patch.object(module.subprocess, "check_output", side_effect=[current_sha, "false"]), \
+                patch.object(module, "attempt_jobs", side_effect=[current_jobs, self.jobs]), \
+                patch.object(module, "download_job_logs", side_effect=[current_log, self.log]), \
+                patch.object(module, "verify_capacity_source_continuity"), \
+                patch.object(module.finder, "github_get", side_effect=responses) as api:
+            with patch("builtins.print") as output:
+                self.assertEqual(module.main(), 0)
+            self.assertEqual(len(api.call_args_list), len(paths))
+            self.assertEqual([call.args[0] for call in api.call_args_list], paths)
+            result = json.loads(output.call_args.args[0])
+            self.assertEqual(result["capacity_proof_run_id"], 123)
+            self.assertEqual(result["ci_run_id"], 456)
+            self.assertEqual(result["reservation_run_id"], 789)
+            self.assertTrue(result["apply_requested"])
+
     def test_workflow_keeps_normal_gate_and_binds_manual_recovery_inputs(self):
         import subprocess
         import tempfile
@@ -143,6 +332,8 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         step = steps[0]
         self.assertEqual(step["env"]["CAPACITY_RECOVERY_CI_RUN_ID"], "${{ inputs.capacity_recovery_ci_run_id }}")
         self.assertEqual(step["env"]["CAPACITY_RECOVERY_CI_ATTEMPT"], "${{ inputs.capacity_recovery_ci_attempt }}")
+        self.assertEqual(step["env"]["PRIOR_CAPACITY_CI_RUN_ID"], "${{ inputs.prior_capacity_ci_run_id }}")
+        self.assertEqual(step["env"]["PRIOR_CAPACITY_CI_ATTEMPT"], "${{ inputs.prior_capacity_ci_attempt }}")
         self.assertIn("inputs.apply_registry == true", step["env"]["REGISTRY_RETENTION_APPLY"])
         for run_id, attempt, expected in (("", "", "normal"), ("123", "2", "recovery"),
                                           ("123", "", None), ("x", "2", None), ("123", "0", None)):
@@ -152,9 +343,13 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                 scripts.mkdir(parents=True)
                 for filename, result in (("verify-operation-source.py", "normal"),
                                          ("verify-registry-capacity-recovery.py", "recovery")):
-                    (scripts / filename).write_text("from pathlib import Path\nPath('called').write_text(" + repr(result) + ")\n")
+                    (scripts / filename).write_text(
+                        "from pathlib import Path\nimport json\nimport sys\nPath('called').write_text(" + repr(result) + ")\n"
+                        "Path('args').write_text(json.dumps(sys.argv[1:]))\n"
+                    )
                 environment = dict(os.environ, CAPACITY_RECOVERY_CI_RUN_ID=run_id, CAPACITY_RECOVERY_CI_ATTEMPT=attempt)
-                environment.update(RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="")
+                environment.update(RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="", PRIOR_CAPACITY_CI_RUN_ID="",
+                                   PRIOR_CAPACITY_CI_ATTEMPT="")
                 completed = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step["run"]],
                                            cwd=root, env=environment, capture_output=True, text=True)
                 if expected is None:
@@ -164,6 +359,27 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                     self.assertEqual(completed.returncode, 0, completed.stderr)
                     self.assertEqual((root / "called").read_text(), expected)
 
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "Deployment/Common/Scripts"
+            scripts.mkdir(parents=True)
+            (scripts / "verify-registry-capacity-recovery.py").write_text(
+                "from pathlib import Path\nimport json\nimport sys\nPath('args').write_text(json.dumps(sys.argv[1:]))\n"
+            )
+            environment = dict(
+                os.environ, CAPACITY_RECOVERY_CI_RUN_ID="456", CAPACITY_RECOVERY_CI_ATTEMPT="1",
+                PRIOR_CAPACITY_CI_RUN_ID="123", PRIOR_CAPACITY_CI_ATTEMPT="2",
+                RESERVATION_RUN_ID="789", RESERVATION_ATTEMPT="3", REGISTRY_RETENTION_APPLY="true",
+            )
+            completed = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+                                       cwd=root, env=environment, capture_output=True, text=True)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            arguments = json.loads((root / "args").read_text())
+            self.assertEqual(arguments, [
+                "--run-id", "456", "--attempt", "1", "--prior-capacity-run-id", "123",
+                "--prior-capacity-attempt", "2", "--reservation-run-id", "789", "--reservation-attempt", "3",
+            ])
+
     def test_workflow_recovery_binds_exact_reservation_and_refuses_unpaired_effect_inputs(self):
         import subprocess
         import yaml
@@ -171,6 +387,8 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         workflow = yaml.safe_load((SCRIPT.parents[3] / ".github/workflows/registry-retention.yml").read_text())
         trigger = workflow.get("on", workflow.get(True))
         inputs = trigger["workflow_dispatch"]["inputs"]
+        self.assertEqual(inputs["prior_capacity_ci_run_id"]["type"], "string")
+        self.assertEqual(inputs["prior_capacity_ci_attempt"]["type"], "string")
         self.assertEqual(inputs["registry_reservation_run_id"]["type"], "string")
         self.assertEqual(inputs["registry_reservation_attempt"]["type"], "string")
 
@@ -184,6 +402,11 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
             self.assertIn("registry-retention-recovery.py prepare", step["run"])
             self.assertIn("with-deploy-lock.sh", step["run"])
             self.assertEqual(step["env"]["RESERVATION_RUN_ID"], "${{ inputs.registry_reservation_run_id }}")
+
+        for job_name in ("localcluster_protection", "localsinglenode_primary", "localsinglenode_additional"):
+            gate = jobs[job_name]["steps"][0]
+            self.assertEqual(gate["env"]["PRIOR_CAPACITY_CI_RUN_ID"], "${{ inputs.prior_capacity_ci_run_id }}")
+            self.assertEqual(gate["env"]["PRIOR_CAPACITY_CI_ATTEMPT"], "${{ inputs.prior_capacity_ci_attempt }}")
 
         source_step = next(step for step in jobs["prune_registry"]["steps"]
                            if "verify-registry-capacity-recovery.py" in step.get("run", ""))
@@ -200,7 +423,8 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
         gate = jobs["localcluster_protection"]["steps"][0]["run"]
         base = dict(os.environ, GITHUB_REF="refs/heads/main", DEPLOY_TARGETS="localcluster,localsinglenode",
                     REGISTRY_RETENTION_APPLY="false", RESERVATION_RUN_ID="", RESERVATION_ATTEMPT="",
-                    CAPACITY_RECOVERY_CI_RUN_ID="", CAPACITY_RECOVERY_CI_ATTEMPT="")
+                    CAPACITY_RECOVERY_CI_RUN_ID="", CAPACITY_RECOVERY_CI_ATTEMPT="",
+                    PRIOR_CAPACITY_CI_RUN_ID="", PRIOR_CAPACITY_CI_ATTEMPT="")
         normal = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", gate], env=base,
                                 capture_output=True, text=True)
         self.assertEqual(normal.returncode, 0, normal.stderr)
@@ -217,6 +441,22 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                      CAPACITY_RECOVERY_CI_ATTEMPT="2"), capture_output=True, text=True,
         )
         self.assertEqual(exact_effect_proof.returncode, 0, exact_effect_proof.stderr)
+        incomplete_prior_proof = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", gate],
+            env=dict(base, REGISTRY_RETENTION_APPLY="true", RESERVATION_RUN_ID="77",
+                     RESERVATION_ATTEMPT="1", CAPACITY_RECOVERY_CI_RUN_ID="66",
+                     CAPACITY_RECOVERY_CI_ATTEMPT="2", PRIOR_CAPACITY_CI_RUN_ID="55"),
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(incomplete_prior_proof.returncode, 0)
+        exact_prior_proof = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", gate],
+            env=dict(base, REGISTRY_RETENTION_APPLY="true", RESERVATION_RUN_ID="77",
+                     RESERVATION_ATTEMPT="1", CAPACITY_RECOVERY_CI_RUN_ID="66",
+                     CAPACITY_RECOVERY_CI_ATTEMPT="2", PRIOR_CAPACITY_CI_RUN_ID="55",
+                     PRIOR_CAPACITY_CI_ATTEMPT="1"), capture_output=True, text=True,
+        )
+        self.assertEqual(exact_prior_proof.returncode, 0, exact_prior_proof.stderr)
 
 
 if __name__ == "__main__":
