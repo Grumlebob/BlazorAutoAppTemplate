@@ -971,7 +971,7 @@ for needle, why in [
     ("PIP_CONSTRAINT", "bounded pip dependency resolution"),
     ("pip==26.2.1", "pinned pip bootstrap"),
     ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
-    ("rhysd/actionlint:1.7.12", "current actionlint container"),
+    ("bash Scripts/CI/run-actionlint.sh", "pinned queue-aware actionlint runner"),
     ("node-version: 24.21.0", "React Node.js version pinned to its declared toolchain"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
@@ -1660,8 +1660,13 @@ for path, workflow in [
     (".github/workflows/cd-localsinglenode.yml", read(".github/workflows/cd-localsinglenode.yml")),
     (".github/workflows/registry-retention.yml", registry_workflow),
 ]:
-    if "group: template-registry-payloads" not in workflow or "cancel-in-progress: false" not in workflow:
-        fail(f"{path}: publication, deployment, and retention must share a non-cancellable registry coordination group")
+    if ("group: template-registry-payloads" not in workflow or "cancel-in-progress: false" not in workflow
+            or "queue: max" not in workflow):
+        fail(f"{path}: publication, deployment, and retention must share a registry group that preserves pending requests")
+actionlint_runner = read("Scripts/CI/run-actionlint.sh")
+if ("644076a59742c2d1540ebd4686eab3c308f0e562" not in actionlint_runner
+        or "bash Scripts/CI/tests/test-actionlint-queue.sh" not in actionlint_runner):
+    fail("Scripts/CI/run-actionlint.sh: require the pinned queue-aware parser and its rejection fixtures")
 publish_main = read(".github/workflows/ci.yml").split("  publish-main:", 1)[-1]
 for needle, why in [
     ("Enforce final GHCR payload capacity before any registry publication", "final registry admission gate"),

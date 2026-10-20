@@ -14,6 +14,10 @@ Run this when validating both compositions. It needs Docker. CI also builds and 
 
 ## GitHub Actions reports
 
+The workflow policy requires an explicit `self-hosted` runner label; a runner group name does not establish runner type. Each `actions/setup-node` step must set `package-manager-cache: false`. Each CodeQL initialization step must set `env.CODEQL_OVERLAY_DATABASE_MODE: none` to preserve full scans without overlay caches. The audit also follows local reusable workflows and composite actions.
+
+Publication, deployment and registry retention share a non-cancelling `queue: max` group, which retains up to 100 pending requests. The policy checks every workflow or job using the publisher's group, including case-insensitive matches. The local gate uses the pinned queue-aware actionlint runner below.
+
 CI stores full TRX and React unit-test reports, plus available browser screenshots and traces, on the self-hosted runner. Packaged smoke TRX files use the same terminal job directory. Routine reports do not use GitHub artifact storage. Each terminal job summary reports test totals, the runner name, and a retrieval command. Run that command on the same runner after checking out the reported commit. Reports expire after 3 days for successful jobs and 7 days for failed jobs; the store also has a 1 GiB cap. The LocalSingleNode maintenance workflow prunes expired reports under the shared deployment lock.
 
 ## Local Gate
@@ -39,7 +43,7 @@ python3 -m venv /tmp/tpl-venv && /tmp/tpl-venv/bin/pip install --constraint Depl
 PATH="/tmp/tpl-venv/bin:$PATH" bash Deployment/LocalCluster/Scripts/validate-rendered-templates.sh
 PATH="/tmp/tpl-venv/bin:$PATH" yamllint .github Deployment docker-compose.yml .yamllint.yml
 find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
-docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+bash Scripts/CI/run-actionlint.sh
 ```
 
 If `BlazorAutoApp.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit the generated `BlazorAutoApp/wwwroot/tailwind.css` when it changes. Changes to deployment scripts also require suites under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/`, `Deployment/LocalSingleNode/Scripts/Tests/`, and `Scripts/CI/tests/`; CI's validate job lists the current commands.

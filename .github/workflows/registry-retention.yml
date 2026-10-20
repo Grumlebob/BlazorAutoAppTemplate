@@ -48,6 +48,7 @@ permissions:
 # coordination group. Each target still reads its own markers under its host lock.
 concurrency:
   group: template-registry-payloads
+  queue: max
   cancel-in-progress: false
 
 jobs:

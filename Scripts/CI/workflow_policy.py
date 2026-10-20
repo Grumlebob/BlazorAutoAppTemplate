@@ -238,7 +238,8 @@ def _flatten_labels(value: Any) -> list[str]:
     if isinstance(value, list):
         return [label for item in value for label in _flatten_labels(item)]
     if isinstance(value, dict):
-        return [label for item in value.values() for label in _flatten_labels(item)]
+        # A group can contain paid larger runners; its name is not a label.
+        return _flatten_labels(value.get("labels"))
     return []
 
 
@@ -286,6 +287,16 @@ class WorkflowPolicy:
         self.visited_actions: set[Path] = set()
         self.active_actions: set[Path] = set()
         self.report_store_requires_explicit_repository = True
+        self.publication_group: str | None = None
+
+    def _check_publication_queue(self, location: str, value: Any) -> None:
+        if not self.publication_group or not isinstance(value, dict):
+            return
+        group = value.get("group")
+        if not isinstance(group, str) or group.casefold() != self.publication_group:
+            return
+        if value.get("queue") != "max" or value.get("cancel-in-progress", False) is not False:
+            self.findings.append(Finding(location, "registry coordination must preserve pending requests with queue: max and no cancellation"))
 
     def _location(self, path: Path, detail: str = "") -> str:
         try:
@@ -358,6 +369,15 @@ class WorkflowPolicy:
                 if action in {"actions/setup-node", "actions/setup-dotnet"}:
                     if _truthy(inputs.get("cache")) or _truthy(inputs.get("cache-dependency-path")):
                         self.findings.append(Finding(location, f"implicit dependency cache is forbidden for {action}"))
+                if action == "actions/setup-node":
+                    automatic_cache = inputs.get("package-manager-cache")
+                    if not (automatic_cache is False or isinstance(automatic_cache, str)
+                            and automatic_cache.strip().lower() == "false"):
+                        self.findings.append(Finding(location, "setup-node automatic npm cache must be disabled with package-manager-cache: false"))
+                if action == "github/codeql-action/init":
+                    environment = step.get("env")
+                    if not isinstance(environment, dict) or environment.get("CODEQL_OVERLAY_DATABASE_MODE") != "none":
+                        self.findings.append(Finding(location, "CodeQL overlay cache must be disabled with step env CODEQL_OVERLAY_DATABASE_MODE: none"))
                 if action == "docker/build-push-action" and _contains_gha_cache(inputs):
                     self.findings.append(Finding(location, "Docker build cache must not use type=gha"))
                 if _contains_gha_cache(inputs):
@@ -437,6 +457,7 @@ class WorkflowPolicy:
             self.findings.append(Finding(self._location(workflow), "workflow must declare at least one job"))
             return
 
+        self._check_publication_queue(self._location(workflow, " concurrency"), document.get("concurrency"))
         self.active_workflows.add(workflow)
         try:
             for job_id, job in jobs.items():
@@ -444,6 +465,7 @@ class WorkflowPolicy:
                 if not isinstance(job, dict):
                     self.findings.append(Finding(job_location, "job must be a YAML mapping"))
                     continue
+                self._check_publication_queue(job_location + ".concurrency", job.get("concurrency"))
                 reusable = job.get("uses")
                 if isinstance(reusable, str):
                     if "runs-on" in job:
@@ -491,6 +513,19 @@ class WorkflowPolicy:
             self.findings.append(Finding(".github/workflows", "workflow directory is missing"))
         else:
             files = sorted([*workflows.rglob("*.yml"), *workflows.rglob("*.yaml")])
+            ci_path = workflows / "ci.yml"
+            if ci_path.is_file():
+                ci = self._load_yaml(ci_path)
+                jobs = ci.get("jobs") if isinstance(ci, dict) else None
+                publisher = jobs.get("publish-main") if isinstance(jobs, dict) else None
+                if isinstance(publisher, dict):
+                    concurrency = publisher.get("concurrency")
+                    group = concurrency.get("group") if isinstance(concurrency, dict) else None
+                    if not isinstance(group, str) or not group.strip() or "${{" in group:
+                        self.findings.append(Finding(self._location(ci_path, " jobs.publish-main.concurrency"),
+                                                     "payload publisher must declare one literal registry coordination group"))
+                    else:
+                        self.publication_group = group.casefold()
             if not files:
                 self.findings.append(Finding(".github/workflows", "no workflow YAML files were found"))
             for workflow in files:

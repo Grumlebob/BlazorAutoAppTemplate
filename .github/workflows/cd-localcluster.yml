@@ -98,6 +98,7 @@ permissions:
 
 concurrency:
   group: template-registry-payloads
+  queue: max
   cancel-in-progress: false
 
 jobs:
