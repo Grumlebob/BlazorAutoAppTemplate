@@ -37,6 +37,9 @@ jobs:
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        # Full scans preserve findings without creating an overlay-base cache per main SHA.
+        env:
+          CODEQL_OVERLAY_DATABASE_MODE: none
         with:
           languages: ${{ matrix.language }}
           build-mode: none
