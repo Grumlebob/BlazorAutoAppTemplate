@@ -6,10 +6,11 @@ from __future__ import annotations
 import base64
 import json
 import os
-from pathlib import Path
+import stat
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -159,25 +160,23 @@ def verify_live_identity(release: dict | None, *, repository_url: str) -> str:
 def write_marker(path: Path, value: dict | None) -> Path | None:
     if value is None:
         return None
-    path.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-    os.chmod(path, 0o600)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as marker_file:
+            if hasattr(os, "fchmod"):
+                os.fchmod(marker_file.fileno(), 0o600)
+            marker_file.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+    except BaseException:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
     return path
 
 
-def report_safe_failure(reason: str) -> None:
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if not summary_path:
-        return
-    try:
-        with Path(summary_path).open("a", encoding="utf-8") as summary:
-            summary.write("### Release status unavailable\n\n")
-            summary.write(f"Reason: {reason}\n\nProtected state was not changed.\n")
-    except OSError:
-        # Diagnostics must never change the status command's failure behavior.
-        pass
-
-
-def snapshot() -> dict:
+def verified_marker_snapshot() -> dict[str, Any]:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     if repository.casefold() != "Grumlebob/BlazorAutoAppTemplate".casefold():
         raise ReleaseStatusError("status workflow is bound to the Template repository")
@@ -194,6 +193,71 @@ def snapshot() -> dict:
     recovery_raw = read_remote_marker(f"{deploy_root}/release-state/previous.json", required=False)
     current = summarize_marker(current_raw, repository_url=repository_url, app_image=release_settings["app_image"])
     recovery = summarize_marker(recovery_raw, repository_url=repository_url, app_image=release_settings["app_image"])
+    return {
+        "repository": repository,
+        "repository_url": repository_url,
+        "settings": settings,
+        "release_settings": release_settings,
+        "current_raw": current_raw,
+        "recovery_raw": recovery_raw,
+        "current": current,
+        "recovery": recovery,
+    }
+
+
+def export_markers(destination: Path) -> dict[str, Any]:
+    try:
+        destination_stat = destination.stat(follow_symlinks=False)
+    except OSError as error:
+        raise ReleaseStatusError("LocalCluster marker export directory is unavailable") from error
+    if (not stat.S_ISDIR(destination_stat.st_mode)
+            or stat.S_IMODE(destination_stat.st_mode) & 0o077):
+        raise ReleaseStatusError("LocalCluster marker export directory is not private")
+
+    markers = verified_marker_snapshot()
+    current_path: Path | None = None
+    try:
+        current_path = write_marker(destination / "release.json", markers["current_raw"])
+        assert current_path is not None
+        recovery_path = write_marker(destination / "previous.json", markers["recovery_raw"])
+    except BaseException:
+        if current_path is not None:
+            try:
+                current_path.unlink()
+            except OSError:
+                pass
+        raise
+    return {
+        "outcome": "verified-markers-exported",
+        "current_marker": str(current_path),
+        "recovery_marker": str(recovery_path) if recovery_path else None,
+    }
+
+
+def report_safe_failure(reason: str) -> None:
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    try:
+        with Path(summary_path).open("a", encoding="utf-8") as summary:
+            summary.write("### Release status unavailable\n\n")
+            summary.write(f"Reason: {reason}\n\nProtected state was not changed.\n")
+    except OSError:
+        # Diagnostics must never change the status command's failure behavior.
+        pass
+
+
+def snapshot() -> dict:
+    markers = verified_marker_snapshot()
+    repository = markers["repository"]
+    repository_url = markers["repository_url"]
+    settings = markers["settings"]
+    release_settings = markers["release_settings"]
+    current_raw = markers["current_raw"]
+    recovery_raw = markers["recovery_raw"]
+    current = markers["current"]
+    recovery = markers["recovery"]
+    deploy_root = settings["deploy_root"]
 
     with tempfile.TemporaryDirectory(prefix="template-release-status-markers-") as directory:
         marker_root = Path(directory)
@@ -276,9 +340,18 @@ def snapshot() -> dict:
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--export-markers-dir",
+        type=Path,
+        help="export validated remote release markers into an existing private directory",
+    )
+    args = parser.parse_args(argv)
     try:
-        result = snapshot()
+        result = export_markers(args.export_markers_dir) if args.export_markers_dir else snapshot()
     except ReleaseStatusError as error:
         report_safe_failure(str(error))
         print("Release status unavailable; protected state was not changed.", file=sys.stderr)
@@ -288,7 +361,7 @@ def main() -> int:
         print("Release status unavailable; protected state was not changed.", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
-    if result["live_identity"] == "failed":
+    if not args.export_markers_dir and result["live_identity"] == "failed":
         report_safe_failure("live LocalCluster identity check failed")
         return 1
     return 0

@@ -4,10 +4,11 @@ import base64
 import io
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
@@ -27,6 +28,75 @@ spec.loader.exec_module(status)
 
 
 class LocalClusterReleaseStatusTests(TestCase):
+    def test_exports_verified_remote_markers_to_private_files(self):
+        current = {"source_sha": "a" * 40, "ci_run_id": "12345"}
+        recovery = {"source_sha": "b" * 40, "ci_run_id": "12346"}
+        with tempfile.TemporaryDirectory() as directory:
+            marker_dir = Path(directory) / "markers"
+            marker_dir.mkdir(mode=0o700)
+            os.chmod(marker_dir, 0o700)
+            with patch.object(status, "verified_marker_snapshot", return_value={
+                "current_raw": current,
+                "recovery_raw": recovery,
+            }):
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    self.assertEqual(status.main(["--export-markers-dir", str(marker_dir)]), 0)
+                result = json.loads(output.getvalue())
+
+            current_path = marker_dir / "release.json"
+            recovery_path = marker_dir / "previous.json"
+            self.assertEqual(json.loads(current_path.read_text(encoding="utf-8")), current)
+            self.assertEqual(json.loads(recovery_path.read_text(encoding="utf-8")), recovery)
+            self.assertEqual(stat.S_IMODE(current_path.stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(recovery_path.stat().st_mode), 0o600)
+            self.assertEqual(result["outcome"], "verified-markers-exported")
+            self.assertEqual(result["current_marker"], str(current_path))
+            self.assertEqual(result["recovery_marker"], str(recovery_path))
+
+        with tempfile.TemporaryDirectory() as directory:
+            marker_dir = Path(directory) / "markers"
+            marker_dir.mkdir(mode=0o700)
+            os.chmod(marker_dir, 0o700)
+            with patch.object(status, "verified_marker_snapshot", return_value={
+                "current_raw": current,
+                "recovery_raw": None,
+            }):
+                result = status.export_markers(marker_dir)
+            self.assertIsNone(result["recovery_marker"])
+            self.assertFalse((marker_dir / "previous.json").exists())
+
+    def test_marker_export_rejects_non_private_or_prepopulated_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker_dir = Path(directory) / "markers"
+            marker_dir.mkdir(mode=0o700)
+            os.chmod(marker_dir, 0o750)
+            with self.assertRaisesRegex(status.ReleaseStatusError, "directory is not private"):
+                status.export_markers(marker_dir)
+
+            os.chmod(marker_dir, 0o700)
+            existing = marker_dir / "release.json"
+            existing.write_text("preserve", encoding="utf-8")
+            with patch.object(status, "verified_marker_snapshot", return_value={
+                "current_raw": {"source_sha": "a" * 40},
+                "recovery_raw": None,
+            }):
+                with self.assertRaises(FileExistsError):
+                    status.export_markers(marker_dir)
+            self.assertEqual(existing.read_text(encoding="utf-8"), "preserve")
+
+            existing.unlink()
+            existing_recovery = marker_dir / "previous.json"
+            existing_recovery.write_text("preserve", encoding="utf-8")
+            with patch.object(status, "verified_marker_snapshot", return_value={
+                "current_raw": {"source_sha": "a" * 40},
+                "recovery_raw": {"source_sha": "b" * 40},
+            }):
+                with self.assertRaises(FileExistsError):
+                    status.export_markers(marker_dir)
+            self.assertFalse((marker_dir / "release.json").exists())
+            self.assertEqual(existing_recovery.read_text(encoding="utf-8"), "preserve")
+
     def test_offline_image_inspection_checks_every_app_node_without_pull(self):
         release = {"image": "ghcr.io/fixture-owner/app", "digest": "sha256:" + "a" * 64}
         reference = release["image"] + "@" + release["digest"]
@@ -143,7 +213,7 @@ class LocalClusterReleaseStatusTests(TestCase):
                     side_effect=status.ReleaseStatusError("Ansible could not inspect every LocalCluster app server"),
                 ):
                     with redirect_stderr(io.StringIO()):
-                        self.assertEqual(status.main(), 1)
+                        self.assertEqual(status.main([]), 1)
             summary = summary_path.read_text(encoding="utf-8")
         self.assertIn("Reason: Ansible could not inspect every LocalCluster app server", summary)
         self.assertIn("Protected state was not changed.", summary)
@@ -154,7 +224,7 @@ class LocalClusterReleaseStatusTests(TestCase):
             with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary_path)}):
                 with patch.object(status, "snapshot", side_effect=OSError("credential=secret")):
                     with redirect_stderr(io.StringIO()):
-                        self.assertEqual(status.main(), 1)
+                        self.assertEqual(status.main([]), 1)
             summary = summary_path.read_text(encoding="utf-8")
         self.assertIn("Reason: unexpected local inspection error; details withheld", summary)
         self.assertNotIn("credential", summary)
