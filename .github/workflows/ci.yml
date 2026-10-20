@@ -269,7 +269,7 @@ jobs:
           python3 -m unittest Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py
 
       - name: GitHub Actions workflow lint
-        run: docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12
+        run: bash Scripts/CI/run-actionlint.sh
 
       - name: Common release settings validation
         run: bash Deployment/Common/Scripts/validate-common-release.sh
@@ -324,6 +324,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.21.0
+          package-manager-cache: false
 
       - name: Audit .NET packages for vulnerabilities
         run: dotnet list BlazorAutoApp.sln package --vulnerable --include-transitive
@@ -525,6 +526,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
     concurrency:
       group: template-registry-payloads
+      queue: max
       cancel-in-progress: false
     timeout-minutes: 60
     permissions:

@@ -165,6 +165,117 @@ jobs:
         self.assertFalse(any("hosted CodeQL job" in str(item) for item in valid))
         self.assertTrue(any("hosted CodeQL job must skip private repository clones" in str(item) for item in invalid))
 
+    def test_runner_group_name_does_not_count_as_a_self_hosted_label(self) -> None:
+        for runner in ("{group: self-hosted}", "{group: self-hosted, labels: linux}"):
+            with self.subTest(runner=runner):
+                findings = self._audit({"ci.yml": f"""name: ci
+jobs:
+  validate:
+    runs-on: {runner}
+    steps: []
+"""})
+                self.assertTrue(any("must target self-hosted runners" in str(item)
+                                    or "inspectable runner" in str(item) for item in findings))
+
+    def test_runner_group_can_constrain_explicit_self_hosted_labels(self) -> None:
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on:
+      group: application-runners
+      labels: [self-hosted, linux]
+    steps: []
+"""})
+        self.assertEqual(findings, [])
+
+    def test_setup_node_requires_automatic_package_manager_cache_to_be_disabled(self) -> None:
+        for cache in (None, "true", "''", "${{ inputs.enable_cache }}"):
+            with self.subTest(cache=cache):
+                setting = "" if cache is None else f"          package-manager-cache: {cache}\n"
+                findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+""" + setting})
+                self.assertTrue(any("automatic npm cache" in str(item) for item in findings))
+
+    def test_setup_node_allows_explicitly_disabled_automatic_cache(self) -> None:
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+"""})
+        self.assertEqual(findings, [])
+
+    def test_codeql_init_requires_explicit_overlay_cache_disablement(self) -> None:
+        for mode in (None, "overlay", "overlay-base", "invalid", "${{ inputs.overlay_mode }}"):
+            with self.subTest(mode=mode):
+                environment = "" if mode is None else f"        env:\n          CODEQL_OVERLAY_DATABASE_MODE: {mode}\n"
+                findings = self._audit({"ci.yml": """name: ci
+jobs:
+  validate:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: github/codeql-action/init@v4
+""" + environment})
+                self.assertTrue(any("CodeQL overlay cache" in str(item) for item in findings))
+
+    def test_codeql_init_allows_full_scans_without_overlay_caching(self) -> None:
+        findings = self._audit({"codeql.yml": """name: CodeQL
+jobs:
+  analyze:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: github/codeql-action/init@v4
+        env:
+          CODEQL_OVERLAY_DATABASE_MODE: none
+"""})
+        self.assertEqual(findings, [])
+
+    def test_shared_registry_queue_rejects_pending_request_replacement(self) -> None:
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  publish-main:
+    runs-on: [self-hosted, linux]
+    concurrency:
+      group: payload-publication
+      cancel-in-progress: false
+    steps: []
+""", "retention.yml": """name: retention
+concurrency:
+  group: PAYLOAD-PUBLICATION
+  cancel-in-progress: false
+jobs:
+  prune:
+    runs-on: [self-hosted, linux]
+    steps: []
+"""})
+        violations = [item for item in findings if "must preserve pending requests" in str(item)]
+        self.assertEqual(len(violations), 2)
+
+    def test_shared_registry_queue_allows_bounded_pending_requests(self) -> None:
+        findings = self._audit({"ci.yml": """name: ci
+jobs:
+  publish-main:
+    runs-on: [self-hosted, linux]
+    concurrency:
+      group: payload-publication
+      queue: max
+      cancel-in-progress: false
+    steps: []
+"""})
+        self.assertEqual(findings, [])
+
     def test_report_store_policy_detects_missing_retention_and_repository_ownership(self) -> None:
         source = STORE.read_text(encoding="utf-8")
         source = source.replace("FAILURE_RETENTION = timedelta(days=7)", "FAILURE_RETENTION = timedelta(days=30)")
