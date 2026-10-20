@@ -1217,7 +1217,7 @@ for needle, why in [
     ('--recovery-marker "$marker_dir/previous.json"', "recovery pin protection uses the remote marker snapshot"),
     ("read-live-release-ci-run-ids.py", "currently running CI release identity protection"),
     ("--protect-run-id", "deployed release artifacts are protected"),
-    ("--keep 2", "bounded migration artifact keep count"),
+    ("--keep 0", "retire unprotected legacy migration artifacts after the GHCR cutover"),
     ("--deployment-workflow-file cd-localcluster.yml", "active deployment protection"),
     ("--deployment-workflow-file cd-localsinglenode.yml", "single-node deployment protection for shared artifacts"),
     ("--max-unprotected-bytes 536870912", "fixed unprotected artifact cap"),
@@ -2707,6 +2707,7 @@ for needle, why in [
         fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why} in the artifact job")
 single_pruner = read(single + "/Scripts/prune-release-artifacts.sh")
 for needle, why in [
+    ("--keep 0", "retire unprotected legacy migration artifacts after the GHCR cutover"),
     ("read_release_acceptance.py", "exact current and recovery release identity protection"),
     ("--ci-run-id", "accepted CI run identity"),
     ("--expected-source-repo-url", "release marker repository binding"),
