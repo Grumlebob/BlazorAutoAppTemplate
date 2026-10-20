@@ -71,9 +71,11 @@ python3 "$ROOT/Deployment/LocalCluster/Scripts/release-status.py" \
   exit 1
 }
 
+# CI publishes final payloads to GHCR. Retire unreferenced legacy cloud copies;
+# deployment history and active consumers remain protected by the shared pruner.
 bash "$COMMON/prune-actions-artifacts.sh" \
   --artifact-name "$MIGRATION_ARTIFACT_NAME" \
-  --keep 2 \
+  --keep 0 \
   --max-unprotected-bytes 536870912 \
   --max-deletions 100 \
   --deployment-workflow-file cd-localcluster.yml \

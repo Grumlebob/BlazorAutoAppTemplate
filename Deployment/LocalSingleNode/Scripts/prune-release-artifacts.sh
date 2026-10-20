@@ -69,9 +69,11 @@ recovery_run_id="$(python3 "$SCRIPT_DIR/lib/read_release_acceptance.py" \
 # The shared pruner also pins live targets and the two newest successful target
 # SHAs from both deployment workflows. Keep the accepted and recovery release
 # CI artifacts even when their deployment SHAs fall outside that recent floor.
+# CI now publishes final payloads to GHCR, so unprotected legacy cloud copies
+# need no additional keep floor. Protected releases and consumers still remain.
 bash "$COMMON/prune-actions-artifacts.sh" \
   --artifact-name "$MIGRATION_ARTIFACT_NAME" \
-  --keep 2 \
+  --keep 0 \
   --max-unprotected-bytes 536870912 \
   --max-deletions 100 \
   --deployment-workflow-file cd-localcluster.yml \
