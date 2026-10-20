@@ -42,6 +42,30 @@ while IFS= read -r run_id; do
   add_protected_id "$run_id"
 done <<< "$live_run_ids"
 
+run_id="${GITHUB_RUN_ID:-local}"
+run_attempt="${GITHUB_RUN_ATTEMPT:-0}"
+[[ "$run_id" =~ ^[A-Za-z0-9_-]+$ && "$run_attempt" =~ ^[0-9]+$ ]] || {
+  echo "invalid run identity for LocalCluster marker snapshots" >&2
+  exit 1
+}
+scratch_root="${RUNNER_TEMP:-/tmp}"
+[[ -d "$scratch_root" && ! -L "$scratch_root" ]] || {
+  echo "LocalCluster marker snapshot root is unavailable or unsafe" >&2
+  exit 1
+}
+marker_dir="$(mktemp -d -- "${scratch_root%/}/localcluster-release-markers-${run_id}-${run_attempt}.XXXXXXXX")"
+cleanup_marker_snapshots() {
+  rm -f -- "$marker_dir/release.json" "$marker_dir/previous.json"
+  rmdir -- "$marker_dir"
+}
+trap cleanup_marker_snapshots EXIT
+chmod 700 -- "$marker_dir"
+
+# Export the same consistent, repository-validated remote markers used by the
+# read-only release status check. Keep snapshots private and under this lock.
+python3 "$ROOT/Deployment/LocalCluster/Scripts/release-status.py" \
+  --export-markers-dir "$marker_dir"
+
 [[ "$(cat "$LOCK_DIR/token" 2>/dev/null || true)" == "$LOCK_TOKEN" ]] || {
   echo "LocalCluster lock token changed before artifact selection" >&2
   exit 1
@@ -56,21 +80,26 @@ bash "$COMMON/prune-actions-artifacts.sh" \
   --deployment-workflow-file cd-localsinglenode.yml \
   "${protect_args[@]}"
 
-# Preview under the same deployment lock; a missing or ambiguous release marker
-# makes the helper fail closed before either invocation can delete a pin.
+# Preview and apply under the same lock, using one validated marker snapshot.
+# Invalid or inconsistent release markers stop the script before deletion.
 python3 "$COMMON/Component/lib/pin_release_payload.py" \
   --prune-root "$DEPLOY_ROOT/release-payloads/${GITHUB_REPOSITORY//\//-}" \
   --repository "${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}" \
-  --current-marker "$DEPLOY_ROOT/release.json" \
-  --recovery-marker "$DEPLOY_ROOT/release-state/previous.json" \
+  --current-marker "$marker_dir/release.json" \
+  --recovery-marker "$marker_dir/previous.json" \
   --max-candidates-per-profile 3 \
   --max-unprotected-bytes 1073741824
+
+[[ "$(cat "$LOCK_DIR/token" 2>/dev/null || true)" == "$LOCK_TOKEN" ]] || {
+  echo "LocalCluster lock token changed before local pin retention" >&2
+  exit 1
+}
 
 python3 "$COMMON/Component/lib/pin_release_payload.py" \
   --prune-root "$DEPLOY_ROOT/release-payloads/${GITHUB_REPOSITORY//\//-}" \
   --repository "${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}" \
-  --current-marker "$DEPLOY_ROOT/release.json" \
-  --recovery-marker "$DEPLOY_ROOT/release-state/previous.json" \
+  --current-marker "$marker_dir/release.json" \
+  --recovery-marker "$marker_dir/previous.json" \
   --max-candidates-per-profile 3 \
   --max-unprotected-bytes 1073741824 \
   --apply

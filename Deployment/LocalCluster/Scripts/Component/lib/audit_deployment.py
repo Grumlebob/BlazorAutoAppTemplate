@@ -1210,6 +1210,11 @@ for needle, why in [
 prune_migration = read("Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh")
 for needle, why in [
     ("LOCALCLUSTER_DEPLOY_LOCK_TOKEN", "shared deployment lock ownership check"),
+    ('--export-markers-dir "$marker_dir"', "pin retention uses verified remote release marker snapshots"),
+    ('chmod 700 -- "$marker_dir"', "release marker snapshots use a private run-scoped directory"),
+    ("trap cleanup_marker_snapshots EXIT", "release marker snapshots are removed after retention"),
+    ('--current-marker "$marker_dir/release.json"', "current pin protection uses the remote marker snapshot"),
+    ('--recovery-marker "$marker_dir/previous.json"', "recovery pin protection uses the remote marker snapshot"),
     ("read-live-release-ci-run-ids.py", "currently running CI release identity protection"),
     ("--protect-run-id", "deployed release artifacts are protected"),
     ("--keep 2", "bounded migration artifact keep count"),
@@ -1221,6 +1226,8 @@ for needle, why in [
 ]:
     if needle not in prune_migration:
         fail(f"Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh: missing {why}")
+if prune_migration.index("--export-markers-dir") > prune_migration.index('bash "$COMMON/prune-actions-artifacts.sh"'):
+    fail("Deployment/LocalCluster/Scripts/prune-migration-artifacts.sh: verify remote release markers before artifact deletion")
 cd_localcluster = read(".github/workflows/cd-localcluster.yml")
 selection_download = workflow_step_text(cd_localcluster, "Select and retrieve the release payload under the shared lock")
 for needle, why in [
