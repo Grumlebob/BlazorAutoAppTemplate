@@ -27,7 +27,7 @@ class Guard(Protocol):
         """Verify reservation ownership, held coordination and fresh references."""
 
     def delete_requested(self, reservation_id: str, candidate: Version) -> None:
-        """Persist the immutable intent before sending DELETE."""
+        """Refresh protection and persist immutable intent immediately before DELETE."""
 
     def absent(self, reservation_id: str, candidate: Version, api_status: int) -> None:
         """Persist the exact-version 404 receipt."""
@@ -95,12 +95,11 @@ def apply_deletions(
         raise RetentionError("coordination did not return a valid owned reservation")
     receipts = []
     for candidate in candidates:
-        guard.check(reservation, candidate)
         remote = registry.version(candidate.package, candidate.version_id)
         if remote is not None:
             if not isinstance(remote, dict) or not _matches(candidate, remote):
                 raise RetentionError("reserved registry version identity or referencing tags changed; no DELETE was sent")
-            guard.check(reservation, candidate)
+            # This boundary refreshes protection and persists intent before DELETE.
             guard.delete_requested(reservation, candidate)
             try:
                 registry.delete_version(candidate.package, candidate.version_id)
@@ -115,7 +114,6 @@ def apply_deletions(
                     "registry version remains present after bounded exact-ID verification; "
                     "its owned deletion reservation remains pending"
                 )
-        guard.check(reservation, candidate)
         guard.absent(reservation, candidate, 404)
         receipts.append({
             "reservation_id": reservation, "package": candidate.package, "version_id": candidate.version_id,

@@ -44,12 +44,15 @@ class FixtureGuard:
             raise RetentionError("reservation ownership or lock changed")
 
     def delete_requested(self, reservation_id, candidate):
+        self.check(reservation_id, candidate)
         self.events.append("delete-requested")
         self.state = "delete_requested"
 
     def absent(self, reservation_id, candidate, api_status):
         if api_status != 404:
             raise AssertionError("Absence must use an exact-version 404")
+        if reservation_id != "fixture-reservation" or candidate not in self.reserved:
+            raise RetentionError("reservation ownership changed")
         self.events.append("absent")
         self.state = "absent"
 
@@ -101,7 +104,7 @@ class RegistryDeletionTests(unittest.TestCase):
         self.assertEqual(1, registry.delete_calls)
         self.assertEqual(404, receipts[0]["api_status"])
         self.assertEqual(VERSION.digest, receipts[0]["digest"])
-        self.assertEqual(["reserve", "check", "check", "delete-requested", "check", "absent", "complete"], guard.events)
+        self.assertEqual(["reserve", "check", "delete-requested", "absent", "complete"], guard.events)
 
     def test_interrupted_request_resumes_exact_reservation_without_a_second_delete(self):
         guard = FixtureGuard()
