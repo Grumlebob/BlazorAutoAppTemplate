@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from unittest.mock import patch
 LIB = Path(__file__).resolve().parents[1] / "Component/lib"
 sys.path.insert(0, str(LIB))
 import registry_lock_guard as guard_module
+import registry_gc
 from registry_retention import Inventory, Payload, Protection, RetentionError, Version
 
 
@@ -101,6 +103,90 @@ class SharedRegistryGuardTests(unittest.TestCase):
         (self.lock / "token").write_text("different-owner", encoding="utf-8")
         with self.assertRaises((RetentionError, ValueError)):
             guard.absent(reservation, VERSION, 404)
+
+    def batch(self, count):
+        versions = tuple(replace(VERSION, version_id=1000 + index, digest=f"sha256:{index + 1:064x}",
+                                 tags=frozenset({f"run-{1000 + index}"})) for index in range(count))
+        payloads = tuple(replace(PAYLOAD, digest=version.digest, run_id=version.version_id) for version in versions)
+        namespace = Version(PACKAGE, 9999, "sha256:" + "e" * 64, frozenset({"namespace"}), CREATED,
+                            frozenset(), (), 10)
+        namespace = replace(namespace, blobs=(("sha256:" + "f" * 64, 1),))
+        inventory = replace(INVENTORY, versions=versions + (namespace,), payloads=payloads,
+                            retained_manifests=frozenset({(PACKAGE, namespace.digest)}))
+        self.refresh_count = 0
+
+        def refresh():
+            self.refresh_count += 1
+            return Protection(self.protected, frozenset(), frozenset(),
+                              {(version.version_id, 1): "completed" for version in versions}, True)
+
+        guard = guard_module.SharedLockGuard(
+            repository=REPO, reservation_id="batch-operation", inventory=inventory,
+            refresh_protection=refresh, controller_scope_complete=True, now=lambda: NOW,
+        )
+        owner = self
+
+        class Registry:
+            def __init__(self):
+                self.present = {version.version_id: version for version in versions}
+                self.reads = 0
+                self.deletes = []
+                self.after_read = lambda: None
+                self.after_delete = lambda: None
+
+            def version(self, package, version_id):
+                owner.assertEqual(PACKAGE, package)
+                self.reads += 1
+                version = self.present.get(version_id)
+                self.after_read()
+                return None if version is None else {
+                    "id": version.version_id, "name": version.digest, "created_at": version.created.isoformat(),
+                    "metadata": {"container": {"tags": sorted(version.tags)}},
+                }
+
+            def delete_version(self, package, version_id):
+                journal = json.loads(guard.path.read_text(encoding="utf-8"))
+                owner.assertEqual("delete_requested", journal["candidates"][guard_module.key(self.present[version_id])]["state"])
+                self.deletes.append(version_id)
+                del self.present[version_id]
+                self.after_delete()
+
+        return versions, guard, Registry()
+
+    def test_full_batch_refreshes_once_per_delete_and_keeps_local_lock_checks(self):
+        versions, guard, registry = self.batch(100)
+        with patch.object(guard_module, "require_shared_lock", wraps=guard_module.require_shared_lock) as local_lock:
+            receipts = registry_gc.apply_deletions(versions, registry=registry, guard=guard)
+        self.assertEqual(100, len(receipts))
+        self.assertEqual(101, self.refresh_count)  # Reservation plus every DELETE boundary.
+        self.assertEqual(200, registry.reads)
+        self.assertEqual(100, len(registry.deletes))
+        self.assertGreater(local_lock.call_count, 400)
+        # Five CD status queries per refresh, two exact GETs and one DELETE per version.
+        self.assertEqual(805, self.refresh_count * 5 + registry.reads + len(registry.deletes))
+        self.assertFalse(guard.path.exists())
+
+    def test_protection_appearing_during_metadata_read_blocks_delete(self):
+        versions, guard, registry = self.batch(1)
+        registry.after_read = lambda: setattr(self, "protected", frozenset({(PACKAGE, versions[0].digest)}))
+        with self.assertRaises(RetentionError):
+            registry_gc.apply_deletions(versions, registry=registry, guard=guard)
+        self.assertEqual([], registry.deletes)
+        self.assertTrue(guard.path.exists())
+
+    def test_recorded_absence_does_not_refresh_but_next_delete_rechecks_protection(self):
+        versions, guard, registry = self.batch(2)
+        registry.after_delete = lambda: setattr(self, "protected", frozenset((PACKAGE, version.digest) for version in versions))
+        with self.assertRaises(RetentionError):
+            registry_gc.apply_deletions(versions, registry=registry, guard=guard)
+        self.assertEqual([versions[0].version_id], registry.deletes)
+        journal = json.loads(guard.path.read_text(encoding="utf-8"))
+        self.assertEqual("absent", journal["candidates"][guard_module.key(versions[0])]["state"])
+        self.assertEqual("reserved", journal["candidates"][guard_module.key(versions[1])]["state"])
+        before = guard.path.read_bytes()
+        with self.assertRaises(RetentionError):
+            guard.absent("batch-operation", replace(versions[0], digest="sha256:" + "f" * 64), 404)
+        self.assertEqual(before, guard.path.read_bytes())
 
     def test_unknown_controller_scope_and_corrupted_journal_fail_closed(self):
         with self.assertRaises(RetentionError):

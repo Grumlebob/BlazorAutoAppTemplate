@@ -228,8 +228,12 @@ class SharedLockGuard:
     def absent(self, reservation_id: str, candidate: Version, api_status: int) -> None:
         if type(api_status) is not int or api_status != 404:
             raise RetentionError("registry deletion requires an exact-version 404 receipt")
-        self.check(reservation_id, candidate)
+        # Recording an observed absence authorizes no deletion. Keep ownership
+        # and lock checks, without repeating remote protection queries.
         value = self._owned(reservation_id)
+        entry = value["candidates"].get(key(candidate))
+        if entry is None or entry["identity"] != identity(candidate):
+            raise RetentionError("registry reservation does not own this exact absence receipt")
         value["candidates"][key(candidate)].update(state="absent", api_status=404)
         _save(self.path, value)
 

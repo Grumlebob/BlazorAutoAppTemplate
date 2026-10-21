@@ -340,51 +340,57 @@ def list_active_deployment_runs(
         raise ReleaseStatusError("GitHub Actions status request identity is unavailable")
 
     runs_by_id: dict[str, dict[str, Any]] = {}
-    for workflow in CD_WORKFLOWS:
-        for status in ACTIVE_STATUSES:
-            page = 1
-            while True:
-                query = urllib.parse.urlencode({"per_page": "100", "page": str(page), "status": status})
-                payload = _api_get(
-                    api_root,
-                    f"/repos/{repository}/actions/workflows/{workflow}/runs?{query}",
-                    token,
-                )
-                rows = payload.get("workflow_runs")
-                if not isinstance(rows, list):
-                    raise ReleaseStatusError("GitHub Actions run list is malformed")
-                for run in rows:
-                    if not isinstance(run, dict):
-                        raise ReleaseStatusError("GitHub Actions run identity is malformed")
-                    run_id = run.get("id")
-                    run_status = run.get("status")
-                    head_sha = run.get("head_sha")
-                    attempt = run.get("run_attempt")
-                    title = run.get("display_title") or run.get("name") or ""
-                    title_shas = SOURCE_SHA.findall(title) if isinstance(title, str) else []
-                    target_sha = title_shas[-1] if title_shas else head_sha
-                    if (not isinstance(run_id, (int, str)) or isinstance(run_id, bool)
-                            or not str(run_id).isdigit() or int(run_id) < 1
-                            or run_status not in ACTIVE_STATUSES
-                            or not isinstance(head_sha, str) or not SOURCE_SHA.fullmatch(head_sha)
-                            or not isinstance(target_sha, str) or not SOURCE_SHA.fullmatch(target_sha)
-                            or type(attempt) is not int or attempt < 1):
-                        raise ReleaseStatusError("GitHub Actions run identity is incomplete")
-                    key = str(run_id)
-                    item = {
-                        "workflow": workflow,
-                        "run_id": key,
-                        "status": run_status,
-                        "head_sha": head_sha,
-                        "target_sha": target_sha,
-                        "run_attempt": attempt,
-                    }
-                    previous = runs_by_id.get(key)
-                    if previous is not None and previous != item:
-                        raise ReleaseStatusError("GitHub Actions returned conflicting run identities")
-                    runs_by_id[key] = item
-                if len(rows) < 100:
-                    break
-                page += 1
+    workflows = {f".github/workflows/{workflow}": workflow for workflow in CD_WORKFLOWS}
+    for status in ACTIVE_STATUSES:
+        page = 1
+        while True:
+            query = urllib.parse.urlencode({"per_page": "100", "page": str(page), "status": status})
+            payload = _api_get(
+                api_root,
+                f"/repos/{repository}/actions/runs?{query}",
+                token,
+            )
+            rows = payload.get("workflow_runs")
+            if not isinstance(rows, list):
+                raise ReleaseStatusError("GitHub Actions run list is malformed")
+            for run in rows:
+                if not isinstance(run, dict):
+                    raise ReleaseStatusError("GitHub Actions run identity is malformed")
+                path = run.get("path")
+                if not isinstance(path, str) or not path:
+                    raise ReleaseStatusError("GitHub Actions workflow path is unavailable")
+                workflow = workflows.get(path)
+                if workflow is None:
+                    continue
+                run_id = run.get("id")
+                run_status = run.get("status")
+                head_sha = run.get("head_sha")
+                attempt = run.get("run_attempt")
+                title = run.get("display_title") or run.get("name") or ""
+                title_shas = SOURCE_SHA.findall(title) if isinstance(title, str) else []
+                target_sha = title_shas[-1] if title_shas else head_sha
+                if (not isinstance(run_id, (int, str)) or isinstance(run_id, bool)
+                        or not str(run_id).isdigit() or int(run_id) < 1
+                        or run_status not in ACTIVE_STATUSES
+                        or not isinstance(head_sha, str) or not SOURCE_SHA.fullmatch(head_sha)
+                        or not isinstance(target_sha, str) or not SOURCE_SHA.fullmatch(target_sha)
+                        or type(attempt) is not int or attempt < 1):
+                    raise ReleaseStatusError("GitHub Actions run identity is incomplete")
+                key = str(run_id)
+                item = {
+                    "workflow": workflow,
+                    "run_id": key,
+                    "status": run_status,
+                    "head_sha": head_sha,
+                    "target_sha": target_sha,
+                    "run_attempt": attempt,
+                }
+                previous = runs_by_id.get(key)
+                if previous is not None and previous != item:
+                    raise ReleaseStatusError("GitHub Actions returned conflicting run identities")
+                runs_by_id[key] = item
+            if len(rows) < 100:
+                break
+            page += 1
 
     return sorted(runs_by_id.values(), key=lambda item: (item["workflow"], int(item["run_id"])))
