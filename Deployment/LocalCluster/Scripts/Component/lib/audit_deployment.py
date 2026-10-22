@@ -2677,8 +2677,35 @@ for needle, why in [
 ]:
     if needle not in single_dispatch:
         fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")
-if "if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true" not in single_maintenance_job:
-    fail(".github/workflows/localsinglenode-maintenance.yml: app maintenance must be skipped for artifact-only dispatches and schedules")
+if ("if: (github.event_name == 'workflow_dispatch' && inputs.artifact_only != true) "
+        "|| github.event.schedule == '37 4 * * *' || github.event.schedule == '47 4 * * *'") not in single_maintenance_job:
+    fail(".github/workflows/localsinglenode-maintenance.yml: app maintenance must skip artifact-only dispatches and run only on its two daily image-retention schedules")
+for needle, why in [
+    ('cron: "37 4 * * *"', "daily primary image retention schedule"),
+    ('cron: "47 4 * * *"', "daily additional-app image retention schedule"),
+    ('cron: "57 */4 * * *"', "four-hourly BuildKit cache trim schedule"),
+    ("github.event.schedule == '47 4 * * *' && 'additional'", "additional-app image retention selects the additional app"),
+    ("inputs.acceptance_only != true && steps.instance.outputs.configured == 'true'", "scheduled maintenance skips an unconfigured additional app"),
+    ("with-deploy-lock.sh python3 Deployment/LocalSingleNode/Scripts/lib/build_cache.py --keep-gb", "bounded BuildKit cache trim under the deployment lock"),
+    ("  trim-build-cache:\n    if: github.event.schedule == '57 */4 * * *'", "four-hourly cache trim job"),
+]:
+    if needle not in single_maintenance:
+        fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")
+single_docker_gc = read(".github/workflows/localsinglenode-docker-gc.yml")
+for needle, why in [
+    ("  workflow_dispatch:", "manual-only daemon GC operation"),
+    ("default: report", "report-first daemon GC operation"),
+    ("Require main branch", "main-ref-only daemon GC operation"),
+    ("verify-operation-source.py", "green CI source gate before the daemon GC operation"),
+    ("if: inputs.mode == 'apply'\n        env:\n          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS", "apply only on explicit request"),
+    ("with-deploy-lock.sh sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py apply", "daemon GC apply under the deployment lock"),
+    ("with-deploy-lock.sh sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py rollback", "daemon GC rollback under the deployment lock"),
+    ("acceptance-check.sh", "HTTP acceptance after the Docker restart"),
+]:
+    if needle not in single_docker_gc:
+        fail(f".github/workflows/localsinglenode-docker-gc.yml: missing {why}")
+if "schedule:" in single_docker_gc or "push:" in single_docker_gc:
+    fail(".github/workflows/localsinglenode-docker-gc.yml: the daemon GC operation must stay manual-only")
 if "ACTIONS_ARTIFACT_RETENTION_ENABLED: ${{ (github.event.schedule == '17 3 * * *' || github.event.schedule == '27 3 * * *' || (github.event_name == 'workflow_dispatch' && inputs.apply_artifacts == true)) && (vars.ACTIONS_ARTIFACT_RETENTION_ENABLED || 'false') }}" not in single_artifact_job:
     fail(".github/workflows/localsinglenode-maintenance.yml: manual artifact deletion must require apply_artifacts=true and the repository retention variable")
 for needle, why in [

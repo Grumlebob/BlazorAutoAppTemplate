@@ -192,8 +192,11 @@ try {
 
     $postgresImage = 'postgres:18.4-alpine3.23'
     $redisImage = 'redis:8.8.0-alpine3.23'
+    # Both images declare a data volume. A forced removal keeps anonymous volumes, so every run
+    # used to leave a PostgreSQL data volume on the shared runner. Keep the data on tmpfs instead.
     Invoke-CheckedCommand -FilePath 'docker' -Arguments @(
         'run', '--detach', '--rm', '--name', $postgresName,
+        '--tmpfs', '/var/lib/postgresql:rw,size=1073741824',
         '--publish', '127.0.0.1::5432',
         '--env', "POSTGRES_USER=postgres",
         '--env', "POSTGRES_PASSWORD=$databasePassword",
@@ -204,6 +207,7 @@ try {
     ) | Out-Null
     Invoke-CheckedCommand -FilePath 'docker' -Arguments @(
         'run', '--detach', '--rm', '--name', $redisName,
+        '--tmpfs', '/data:rw,size=67108864',
         '--publish', '127.0.0.1::6379',
         '--health-cmd', 'redis-cli ping',
         '--health-interval', '2s', '--health-timeout', '2s', '--health-retries', '30',
@@ -327,7 +331,7 @@ finally {
     }
 
     foreach ($name in @($redisName, $postgresName)) {
-        & docker rm --force $name 2>$null | Out-Null
+        & docker rm --force --volumes $name 2>$null | Out-Null
     }
 
     foreach ($name in $previousEnvironment.Keys) {

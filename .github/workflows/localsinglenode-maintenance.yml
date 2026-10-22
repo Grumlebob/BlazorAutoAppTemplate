@@ -46,19 +46,26 @@ on:
   schedule:
     - cron: "17 3 * * *"
     - cron: "27 3 * * *"
+    # Scoped image retention for each app, after the apps' daily backup timers.
+    - cron: "37 4 * * *"
+    - cron: "47 4 * * *"
+    # A busy CI day can add more than 50 GB of BuildKit cache, so trim it between the daily runs too.
+    - cron: "57 */4 * * *"
 permissions:
   contents: read
   actions: read
 jobs:
   maintenance:
-    if: github.event_name == 'workflow_dispatch' && inputs.artifact_only != true
+    # Scheduled daily per app without inputs: verify the backup, remove only proven old app images, then run
+    # the read-only doctor and HTTP acceptance. No backup, restart or reboot is requested.
+    if: (github.event_name == 'workflow_dispatch' && inputs.artifact_only != true) || github.event.schedule == '37 4 * * *' || github.event.schedule == '47 4 * * *'
     concurrency:
       group: localsinglenode-maintenance
       cancel-in-progress: false
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
     timeout-minutes: 30
     environment:
-      name: ${{ inputs.app_instance == 'additional' && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+      name: ${{ (github.event.schedule == '47 4 * * *' || inputs.app_instance == 'additional') && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     steps:
       - name: Require this deployment target to be enabled
         env:
@@ -88,7 +95,7 @@ jobs:
           RESTART_CONNECTOR: ${{ inputs.restart_connector }}
           RESTART_APP: ${{ inputs.restart_app }}
           REBOOT_CHECK: ${{ inputs.reboot_check }}
-          APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
+          APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
         run: |
           if [[ ( "$RESTART_CONNECTOR" == true || "$RESTART_APP" == true ) && "$ACCEPTANCE_ONLY" != true ]]; then
             echo "Restart checks require acceptance_only=true so backups and maintenance are skipped." >&2
@@ -111,9 +118,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 Deployment/Common/Scripts/verify-operation-source.py > "$RUNNER_TEMP/maintenance-ci.json"
-      - name: Resolve protected application instance
+      - name: Check whether the selected app exists
+        id: instance
         env:
-          INPUT_APP_INSTANCE: ${{ inputs.app_instance || 'primary' }}
+          APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+        run: |
+          if [[ "$APP_INSTANCE" == additional && -z "$APP_INSTANCE_CONFIG" ]]; then
+            echo "::notice::No protected additional-app configuration is present; no additional-app maintenance was selected."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Resolve protected application instance
+        if: steps.instance.outputs.configured == 'true'
+        env:
+          INPUT_APP_INSTANCE: ${{ github.event.schedule == '47 4 * * *' && 'additional' || inputs.app_instance || 'primary' }}
           APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
           ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
           PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
@@ -124,7 +144,7 @@ jobs:
           export FRONTEND_PROFILE ACCEPTANCE_PROFILE
           python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
       - name: Protected backup and scoped maintenance
-        if: inputs.acceptance_only != true
+        if: inputs.acceptance_only != true && steps.instance.outputs.configured == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
@@ -142,8 +162,10 @@ jobs:
           bash Deployment/Common/Scripts/with-deploy-lock.sh \
             python3 Deployment/LocalSingleNode/Scripts/restart-app-check.py
       - name: Read-only native doctor
+        if: steps.instance.outputs.configured == 'true'
         run: bash Deployment/LocalSingleNode/Scripts/doctor.sh --json
       - name: Run HTTP acceptance and report uptime
+        if: steps.instance.outputs.configured == 'true'
         run: |
           bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
           uptime -s
@@ -173,7 +195,7 @@ jobs:
       group: template-artifact-retention
       cancel-in-progress: false
     runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
-    timeout-minutes: 20
+    timeout-minutes: 40
     environment:
       name: ${{ (github.event.schedule == '27 3 * * *' || inputs.app_instance == 'additional') && vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT || vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
     permissions:
@@ -224,6 +246,15 @@ jobs:
           LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Scripts/CI/ci_report_store.py prune --repository "$GITHUB_REPOSITORY"
 
+      # Every CI image build adds BuildKit cache on the shared daemon, and nothing else bounds it between runs.
+      # This trims only build cache (least recently used first) to the budget; images, containers and volumes
+      # are never touched, so other apps on the node keep running.
+      - name: Keep the BuildKit cache under its budget under the shared deployment lock
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          BUILD_CACHE_KEEP_GB: ${{ vars.BUILD_CACHE_KEEP_GB || '20' }}
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/LocalSingleNode/Scripts/lib/build_cache.py --keep-gb "$BUILD_CACHE_KEEP_GB"
+
       - name: Check whether the optional additional app exists
         id: instance
         env:
@@ -273,3 +304,53 @@ jobs:
         if: always()
         run: |
           rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
+
+  trim-build-cache:
+    if: github.event.schedule == '57 */4 * * *'
+    concurrency:
+      group: localsinglenode-build-cache
+      cancel-in-progress: false
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 30
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localsinglenode
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Require main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require green main CI for unchanged operation code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+
+      - name: Keep the BuildKit cache under its budget under the shared deployment lock
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "300"
+          BUILD_CACHE_KEEP_GB: ${{ vars.BUILD_CACHE_KEEP_GB || '20' }}
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/LocalSingleNode/Scripts/lib/build_cache.py --keep-gb "$BUILD_CACHE_KEEP_GB"
