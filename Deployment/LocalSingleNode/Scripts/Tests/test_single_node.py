@@ -413,6 +413,43 @@ class MaintenanceTests(unittest.TestCase):
         images = [{**base, "Id": "old"}, {**base, "Id": "used"}, {**base, "Id": "current", "RepoDigests": [release["image"] + '@' + release["digest"]]}, {**base, "Id": "foreign", "Config": {"Labels": {"org.opencontainers.image.source": "foreign"}}}, {**base, "Id": "new", "Created": now.isoformat()}]
         self.assertEqual(["old"], maintenance.candidates(images, [{"Image": "used"}], release, now))
 
+    def test_app_images_older_than_two_days_are_candidates(self):
+        now = datetime.now(timezone.utc)
+        release = {"image": "ghcr.io/fixture-owner/books", "digest": "sha256:" + "a" * 64, "source_repo_url": "https://github.com/fixture-owner/fixture-repo"}
+        base = {"Config": {"Labels": {"org.opencontainers.image.source": release["source_repo_url"]}}, "RepoTags": [release["image"] + ":sha"]}
+        images = [{**base, "Id": "older", "Created": (now - timedelta(hours=49)).isoformat()},
+                  {**base, "Id": "recent", "Created": (now - timedelta(hours=47)).isoformat()},
+                  {**base, "Id": "recovery", "Created": (now - timedelta(hours=200)).isoformat(), "RepoTags": [release["image"] + ":recoverysha"]}]
+        self.assertEqual(["older"], maintenance.candidates(images, [], release, now, protected_refs=(release["image"] + ":recoverysha",)))
+
+    def test_only_this_apps_old_unused_release_payloads_are_candidates(self):
+        now = datetime.now(timezone.utc)
+        release = {"image": "ghcr.io/fixture-owner/books", "digest": "sha256:" + "a" * 64, "source_repo_url": "https://github.com/fixture-owner/fixture-repo"}
+        old = (now - timedelta(hours=25)).isoformat()
+        label = {"Config": {"Labels": {"org.opencontainers.image.source": release["source_repo_url"]}}}
+
+        def payload(image_id, *refs, created=old, labels=label):
+            return {**labels, "Id": image_id, "Created": created, "RepoTags": [r for r in refs if "@" not in r],
+                    "RepoDigests": [r for r in refs if "@" in r]}
+
+        digest = "@sha256:" + "b" * 64
+        images = [
+            payload("prefixed", "ghcr.io/fixture-owner/private-books-release-payload:run-1-attempt-1"),
+            payload("legacy", "ghcr.io/fixture-owner/books-release-payload:run-2-attempt-1"),
+            payload("pulled", "ghcr.io/fixture-owner/private-books-release-payload" + digest),
+            payload("two-tags", "ghcr.io/fixture-owner/private-books-release-payload:a", "ghcr.io/fixture-owner/books-release-payload:b"),
+            payload("recent", "ghcr.io/fixture-owner/private-books-release-payload:run-3", created=now.isoformat()),
+            payload("in-use", "ghcr.io/fixture-owner/private-books-release-payload:run-4"),
+            payload("foreign-source", "ghcr.io/fixture-owner/private-books-release-payload:run-5",
+                    labels={"Config": {"Labels": {"org.opencontainers.image.source": "https://github.com/other/repo"}}}),
+            payload("other-app", "ghcr.io/fixture-owner/private-books-react-release-payload:run-6"),
+            payload("similar-name", "ghcr.io/fixture-owner/ebooks-release-payload:run-7"),
+            payload("other-owner", "ghcr.io/other-owner/books-release-payload:run-8"),
+            payload("mixed", "ghcr.io/fixture-owner/books-release-payload:run-9", release["image"] + ":sha"),
+            payload("app-image", release["image"] + ":old"),
+        ]
+        self.assertEqual(["prefixed", "legacy", "pulled", "two-tags"],
+                         maintenance.payload_candidates(images, [{"Image": "in-use"}], release, now))
     def test_historical_ci_proof_and_foreign_reference_preservation(self):
         now = datetime.now(timezone.utc)
         release = dict(image='ghcr.io/fixture-owner/books', digest='sha256:' + 'a' * 64, source_repo_url='https://github.com/fixture-owner/fixture-repo')
