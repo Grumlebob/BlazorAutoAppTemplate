@@ -1049,6 +1049,7 @@ for needle, why in [
     ("ansible-playbook", "LocalCluster playbook syntax check"),
     ("--syntax-check", "LocalCluster playbook syntax check"),
     ("bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
+    ("bash Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh", "node browser lock behaviour tests"),
     ("docker push \"${APP_IMAGE}:${GITHUB_SHA}\"", "immutable configured image push"),
 ]:
     if needle not in ci:
@@ -3024,6 +3025,19 @@ maintenance_step = read(".github/workflows/localsinglenode-maintenance.yml").spl
 for binding in ("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}"):
     if binding not in maintenance_step:
         fail("Scoped maintenance must pass protected release-status inputs: " + binding.split(":", 1)[0])
+
+# Chromium and Docker smoke stages share the node with the other repository, so each runs under the node browser lock.
+require_file("Deployment/Common/Scripts/with-node-browser-lock.sh")
+require_file("Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh")
+for needle, why in [
+    ("with-node-browser-lock.sh pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium", "Chromium regression under the node browser lock"),
+    ("with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh", "Docker and browser smoke under the node browser lock"),
+]:
+    require_contains(".github/workflows/ci.yml", needle, why)
+for line in read(".github/workflows/ci.yml").splitlines():
+    runs_browser_or_smoke = "RunReactPublicE2E.ps1" in line or re.search(r"Deployment/LocalCluster/Scripts/ci-docker-smoke\.sh", line)
+    if runs_browser_or_smoke and "--cleanup-only" not in line and "with-node-browser-lock.sh" not in line:
+        fail(f".github/workflows/ci.yml: browser and Docker smoke commands must run under the node browser lock: {line.strip()}")
 
 if failures:
     print("Deployment audit failed:")
