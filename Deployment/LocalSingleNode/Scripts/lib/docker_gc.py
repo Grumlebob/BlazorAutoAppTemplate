@@ -8,7 +8,8 @@ Only the `builder.gc` keys this helper owns are written; every other daemon sett
 and ownership are preserved. A candidate is checked with `dockerd --validate` before an atomic replace,
 and the previous file (or its absence) is kept as a timestamped backup. Applying restarts Docker, which
 restarts every container on the node while live restore is off, so it refuses unless the node is quiet
-(only Compose app containers running and no image build in progress). It then waits until every container
+(only long-running Compose services that Docker restarts itself, no CI or test stacks, and no image
+build in progress). It then waits until every container
 that was running is running again and healthy where it has a health check. If any step after the
 replace fails, the previous file is restored and Docker is restarted again. Images, containers, volumes
 and build cache entries are never removed here.
@@ -35,6 +36,8 @@ DAEMON_CONFIG = Path("/etc/docker/daemon.json")
 DEFAULT_RESERVED = "10GB"
 DEFAULT_MAX_USED = "30GB"
 DEFAULT_MIN_FREE = "30%"
+RESTARTING_POLICIES = ("always", "unless-stopped")
+_CI_PROJECT = re.compile(r"(?:^|-)ci(?:-|$)")
 OWNED_KEYS = ("enabled", "defaultReservedSpace", "defaultMaxUsedSpace", "defaultMinFreeSpace")
 _SIZE = re.compile(r"[1-9][0-9]{0,5}(?:\.[0-9]+)?(?:B|KB|kB|MB|GB|TB)")
 _PERCENT = re.compile(r"(?:[1-9]|[1-8][0-9]|90)%")
@@ -123,23 +126,31 @@ def validate(path, runner):
 
 
 def running_containers(runner):
-    """Return {name: (has_healthcheck, compose_project)} for every running container."""
+    """Return {name: (has_healthcheck, compose_project, restart_policy)} for every running container."""
     ids = runner("docker", "ps", "-q").stdout.split()
     containers = {}
     for container in ids:
         line = runner("docker", "inspect", "-f",
-                      '{{.Name}}|{{if .State.Health}}yes{{else}}no{{end}}|{{index .Config.Labels "com.docker.compose.project"}}',
+                      '{{.Name}}|{{if .State.Health}}yes{{else}}no{{end}}|{{index .Config.Labels "com.docker.compose.project"}}'
+                      '|{{.HostConfig.RestartPolicy.Name}}',
                       container).stdout.strip()
-        name, health, project = (line.split("|") + ["", ""])[:3]
-        containers[name.lstrip("/")] = (health == "yes", "" if project == "<no value>" else project)
+        name, health, project, restart = (line.split("|") + ["", "", ""])[:4]
+        containers[name.lstrip("/")] = (health == "yes", "" if project == "<no value>" else project, restart)
     return containers
 
 
 def require_quiet_node(runner, containers):
-    """Refuse while CI or test containers run or an image build is in progress."""
-    strays = sorted(name for name, (_, project) in containers.items() if not project)
+    """Refuse while CI or test containers run or an image build is in progress.
+
+    Only long-running Compose services survive the restart: they come back through their restart policy.
+    A CI stack is a Compose project too (for example `carboncalculator-ci-<run>`), so its project name
+    and its missing restart policy both mark it as a container the restart would kill mid-run.
+    """
+    strays = sorted(name for name, (_, project, restart) in containers.items()
+                    if not project or _CI_PROJECT.search(project) or restart not in RESTARTING_POLICIES)
     if strays:
-        raise GcError(f"non-Compose containers are running ({', '.join(strays[:5])}); wait for CI to finish")
+        raise GcError(f"CI, test or other short-lived containers are running ({', '.join(strays[:5])}); "
+                      "wait for CI to finish")
     builds = runner("pgrep", "-af", "docker(-buildx)? (buildx )?build", check=False).stdout.strip()
     if builds:
         raise GcError("an image build is in progress; wait for it to finish")
@@ -160,7 +171,7 @@ def wait_for_containers(runner, expected, sleep, timeout=300):
     deadline = time.monotonic() + timeout
     pending = dict(expected)
     while pending and time.monotonic() < deadline:
-        for name, (has_health, _) in list(pending.items()):
+        for name, (has_health, *_) in list(pending.items()):
             state = runner("docker", "inspect", "-f",
                            "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}", name,
                            check=False).stdout.strip()

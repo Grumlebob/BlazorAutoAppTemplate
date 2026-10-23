@@ -38,8 +38,8 @@ class FakeNode:
         elif args[:2] == ("docker", "ps"):
             out = "\n".join(self.containers)
         elif args[:3] == ("docker", "inspect", "-f") and "Config.Labels" in args[3]:
-            health, project = self.containers[args[4]]
-            out = f"/{args[4]}|{health}|{project or '<no value>'}"
+            health, project, *restart = self.containers[args[4]]
+            out = f"/{args[4]}|{health}|{project or '<no value>'}|{restart[0] if restart else 'unless-stopped'}"
         elif args[:3] == ("docker", "inspect", "-f"):
             name = args[4]
             healthy = self.recover or self.restarts > 1
@@ -127,12 +127,24 @@ class DockerGcTests(TestCase):
         self.assertEqual(["daemon.json"], sorted(p.name for p in self.dir.iterdir()))
 
     def test_busy_node_is_refused_before_any_change(self):
-        for node in (FakeNode(build_running=True),
-                     FakeNode(containers={"app-web-1": ("no", "app"), "testcontainers-pg": ("yes", "")})):
+        busy = [{"testcontainers-pg": ("yes", "")},
+                {"carboncalculator-ci-web-enabled-39874781006-1": ("no", "carboncalculator-ci-web-enabled-39874781006")},
+                {"sample-ci-postgres-1": ("yes", "sample-ci")},
+                {"adhoc-web-1": ("no", "adhoc", "no")},
+                {"adhoc-web-1": ("no", "adhoc", "on-failure")}]
+        for node in [FakeNode(build_running=True)] + [
+                FakeNode(containers={"app-web-1": ("no", "app"), **extra}) for extra in busy]:
             with self.assertRaises(docker_gc.GcError):
                 self.apply(node)
             self.assertFalse(self.config.exists())
             self.assertEqual(0, node.restarts)
+
+    def test_long_running_app_services_alone_count_as_a_quiet_node(self):
+        node = FakeNode(containers={name: ("yes", project, policy) for name, project, policy in (
+            ("carboncalculator-postgres-1", "carboncalculator", "unless-stopped"),
+            ("books-react-web-1", "books-react", "unless-stopped"),
+            ("books-redis-1", "books", "always"))})
+        docker_gc.require_quiet_node(node, docker_gc.running_containers(node))
 
     def test_failed_recovery_restores_the_previous_file_and_restarts_again(self):
         original = json.dumps({"log-driver": "local"})

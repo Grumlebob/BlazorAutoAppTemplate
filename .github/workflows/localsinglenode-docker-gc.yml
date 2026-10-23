@@ -70,8 +70,9 @@ jobs:
         run: sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py apply --dry-run
 
       # Restarting Docker restarts every container on the node while live restore is off. The helper
-      # refuses unless only Compose app containers run and no build is in progress, waits for every
-      # container to recover, and restores the previous configuration if any step fails.
+      # refuses unless only long-running Compose services (restart policy always or unless-stopped, no
+      # CI project) run and no build is in progress, waits for every container to recover, and restores
+      # the previous configuration if any step fails.
       - name: Apply the BuildKit GC policy under the shared deployment lock
         if: inputs.mode == 'apply'
         env:
