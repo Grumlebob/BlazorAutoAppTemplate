@@ -1061,7 +1061,11 @@ for pin in ("--expected-passed", "expectedTestCount"):
 profile_gate = read("Scripts/CI/validate-frontend-profiles.sh")
 for needle, why in [
     ("validate_dotnet_test_results.py", "both profile suites validate their TRX results"),
-    ("--filter 'FrontendProfile!=BlazorAuto'", "React excludes only tests explicitly restricted to Blazor Auto"),
+    ("non_account_filter='FullyQualifiedName!~Features.Login.Accounts'", "the non-account invocation excludes account tests before the dedicated account run"),
+    ("non_account_filter+='&FrontendProfile!=BlazorAuto'", "React non-account tests exclude only Blazor Auto-specific cases"),
+    ('test_arguments+=(--filter "$non_account_filter")', "both profiles execute the explicit non-account filter"),
+    ('--logger "trx;LogFileName=non-accounts.trx"', "non-account results use a separate TRX file"),
+    ('"$profile_results/non-accounts.trx"', "the non-account TRX file is validated separately"),
     ("account_filter='FullyQualifiedName~Features.Login.Accounts'", "both profiles run the account integration tests explicitly"),
     ("account_filter+='&FrontendProfile!=BlazorAuto'", "React excludes only account tests tagged for Blazor Auto"),
     ('--filter "$account_filter"', "account integration gate uses its profile-aware filter"),
