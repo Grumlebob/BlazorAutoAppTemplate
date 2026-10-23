@@ -12,7 +12,7 @@ restarts every container on the node while live restore is off, so it refuses un
 build in progress). It then waits until every container
 that was running is running again and healthy where it has a health check. If any step after the
 replace fails, the previous file is restored and Docker is restarted again. After every restart, any
-recorded container that Docker did not bring back is started explicitly (health-checked services first):
+recorded container that Docker did not bring back is started explicitly (services with a health check first):
 on 2026-10-23 a failed daemon start left every `unless-stopped` container stopped. Images, containers,
 volumes and build cache entries are never removed here.
 
@@ -192,7 +192,7 @@ def restart_docker(runner, sleep, timeout=180):
 
 
 def start_stopped(runner, expected, out):
-    """Start any recorded container Docker did not bring back, health-checked services first."""
+    """Start any recorded container Docker did not bring back, services with a health check first."""
     order = sorted(expected, key=lambda name: (not expected[name][0], name))
     for name in order:
         status = runner("docker", "inspect", "-f", "{{.State.Status}}", name,
