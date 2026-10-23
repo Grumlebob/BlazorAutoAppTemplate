@@ -11,8 +11,14 @@ restarts every container on the node while live restore is off, so it refuses un
 (only long-running Compose services that Docker restarts itself, no CI or test stacks, and no image
 build in progress). It then waits until every container
 that was running is running again and healthy where it has a health check. If any step after the
-replace fails, the previous file is restored and Docker is restarted again. Images, containers, volumes
-and build cache entries are never removed here.
+replace fails, the previous file is restored and Docker is restarted again. After every restart, any
+recorded container that Docker did not bring back is started explicitly (health-checked services first):
+on 2026-10-23 a failed daemon start left every `unless-stopped` container stopped. Images, containers,
+volumes and build cache entries are never removed here.
+
+Docker 29's daemon.json accepts only byte sizes for the BuildKit GC keys, and `dockerd --validate` does not
+parse them (BuildKit does, at startup). A `--min-free` percentage is therefore converted to a size of the
+filesystem that holds Docker's data, and every written value must be a plain size.
 
 Usage (as root, normally through the LocalSingleNode Docker GC workflow under the deployment lock):
   docker_gc.py report
@@ -24,6 +30,7 @@ import copy
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -36,6 +43,8 @@ DAEMON_CONFIG = Path("/etc/docker/daemon.json")
 DEFAULT_RESERVED = "10GB"
 DEFAULT_MAX_USED = "30GB"
 DEFAULT_MIN_FREE = "30%"
+DOCKER_ROOT = Path("/var/lib/docker")
+GIB = 1024 ** 3
 RESTARTING_POLICIES = ("always", "unless-stopped")
 _CI_PROJECT = re.compile(r"(?:^|-)ci(?:-|$)")
 OWNED_KEYS = ("enabled", "defaultReservedSpace", "defaultMaxUsedSpace", "defaultMinFreeSpace")
@@ -55,13 +64,29 @@ def run(*args, timeout=120, check=True):
     return result
 
 
-def desired_policy(reserved, max_used, min_free):
+def desired_policy(reserved, max_used, min_free, disk_bytes=None):
+    """Return the owned GC keys. Every size is written as a plain byte size such as 70GB."""
     if not _SIZE.fullmatch(reserved) or not _SIZE.fullmatch(max_used):
         raise GcError("reserved and max-used space must be sizes such as 10GB")
-    if not _PERCENT.fullmatch(min_free):
-        raise GcError("min-free space must be a percentage from 1% to 90%")
-    return {"enabled": True, "defaultReservedSpace": reserved, "defaultMaxUsedSpace": max_used,
-            "defaultMinFreeSpace": min_free}
+    if _PERCENT.fullmatch(min_free):
+        if not disk_bytes:
+            raise GcError("a min-free percentage needs the size of Docker's filesystem")
+        gib = int(disk_bytes * int(min_free[:-1]) / 100 // GIB)
+        if gib < 1:
+            raise GcError("min-free space rounds down to less than 1GB")
+        min_free = f"{gib}GB"
+    elif not _SIZE.fullmatch(min_free):
+        raise GcError("min-free space must be a percentage from 1% to 90% or a size such as 70GB")
+    policy = {"enabled": True, "defaultReservedSpace": reserved, "defaultMaxUsedSpace": max_used,
+              "defaultMinFreeSpace": min_free}
+    if any(isinstance(value, str) and not _SIZE.fullmatch(value) for value in policy.values()):
+        raise GcError("every BuildKit GC size must be a plain byte size")
+    return policy
+
+
+def docker_disk_bytes(root=DOCKER_ROOT):
+    """Total size of the filesystem that holds Docker's data."""
+    return shutil.disk_usage(root if root.exists() else Path("/")).total
 
 
 def load_config(path):
@@ -166,6 +191,23 @@ def restart_docker(runner, sleep, timeout=180):
     raise GcError("Docker did not come back after the restart")
 
 
+def start_stopped(runner, expected, out):
+    """Start any recorded container Docker did not bring back, health-checked services first."""
+    order = sorted(expected, key=lambda name: (not expected[name][0], name))
+    for name in order:
+        status = runner("docker", "inspect", "-f", "{{.State.Status}}", name,
+                        check=False).stdout.strip().partition("|")[0]
+        if status not in ("running", "restarting"):
+            out(f"Starting {name} ({status or 'unknown'}) after the restart.")
+            runner("docker", "start", name, check=False)
+
+
+def recover(runner, containers, sleep, out):
+    restart_docker(runner, sleep)
+    start_stopped(runner, containers, out)
+    wait_for_containers(runner, containers, sleep)
+
+
 def wait_for_containers(runner, expected, sleep, timeout=300):
     """Wait until every expected container runs, and is healthy where it has a health check."""
     deadline = time.monotonic() + timeout
@@ -243,13 +285,11 @@ def apply(path, policy, runner, out, sleep=time.sleep, now=None, dry_run=False):
     out(f"Backup: {backup}")
     write_atomically(path, candidate, mode, owner)
     try:
-        restart_docker(runner, sleep)
-        wait_for_containers(runner, containers, sleep)
+        recover(runner, containers, sleep, out)
     except GcError as error:
         out(f"Apply failed after the restart ({error}); restoring the previous configuration.")
         restore(path, backup, info)
-        restart_docker(runner, sleep)
-        wait_for_containers(runner, containers, sleep)
+        recover(runner, containers, sleep, out)
         raise GcError(f"apply rolled back: {error}") from error
     out(f"Applied BuildKit GC policy; {len(containers)} containers recovered.")
     return 0
@@ -273,13 +313,12 @@ def rollback(path, backup, runner, out, sleep=time.sleep):
     require_quiet_node(runner, containers)
     _, _, info = load_config(path)
     restore(path, backup, info)
-    restart_docker(runner, sleep)
-    wait_for_containers(runner, containers, sleep)
+    recover(runner, containers, sleep, out)
     out(f"Restored {backup.name}; {len(containers)} containers recovered.")
     return 0
 
 
-def main(argv=None, runner=run, out=print, config_path=DAEMON_CONFIG, sleep=time.sleep):
+def main(argv=None, runner=run, out=print, config_path=DAEMON_CONFIG, sleep=time.sleep, disk_bytes=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("mode", choices=("report", "apply", "rollback"))
     parser.add_argument("--dry-run", action="store_true", help="apply: validate and print the merged file only")
@@ -289,7 +328,8 @@ def main(argv=None, runner=run, out=print, config_path=DAEMON_CONFIG, sleep=time
     parser.add_argument("--min-free", default=DEFAULT_MIN_FREE)
     parser.add_argument("--config", default=str(config_path), help="daemon configuration path (tests and dry runs)")
     args = parser.parse_args(argv)
-    policy = desired_policy(args.reserved, args.max_used, args.min_free)
+    policy = desired_policy(args.reserved, args.max_used, args.min_free,
+                            disk_bytes if disk_bytes is not None else docker_disk_bytes())
     path = Path(args.config)
     if args.mode == "report":
         return report(path, policy, runner, out)
