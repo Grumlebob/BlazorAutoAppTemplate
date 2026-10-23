@@ -181,6 +181,9 @@ jobs:
       - name: Test LocalCluster deployment lock
         run: bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh
 
+      - name: Test node browser lock
+        run: bash Deployment/Common/Scripts/Tests/test-with-node-browser-lock.sh
+
       - name: Test Ansible user-only provisioning
         run: bash Deployment/Common/Scripts/Tests/test-install-ansible-user-only.sh
 
@@ -427,7 +430,7 @@ jobs:
         run: npm run build
 
       - name: React public Chromium browser regression
-        run: pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release -ReuseFrontendBuild
+        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh pwsh -File Scripts/Testing/RunReactPublicE2E.ps1 -Browser chromium -Suite broad -Configuration Release -ReuseFrontendBuild
 
       - name: Load release settings
         run: |
@@ -473,7 +476,7 @@ jobs:
             FRONTEND_PROFILE="$profile" \
               FRONTEND_ACCEPTANCE_PROFILE="$acceptance_profile" \
               APP_VERSION="$image_tag" \
-              bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+              bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
           done
 
       - name: Remove this run's smoke resources after interruption
@@ -729,7 +732,7 @@ jobs:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
           APP_VERSION: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
+        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 
       - name: Remove this run's smoke resources after interruption
         if: ${{ always() && steps.ci_smoke.outcome != 'skipped' && steps.ci_smoke.outcome != '' }}
