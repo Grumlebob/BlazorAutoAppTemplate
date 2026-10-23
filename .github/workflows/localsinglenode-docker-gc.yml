@@ -1,0 +1,114 @@
+name: LocalSingleNode Docker build-cache GC
+run-name: "LocalSingleNode Docker GC (${{ inputs.mode }}) @ ${{ github.sha }}"
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: report shows the planned change; apply validates, backs up, installs it and restarts Docker; rollback restores a backup
+        type: choice
+        default: report
+        options:
+          - report
+          - apply
+          - rollback
+      backup:
+        description: Backup path printed by an earlier apply (rollback only)
+        type: string
+        default: ""
+permissions:
+  contents: read
+  actions: read
+jobs:
+  docker-gc:
+    concurrency:
+      group: localsinglenode-docker-gc
+      cancel-in-progress: false
+    runs-on: [self-hosted, linux, x64, "${{ vars.LOCALSINGLENODE_RUNNER_LABEL || 'localsinglenode-books' }}"]
+    timeout-minutes: 30
+    environment:
+      name: ${{ vars.LOCALSINGLENODE_ENVIRONMENT || 'localsinglenode' }}
+    steps:
+      - name: Require this deployment target to be enabled
+        env:
+          DEPLOY_TARGETS: ${{ vars.DEPLOY_TARGETS }}
+          TARGET: localsinglenode
+        run: |
+          targets=",${DEPLOY_TARGETS// /},"
+          if [[ "$targets" != *",${TARGET},"* ]]; then
+            echo "::error::Deployment target '${TARGET}' is not enabled. Add it to the DEPLOY_TARGETS repository variable."
+            exit 1
+          fi
+
+      - name: Verify the intended native node
+        env:
+          LOCALSINGLENODE_HOST: ${{ vars.LOCALSINGLENODE_HOST }}
+        run: |
+          test -n "$LOCALSINGLENODE_HOST"
+          test "$(hostname)" = "$LOCALSINGLENODE_HOST"
+          test "$(uname -s)" = Linux
+          case "$(uname -r)" in *[Mm]icrosoft*) exit 1 ;; esac
+
+      - name: Require main branch
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Require green main CI for unchanged operation code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 Deployment/Common/Scripts/verify-operation-source.py > /dev/null
+
+      - name: Report the Docker daemon BuildKit GC policy
+        run: sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py report
+
+      - name: Validate the merged configuration
+        if: inputs.mode == 'apply'
+        run: sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py apply --dry-run
+
+      # Restarting Docker restarts every container on the node while live restore is off. The helper
+      # refuses unless only Compose app containers run and no build is in progress, waits for every
+      # container to recover, and restores the previous configuration if any step fails.
+      - name: Apply the BuildKit GC policy under the shared deployment lock
+        if: inputs.mode == 'apply'
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "600"
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py apply
+
+      - name: Roll back to a saved daemon configuration under the shared deployment lock
+        if: inputs.mode == 'rollback'
+        env:
+          LOCALCLUSTER_DEPLOY_LOCK_TIMEOUT_SECONDS: "600"
+          BACKUP: ${{ inputs.backup }}
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py rollback --backup "$BACKUP"
+
+      - name: Resolve protected application instance
+        if: inputs.mode != 'report'
+        env:
+          INPUT_APP_INSTANCE: primary
+          APP_INSTANCE_CONFIG: ${{ secrets.LOCALSINGLENODE_APP_INSTANCE }}
+          ADDITIONAL_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ADDITIONAL_ENVIRONMENT }}
+          PRIMARY_INSTANCE_ENVIRONMENT: ${{ vars.LOCALSINGLENODE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          FRONTEND_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py)"
+          ACCEPTANCE_PROFILE="$(python3 Scripts/Frontend/resolve_frontend_profile.py --acceptance-profile)"
+          export FRONTEND_PROFILE ACCEPTANCE_PROFILE
+          python3 Deployment/LocalSingleNode/Scripts/resolve-app-instance.py
+
+      - name: Run HTTP acceptance after the restart
+        if: inputs.mode != 'report'
+        run: bash Deployment/LocalSingleNode/Scripts/acceptance-check.sh
+
+      - name: Report the policy and cache after the change
+        if: inputs.mode != 'report'
+        run: |
+          sudo -n python3 Deployment/LocalSingleNode/Scripts/lib/docker_gc.py report
+          df -h --output=size,used,avail,pcent / | tail -1
+
+      - name: Remove temporary app configuration
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/instance-settings.yml" "$RUNNER_TEMP/instance-vars.json"
