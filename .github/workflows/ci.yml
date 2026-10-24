@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      pool:
+        description: Select an approved non-publishing canary route on a non-main branch.
+        type: choice
+        required: true
+        default: auto
+        options:
+          - auto
+          - desktop-canary
+          - native-canary
 
 permissions:
   contents: read
@@ -17,13 +27,34 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Validates every change. On pull requests this job is the required
-  # `build-test-push` check; on main it is named `validate` and the publishing
-  # job below carries the `build-test-push` name instead.
-  validate:
-    name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'validate' || 'build-test-push' }}
+  select-validation:
+    name: Select validation runner
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    uses: ./.github/workflows/select-ci-runner.yml
+    with:
+      stage: validation
+      pool: ${{ github.event_name == 'workflow_dispatch' && inputs.pool || 'auto' }}
+      routing_enabled: ${{ vars.CI_RUNNER_ROUTING_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.pool != 'auto') }}
+      native_profile: template-native
+      native_label: ${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}
+      native_host: ${{ vars.CI_RUNNER_HOST }}
+      desktop_profile: template-desktop
+      repository_owner: ${{ github.repository_owner }}
+      repository_name: ${{ github.event.repository.name }}
+      app_client_id: ${{ vars.CI_RUNNER_INVENTORY_APP_CLIENT_ID }}
+    secrets:
+      CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+      CI_RUNNER_INVENTORY_APP_PRIVATE_KEY: ${{ secrets.CI_RUNNER_INVENTORY_APP_PRIVATE_KEY }}
+    permissions:
+      contents: read
+
+  # Keeps the native route as the default and allocates desktop work only after
+  # same-repository PR validation and explicit profile selection.
+  validate:
+    name: validate
+    needs: select-validation
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.select-validation.result == 'success' }}
+    runs-on: [self-hosted, linux, x64, "${{ needs.select-validation.outputs.runner_label }}"]
     timeout-minutes: 75
     outputs:
       frontend_profile: ${{ steps.frontend_profile.outputs.profile }}
@@ -47,7 +78,8 @@ jobs:
           chmod 0700 "$docker_config"
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
-      - name: Verify CI runner
+      - name: Verify legacy CI runner
+        if: ${{ needs.select-validation.outputs.routing_enabled != 'true' }}
         env:
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
@@ -65,6 +97,21 @@ jobs:
           esac
           test "$(docker info --format '{{.OSType}}')" = "linux"
           test "$(hostname)" = "$CI_RUNNER_HOST"
+
+      - name: Verify selected CI runner profile
+        if: ${{ needs.select-validation.outputs.routing_enabled == 'true' }}
+        env:
+          CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+          CI_PROFILE: ${{ needs.select-validation.outputs.profile }}
+          CI_LABEL: ${{ needs.select-validation.outputs.runner_label }}
+          CI_RUNNER_ID: ${{ needs.select-validation.outputs.runner_id }}
+        run: |
+          set -euo pipefail
+          verify_args=(--config-json-env CI_RUNNER_PROFILES_JSON --profile "$CI_PROFILE" --label "$CI_LABEL")
+          if [[ -n "$CI_RUNNER_ID" ]]; then
+            verify_args+=(--runner-id "$CI_RUNNER_ID")
+          fi
+          python3 Scripts/CI/verify_ci_runner.py "${verify_args[@]}"
 
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
@@ -123,6 +170,7 @@ jobs:
       # Report only. The self-hosted node's Docker daemon is shared with apps, so CI
       # must not prune it; an operator runs scoped cleanup when space is low.
       - name: Check self-hosted runner disk
+        if: ${{ needs.select-validation.outputs.pool != 'desktop' }}
         run: bash Scripts/CI/check-runner-capacity.sh
 
       - name: Configure self-hosted tool paths
@@ -147,8 +195,8 @@ jobs:
       - name: Test Dependabot auto-merge routing
         run: python3 -m unittest Scripts/CI/tests/test_dependabot_automerge_workflow.py -v
 
-      - name: Test frontend profile selection
-        run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py
+      - name: Test frontend profile selection and CI runner contracts
+        run: python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py Scripts/CI/tests/test_runner_profiles.py Scripts/CI/tests/test_select_ci_runner.py Scripts/CI/tests/test_verify_ci_runner.py Scripts/CI/tests/test_ci_runner_routing_workflow.py Scripts/CI/tests/test_require_ci_results.py
 
       - name: Test deployed-site acceptance profile split
         run: |
@@ -522,11 +570,33 @@ jobs:
 
   # Publishes the release for main: the image, the migration bundle and a
   # release manifest that binds them to this commit and CI run.
-  publish-main:
-    name: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'build-test-push' || 'publish-main' }}
+  select-publication:
+    name: Select fresh publication runner
     needs: validate
     if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' }}
-    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    uses: ./.github/workflows/select-ci-runner.yml
+    with:
+      stage: publication
+      pool: auto
+      routing_enabled: ${{ vars.CI_RUNNER_ROUTING_ENABLED == 'true' }}
+      native_profile: template-native
+      native_label: ${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}
+      native_host: ${{ vars.CI_RUNNER_HOST }}
+      desktop_profile: template-desktop
+      repository_owner: ${{ github.repository_owner }}
+      repository_name: ${{ github.event.repository.name }}
+      app_client_id: ${{ vars.CI_RUNNER_INVENTORY_APP_CLIENT_ID }}
+    secrets:
+      CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+      CI_RUNNER_INVENTORY_APP_PRIVATE_KEY: ${{ secrets.CI_RUNNER_INVENTORY_APP_PRIVATE_KEY }}
+    permissions:
+      contents: read
+
+  publish-main:
+    name: publish-main
+    needs: [validate, select-publication]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.validate.result == 'success' && needs.select-publication.result == 'success' }}
+    runs-on: [self-hosted, linux, x64, "${{ needs.select-publication.outputs.runner_label }}"]
     concurrency:
       group: template-registry-payloads
       queue: max
@@ -543,6 +613,7 @@ jobs:
           CI_EVENT_NAME: ${{ github.event_name }}
           CI_REF: ${{ github.ref }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
+          PUBLICATION_SELECTION_RESULT: ${{ needs.select-publication.result }}
         run: |
           set -euo pipefail
           case "${CI_EVENT_NAME}:${CI_REF}" in
@@ -554,6 +625,10 @@ jobs:
           esac
           if [[ "$VALIDATE_RESULT" != "success" ]]; then
             echo "Main release requires validate=success, got ${VALIDATE_RESULT}" >&2
+            exit 1
+          fi
+          if [[ "$PUBLICATION_SELECTION_RESULT" != "success" ]]; then
+            echo "Main release requires a fresh publication selection, got ${PUBLICATION_SELECTION_RESULT}" >&2
             exit 1
           fi
           echo "Required main CI result passed."
@@ -570,7 +645,8 @@ jobs:
           chmod 0700 "$docker_config"
           echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
 
-      - name: Verify CI runner
+      - name: Verify legacy CI runner
+        if: ${{ needs.select-publication.outputs.routing_enabled != 'true' }}
         env:
           CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
         run: |
@@ -589,10 +665,26 @@ jobs:
           test "$(docker info --format '{{.OSType}}')" = "linux"
           test "$(hostname)" = "$CI_RUNNER_HOST"
 
+      - name: Verify selected CI runner profile
+        if: ${{ needs.select-publication.outputs.routing_enabled == 'true' }}
+        env:
+          CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+          CI_PROFILE: ${{ needs.select-publication.outputs.profile }}
+          CI_LABEL: ${{ needs.select-publication.outputs.runner_label }}
+          CI_RUNNER_ID: ${{ needs.select-publication.outputs.runner_id }}
+        run: |
+          set -euo pipefail
+          verify_args=(--config-json-env CI_RUNNER_PROFILES_JSON --profile "$CI_PROFILE" --label "$CI_LABEL")
+          if [[ -n "$CI_RUNNER_ID" ]]; then
+            verify_args+=(--runner-id "$CI_RUNNER_ID")
+          fi
+          python3 Scripts/CI/verify_ci_runner.py "${verify_args[@]}"
+
       - name: Ensure self-hosted runner prerequisites
         run: bash Deployment/Common/Scripts/ensure-actions-runner-prereqs.sh --check
 
       - name: Check self-hosted runner disk
+        if: ${{ needs.select-publication.outputs.pool != 'desktop' }}
         run: bash Scripts/CI/check-runner-capacity.sh
 
       - name: Configure self-hosted tool paths
@@ -901,3 +993,38 @@ jobs:
             --field source_run_head_sha="$SOURCE_RUN_HEAD_SHA" \
             --field source_run_head_branch="$SOURCE_RUN_HEAD_BRANCH" \
             --field source_run_url="$SOURCE_RUN_URL"
+
+  # Keeps one stable required check name and rejects skipped prerequisite jobs.
+  ci-result-gate:
+    name: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && 'build-test-push' || 'CI routing result' }}
+    needs: [select-validation, validate, select-publication, publish-main]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          clean: true
+
+      - name: Verify native CI result-gate runner
+        env:
+          CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}
+        run: |
+          set -euo pipefail
+          : "${CI_RUNNER_HOST:?Set the CI_RUNNER_HOST repository variable to the expected native runner hostname}"
+          test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
+
+      - name: Verify every event-required CI result
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+          CI_VALIDATION_SELECTION_RESULT: ${{ needs.select-validation.result }}
+          CI_VALIDATION_RESULT: ${{ needs.validate.result }}
+          CI_PUBLICATION_SELECTION_RESULT: ${{ needs.select-publication.result }}
+          CI_PUBLICATION_RESULT: ${{ needs.publish-main.result }}
+        run: python3 Scripts/CI/require_ci_results.py

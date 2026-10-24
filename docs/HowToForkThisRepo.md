@@ -13,6 +13,8 @@ For a multi-target fork, keep all target folders and customize only the targets 
 
 Before the first code PR, register an online self-hosted Linux x64 runner. Set repository variables `CI_RUNNER_LABEL` to its label and `CI_RUNNER_HOST` to its hostname. Unset labels fall back to template runners and can leave a fork's checks queued indefinitely. Set `LOCALSINGLENODE_RUNNER_LABEL` or `LOCALCLUSTER_RUNNER_LABEL` for enabled targets. Use [AgentSetup `--ci-runner`](../Deployment/LocalSingleNode/AgentSetup.md) for a new single-node fork, or the existing-cluster route above for prepared LocalCluster nodes. Cloud CD requires an existing runner on `node-main`; Cloud setup does not install it.
 
+CI can optionally select between approved native and desktop runner profiles. Keep this feature disabled unless the fork has an authorized runner registration and its own read-only runner-inventory App. See [CI runner profiles](CI/RunnerProfiles.md) for settings, identity checks, native fallback and fork protections. Cloning this template does not grant access to another repository's runners.
+
 ## Choose shared identity
 
 Choose these values once and use them consistently:

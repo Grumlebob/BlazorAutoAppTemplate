@@ -1,0 +1,168 @@
+name: Select CI runner
+
+on:
+  workflow_call:
+    inputs:
+      stage:
+        description: CI phase that will consume the selected runner.
+        type: string
+        required: true
+      pool:
+        description: Automatic route or explicit non-main canary pool.
+        type: string
+        required: true
+      routing_enabled:
+        description: Use validated profiles and the current repository runner inventory.
+        type: boolean
+        required: true
+      native_profile:
+        type: string
+        required: true
+      native_label:
+        type: string
+        required: true
+      native_host:
+        type: string
+        required: true
+      desktop_profile:
+        type: string
+        required: true
+      repository_owner:
+        type: string
+        required: true
+      repository_name:
+        type: string
+        required: true
+      app_client_id:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      CI_RUNNER_PROFILES_JSON:
+        required: false
+      CI_RUNNER_INVENTORY_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      runner_label:
+        description: Exact approved custom label for the selected runner.
+        value: ${{ jobs.select.outputs.runner_label }}
+      profile:
+        description: Private configuration profile ID for the selected runner.
+        value: ${{ jobs.select.outputs.profile }}
+      pool:
+        description: Selected native or desktop route.
+        value: ${{ jobs.select.outputs.pool }}
+      route_reason:
+        description: Bounded reason for the selected route.
+        value: ${{ jobs.select.outputs.route_reason }}
+      inventory_state:
+        description: Bounded inventory availability state.
+        value: ${{ jobs.select.outputs.inventory_state }}
+      runner_id:
+        description: Observed repository registration ID, when available.
+        value: ${{ jobs.select.outputs.runner_id }}
+      routing_enabled:
+        description: Whether strict private-profile verification was used.
+        value: ${{ jobs.select.outputs.routing_enabled }}
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    name: Select approved CI runner
+    runs-on: [self-hosted, linux, x64, "${{ vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books' }}"]
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    outputs:
+      runner_label: ${{ steps.route.outputs.runner_label || steps.legacy.outputs.runner_label }}
+      profile: ${{ steps.route.outputs.profile || steps.legacy.outputs.profile }}
+      pool: ${{ steps.route.outputs.pool || steps.legacy.outputs.pool }}
+      route_reason: ${{ steps.route.outputs.route_reason || steps.legacy.outputs.route_reason }}
+      inventory_state: ${{ steps.route.outputs.inventory_state || steps.legacy.outputs.inventory_state }}
+      runner_id: ${{ steps.route.outputs.runner_id || steps.legacy.outputs.runner_id }}
+      routing_enabled: ${{ inputs.routing_enabled && 'true' || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          clean: true
+
+      - name: Verify configured native selector
+        if: ${{ inputs.routing_enabled }}
+        env:
+          CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+          CI_PROFILE: ${{ inputs.native_profile }}
+          CI_LABEL: ${{ inputs.native_label }}
+        run: >-
+          python3 Scripts/CI/verify_ci_runner.py
+          --config-json-env CI_RUNNER_PROFILES_JSON
+          --profile "$CI_PROFILE" --label "$CI_LABEL"
+
+      - name: Verify legacy native selector
+        if: ${{ !inputs.routing_enabled }}
+        env:
+          CI_RUNNER_HOST: ${{ inputs.native_host }}
+        run: |
+          set -euo pipefail
+          : "${CI_RUNNER_HOST:?Set CI_RUNNER_HOST to the expected native runner host}"
+          test "${RUNNER_OS:?GitHub runner OS is required}" = "Linux"
+          test -d "${GITHUB_WORKSPACE:?GitHub workspace is required}"
+          case "$GITHUB_WORKSPACE" in
+            /mnt/*) echo "CI workspace must use the runner's Linux filesystem" >&2; exit 1 ;;
+          esac
+          test "$(docker info --format '{{.OSType}}')" = "linux"
+          test "$(hostname)" = "$CI_RUNNER_HOST"
+
+      - name: Create repository-scoped runner-inventory token
+        id: app_token
+        if: ${{ inputs.routing_enabled }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        continue-on-error: true
+        with:
+          client-id: ${{ inputs.app_client_id }}
+          private-key: ${{ secrets.CI_RUNNER_INVENTORY_APP_PRIVATE_KEY }}
+          owner: ${{ inputs.repository_owner }}
+          repositories: ${{ inputs.repository_name }}
+          permission-administration: read
+
+      - name: Select from the fresh repository inventory
+        id: route
+        if: ${{ inputs.routing_enabled }}
+        env:
+          CI_RUNNER_PROFILES_JSON: ${{ secrets.CI_RUNNER_PROFILES_JSON }}
+          CI_RUNNER_INVENTORY_TOKEN: ${{ steps.app_token.outputs.token }}
+          CI_STAGE: ${{ inputs.stage }}
+          CI_POOL: ${{ inputs.pool }}
+          CI_NATIVE_PROFILE: ${{ inputs.native_profile }}
+          CI_NATIVE_LABEL: ${{ inputs.native_label }}
+          CI_DESKTOP_PROFILE: ${{ inputs.desktop_profile }}
+        run: >-
+          python3 Scripts/CI/select_ci_runner.py
+          --config-json-env CI_RUNNER_PROFILES_JSON
+          --native-profile "$CI_NATIVE_PROFILE" --native-label "$CI_NATIVE_LABEL"
+          --desktop-profile "$CI_DESKTOP_PROFILE"
+          --stage "$CI_STAGE" --pool "$CI_POOL"
+
+      - name: Keep the existing native route until cutover
+        id: legacy
+        if: ${{ !inputs.routing_enabled }}
+        env:
+          CI_RUNNER_LABEL: ${{ inputs.native_label }}
+        run: |
+          set -euo pipefail
+          : "${CI_RUNNER_LABEL:?The configured native CI label is required}"
+          if [[ ! "$CI_RUNNER_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "Configured native CI label has an invalid format" >&2
+            exit 1
+          fi
+          {
+            echo "runner_label=${CI_RUNNER_LABEL}"
+            echo "profile=native-legacy"
+            echo "pool=native"
+            echo "route_reason=legacy-routing-disabled"
+            echo "inventory_state=not-requested"
+            echo "runner_id="
+          } >> "$GITHUB_OUTPUT"
