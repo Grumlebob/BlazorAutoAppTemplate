@@ -1711,8 +1711,9 @@ if ("644076a59742c2d1540ebd4686eab3c308f0e562" not in actionlint_runner
 publish_main = read(".github/workflows/ci.yml").split("  publish-main:", 1)[-1]
 for needle, why in [
     ("Enforce final GHCR payload capacity before any registry publication", "final registry admission gate"),
-    ("--admission-kind final", "final release reserves full payload size before publication"),
+    ("--admission-kind final", "final release capacity admission runs before publication"),
     ("--reserved-bytes", "registry admission accounts for incoming payload bytes"),
+    ("print(bundle_bytes * package_count)", "final capacity admission has no extra byte reserve"),
     ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is required for final admission"),
     ('retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is retained by exact digest during admission"),
     ('retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is retained by exact digest during admission"),
