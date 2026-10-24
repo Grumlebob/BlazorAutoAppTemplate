@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from collections import Counter
+import json
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 from Scripts.CI.validate_dotnet_test_results import summarize_results, validate_results
 
@@ -72,6 +78,123 @@ class DotnetTestResultValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "contains no test results"):
             summarize_results(path)
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DOTNET = r'''#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+args = sys.argv[1:]
+with open(os.environ["DOTNET_CALLS"], "a") as calls:
+    calls.write(json.dumps(args) + "\n")
+if args[0] != "test":
+    sys.exit(0)
+profile = next(value.split("=", 1)[1] for value in args if value.startswith("-p:FrontendProfile="))
+cases = json.loads(os.environ["DOTNET_CASES"])[profile]
+expression = args[args.index("--filter") + 1] if "--filter" in args else ""
+allowed = {"", "FrontendProfile!=BlazorAuto", "FullyQualifiedName!~Features.Login.Accounts",
+           "FullyQualifiedName~Features.Login.Accounts",
+           "FullyQualifiedName!~Features.Login.Accounts&FrontendProfile!=BlazorAuto",
+           "FullyQualifiedName~Features.Login.Accounts&FrontendProfile!=BlazorAuto"}
+if expression not in allowed:
+    sys.exit("Unexpected filter: " + expression)
+if "FullyQualifiedName!~" in expression:
+    cases = [case for case in cases if "Features.Login.Accounts" not in case[0]]
+elif "FullyQualifiedName~" in expression:
+    cases = [case for case in cases if "Features.Login.Accounts" in case[0]]
+if "FrontendProfile!=BlazorAuto" in expression:
+    cases = [case for case in cases if case[3] != "BlazorAuto"]
+root = ET.Element("TestRun")
+results = ET.SubElement(root, "Results")
+for identity, outcome, message, trait in cases:
+    result = ET.SubElement(results, "UnitTestResult", testName=identity, outcome=outcome)
+    if message:
+        ET.SubElement(ET.SubElement(ET.SubElement(result, "Output"), "ErrorInfo"), "Message").text = message
+destination = Path(args[args.index("--results-directory") + 1])
+destination.mkdir(parents=True, exist_ok=True)
+name = args[args.index("--logger") + 1].split("LogFileName=", 1)[1]
+ET.ElementTree(root).write(destination / name, encoding="utf-8")
+'''
+
+ACCOUNT = "Template.Features.Login.Accounts.CookieTests.Login"
+NORMAL = "Template.Features.Example.Tests.Save"
+PROFILES = ("BlazorAuto", "React")
+
+
+@unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "requires Linux/WSL bash")
+class FrontendValidationPartitionTests(unittest.TestCase):
+    def run_gate(self, cases):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        executable = root / "dotnet"
+        executable.write_text(DOTNET, encoding="utf-8")
+        executable.chmod(0o755)
+        calls = root / "calls.jsonl"
+        results = root / "results"
+        process = subprocess.run(
+            ["bash", str(REPO_ROOT / "Scripts/CI/validate-frontend-profiles.sh"), str(results)],
+            env=dict(os.environ, PATH=f"{root}{os.pathsep}{os.environ['PATH']}",
+                     DOTNET_CASES=json.dumps(cases), DOTNET_CALLS=str(calls)),
+            capture_output=True, text=True, check=False,
+        )
+        return process, [json.loads(line) for line in calls.read_text().splitlines()], results
+
+    def good_cases(self):
+        cases = [(NORMAL, "Passed", "", ""), (ACCOUNT + "(rememberMe: false)", "Passed", "", ""),
+                 (ACCOUNT + "(rememberMe: true)", "Passed", "", ""),
+                 ("Template.BrowserTests.Smoke", "NotExecuted", OPT_IN, ""),
+                 (NORMAL + ".BlazorAssets", "Passed", "", "BlazorAuto"),
+                 (ACCOUNT + ".BlazorAssets", "Passed", "", "BlazorAuto")]
+        return {profile: list(cases) for profile in PROFILES}
+
+    def test_each_profile_executes_each_eligible_case_once_and_retains_react_trait_filter(self):
+        cases = self.good_cases()
+        process, calls, results = self.run_gate(cases)
+        self.assertEqual(0, process.returncode, process.stdout + process.stderr)
+        self.assertEqual(["restore", "build", "test", "test"] * 2, [call[0] for call in calls])
+        for profile in PROFILES:
+            expected = Counter(case[0] for case in cases[profile] if profile != "React" or case[3] != "BlazorAuto")
+            selected = Counter(result.attrib["testName"] for report in (results / profile).rglob("*.trx")
+                               for result in ET.parse(report).iter("UnitTestResult"))
+            self.assertEqual(expected, selected, profile)
+        for call in (call for call in calls if call[0] == "test"):
+            self.assertIn("--no-build", call)
+            self.assertIn("--no-restore", call)
+            if "-p:FrontendProfile=React" in call:
+                self.assertIn("&FrontendProfile!=BlazorAuto", call[call.index("--filter") + 1])
+
+    def test_missing_accounts_in_either_profile_fails(self):
+        for profile in PROFILES:
+            with self.subTest(profile=profile):
+                cases = self.good_cases()
+                cases[profile] = [(NORMAL, "Passed", "", "")]
+                process, _, _ = self.run_gate(cases)
+                self.assertNotEqual(0, process.returncode)
+                self.assertIn("contains no test results", process.stderr)
+
+    def test_account_skips_and_failures_fail_for_each_profile(self):
+        for profile in PROFILES:
+            for outcome, message in (("NotExecuted", OPT_IN), ("Failed", "")):
+                with self.subTest(profile=profile, outcome=outcome):
+                    cases = self.good_cases()
+                    cases[profile].append((ACCOUNT + ".Other", outcome, message, ""))
+                    process, _, _ = self.run_gate(cases)
+                    self.assertNotEqual(0, process.returncode)
+                    self.assertIn("expected skipped=0" if outcome == "NotExecuted" else "unexpected test outcomes", process.stderr)
+
+    def test_zero_discovery_and_unexplained_non_account_skips_fail(self):
+        for cases in (
+            {profile: [] for profile in PROFILES},
+            {profile: [(NORMAL, "NotExecuted", "Flaky", ""), (ACCOUNT, "Passed", "", "")] for profile in PROFILES},
+        ):
+            process, calls, _ = self.run_gate(cases)
+            self.assertNotEqual(0, process.returncode)
+            self.assertEqual(1, sum(call[0] == "test" for call in calls))
 
 
 if __name__ == "__main__":
