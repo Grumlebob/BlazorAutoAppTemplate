@@ -79,8 +79,20 @@ class CiRunnerProfileTests(unittest.TestCase):
         count = 0
         for name in ("ci.yml", "auto-merge-dependabot.yml"):
             text = (ROOT / ".github/workflows" / name).read_text()
-            self.assertEqual(text.count("runs-on:"), text.count("vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'"))
-            for match in re.finditer(r"(?ms)^      - name: Verify CI runner\n.*?(?=^      - name: |\Z)", text):
+            runner_lines = re.findall(r"(?m)^    runs-on:.*$", text)
+            fallback = "vars.CI_RUNNER_LABEL || vars.LOCALCLUSTER_RUNNER_LABEL || 'localcluster-books'"
+            if name == "ci.yml":
+                self.assertEqual(4, len(runner_lines))
+                self.assertEqual(2, sum(fallback in line for line in runner_lines))
+                self.assertEqual(1, sum("needs.select-validation.outputs.runner_label" in line for line in runner_lines))
+                self.assertEqual(1, sum("needs.select-publication.outputs.runner_label" in line for line in runner_lines))
+            else:
+                self.assertTrue(runner_lines)
+                self.assertTrue(all(fallback in line for line in runner_lines))
+            for match in re.finditer(
+                r"(?ms)^      - name: (?:Verify legacy CI runner|Verify CI runner|Verify native CI result-gate runner)\n.*?(?=^      - name: |\Z)",
+                text,
+            ):
                 count += 1
                 body = match.group(0)
                 self.assertIn("CI_RUNNER_HOST: ${{ vars.CI_RUNNER_HOST }}", body)
@@ -88,7 +100,7 @@ class CiRunnerProfileTests(unittest.TestCase):
                 self.assertIn('test "$(hostname)" = "$CI_RUNNER_HOST"', body)
                 script = body.split("        run: |\n", 1)[1]
                 yield name, "\n".join(line[10:] for line in script.splitlines() if line.startswith("          "))
-        self.assertEqual(count, 4)
+        self.assertEqual(count, 5)
 
     def check_host(self, expected, actual, succeeds):
         with tempfile.TemporaryDirectory() as directory:
