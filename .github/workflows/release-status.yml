@@ -71,7 +71,11 @@ jobs:
           if [[ "$STATUS_TARGET" == "localsinglenode" ]]; then
             instance_temp_dir="$RUNNER_TEMP/template-release-status-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             mkdir -m 0700 -- "$instance_temp_dir"
-            echo "INSTANCE_TEMP_DIR=${instance_temp_dir}" >> "$GITHUB_ENV"
+            status_snapshot_path="$RUNNER_TEMP/template-release-status-snapshot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+            {
+              echo "INSTANCE_TEMP_DIR=${instance_temp_dir}"
+              echo "STATUS_SNAPSHOT_PATH=${status_snapshot_path}"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: Require green main CI for status code
@@ -171,6 +175,15 @@ jobs:
               raise SystemExit("Release status did not prove a read-only locked inspection.")
           print(json.dumps(value, sort_keys=True, indent=2))
           PY
+          printf '%s\n' "$status" > "$STATUS_SNAPSHOT_PATH"
+
+      - name: Publish operator-readable status snapshot
+        if: inputs.target == 'localsinglenode'
+        run: |
+          set -euo pipefail
+          python3 -B Deployment/LocalSingleNode/Scripts/publish-status-snapshot.py \
+            --status "$STATUS_SNAPSHOT_PATH" \
+            --deployment-vars "$INSTANCE_TEMP_DIR/instance-vars.json"
 
       - name: Remove temporary status files
         if: always()
@@ -178,6 +191,9 @@ jobs:
           set -euo pipefail
           if [[ -n "${STATUS_CI_PATH:-}" ]]; then
             rm -f -- "$STATUS_CI_PATH"
+          fi
+          if [[ -n "${STATUS_SNAPSHOT_PATH:-}" ]]; then
+            rm -f -- "$STATUS_SNAPSHOT_PATH"
           fi
           if [[ -n "${INSTANCE_TEMP_DIR:-}" && "$INSTANCE_TEMP_DIR" == "$RUNNER_TEMP/template-release-status-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]; then
             rm -f -- "$INSTANCE_TEMP_DIR/instance-vars.json" "$INSTANCE_TEMP_DIR/instance-settings.yml"
