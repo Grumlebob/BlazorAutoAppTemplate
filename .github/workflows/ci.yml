@@ -780,9 +780,8 @@ jobs:
 
           bundle_bytes = pathlib.Path(sys.argv[1]).stat().st_size
           package_count = 1 + (1 if sys.argv[2] else 0)
-          # Each OCI payload contains the bundle, a bounded 1 MiB manifest,
-          # config and manifest descriptors. The buffer is intentionally conservative.
-          print((bundle_bytes + 5 * 1024 * 1024) * package_count)
+          # Admit only the migration bundle bytes for each destination package.
+          print(bundle_bytes * package_count)
           PY
           )"
           packages=(--package "${PRIMARY_PAYLOAD_IMAGE}=private")
