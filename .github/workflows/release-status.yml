@@ -72,8 +72,10 @@ jobs:
             instance_temp_dir="$RUNNER_TEMP/template-release-status-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             mkdir -m 0700 -- "$instance_temp_dir"
             status_snapshot_path="$RUNNER_TEMP/template-release-status-snapshot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
-            echo "INSTANCE_TEMP_DIR=${instance_temp_dir}" >> "$GITHUB_ENV"
-            echo "STATUS_SNAPSHOT_PATH=${status_snapshot_path}" >> "$GITHUB_ENV"
+            {
+              echo "INSTANCE_TEMP_DIR=${instance_temp_dir}"
+              echo "STATUS_SNAPSHOT_PATH=${status_snapshot_path}"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: Require green main CI for status code
