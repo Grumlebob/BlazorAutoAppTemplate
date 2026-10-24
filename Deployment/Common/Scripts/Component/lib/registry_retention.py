@@ -17,7 +17,7 @@ DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 PACKAGE = re.compile(r"ghcr\.io/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9._/-]*-release-payload\Z")
 TERMINAL = frozenset({"completed"})
 ACTIVE = frozenset({"queued", "in_progress", "waiting", "requested", "pending"})
-FINAL_BYTES = 1_073_741_824
+FINAL_BYTES = 8_589_934_592
 TRANSFER_BYTES = 2_147_483_648
 FINAL_COUNT = 3
 FINAL_AGE = timedelta(days=7)
