@@ -344,7 +344,7 @@ jobs:
       # Ryuk stays enabled as the backstop; the fixtures also dispose their
       # containers explicitly and label them with localcluster.ci.* labels.
       - name: Build and test both frontend profiles
-        run: bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
+        run: bash Deployment/Common/Scripts/with-node-browser-lock.sh bash Scripts/CI/validate-frontend-profiles.sh "$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/profiles"
 
       - name: Prove Testcontainers lifecycle cleanup
         env:
