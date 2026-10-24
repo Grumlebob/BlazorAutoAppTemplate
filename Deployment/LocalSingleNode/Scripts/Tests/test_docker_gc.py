@@ -15,13 +15,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 import docker_gc  # noqa: E402
 
 NOW = datetime(2026, 10, 23, 1, 2, 3, tzinfo=timezone.utc)
-POLICY = docker_gc.desired_policy("10GB", "30GB", "30%")
+DISK = 234 * docker_gc.GIB
+POLICY = docker_gc.desired_policy("10GB", "30GB", "30%", DISK)
 
 
 class FakeNode:
     """Records commands and answers like a quiet node whose containers recover after a restart."""
 
-    def __init__(self, containers=None, validate_ok=True, recover=True, build_running=False):
+    def __init__(self, containers=None, validate_ok=True, recover=True, build_running=False, come_back=True):
         self.containers = containers if containers is not None else {
             "app-web-1": ("no", "app"), "app-postgres-1": ("yes", "app"), "other-web-1": ("no", "other")}
         self.validate_ok = validate_ok
@@ -29,6 +30,8 @@ class FakeNode:
         self.build_running = build_running
         self.calls = []
         self.restarts = 0
+        self.come_back = come_back
+        self.stopped = set()
 
     def __call__(self, *args, timeout=120, check=True):
         self.calls.append(args)
@@ -40,6 +43,8 @@ class FakeNode:
         elif args[:3] == ("docker", "inspect", "-f") and "Config.Labels" in args[3]:
             health, project, *restart = self.containers[args[4]]
             out = f"/{args[4]}|{health}|{project or '<no value>'}|{restart[0] if restart else 'unless-stopped'}"
+        elif args[:3] == ("docker", "inspect", "-f") and args[4] in self.stopped:
+            out = "exited|"
         elif args[:3] == ("docker", "inspect", "-f"):
             name = args[4]
             healthy = self.recover or self.restarts > 1
@@ -49,6 +54,10 @@ class FakeNode:
             out, code = ("1234 docker buildx build ." if self.build_running else "", 0 if self.build_running else 1)
         elif args[:3] == ("systemctl", "restart", "docker"):
             self.restarts += 1
+            if not self.come_back:
+                self.stopped = set(self.containers)
+        elif args[:2] == ("docker", "start"):
+            self.stopped.discard(args[2])
         elif args[:2] == ("docker", "info"):
             out = "29.9.1"
         elif args[:3] == ("docker", "system", "df"):
@@ -188,9 +197,51 @@ class DockerGcTests(TestCase):
                                sleep=lambda _: None)
 
     def test_policy_values_are_bounded(self):
-        for args in (("0GB", "30GB", "30%"), ("10GB", "lots", "30%"), ("10GB", "30GB", "95%"), ("10GB", "30GB", "0%")):
+        for args in (("0GB", "30GB", "30%"), ("10GB", "lots", "30%"), ("10GB", "30GB", "95%"), ("10GB", "30GB", "0%"),
+                     ("10GB", "30GB", "lots")):
             with self.assertRaises(docker_gc.GcError):
-                docker_gc.desired_policy(*args)
+                docker_gc.desired_policy(*args, DISK)
+        with self.assertRaises(docker_gc.GcError):
+            docker_gc.desired_policy("10GB", "30GB", "30%")
+
+    def test_every_written_size_is_a_plain_byte_size_docker_29_can_parse(self):
+        # Docker 29.9.1 refused to start with "defaultMinFreeSpace": "30%" ("invalid suffix: '%'"), and
+        # dockerd --validate accepted it, so a percentage must never reach daemon.json.
+        self.assertEqual("70GB", POLICY["defaultMinFreeSpace"])
+        self.assertEqual("70GB", docker_gc.desired_policy("10GB", "30GB", "70GB")["defaultMinFreeSpace"])
+        self.apply(FakeNode())
+        written = json.loads(self.config.read_text())["builder"]["gc"]
+        for key in ("defaultReservedSpace", "defaultMaxUsedSpace", "defaultMinFreeSpace"):
+            self.assertRegex(written[key], r"^[1-9][0-9]*GB$")
+        self.assertNotIn("%", self.config.read_text())
+
+    def test_containers_docker_leaves_stopped_after_a_restart_are_started_again(self):
+        node = FakeNode(come_back=False)
+        self.assertEqual(0, self.apply(node))
+        started = [call[2] for call in node.calls if call[:2] == ("docker", "start")]
+        self.assertEqual(["app-postgres-1", "app-web-1", "other-web-1"], started)
+        self.assertEqual(set(), node.stopped)
+
+    def test_a_failed_daemon_start_still_restores_and_starts_every_container(self):
+        node = FakeNode(come_back=False)
+        real_restart = docker_gc.restart_docker
+        attempts = []
+
+        def failing_first(runner, sleep, timeout=180):
+            attempts.append(1)
+            runner("systemctl", "restart", "docker")
+            if len(attempts) == 1:
+                raise docker_gc.GcError("systemctl restart docker failed (exit 1)")
+
+        docker_gc.restart_docker = failing_first
+        try:
+            with self.assertRaises(docker_gc.GcError):
+                self.apply(node)
+        finally:
+            docker_gc.restart_docker = real_restart
+        self.assertFalse(self.config.exists())
+        self.assertEqual(2, node.restarts)
+        self.assertEqual(set(), node.stopped)
 
     def test_no_command_ever_prunes_or_removes_docker_resources(self):
         node = FakeNode()
