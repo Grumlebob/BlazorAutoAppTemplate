@@ -28,23 +28,25 @@ for profile in BlazorAuto React; do
     --no-build
     --no-restore
     "-p:FrontendProfile=$profile"
-    --logger "trx;LogFileName=suite.trx"
+    --logger "trx;LogFileName=non-accounts.trx"
     --results-directory "$profile_results"
   )
+  non_account_filter='FullyQualifiedName!~Features.Login.Accounts'
   if [[ "$profile" == "React" ]]; then
     # These tests assert Blazor Auto assets and render modes; React has its own
     # host, public route, and browser coverage.
-    test_arguments+=(--filter 'FrontendProfile!=BlazorAuto')
+    non_account_filter+='&FrontendProfile!=BlazorAuto'
   fi
+  test_arguments+=(--filter "$non_account_filter")
 
   dotnet "${test_arguments[@]}"
   # No test count is pinned: the validator rejects failures and skips that are not explicit opt-ins.
   python3 "$REPO_ROOT/Scripts/CI/validate_dotnet_test_results.py" \
-    "$profile_results/suite.trx" \
-    --suite "$profile solution tests"
+    "$profile_results/non-accounts.trx" \
+    --suite "$profile non-account tests"
 
-  # The full suite allows the repository's explicitly opt-in browser skips.
-  # Run shared account integration tests separately and require every selected
+  # Non-account tests allow the repository's explicitly opt-in browser skips.
+  # Run shared account integration tests once and require every selected
   # test to execute, so an account test cannot silently become opt-in/skipped.
   account_results="$profile_results/accounts"
   account_filter='FullyQualifiedName~Features.Login.Accounts'

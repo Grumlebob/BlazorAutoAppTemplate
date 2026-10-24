@@ -104,6 +104,74 @@ def candidates(images, containers, release, now, protected_refs=()):
     return result
 
 
+def docker_attempt(*args):
+    """Run docker without raising and return (succeeded, output), so one refused image cannot stop the cleanup."""
+    result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=120, check=False)
+    if result.returncode:
+        return False, (result.stderr or result.stdout).strip()[:300]
+    return True, result.stdout.strip()
+
+
+def remove_app_images(images, containers, release, now, protected_refs, docker, protected_now):
+    """Remove proven old app images by ID without force; return refusals and keep going through the rest."""
+    refused = []
+    for image in candidates(images, containers, release, now, protected_refs):
+        ok, text = docker("image", "inspect", image)
+        if not ok:
+            continue  # already gone since the snapshot
+        if image not in candidates(json.loads(text), [], release, now, protected_now()):
+            continue
+        # Recheck all container references immediately before removing without --force.
+        ok, used = docker("ps", "-aq", "--filter", "ancestor=" + image)
+        if not ok:
+            refused.append(f"app image {image}: container check failed: {used}")
+            continue
+        if used:
+            print("Image acquired a container reference; leaving it: " + image)
+            continue
+        ok, text = docker("image", "rm", image)
+        if ok:
+            print("Removed proven old app image " + image)
+        else:
+            refused.append(f"app image {image}: {text}")
+    return refused
+
+
+def remove_payload_images(images, containers, release, now, protected_refs, docker, protected_now):
+    """Remove this app's proven old release payload images; return refusals and keep going through the rest."""
+    refused = []
+    for image in payload_candidates(images, containers, release, now, protected_refs):
+        ok, text = docker("image", "inspect", image)
+        if not ok:
+            continue  # already gone since the snapshot
+        current = json.loads(text)
+        if image not in payload_candidates(current, [], release, now, protected_now()):
+            continue
+        ok, used = docker("ps", "-aq", "--filter", "ancestor=" + image)
+        if not ok:
+            refused.append(f"release payload {image}: container check failed: {used}")
+            continue
+        if used:
+            print("Payload image acquired a container reference; leaving it: " + image)
+            continue
+        # Untag each owned payload tag without force; remove a digest-only image by its ID.
+        failures = []
+        for tag in current[0].get("RepoTags") or []:
+            ok, text = docker("image", "rm", tag)
+            if not ok:
+                failures.append(f"{tag}: {text}")
+        if failures:
+            refused.append(f"release payload {image}: " + "; ".join(failures))
+            continue
+        if docker("image", "inspect", image)[0]:
+            ok, text = docker("image", "rm", image)
+            if not ok:
+                refused.append(f"release payload {image}: {text}")
+                continue
+        print("Removed proven old release payload image " + image)
+    return refused
+
+
 def main():
     config = settings()
     root = Path(config["deploy_root"])
@@ -119,30 +187,10 @@ def main():
     containers = json.loads(command("docker", "inspect", *ids)) if ids else []
     ids = list(dict.fromkeys(command("docker", "image", "ls", "-aq", "--no-trunc").splitlines()))
     images = json.loads(command("docker", "image", "inspect", *ids)) if ids else []
-    for image in candidates(images, containers, release, now, protected_refs):
-        current = json.loads(command("docker", "image", "inspect", image))
-        if image not in candidates(current, [], release, now, protected_references()):
-            continue
-        # Recheck all container references immediately before removing without --force.
-        used = command("docker", "ps", "-aq", "--filter", "ancestor=" + image)
-        if used:
-            print("Image acquired a container reference; leaving it: " + image)
-            continue
-        command("docker", "image", "rm", image)
-        print("Removed proven old app image " + image)
-    for image in payload_candidates(images, containers, release, now, protected_refs):
-        current = json.loads(command("docker", "image", "inspect", image))
-        if image not in payload_candidates(current, [], release, now, protected_references()):
-            continue
-        if command("docker", "ps", "-aq", "--filter", "ancestor=" + image):
-            print("Payload image acquired a container reference; leaving it: " + image)
-            continue
-        # Untag each owned payload tag without force; remove a digest-only image by its ID.
-        for tag in current[0].get("RepoTags") or []:
-            command("docker", "image", "rm", tag)
-        if subprocess.run(["docker", "image", "inspect", image], capture_output=True, check=False).returncode == 0:
-            command("docker", "image", "rm", image)
-        print("Removed proven old release payload image " + image)
+    refused = remove_app_images(images, containers, release, now, protected_refs, docker_attempt, protected_references)
+    refused += remove_payload_images(images, containers, release, now, protected_refs, docker_attempt, protected_references)
+    for line in refused:
+        print("Refused without force; left in place: " + line, file=sys.stderr)
     residue = subprocess.run(["bash", str(ROOT / "Deployment/Common/Scripts/prune-actions-runner-residue.sh"), "--runner-root", "/home/deploy/actions-runner-" + runner_app(), "--defer-if-skipped"], check=False)
     if residue.returncode:
         return residue.returncode if residue.returncode in (1, 2, 75) else 1
@@ -150,7 +198,8 @@ def main():
     print(command("docker", "volume", "ls", "--filter", "dangling=true"))
     print(command("df", "-h", "/opt"))
     print(command("df", "-i", "/opt"))
-    return 0
+    # Refusals are reported above and fail the run, but every other proven removal has already happened.
+    return 1 if refused else 0
 
 
 if __name__ == "__main__":
