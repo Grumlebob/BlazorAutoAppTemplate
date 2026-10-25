@@ -1,10 +1,12 @@
 # Recover registry capacity without changing release admission
 
-## Failure and decision
+**Historical record:** The repository-wide final and transfer byte caps and the publisher's byte-admission gate were removed on 2026-10-25. Main CI now records current GHCR usage and estimated incoming bundle bytes, then relies on the GHCR push result for actual provider errors. This plan records the earlier 1 GiB recovery path; do not use its byte-cap failure branch for current publication. The separate exact-reservation lock recovery remains covered by the shared registry workflow.
+
+## Original failure and decision
 
 Main CI `39066090388` attempt 1 passed validation and failed before any image publication with `payload store requires coordinated retention before publication`. Complete private payload inventory exceeded the fixed 1 GiB final-payload policy. This is a repository retention policy, not paid GitHub Actions storage or a billed GHCR quota. Registry retention's normal full-main-CI source gate creates a circular dependency while this condition persists.
 
-Add an explicit manual capacity-recovery proof to the existing registry workflow. It accepts only an exact current-main push/attempt with successful validation and a sole authenticated prepublication capacity failure. Every image build/publication step must be skipped, all other jobs must pass or be intentionally skipped, and the run/attempt/current-main identity is rechecked. Ordinary maintenance keeps its existing successful-main gate. All canonical registry protection, locking, ownership, reservation, limits and deletion receipts remain mandatory. Full successful exact-SHA CI remains mandatory for release admission.
+The original fix added an explicit manual capacity-recovery proof to the existing registry workflow. It accepted only an exact current-main push/attempt with successful validation and a sole authenticated prepublication capacity failure. Every image build/publication step had to be skipped, all other jobs had to pass or be intentionally skipped, and the run/attempt/current-main identity was rechecked. Ordinary maintenance kept its successful-main source gate. Canonical registry protection, locking, ownership, reservation, and deletion receipts remained mandatory.
 
 ## Execution
 

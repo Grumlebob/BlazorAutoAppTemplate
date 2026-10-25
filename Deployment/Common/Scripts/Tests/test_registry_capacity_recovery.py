@@ -30,7 +30,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
                      dict(id=2, run_id=123, run_attempt=2, head_sha=self.sha, name="build-test-push",
                           status="completed", conclusion="failure", steps=steps)]
         self.log = ("2026-10-18T12:00:00.1234567Z Registry retention failed closed; "
-                    "no unverified deletion was attempted: payload store requires coordinated retention before publication\n")
+                    "no unverified deletion was attempted: an unresolved GHCR deletion reservation blocks payload selection\n")
 
     def verify(self, run=None, jobs=None, log=None):
         return module.verify_capacity_failure(self.run if run is None else run, self.jobs if jobs is None else jobs,
@@ -84,7 +84,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
     def test_log_reason_and_step_window_are_required(self):
         for log in ("", self.log * 2, self.log.replace("12:00:00.1234567", "11:59:59"),
                     self.log.replace("12:00:00.1234567", "12:00:02"),
-                    self.log.replace("payload store requires coordinated retention before publication", "HTTP 403")):
+                    self.log.replace("an unresolved GHCR deletion reservation blocks payload selection", "HTTP 403")):
             with self.subTest(log=log), self.assertRaises(ValueError):
                 self.verify(log=log)
 
@@ -194,10 +194,10 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
 
     def test_capacity_source_continuity_requires_the_same_gate_and_policy(self):
         old_ci = ("jobs:\n  build-test-push:\n    steps:\n      - name: " + module.CAPACITY_STEP
-                  + "\n        run: python3 registry-retention.py --admission-kind final\n      - name: Next\n")
+                  + "\n        run: python3 registry-retention.py --assert-clear\n      - name: Next\n")
         old_wrapper = (
             "from registry_retention import ACTIVE\n\n"
-            "def run(args):\n    require_publication_capacity(plan, **admission)\n"
+            "def run(args):\n    if args.assert_clear:\n        return assert_no_pending_reservation()\n"
         )
         old_files = {
             "old": {
@@ -232,7 +232,7 @@ class RegistryCapacityRecoveryTests(unittest.TestCase):
 
         changed["new"][".github/workflows/ci.yml"] = old_ci
         changed["new"]["Deployment/Common/Scripts/registry-retention.py"] = (
-            "def run(args):\n    require_other_policy(plan, **admission)\n"
+            "def run(args):\n    if args.publication_kind:\n        return measure_usage()\n"
         )
         with patch.object(module, "_git_show", side_effect=show_changed), \
                 patch.object(module.subprocess, "run", return_value=type("Result", (), {"returncode": 0})()), \

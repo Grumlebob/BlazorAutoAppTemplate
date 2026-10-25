@@ -1710,19 +1710,38 @@ if ("644076a59742c2d1540ebd4686eab3c308f0e562" not in actionlint_runner
     fail("Scripts/CI/run-actionlint.sh: require the pinned queue-aware parser and its rejection fixtures")
 publish_main = read(".github/workflows/ci.yml").split("  publish-main:", 1)[-1]
 for needle, why in [
-    ("Enforce final GHCR payload capacity before any registry publication", "final registry admission gate"),
-    ("--admission-kind final", "final release capacity admission runs before publication"),
-    ("--reserved-bytes", "registry admission accounts for incoming payload bytes"),
-    ("print(bundle_bytes * package_count)", "final capacity admission has no extra byte reserve"),
-    ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is required for final admission"),
-    ('retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is retained by exact digest during admission"),
-    ('retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is retained by exact digest during admission"),
-    ('"${retained_bootstraps[@]}"', "admission verifies reviewed bootstrap manifests"),
+    ("Check registry deletion reservation before publication", "prepublication deletion reservation safety check"),
+    ("registry-retention.py --assert-clear", "unresolved deletion reservations block publication"),
+    ("Record GHCR payload usage after publication attempt", "post-publication GHCR usage observation"),
+    ("if: ${{ always() && steps.emit_receipt.outcome != 'skipped' }}", "usage observation runs after a publication attempt"),
+    ("continue-on-error: true", "usage observation cannot replace the GHCR publish result"),
+    ("--publication-kind final", "final payload usage is measured"),
+    ("--incoming-bundle-bytes", "incoming migration bundle bytes are reported"),
+    ("print(bundle_bytes * package_count)", "incoming bundle bytes are counted for configured packages"),
+    ("--package \"${PRIMARY_PAYLOAD_IMAGE}=private\"", "private package visibility is measured"),
+    ('retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed primary bootstrap is measured by exact digest"),
+    ('retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")', "reviewed React bootstrap is measured by exact digest"),
+    ('"${retained_bootstraps[@]}"', "usage measurement verifies reviewed bootstrap manifests"),
 ]:
     if needle not in publish_main:
         fail(f".github/workflows/ci.yml: missing {why}")
-if publish_main.find("Enforce final GHCR payload capacity before any registry publication") > publish_main.find("- name: Build Docker image"):
-    fail(".github/workflows/ci.yml: final GHCR capacity gate must precede publication builds")
+reservation_step = publish_main.find("Check registry deletion reservation before publication")
+measurement_step = publish_main.find("Record GHCR payload usage after publication attempt")
+receipt_step = publish_main.find("- name: Emit immutable release payload receipt")
+if reservation_step < 0 or reservation_step > publish_main.find("- name: Build Docker image"):
+    fail(".github/workflows/ci.yml: deletion reservation check must precede publication")
+if receipt_step < 0 or measurement_step < receipt_step:
+    fail(".github/workflows/ci.yml: GHCR usage observation must follow the payload publication attempt")
+if "--reserved-bytes" in publish_main or "--admission-kind" in publish_main:
+    fail(".github/workflows/ci.yml: publication must not enforce a repository byte ceiling")
+retention_engine = read("Deployment/Common/Scripts/Component/lib/registry_retention.py")
+for obsolete in ("FINAL_BYTES", "TRANSFER_BYTES", "require_publication_capacity", "repository byte cap"):
+    if obsolete in retention_engine:
+        fail("Deployment/Common/Scripts/Component/lib/registry_retention.py: repository byte admission limits are retired")
+for required in ("def publication_observation(", '"observed_total_payload_bytes"', '"estimated_incoming_bundle_bytes"',
+                 '"byte_limit_enforced": False'):
+    if required not in retention_engine:
+        fail("Deployment/Common/Scripts/Component/lib/registry_retention.py: publication usage monitoring is incomplete")
 for needle, why in [
     ("registry_coordination:", "LocalCluster deployment waits for the shared registry reservation check"),
     ("needs: registry_coordination", "LocalCluster deploy job depends on registry reservation check"),

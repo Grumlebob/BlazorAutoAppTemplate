@@ -766,33 +766,8 @@ jobs:
           dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
           test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
 
-      - name: Enforce final GHCR payload capacity before any registry publication
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRIMARY_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.release_payload_image }}
-          ADDITIONAL_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.additional_payload_image }}
-        run: |
-          set -euo pipefail
-          [[ -n "$PRIMARY_PAYLOAD_IMAGE" ]] || { echo "Primary release payload package is unavailable." >&2; exit 1; }
-          reserved_bytes="$(python3 - "artifacts/migrations/${MIGRATION_BUNDLE_NAME}" "$ADDITIONAL_PAYLOAD_IMAGE" <<'PY'
-          import pathlib
-          import sys
-
-          bundle_bytes = pathlib.Path(sys.argv[1]).stat().st_size
-          package_count = 1 + (1 if sys.argv[2] else 0)
-          # Admit only the migration bundle bytes for each destination package.
-          print(bundle_bytes * package_count)
-          PY
-          )"
-          packages=(--package "${PRIMARY_PAYLOAD_IMAGE}=private")
-          retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          if [[ -n "$ADDITIONAL_PAYLOAD_IMAGE" ]]; then
-            packages+=(--package "${ADDITIONAL_PAYLOAD_IMAGE}=private")
-            retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
-          fi
-          bash Deployment/Common/Scripts/with-deploy-lock.sh \
-            python3 Deployment/Common/Scripts/registry-retention.py \
-              "${packages[@]}" "${retained_bootstraps[@]}" --admission-kind final --reserved-bytes "$reserved_bytes"
+      - name: Check registry deletion reservation before publication
+        run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/Common/Scripts/registry-retention.py --assert-clear
 
       - name: Build Docker image
         env:
@@ -879,6 +854,7 @@ jobs:
           fi
 
       - name: Emit immutable release payload receipt
+        id: emit_receipt
         env:
           FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
           FRONTEND_ACCEPTANCE_PROFILE: ${{ needs.validate.outputs.acceptance_profile }}
@@ -916,6 +892,35 @@ jobs:
               --payload-image "${ADDITIONAL_PAYLOAD_IMAGE}" \
               --payload-image-prefix "${RELEASE_PAYLOAD_PREFIX}"
           fi
+
+      - name: Record GHCR payload usage after publication attempt
+        if: ${{ always() && steps.emit_receipt.outcome != 'skipped' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRIMARY_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.release_payload_image }}
+          ADDITIONAL_PAYLOAD_IMAGE: ${{ steps.release_settings.outputs.additional_payload_image }}
+        run: |
+          set -euo pipefail
+          [[ -n "$PRIMARY_PAYLOAD_IMAGE" ]] || { echo "Primary release payload package is unavailable for usage measurement." >&2; exit 1; }
+          incoming_bundle_bytes="$(python3 - "artifacts/migrations/${MIGRATION_BUNDLE_NAME}" "$ADDITIONAL_PAYLOAD_IMAGE" <<'PY'
+          import pathlib
+          import sys
+
+          bundle_bytes = pathlib.Path(sys.argv[1]).stat().st_size
+          package_count = 1 + (1 if sys.argv[2] else 0)
+          print(bundle_bytes * package_count)
+          PY
+          )"
+          packages=(--package "${PRIMARY_PAYLOAD_IMAGE}=private")
+          retained_bootstraps=(--retain-manifest "${PRIMARY_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
+          if [[ -n "$ADDITIONAL_PAYLOAD_IMAGE" ]]; then
+            packages+=(--package "${ADDITIONAL_PAYLOAD_IMAGE}=private")
+            retained_bootstraps+=(--retain-manifest "${ADDITIONAL_PAYLOAD_IMAGE}@sha256:25fef0757d76c56cd980dca6cde1e156ab7a2daa902306ab48da4e12a6e7343f")
+          fi
+          bash Deployment/Common/Scripts/with-deploy-lock.sh \
+            python3 Deployment/Common/Scripts/registry-retention.py \
+              "${packages[@]}" "${retained_bootstraps[@]}" --publication-kind final --incoming-bundle-bytes "$incoming_bundle_bytes"
 
       # Keep :<sha> for fast redeploys; remove only the per-run build tag.
       - name: Remove this run's build tag

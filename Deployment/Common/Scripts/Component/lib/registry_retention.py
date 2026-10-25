@@ -17,8 +17,6 @@ DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 PACKAGE = re.compile(r"ghcr\.io/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9._/-]*-release-payload\Z")
 TERMINAL = frozenset({"completed"})
 ACTIVE = frozenset({"queued", "in_progress", "waiting", "requested", "pending"})
-FINAL_BYTES = 8_589_934_592
-TRANSFER_BYTES = 2_147_483_648
 FINAL_COUNT = 3
 FINAL_AGE = timedelta(days=7)
 TRANSFER_AGE = timedelta(hours=24)
@@ -96,7 +94,6 @@ class RetentionPlan:
     protected_transfer_bytes: int
     final_bytes_after: int
     transfer_bytes_after: int
-    admission_blocked: bool
     deferred_groups: int
 
 
@@ -186,7 +183,7 @@ def _index(inventory: Inventory):
             raise RetentionError("retained bootstrap must be a bounded config-only manifest")
         covered.add(key)
     if set(versions) != covered:
-        raise RetentionError("unclassified registry versions prevent retention and publication admission")
+        raise RetentionError("unclassified registry versions prevent safe retention and usage measurement")
     # A graph member cannot also masquerade as an independent payload root.
     for key in roots:
         if any(key in closures[other] for other in roots if other != key):
@@ -277,6 +274,27 @@ def inventory_usage(inventory: Inventory) -> dict[str, int]:
     return groups
 
 
+def publication_observation(
+    inventory: Inventory,
+    *,
+    kind: str,
+    incoming_bundle_bytes: int,
+) -> dict[str, int | str | bool]:
+    """Report current package usage and incoming bundle estimate without byte admission limits."""
+    if kind not in {"final", "staging", "harness"} or type(incoming_bundle_bytes) is not int or incoming_bundle_bytes <= 0:
+        raise RetentionError("publication kind and incoming bundle size must be valid")
+    usage = inventory_usage(inventory)
+    transfer_bytes = usage["staging_bytes"] + usage["harness_bytes"]
+    return {
+        "kind": kind,
+        "observed_total_payload_bytes": usage["total_bytes"],
+        "observed_final_payload_bytes": usage["final_bytes"],
+        "observed_transfer_payload_bytes": transfer_bytes,
+        "estimated_incoming_bundle_bytes": incoming_bundle_bytes,
+        "byte_limit_enforced": False,
+    }
+
+
 def plan_retention(
     inventory: Inventory,
     protection: Protection,
@@ -340,14 +358,11 @@ def plan_retention(
     protected_transfer = members({key for key in roots if key not in disposable_roots and roots[key].kind != "final"})
     protected_final_bytes = size(protected_final)
     protected_transfer_bytes = size(protected_transfer)
-    protected_over_cap = protected_final_bytes > FINAL_BYTES or protected_transfer_bytes > TRANSFER_BYTES
     keep_final: set[tuple[str, str]] = set()
     for profile in {roots[key].profile for key in final}:
         recent = [key for key in final if roots[key].profile == profile and now - _time(roots[key].created) <= FINAL_AGE]
         recent.sort(key=lambda key: (_time(roots[key].created), key), reverse=True)
         keep_final.update(recent[:FINAL_COUNT])
-    while keep_final and size(members(keep_final) - protected) > FINAL_BYTES:
-        keep_final.remove(min(keep_final, key=lambda key: (_time(roots[key].created), key)))
     keep_transfer = {key for key in transfer if now - _time(roots[key].created) < TRANSFER_AGE}
     eligible = disposable_roots - keep_final - keep_transfer
     eligible_order = sorted(eligible, key=lambda key: (_time(roots[key].created), key))
@@ -355,9 +370,6 @@ def plan_retention(
     deferred = 0
     selected: set[tuple[str, str]] = set()
     for key in eligible_order:
-        if protected_over_cap:
-            deferred += 1
-            continue
         trial_roots = selected_roots | {key}
         retained = members(set(roots) - trial_roots) | protected
         trial = members(trial_roots) - retained
@@ -378,23 +390,5 @@ def plan_retention(
     return RetentionPlan(
         tuple(versions[key] for key in deletion_order), protected_bytes,
         final_bytes, transfer_bytes, protected_final_bytes, protected_transfer_bytes,
-        final_after, transfer_after,
-        final_after > FINAL_BYTES or transfer_after > TRANSFER_BYTES
-        or protected_over_cap,
-        deferred,
+        final_after, transfer_after, deferred,
     )
-
-
-def require_publication_capacity(plan: RetentionPlan, *, kind: str, reserved_bytes: int) -> None:
-    """Fail admission rather than evict protected or active payloads."""
-    if kind not in {"final", "staging", "harness"} or type(reserved_bytes) is not int or reserved_bytes <= 0:
-        raise RetentionError("publication kind and reserved size must be valid")
-    if plan.admission_blocked:
-        raise RetentionError("payload store requires coordinated retention before publication")
-    limit, used = (FINAL_BYTES, plan.protected_final_bytes + plan.final_candidate_bytes) if kind == "final" else (
-        TRANSFER_BYTES, plan.protected_transfer_bytes + plan.transfer_candidate_bytes,
-    )
-    # Planned deletion does not free capacity until exact remote absence is
-    # reconciled and a new inventory is obtained under the same coordination.
-    if used + reserved_bytes > limit:
-        raise RetentionError("payload publication would exceed its repository byte cap")

@@ -89,13 +89,14 @@ class RegistryRetentionCliTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.lock = Path(temporary.name)
 
-    def args(self, inventory=None, *, apply=True, admission_kind=None, reserved_bytes=None, protections=None):
+    def args(self, inventory=None, *, apply=True, publication_kind=None, incoming_bundle_bytes=None, protections=None):
         return Namespace(
             repository=REPOSITORY, username="runner", package=[PACKAGE + "=private"],
             retain_manifest=[], protection_json=protections or [
                 snapshot("localcluster", "cluster"), snapshot("localsinglenode", "primary"),
             ], require_additional=False, reservation_id="", max_deletions=100,
-            admission_kind=admission_kind, reserved_bytes=reserved_bytes, assert_clear=False, apply=apply,
+            publication_kind=publication_kind, incoming_bundle_bytes=incoming_bundle_bytes,
+            assert_clear=False, apply=apply,
         )
 
     def test_required_targets_and_optional_instance_must_be_explicitly_complete(self):
@@ -105,16 +106,19 @@ class RegistryRetentionCliTests(unittest.TestCase):
         with self.assertRaises(RetentionError):
             CLI._parse_protections(values, require_additional=True)
 
-    def test_admission_counts_all_current_payloads_and_never_uses_planned_deletion(self):
-        inventory, states = make_inventory(ages=(30,), sizes=(CLI.FINAL_BYTES - 10,))
-        args = self.args(apply=False, admission_kind="final", reserved_bytes=20)
+    def test_publication_measurement_reports_large_store_without_enforcing_a_byte_cap(self):
+        inventory, states = make_inventory(ages=(30,), sizes=(10 * 1024**3,))
+        args = self.args(apply=False, publication_kind="final", incoming_bundle_bytes=20)
         with (mock.patch.object(CLI, "_validate_workflow_scope"),
               mock.patch.dict("os.environ", {"GITHUB_TOKEN": "fixture"}),
               mock.patch.object(CLI.shared_deploy_lock, "require_shared_lock", return_value=(self.lock, "fixture-token")),
               mock.patch.object(CLI, "collect_inventory", return_value=(inventory, states)),
               mock.patch.object(CLI.registry_gc, "apply_deletions") as delete):
-            with self.assertRaises(RetentionError):
-                CLI.run(args, client_factory=lambda *unused: object())
+            result = CLI.run(args, client_factory=lambda *unused: object())
+        self.assertEqual("observed", result["outcome"])
+        self.assertEqual(inventory.versions[0].blobs[0][1] + 10, result["usage"]["total_bytes"])
+        self.assertFalse(result["publication_observation"]["byte_limit_enforced"])
+        self.assertEqual(20, result["publication_observation"]["estimated_incoming_bundle_bytes"])
         delete.assert_not_called()
 
     def test_apply_reinventories_after_exact_404_before_finishing(self):
