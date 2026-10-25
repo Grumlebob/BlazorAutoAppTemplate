@@ -132,9 +132,9 @@ try {
         $nodeExitCode = $LASTEXITCODE
         $npmVersion = (& $npmCommand --version 2>$null | Select-Object -First 1)
         $npmExitCode = $LASTEXITCODE
-        $usePinnedNodeToolchain = $nodeExitCode -eq 0 -and $npmExitCode -eq 0 -and $nodeVersion -eq 'v24.21.0' -and $npmVersion -eq '12.2.0'
+        $usePinnedNodeToolchain = $nodeExitCode -eq 0 -and $npmExitCode -eq 0 -and $nodeVersion -eq 'v26.12.0' -and $npmVersion -eq '12.2.0'
         if (-not $usePinnedNodeToolchain) {
-            Write-Host 'Using the package-declared Node 24.21.0 and npm 12.2.0 toolchain.'
+            Write-Host 'Using the package-declared Node 26.12.0 and npm 12.2.0 toolchain.'
         }
 
         $npmSteps = @(
@@ -148,7 +148,7 @@ try {
                 & $npmCommand @npmArguments
             }
             else {
-                & $npxCommand --yes --package=node@24.21.0 --package=npm@12.2.0 -c $npmStep.Command
+                & $npxCommand --yes --package=node@26.12.0 --package=npm@12.2.0 -c $npmStep.Command
             }
 
             if ($LASTEXITCODE -ne 0) {
