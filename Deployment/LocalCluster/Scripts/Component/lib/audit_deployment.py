@@ -1057,7 +1057,8 @@ for needle, why in [
     ("python3 -m unittest discover -s Deployment/LocalSingleNode/Scripts/Tests -v", "single-node and deployed release acceptance tests"),
     ("Deployment/Common/Scripts/Tests/test_prune_actions_artifacts.py", "artifact retention tests"),
     ("RUN_TESTCONTAINER_LIFECYCLE: \"1\"", "Testcontainers lifecycle proof"),
-    ("global-json-file: global.json", "SDK pinned by global.json"),
+    ("DOTNET_SDK_VERSION: '10.0.402'", "explicitly pinned CI SDK version"),
+    ("dotnet-version: ${{ env.DOTNET_SDK_VERSION }}", "explicitly pinned setup-dotnet version"),
     ("ansible-playbook", "LocalCluster playbook syntax check"),
     ("--syntax-check", "LocalCluster playbook syntax check"),
     ("bash Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh", "deployment lock behaviour tests"),
@@ -1066,6 +1067,8 @@ for needle, why in [
 ]:
     if needle not in ci:
         fail(f".github/workflows/ci.yml: missing {why}")
+if ci.count("dotnet-version: ${{ env.DOTNET_SDK_VERSION }}") != 2:
+    fail(".github/workflows/ci.yml: both .NET setup steps must use the explicit SDK pin")
 for pin in ("--expected-passed", "expectedTestCount"):
     if pin in ci:
         fail(f".github/workflows/ci.yml: test suites must not pin an exact pass count ({pin})")

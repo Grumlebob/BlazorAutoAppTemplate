@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
@@ -36,7 +36,7 @@ class CiReportStoreTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def save(self, *, run_id: str = "123", attempt: str = "1", job: str = "validate", status: str = "failure", max_bytes: int = store.DEFAULT_MAX_BYTES, source: Path | None = None, now: datetime | None = None):
+    def save(self, *, run_id: str = "123", attempt: str = "1", job: str = "validate", status: str = "failure", source: Path | None = None, now: datetime | None = None):
         return store.save_report(
             source=source or self.source,
             root=self.root,
@@ -44,7 +44,6 @@ class CiReportStoreTests(unittest.TestCase):
             attempt=attempt,
             job=job,
             status=status,
-            max_bytes=max_bytes,
             now=now or self.now,
         )
 
@@ -71,6 +70,9 @@ class CiReportStoreTests(unittest.TestCase):
         self.assertEqual(store.list_reports(self.root)[0]["job"], "validate")
         self.assertIn("improveddb-ci-desktop", summary_path.read_text(encoding="utf-8"))
         self.assertIn("--run-id 123 --attempt 2 --job validate", summary_path.read_text(encoding="utf-8"))
+        self.assertEqual(metadata["store_bytes"], store._store_bytes(self.root))
+        self.assertIn(f"Report-store size after save: {metadata['store_bytes']} bytes.",
+                      summary_path.read_text(encoding="utf-8"))
 
         destination = Path(self.temporary.name) / "restored"
         store.restore_report(self.root, "123", "2", "validate", destination)
@@ -97,39 +99,53 @@ class CiReportStoreTests(unittest.TestCase):
                 now=timestamp,
             )
 
-        removed = store._prune(self.root, now=self.now, max_bytes=store.DEFAULT_MAX_BYTES)
+        removed = store._prune(self.root, now=self.now)
         self.assertEqual(set(removed), {"101-1-validate", "102-1-validate"})
         self.assertEqual({manifest["run_id"] for _, manifest in store._known_entries(self.root)}, {"103"})
 
-    def test_pinned_and_unknown_entries_are_preserved_when_byte_cap_is_reached(self) -> None:
+    def test_pinned_and_unknown_entries_are_preserved_while_new_reports_are_saved(self) -> None:
         first = self.save(run_id="101", status="success")
         store._mutate_pin(self.root, "101", "1", "validate", True)
         unknown = self.root / "unknown-owner-data"
         unknown.mkdir()
         (unknown / "data.bin").write_bytes(b"unknown")
 
-        with self.assertRaisesRegex(store.ReportStoreError, "byte cap"):
-            self.save(run_id="102", status="failure", max_bytes=1)
+        second = self.save(run_id="102", status="failure")
 
         self.assertTrue((self.root / "101-1-validate").exists())
         self.assertTrue((self.root / "unknown-owner-data" / "data.bin").exists())
-        self.assertFalse((self.root / "102-1-validate").exists())
+        self.assertTrue((self.root / "102-1-validate").exists())
         self.assertTrue(first["report_bytes"] > 0)
+        self.assertTrue(second["report_bytes"] > 0)
 
-    def test_cap_prunes_oldest_unpinned_reports(self) -> None:
-        self.save(run_id="101", status="success", now=self.now - timedelta(minutes=2))
-        self.save(run_id="102", status="success", now=self.now - timedelta(minutes=1))
-        newest = self.save(run_id="103", status="success")
-
-        removed = store._prune(
+    def test_prune_reports_current_and_projected_usage_without_size_cleanup(self) -> None:
+        self.save(run_id="101", status="success", now=self.now - timedelta(days=4))
+        current = store._store_bytes(self.root)
+        result = store._prune_result(
             self.root,
+            repository=store.DEFAULT_REPOSITORY,
             now=self.now,
-            max_bytes=store._safe_tree_bytes(self.root / "103-1-validate") + 64,
+            apply=False,
         )
-        self.assertIn("101-1-validate", removed)
-        self.assertIn("102-1-validate", removed)
-        self.assertEqual(store._known_entries(self.root)[0][1]["run_id"], "103")
-        self.assertGreater(newest["report_bytes"], 0)
+        self.assertEqual(result["store_bytes_before"], current)
+        self.assertEqual(result["store_bytes_after"], 0)
+        self.assertEqual(result["planned"], ["101-1-validate"])
+        self.assertTrue((self.root / "101-1-validate").exists())
+
+    def test_store_api_has_no_byte_limit_argument_or_cli_option(self) -> None:
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'max_bytes'"):
+            store.save_report(
+                source=self.source,
+                root=self.root,
+                run_id="126",
+                attempt="1",
+                job="validate",
+                status="failure",
+                max_bytes=1,
+                now=self.now,
+            )
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            store.main(["prune", "--root", str(self.root), "--max-bytes", "1"])
 
     def test_rejects_duplicate_identity_and_symlink_inputs(self) -> None:
         self.save()

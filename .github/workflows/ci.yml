@@ -20,6 +20,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DOTNET_SDK_VERSION: '10.0.402'
+
 # Only superseded PR validation shares a cancellable group. Each main run keeps
 # its own group so release provenance cannot be displaced by another push.
 concurrency:
@@ -181,7 +184,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_SDK_VERSION }}
 
       - name: Resolve frontend profile
         id: frontend_profile
@@ -695,7 +698,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_SDK_VERSION }}
 
       - name: Load release settings
         id: release_settings

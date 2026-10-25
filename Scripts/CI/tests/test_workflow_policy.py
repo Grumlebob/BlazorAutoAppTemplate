@@ -278,6 +278,10 @@ jobs:
 
     def test_report_store_policy_detects_missing_retention_and_repository_ownership(self) -> None:
         source = STORE.read_text(encoding="utf-8")
+        source = source.replace(
+            "SUCCESS_RETENTION = timedelta(days=3)",
+            "DEFAULT_MAX_BYTES = 1024 * 1024 * 1024\nSUCCESS_RETENTION = timedelta(days=3)",
+        )
         source = source.replace("FAILURE_RETENTION = timedelta(days=7)", "FAILURE_RETENTION = timedelta(days=30)")
         source = source.replace('"schema_version", "repository", "run_id", "attempt", "job", "status",',
                                 '"schema_version", "run_id", "attempt", "job", "status",')
@@ -291,13 +295,13 @@ jobs:
 
         self.assertTrue(any("FAILURE_RETENTION must retain reports for 7 days" in message for message in messages))
         self.assertTrue(any("local report manifest must validate repository, run, and attempt ownership" in message for message in messages))
+        self.assertTrue(any("local report store must not impose a byte-size ceiling" in message for message in messages))
 
     def test_accepts_fixed_repository_report_store_without_cli_repository_flag(self) -> None:
         static_store = '''from datetime import timedelta
 from pathlib import Path
 
 REPOSITORY = "Example/Project"
-DEFAULT_MAX_BYTES = 1024 * 1024 * 1024
 SUCCESS_RETENTION = timedelta(days=3)
 FAILURE_RETENTION = timedelta(days=7)
 

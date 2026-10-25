@@ -1,6 +1,10 @@
 # Complete local CI report collection
 
-## Decision
+## Follow-up status (2026-10-25)
+
+This plan records the original report-collection change. Its 1 GiB report-store ceiling was removed in a follow-up. Current policy keeps three-day success and seven-day failure retention, pins and active-reader locks, and reports observed store usage. Cleanup removes expired unpinned reports only. The follow-up PR records exact-head and exact-main verification.
+
+## Original decision
 
 Complete zero-cost plan criteria 8.1 and 8.3 using the existing bounded report store. Inspection found browser diagnostics outside its configured source. Template also wrote packaged smoke TRX into a sibling directory; ImprovedDb did not request packaged browser TRX and skipped publisher report storage when failure preceded Trivy.
 
