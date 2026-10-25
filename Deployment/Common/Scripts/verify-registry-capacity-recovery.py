@@ -26,7 +26,7 @@ SPEC = importlib.util.spec_from_file_location("capacity_recovery_ci_finder", LIB
 finder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(finder)
 
-CAPACITY_STEP = "Enforce final GHCR payload capacity before any registry publication"
+CAPACITY_STEP = "Check registry deletion reservation before publication"
 PUBLICATION_STEPS = {
     "Build Docker image", "Docker smoke and browser smoke", "Login to GHCR",
     "Tag Docker image for release", "Push Docker image",
@@ -38,8 +38,7 @@ SAFE_TAIL = {
     "Post Setup .NET", "Post Checkout", "Complete job",
 }
 CAPACITY_ERRORS = {
-    "payload store requires coordinated retention before publication",
-    "payload publication would exceed its repository byte cap",
+    "an unresolved GHCR deletion reservation blocks payload selection",
 }
 LOCK_TIMEOUT = "timed out waiting for LocalCluster deployment lock: /tmp/localcluster-deploy.lockdir"
 CAPACITY_SOURCE_FILES = (
@@ -90,7 +89,7 @@ def _verify_failed_capacity_gate(run, jobs, *, repository, sha, run_id, attempt)
         raise ValueError("publisher steps are unordered or duplicated")
     failures = [step for step in steps if step.get("conclusion") == "failure"]
     if len(failures) != 1 or failures[0].get("name") != CAPACITY_STEP:
-        raise ValueError("only the prepublication capacity gate may fail")
+        raise ValueError("only the prepublication registry reservation check may fail")
     gate = failures[0]
     if not PUBLICATION_STEPS.issubset(names):
         raise ValueError("publisher publication steps are missing")
@@ -204,12 +203,13 @@ def _capacity_calls(sha):
                          and item.name == "run"), None)
     if run_function is None:
         raise ValueError("registry retention capacity entry point is missing")
-    calls = [ast.dump(node, include_attributes=False) for node in ast.walk(run_function)
-             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-             and node.func.id == "require_publication_capacity"]
-    if not calls:
-        raise ValueError("registry retention capacity check is missing")
-    return sorted(calls)
+    guards = [ast.dump(node, include_attributes=False) for node in ast.walk(run_function)
+              if isinstance(node, ast.If)
+              and isinstance(node.test, ast.Attribute) and node.test.attr == "assert_clear"
+              and isinstance(node.test.value, ast.Name) and node.test.value.id == "args"]
+    if not guards:
+        raise ValueError("registry deletion reservation guard is missing")
+    return sorted(guards)
 
 
 def verify_capacity_source_continuity(prior_sha, current_sha):

@@ -74,46 +74,36 @@ class RegistryRetentionTests(unittest.TestCase):
         self.assertEqual([3], [item.version_id for item in plan.delete])
         self.assertEqual(220, plan.protected_bytes)
 
-    def test_protected_bytes_over_cap_block_publication_and_prevent_destructive_eviction(self):
-        inventory = fixture([payload(1, age=20, size=retention.FINAL_BYTES), payload(2, age=20)])
+    def test_large_protected_payload_does_not_block_publication_measurement_or_safe_retention(self):
+        inventory = fixture([payload(1, age=20, size=10 * 1024**3), payload(2, age=20)])
         references = protection(inventory, digests={(PACKAGE, digest(1))})
         plan = retention.plan_retention(inventory, references, now=NOW)
-        self.assertEqual((), plan.delete)
-        self.assertTrue(plan.admission_blocked)
-        with self.assertRaises(retention.RetentionError):
-            retention.require_publication_capacity(plan, kind="final", reserved_bytes=1)
-
-    def test_final_byte_cap_can_trim_recent_disposable_candidates(self):
-        inventory = fixture([payload(number, age=number, size=retention.FINAL_BYTES // 2) for number in range(1, 4)])
-        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
-        self.assertEqual({2, 3}, {item.version_id for item in plan.delete})
-        self.assertLessEqual(plan.final_bytes_after, retention.FINAL_BYTES)
-
-    def test_young_transfer_bytes_cannot_be_evicted_to_admit_more_staging(self):
-        inventory = fixture([payload(1, age=0.1, kind="staging", size=retention.TRANSFER_BYTES)])
-        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
-        self.assertEqual((), plan.delete)
-        self.assertTrue(plan.admission_blocked)
-
-    def test_planned_deletion_does_not_count_as_free_space_before_remote_reconciliation(self):
-        inventory = fixture([payload(1, age=20, size=retention.FINAL_BYTES)])
-        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
-        self.assertEqual([1], [item.version_id for item in plan.delete])
-        with self.assertRaises(retention.RetentionError):
-            retention.require_publication_capacity(plan, kind="final", reserved_bytes=1)
-
-    def test_publication_capacity_counts_protected_and_disposable_bytes_together(self):
-        inventory = fixture([
-            payload(1, age=1, size=retention.FINAL_BYTES - 50),
-            payload(2, age=20, size=100),
-        ])
-        plan = retention.plan_retention(
-            inventory, protection(inventory, digests={(PACKAGE, digest(1))}), now=NOW,
-        )
+        observation = retention.publication_observation(inventory, kind="final", incoming_bundle_bytes=1)
         self.assertEqual([2], [item.version_id for item in plan.delete])
-        self.assertFalse(plan.admission_blocked)
-        with self.assertRaises(retention.RetentionError):
-            retention.require_publication_capacity(plan, kind="final", reserved_bytes=1)
+        self.assertGreater(observation["observed_final_payload_bytes"], 8 * 1024**3)
+        self.assertFalse(observation["byte_limit_enforced"])
+
+    def test_final_byte_size_does_not_override_count_and_age_retention(self):
+        inventory = fixture([payload(number, age=number, size=4 * 1024**3) for number in range(1, 5)])
+        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
+        self.assertEqual({4}, {item.version_id for item in plan.delete})
+        self.assertGreater(plan.final_bytes_after, 8 * 1024**3)
+
+    def test_large_young_transfer_payload_does_not_block_publication_measurement(self):
+        inventory = fixture([payload(1, age=0.1, kind="staging", size=3 * 1024**3)])
+        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
+        observation = retention.publication_observation(inventory, kind="staging", incoming_bundle_bytes=1)
+        self.assertEqual((), plan.delete)
+        self.assertEqual(3 * 1024**3 + 10, observation["observed_transfer_payload_bytes"])
+
+    def test_publication_observation_reports_current_usage_without_counting_planned_deletion(self):
+        inventory = fixture([payload(1, age=20, size=10 * 1024**3), payload(2, age=1)])
+        plan = retention.plan_retention(inventory, protection(inventory), now=NOW)
+        observation = retention.publication_observation(inventory, kind="final", incoming_bundle_bytes=500)
+        actual = retention.inventory_usage(inventory)
+        self.assertEqual([1], [item.version_id for item in plan.delete])
+        self.assertEqual(actual["total_bytes"], observation["observed_total_payload_bytes"])
+        self.assertEqual(500, observation["estimated_incoming_bundle_bytes"])
 
     def test_shared_manifest_is_not_deleted_while_a_retained_root_uses_it(self):
         old, old_root = payload(1, age=20)

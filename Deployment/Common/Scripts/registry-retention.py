@@ -23,17 +23,18 @@ from registry_lock_guard import JOURNAL, SharedLockGuard  # noqa: E402
 from registry_retention import (  # noqa: E402
     ACTIVE,
     DIGEST,
-    FINAL_BYTES,
+    FINAL_AGE,
+    FINAL_COUNT,
     MAX_DELETIONS,
     PACKAGE,
     TERMINAL,
-    TRANSFER_BYTES,
+    TRANSFER_AGE,
     Protection,
     RetentionError,
     Version,
     inventory_usage,
     plan_retention,
-    require_publication_capacity,
+    publication_observation,
 )
 from release_status import list_active_deployment_runs  # noqa: E402
 
@@ -149,7 +150,7 @@ def _protection(
 
 
 def _all_roots_protected(inventory, states: dict[tuple[int, int], str]) -> Protection:
-    """Admission is conservative: no unexecuted deletion plan frees capacity."""
+    """Observation is conservative: planned deletion does not reduce measured usage."""
     return Protection(
         frozenset((payload.package, payload.digest) for payload in inventory.payloads),
         frozenset(), frozenset(), states, True,
@@ -184,9 +185,10 @@ def _result(
     *,
     outcome: str,
     receipts: tuple[dict, ...],
-    admission: dict | None,
+    publication: dict | None,
     candidate_versions: int | None = None,
 ) -> dict:
+    usage = inventory_usage(inventory)
     return {
         "schema_version": 2,
         "outcome": outcome,
@@ -206,11 +208,15 @@ def _result(
         ] if outcome == "preview" else None,
         "verified_absent_versions": len(receipts),
         "receipts": list(receipts),
-        "usage": inventory_usage(inventory),
-        "limits": {"final_bytes": FINAL_BYTES, "transfer_bytes": TRANSFER_BYTES, "delete_batch": MAX_DELETIONS},
-        "admission_blocked": plan.admission_blocked,
+        "usage": usage,
+        "retention_policy": {
+            "final_count_per_profile": FINAL_COUNT,
+            "final_age_days": FINAL_AGE.days,
+            "transfer_age_hours": int(TRANSFER_AGE.total_seconds() // 3600),
+            "delete_batch": MAX_DELETIONS,
+        },
         "deferred_groups": plan.deferred_groups,
-        "admission": admission,
+        "publication_observation": publication,
         "mutation": "exact-version-delete-only-if-present" if receipts else "none",
     }
 
@@ -303,13 +309,19 @@ def _resume_exact_reservation(
         inventory, protection, now=datetime.now(timezone.utc), max_deletions=args.max_deletions,
     )
     return _result(
-        plan, inventory, outcome="applied", receipts=receipts, admission=None,
+        plan, inventory, outcome="applied", receipts=receipts, publication=None,
         candidate_versions=len(candidates),
     )
 
 
 def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factory=SharedLockGuard,
         active_runs_provider=list_active_deployment_runs) -> dict:
+    if bool(args.publication_kind) != (args.incoming_bundle_bytes is not None):
+        raise RetentionError("publication measurement requires both kind and incoming bundle bytes")
+    if args.incoming_bundle_bytes is not None and (
+        type(args.incoming_bundle_bytes) is not int or args.incoming_bundle_bytes <= 0
+    ):
+        raise RetentionError("incoming bundle bytes must be a positive integer")
     if args.assert_clear:
         lock_dir, _ = shared_deploy_lock.require_shared_lock(RetentionError)
         journal = lock_dir / JOURNAL
@@ -323,15 +335,17 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
         raise RetentionError("repository, actor and existing workflow token are required")
     if args.reservation_id and not args.apply:
         raise RetentionError("an exact registry reservation can only be resumed by an authorized apply")
-    if args.reservation_id and args.admission_kind:
-        raise RetentionError("exact reservation recovery cannot be combined with publication admission")
+    if args.reservation_id and args.publication_kind:
+        raise RetentionError("exact reservation recovery cannot be combined with publication measurement")
+    if args.apply and args.publication_kind:
+        raise RetentionError("publication measurement cannot be combined with registry mutation")
     lock_dir, _ = shared_deploy_lock.require_shared_lock(RetentionError)
     journal = lock_dir / JOURNAL
     if not args.apply and (journal.exists() or journal.is_symlink()):
         raise RetentionError("an unresolved GHCR deletion reservation blocks registry inspection")
 
-    if args.admission_kind and not args.apply:
-        _validate_workflow_scope(mode="admission")
+    if args.publication_kind and not args.apply:
+        _validate_workflow_scope(mode="measurement")
     if args.apply:
         _validate_workflow_scope(mode="apply")
 
@@ -345,16 +359,19 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
         retained.add((package, digest))
 
     client = client_factory(args.username, token)
-    if args.admission_kind and not args.apply:
+    if args.publication_kind and not args.apply:
         inventory, states = collect_inventory(
             args.repository, packages, client, retained_manifests=frozenset(retained),
         )
-        admission = {"kind": args.admission_kind, "reserved_bytes": args.reserved_bytes}
-        capacity_plan = plan_retention(
+        observation = publication_observation(
+            inventory, kind=args.publication_kind, incoming_bundle_bytes=args.incoming_bundle_bytes,
+        )
+        observation_plan = plan_retention(
             inventory, _all_roots_protected(inventory, states), now=datetime.now(timezone.utc),
         )
-        require_publication_capacity(capacity_plan, **admission)
-        return _result(capacity_plan, inventory, outcome="admitted", receipts=(), admission=admission)
+        return _result(
+            observation_plan, inventory, outcome="observed", receipts=(), publication=observation,
+        )
 
     snapshots = _parse_protections(args.protection_json, require_additional=args.require_additional)
     if args.apply and args.reservation_id:
@@ -366,12 +383,6 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
     inventory, states = collect_inventory(
         args.repository, packages, client, retained_manifests=frozenset(retained),
     )
-    admission = None
-    if args.admission_kind:
-        if args.reserved_bytes is None:
-            raise RetentionError("publication capacity requires a positive reserved byte count")
-        admission = {"kind": args.admission_kind, "reserved_bytes": args.reserved_bytes}
-
     if args.apply:
         guard = guard_factory(
             repository=args.repository,
@@ -392,12 +403,7 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
     )
     plan = plan_retention(inventory, protection, now=datetime.now(timezone.utc), max_deletions=args.max_deletions)
     if not args.apply:
-        if admission is not None:
-            require_publication_capacity(
-                plan_retention(inventory, _all_roots_protected(inventory, states), now=datetime.now(timezone.utc)),
-                **admission,
-            )
-        return _result(plan, inventory, outcome="preview", receipts=(), admission=admission)
+        return _result(plan, inventory, outcome="preview", receipts=(), publication=None)
 
     receipts: tuple[dict, ...] = ()
     if plan.delete:
@@ -414,12 +420,10 @@ def run(args: argparse.Namespace, *, client_factory=RegistryClient, guard_factor
             active_runs_provider=active_runs_provider,
         )
         plan = plan_retention(inventory, protection, now=datetime.now(timezone.utc), max_deletions=args.max_deletions)
-    if admission is not None:
-        capacity_plan = plan_retention(
-            inventory, _all_roots_protected(inventory, states), now=datetime.now(timezone.utc),
-        )
-        require_publication_capacity(capacity_plan, **admission)
-    return _result(plan, inventory, outcome="applied" if receipts else "no_changes", receipts=receipts, admission=admission)
+    return _result(
+        plan, inventory, outcome="applied" if receipts else "no_changes", receipts=receipts,
+        publication=None,
+    )
 
 
 def main(argv=None) -> int:
@@ -435,22 +439,22 @@ def main(argv=None) -> int:
     parser.add_argument("--require-additional", action="store_true")
     parser.add_argument("--reservation-id", default="")
     parser.add_argument("--max-deletions", type=int, default=MAX_DELETIONS)
-    parser.add_argument("--admission-kind", choices=("final", "staging", "harness"))
-    parser.add_argument("--reserved-bytes", type=int)
+    parser.add_argument("--publication-kind", choices=("final", "staging", "harness"))
+    parser.add_argument("--incoming-bundle-bytes", type=int)
     parser.add_argument("--assert-clear", action="store_true", help="Fail if a prior exact deletion reservation remains pending.")
     parser.add_argument("--apply", action="store_true", help="Apply bounded exact-version cleanup and re-inventory afterward.")
     args = parser.parse_args(argv)
-    if args.assert_clear and (args.apply or args.admission_kind):
-        print("Reservation check cannot be combined with mutation or admission.", file=sys.stderr)
+    if args.assert_clear and (args.apply or args.publication_kind or args.incoming_bundle_bytes is not None):
+        print("Reservation check cannot be combined with mutation or publication measurement.", file=sys.stderr)
         return 2
     if not 1 <= args.max_deletions <= MAX_DELETIONS:
         print("Registry deletion batch must contain between 1 and 100 versions.", file=sys.stderr)
         return 2
-    if args.reserved_bytes is not None and args.reserved_bytes <= 0:
-        print("Publication reserved bytes must be positive.", file=sys.stderr)
+    if args.incoming_bundle_bytes is not None and args.incoming_bundle_bytes <= 0:
+        print("Incoming bundle bytes must be positive.", file=sys.stderr)
         return 2
-    if args.admission_kind and args.reserved_bytes is None:
-        print("Publication capacity requires a positive reserved byte count.", file=sys.stderr)
+    if bool(args.publication_kind) != (args.incoming_bundle_bytes is not None):
+        print("Publication measurement requires both kind and incoming bundle bytes.", file=sys.stderr)
         return 2
     try:
         result = run(args)
