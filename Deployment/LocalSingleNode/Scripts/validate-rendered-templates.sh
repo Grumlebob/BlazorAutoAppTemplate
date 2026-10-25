@@ -14,7 +14,7 @@ def assert_runtime_environment(folder, expected):
     verifier = folder / 'verify-env.yml'
     node_script = "console.log(JSON.stringify({username:process.env.Accounts__Email__Username,password:process.env.Accounts__Email__Password,legacyKey:process.env.DataProtection__LegacyRedisKey ?? ''}))"
     verifier.write_text(json.dumps({'services': {'verify': {
-        'image': 'node:24.21.0-bookworm-slim',
+        'image': 'node:26.12.0-bookworm-slim',
         'network_mode': 'none',
         'env_file': [{'path': './.env', 'format': 'raw'}],
         'command': ['node', '-e', node_script],
