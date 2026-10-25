@@ -139,13 +139,13 @@ def _report_store_findings(source: str, location: str) -> list[Finding]:
     except SyntaxError as error:
         return [Finding(location, f"local report store is not valid Python: {error.msg}")]
 
-    expected_limits = {
-        "DEFAULT_MAX_BYTES": 1024 * 1024 * 1024,
-    }
-    for constant, expected in expected_limits.items():
-        actual = _integer_expression(_assigned_value(tree, constant))
-        if actual != expected:
-            findings.append(Finding(location, f"{constant} must enforce the 1 GiB local report-store cap"))
+    has_byte_cap = any(
+        (isinstance(node, ast.Name) and node.id in {"DEFAULT_MAX_BYTES", "max_bytes"})
+        or (isinstance(node, ast.Constant) and node.value == "--max-bytes")
+        for node in ast.walk(tree)
+    )
+    if has_byte_cap:
+        findings.append(Finding(location, "local report store must not impose a byte-size ceiling"))
 
     for constant, days in (("SUCCESS_RETENTION", 3), ("FAILURE_RETENTION", 7)):
         actual = _timedelta_days(_assigned_value(tree, constant))

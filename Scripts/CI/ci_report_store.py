@@ -18,7 +18,6 @@ from typing import Any
 
 DEFAULT_REPOSITORY = "Grumlebob/BlazorAutoAppTemplate"
 SCHEMA_VERSION = 1
-DEFAULT_MAX_BYTES = 1024 * 1024 * 1024
 SUCCESS_RETENTION = timedelta(days=3)
 FAILURE_RETENTION = timedelta(days=7)
 RUN_RE = re.compile(r"^[1-9][0-9]*$")
@@ -247,23 +246,23 @@ def _prune_result(
     *,
     repository: str,
     now: datetime,
-    max_bytes: int,
     protect: Path | None = None,
     apply: bool,
 ) -> dict[str, Any]:
+    store_bytes_before = _store_bytes(root)
     _validate_repository(repository)
     unknown = _unknown_entries(root)
     if unknown:
         return {
             "planned": [], "removed": [], "unknown_entries": unknown,
             "blocked_reason": "unknown_store_entries", "dry_run": not apply,
+            "store_bytes_before": store_bytes_before,
+            "store_bytes_after": store_bytes_before,
         }
 
     entries = _known_entries(root, repository)
     entries.sort(key=lambda item: _parse_utc(item[1]["created_utc"]))
     planned: list[str] = []
-    planned_set: set[str] = set()
-    total = _store_bytes(root)
 
     def expired(entry: Path, manifest: dict[str, Any]) -> bool:
         if manifest["pinned"] or entry == protect:
@@ -274,19 +273,6 @@ def _prune_result(
     for entry, manifest in entries:
         if expired(entry, manifest):
             planned.append(entry.name)
-            planned_set.add(entry.name)
-            total -= _safe_tree_bytes(entry)
-
-    if total > max_bytes:
-        for entry, manifest in entries:
-            if total <= max_bytes:
-                break
-            if manifest["pinned"] or entry == protect or entry.name in planned_set:
-                continue
-            size = _safe_tree_bytes(entry)
-            planned.append(entry.name)
-            planned_set.add(entry.name)
-            total -= size
 
     removed: list[str] = []
     if apply:
@@ -301,8 +287,12 @@ def _prune_result(
         "planned": planned,
         "removed": removed,
         "unknown_entries": [],
-        "blocked_reason": "protected_data_exceeds_byte_cap" if total > max_bytes else None,
+        "blocked_reason": None,
         "dry_run": not apply,
+        "store_bytes_before": store_bytes_before,
+        "store_bytes_after": _store_bytes(root) if apply else store_bytes_before - sum(
+            _safe_tree_bytes(root / name) for name in planned
+        ),
     }
 
 
@@ -311,11 +301,10 @@ def _prune(
     *,
     repository: str = DEFAULT_REPOSITORY,
     now: datetime,
-    max_bytes: int,
     protect: Path | None = None,
 ) -> list[str]:
     return _prune_result(
-        root, repository=repository, now=now, max_bytes=max_bytes, protect=protect, apply=True,
+        root, repository=repository, now=now, protect=protect, apply=True,
     )["removed"]
 
 
@@ -337,7 +326,6 @@ def save_report(
     repository: str = DEFAULT_REPOSITORY,
     step_summary: Path | None = None,
     runner_name: str | None = None,
-    max_bytes: int = DEFAULT_MAX_BYTES,
     now: datetime | None = None,
 ) -> dict[str, Any] | None:
     _validate_identity(run_id, attempt, job)
@@ -346,8 +334,6 @@ def save_report(
         if status == "cancelled":
             return None
         _fail("status must be success or failure")
-    if type(max_bytes) is not int or max_bytes < 1:
-        _fail("maximum report-store size must be a positive integer")
     source = source.expanduser()
     if source.is_symlink():
         _fail("report source must not be a symbolic link")
@@ -397,10 +383,8 @@ def save_report(
             shutil.rmtree(temporary, ignore_errors=True)
             raise
 
-        _prune(root, repository=repository, now=created, max_bytes=max_bytes, protect=destination)
-        if _store_bytes(root) > max_bytes:
-            shutil.rmtree(destination)
-            _fail("report store exceeds its byte cap after eligible reports were pruned")
+        _prune(root, repository=repository, now=created, protect=destination)
+        metadata["store_bytes"] = _store_bytes(root)
         metadata["runner_name"] = runner_name or socket.gethostname()
         if step_summary is not None:
             append_summary(step_summary, metadata)
@@ -428,7 +412,8 @@ def append_summary(path: Path, metadata: dict[str, Any]) -> None:
     if metadata["malformed_trx_count"]:
         lines.append(f"- Malformed TRX files preserved: {metadata['malformed_trx_count']}.")
     lines.extend((
-        f"- Saved on runner `{host}` for {3 if metadata['status'] == 'success' else 7} days, subject to the 1 GiB store cap.",
+        f"- Saved on runner `{host}`; routine reports expire after {3 if metadata['status'] == 'success' else 7} days unless pinned.",
+        f"- Report-store size after save: {metadata['store_bytes']} bytes.",
         "- Retrieve on that runner after checking out this commit:",
         "  `python3 Scripts/CI/ci_report_store.py get --run-id "
         f"{metadata['run_id']} --attempt {metadata['attempt']} --job {metadata['job']} "
@@ -521,7 +506,7 @@ def _add_identity(parser: argparse.ArgumentParser, *, include_job: bool = True) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Store and retrieve bounded runner-local GitHub Actions reports.")
+    parser = argparse.ArgumentParser(description="Store and retrieve age-limited runner-local GitHub Actions reports.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     save_parser = subparsers.add_parser("save", help="save one terminal job's diagnostic reports")
@@ -530,7 +515,6 @@ def main(argv: list[str] | None = None) -> int:
     save_parser.add_argument("--source", type=Path, required=True)
     save_parser.add_argument("--job", choices=sorted(JOBS), required=True)
     save_parser.add_argument("--status", choices=("success", "failure", "cancelled"), required=True)
-    save_parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
     save_parser.add_argument("--step-summary", type=Path)
     save_parser.add_argument("--runner-name", default=os.environ.get("RUNNER_NAME"))
 
@@ -544,10 +528,9 @@ def main(argv: list[str] | None = None) -> int:
     list_parser.add_argument("--root", type=Path, help="private local report root (defaults under the runner account)")
     list_parser.add_argument("--json", action="store_true")
 
-    prune_parser = subparsers.add_parser("prune", help="remove expired or over-cap unpinned reports")
+    prune_parser = subparsers.add_parser("prune", help="remove expired unpinned reports")
     prune_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPOSITORY))
     prune_parser.add_argument("--root", type=Path, help="private local report root (defaults under the runner account)")
-    prune_parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
     prune_parser.add_argument("--dry-run", action="store_true", help="report eligible deletions without removing reports")
 
     pin_parser = subparsers.add_parser("pin", help="protect a report from retention cleanup")
@@ -572,7 +555,6 @@ def main(argv: list[str] | None = None) -> int:
                 repository=args.repository,
                 step_summary=args.step_summary,
                 runner_name=args.runner_name,
-                max_bytes=args.max_bytes,
             )
             print(json.dumps(result or {"status": "cancelled", "saved": False}, sort_keys=True))
         elif args.command == "get":
@@ -589,12 +571,11 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 print(f"{len(reports)} report entr{'y' if len(reports) == 1 else 'ies'}")
         elif args.command == "prune":
-            if type(args.max_bytes) is not int or args.max_bytes < 1:
-                _fail("maximum report-store size must be a positive integer")
             if not args.root.exists():
                 result = {
                     "planned": [], "removed": [], "unknown_entries": [],
                     "blocked_reason": None, "dry_run": args.dry_run,
+                    "store_bytes_before": 0, "store_bytes_after": 0,
                 }
             else:
                 descriptor = _lock(args.root)
@@ -603,7 +584,6 @@ def main(argv: list[str] | None = None) -> int:
                         args.root,
                         repository=args.repository,
                         now=datetime.now(timezone.utc),
-                        max_bytes=args.max_bytes,
                         apply=not args.dry_run,
                     )
                 finally:
