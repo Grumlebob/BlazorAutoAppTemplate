@@ -20,6 +20,14 @@ AUTOMERGE = read_workflow("auto-merge-dependabot.yml")
 
 
 class CiRunnerRoutingWorkflowTests(unittest.TestCase):
+    def test_dotnet_setup_uses_explicit_sdk_pin(self):
+        self.assertEqual("10.0.402", CI["env"]["DOTNET_SDK_VERSION"])
+        for job_id in ("validate", "publish-main"):
+            steps = {step.get("name"): step for step in CI["jobs"][job_id]["steps"]}
+            setup_dotnet = steps["Setup .NET"]["with"]
+            self.assertEqual("${{ env.DOTNET_SDK_VERSION }}", setup_dotnet["dotnet-version"])
+            self.assertNotIn("global-json-file", setup_dotnet)
+
     def test_validation_selection_and_fork_guard_precede_dynamic_worker_allocation(self):
         jobs = CI["jobs"]
         selected = jobs["select-validation"]
