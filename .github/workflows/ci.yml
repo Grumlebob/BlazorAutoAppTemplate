@@ -377,7 +377,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: 26.12.0
+          node-version: 26.12.1
           package-manager-cache: false
 
       - name: Audit .NET packages for vulnerabilities
@@ -432,7 +432,7 @@ jobs:
 
       - name: Verify pinned React toolchain
         run: |
-          test "$(node --version)" = "v26.12.0"
+          test "$(node --version)" = "v26.12.1"
           test "$(npm --version)" = "12.2.0"
 
       - name: Install React frontend dependencies

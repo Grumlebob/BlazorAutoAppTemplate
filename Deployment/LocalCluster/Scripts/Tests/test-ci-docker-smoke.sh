@@ -269,7 +269,7 @@ for args in calls:
                 assert any(value.endswith(":8443") for value in args if value.startswith("127.0.0.1:"))
                 assert any(value.endswith(":ro") for value in args if "/run/react-auth-fixture" in value)
         elif "smtp" in name:
-            assert "node:26.12.0-bookworm-slim" in args
+            assert "node:26.12.1-bookworm-slim" in args
             assert "--read-only" in args
             assert args[args.index("--network-alias") + 1] == "ci-smtp"
             assert not any(value in ("-p", "--publish") for value in args)
