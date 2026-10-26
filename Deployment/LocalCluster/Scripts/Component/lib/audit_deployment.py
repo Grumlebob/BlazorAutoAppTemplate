@@ -1094,8 +1094,13 @@ if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed")) 
          "the validator rejects failures and skips that are not explicit opt-ins; only the account suite pins zero skips")
 
 dockerfile = read("BlazorAutoApp/Dockerfile")
+if not re.search(
+    r"^FROM node:26\.\d+\.\d+-bookworm-slim AS react-dependencies$",
+    dockerfile,
+    re.MULTILINE,
+):
+    fail("BlazorAutoApp/Dockerfile: pinned Node 26 toolchain is isolated in React dependency stage")
 for needle, why in [
-    ("FROM node:26.12.0-bookworm-slim AS react-dependencies", "pinned Node toolchain is isolated in React dependency stage"),
     ("npm install --global npm@12.2.0 && npm ci", "pinned npm install from the React lockfile"),
     ("FROM react-dependencies AS react-assets", "React asset build reuses its isolated dependency stage"),
     ("npm run build && test -s build/client/index.html", "React build must produce its shell"),
