@@ -148,7 +148,7 @@ try {
                 & $npmCommand @npmArguments
             }
             else {
-                & $npxCommand --yes --package=node@26.12.1 --package=npm@12.2.0 -c $npmStep.Command
+                & $npxCommand --yes --allow-scripts=node@26.12.1 --package=node@26.12.1 --package=npm@12.2.0 -c $npmStep.Command
             }
 
             if ($LASTEXITCODE -ne 0) {
