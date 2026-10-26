@@ -148,13 +148,66 @@ class CiSelectionTests(unittest.TestCase):
 
     def publishing_job(self, **overrides) -> dict[str, object]:
         job = {"name": "build-test-push", "run_id": 9, "run_attempt": 1,
-               "head_sha": self.target, "status": "completed", "conclusion": "success"}
+               "head_sha": self.target, "status": "completed", "conclusion": "success", "steps": []}
         job.update(overrides)
         return job
 
     def verify_jobs(self, jobs) -> dict[str, object]:
         result = self.select([run(9, "2026-09-24T11:00:00Z")])
         return MODULE.verify_publishing_job(result, jobs)
+
+    def verify_payload_jobs(self, jobs) -> dict[str, object]:
+        selection = self.select([run(9, "2026-09-24T11:00:00Z")])
+        return MODULE.verify_payload_receipt(
+            selection, jobs, repository="owner/repo", token="test-token",
+            profile="BlazorAuto", acceptance_profile="BlazorAutoV1",
+            runtime="linux-x64", app_image="ghcr.io/grumlebob/books",
+        )
+
+    def test_explicit_publisher_receipt_wins_over_result_gate_in_either_order(self) -> None:
+        publisher = self.publishing_job(name="publish-main", id=44, steps=[
+            {"name": MODULE.PAYLOAD_RECEIPT_STEP, "status": "completed", "conclusion": "success"}
+        ])
+        gate = self.publishing_job(id=88, steps=[{"name": "Verify every event-required CI result"}])
+        for jobs in ([publisher, gate], [gate, publisher]):
+            with self.subTest(order=[job["name"] for job in jobs]):
+                self.assertEqual(self.verify_jobs(jobs)["outcome"], "success")
+                with (
+                    patch.object(MODULE, "download_job_logs", return_value="publisher logs") as fetch_logs,
+                    patch.object(MODULE, "receipts_from_step_log", return_value=[{"kind": "final"}]) as read_receipts,
+                    patch.object(MODULE, "select_receipt", return_value={"kind": "final"}),
+                ):
+                    result = self.verify_payload_jobs(jobs)
+                self.assertEqual(result["outcome"], "success")
+                fetch_logs.assert_called_once_with("owner/repo", 44, "test-token", api_root=MODULE.API_ROOT)
+                self.assertIs(read_receipts.call_args.args[0], publisher)
+                self.assertEqual(read_receipts.call_args.kwargs["expected_job_name"], "publish-main")
+
+    def test_failed_modern_publisher_cannot_use_successful_result_gate(self) -> None:
+        gate = self.publishing_job(id=88, steps=[{"name": "Verify every event-required CI result"}])
+        for conclusion in ("failure", "skipped", "cancelled"):
+            with self.subTest(conclusion=conclusion):
+                publisher = self.publishing_job(name="publish-main", id=44, conclusion=conclusion)
+                self.assertEqual(self.verify_jobs([gate, publisher])["outcome"], "failed")
+                with patch.object(MODULE, "download_job_logs") as fetch_logs:
+                    result = self.verify_payload_jobs([gate, publisher])
+                self.assertEqual(result["outcome"], "failed")
+                fetch_logs.assert_not_called()
+
+    def test_modern_publisher_identity_duplicates_and_missing_receipt_fail_closed(self) -> None:
+        publisher = self.publishing_job(name="publish-main", id=44)
+        wrong_identity = self.publishing_job(name="publish-main", head_sha="b" * 40)
+        duplicate = self.publishing_job(name="publish-main", id=45)
+        for jobs in ([wrong_identity], [publisher, duplicate], [self.publishing_job(name="publish-main", steps="bad")]):
+            with self.subTest(jobs=jobs):
+                self.assertEqual(self.verify_jobs(jobs)["outcome"], "invalid_provenance")
+                self.assertEqual(self.verify_payload_jobs(jobs)["outcome"], "invalid_provenance")
+        self.assertEqual(self.verify_payload_jobs([publisher])["outcome"], "invalid_provenance")
+
+    def test_result_gate_alone_cannot_substitute_for_legacy_publisher(self) -> None:
+        gate = self.publishing_job(steps=[{"name": "Verify every event-required CI result"}])
+        self.assertEqual(self.verify_jobs([gate])["outcome"], "invalid_provenance")
+        self.assertEqual(self.verify_payload_jobs([gate])["outcome"], "invalid_provenance")
 
     def test_successful_publishing_job_is_required(self) -> None:
         self.assertEqual(self.verify_jobs([self.publishing_job()])["outcome"], "success")
