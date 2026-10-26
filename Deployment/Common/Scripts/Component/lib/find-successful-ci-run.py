@@ -28,6 +28,7 @@ API_VERSION = "2026-03-10"
 ALLOWED_EVENTS = {"push", "workflow_dispatch"}
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 PAYLOAD_RECEIPT_STEP = "Emit immutable release payload receipt"
+RESULT_GATE_STEP = "Verify every event-required CI result"
 
 
 def fail(message: str) -> None:
@@ -224,21 +225,44 @@ def verify_current_run(result: dict[str, object], current: dict[str, object], re
 
 
 
+def select_publisher_job(jobs: object) -> tuple[dict[str, object] | None, str | None, str | None]:
+    """Choose the actual publisher job, preferring its explicit modern name."""
+    if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
+        return None, None, "Publishing-job metadata is malformed."
+    if any(not isinstance(job.get("name"), str) or not job["name"].strip() for job in jobs):
+        return None, None, "Publishing-job name metadata is malformed."
+
+    modern = [job for job in jobs if job.get("name") == "publish-main"]
+    if modern:
+        if len(modern) != 1:
+            return None, None, "Expected exactly one publish-main publisher job."
+        publisher = modern[0]
+        publisher_name = "publish-main"
+    else:
+        legacy = [job for job in jobs if job.get("name") == "build-test-push"]
+        if len(legacy) != 1:
+            return None, None, "Expected exactly one publisher job."
+        publisher = legacy[0]
+        publisher_name = "build-test-push"
+
+    steps = publisher.get("steps")
+    if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+        return None, None, "Publishing-job step metadata is malformed."
+    if publisher_name == "build-test-push" and any(
+            step.get("name") == RESULT_GATE_STEP for step in steps):
+        return None, None, "The final CI result gate is not a publisher job."
+    return publisher, publisher_name, None
+
+
 def verify_publishing_job(result: dict[str, object], jobs: object) -> dict[str, object]:
     """Overall success is insufficient when the publishing job was skipped."""
     if result.get("outcome") != "success":
         return result
     selected = result["selected"]
-    if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
+    job, _, diagnostic = select_publisher_job(jobs)
+    if job is None:
         return {"schema_version": 1, "outcome": "invalid_provenance",
-                "diagnostic": "Publishing-job metadata is malformed."}
-    publishing = [job for job in jobs if job.get("name") == "build-test-push"]
-    # On main, ci.yml's publish-main job is named build-test-push. Validation
-    # is a separate job named validate, so it cannot substitute for publishing.
-    if len(publishing) != 1:
-        return {"schema_version": 1, "outcome": "invalid_provenance",
-                "diagnostic": "Expected exactly one publish-main (build-test-push) job."}
-    job = publishing[0]
+                "diagnostic": diagnostic or "Publisher job could not be selected."}
     if (job.get("run_id") != selected["id"]
             or job.get("run_attempt") != selected["run_attempt"]
             or job.get("head_sha") != selected["head_sha"]):
@@ -268,12 +292,10 @@ def verify_payload_receipt(
     selected = result.get("selected")
     if not isinstance(selected, dict):
         return {"schema_version": 1, "outcome": "invalid_provenance", "diagnostic": "Selected CI metadata is malformed."}
-    if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
-        return {"schema_version": 1, "outcome": "invalid_provenance", "diagnostic": "Publishing-job metadata is malformed."}
-    publisher_jobs = [job for job in jobs if job.get("name") == "build-test-push"]
-    if len(publisher_jobs) != 1:
-        return {"schema_version": 1, "outcome": "invalid_provenance", "diagnostic": "Expected exactly one publisher job for payload receipt lookup."}
-    job = publisher_jobs[0]
+    job, publisher_name, diagnostic = select_publisher_job(jobs)
+    if job is None or publisher_name is None:
+        return {"schema_version": 1, "outcome": "invalid_provenance",
+                "diagnostic": diagnostic or "Publisher job could not be selected for payload receipt lookup."}
     if (str(job.get("run_id", "")) != str(selected.get("id", ""))
             or str(job.get("run_attempt", "")) != str(selected.get("run_attempt", ""))
             or str(job.get("head_sha", "")).lower() != str(selected.get("head_sha", "")).lower()):
@@ -285,6 +307,13 @@ def verify_payload_receipt(
     if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
         return {"schema_version": 1, "outcome": "invalid_provenance", "diagnostic": "Publisher-job step metadata is malformed."}
     if not any(step.get("name") == PAYLOAD_RECEIPT_STEP for step in steps):
+        if publisher_name == "publish-main":
+            return {
+                "schema_version": 1,
+                "outcome": "invalid_provenance",
+                "selected": selected,
+                "diagnostic": "Selected publish-main job has no immutable payload receipt step.",
+            }
         return {
             **result,
             "outcome": "legacy_artifact",
@@ -301,7 +330,7 @@ def verify_payload_receipt(
             job,
             logs,
             step_name=PAYLOAD_RECEIPT_STEP,
-            expected_job_name="build-test-push",
+            expected_job_name=publisher_name,
             expected_run_id=str(selected["id"]),
             expected_run_attempt=str(selected["run_attempt"]),
             expected_sha=str(selected["head_sha"]),
