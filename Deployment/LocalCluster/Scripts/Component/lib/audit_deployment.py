@@ -982,7 +982,7 @@ for needle, why in [
     ("pip==26.2.1", "pinned pip bootstrap"),
     ("yamllint .github Deployment docker-compose.yml .yamllint.yml", "deployment YAML lint step"),
     ("bash Scripts/CI/run-actionlint.sh", "pinned queue-aware actionlint runner"),
-    ("node-version: 26.12.0", "React Node.js version pinned to its declared toolchain"),
+    ("node-version: 26.12.1", "React Node.js version pinned to its declared toolchain"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh app_image", "shared release image setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_bundle_name", "shared migration bundle setting"),
     ("bash Deployment/Common/Scripts/read-release-setting.sh migration_runtime", "shared migration runtime setting"),

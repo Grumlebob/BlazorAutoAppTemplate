@@ -165,7 +165,7 @@ def assert_runtime_account_environment(folder: Path, expected: dict[str, str]) -
             {
                 "services": {
                     "verify": {
-                        "image": "node:26.12.0-bookworm-slim",
+                        "image": "node:26.12.1-bookworm-slim",
                         "network_mode": "none",
                         "env_file": [{"path": "./.env", "format": "raw"}],
                         "command": ["node", "-e", node_script],
