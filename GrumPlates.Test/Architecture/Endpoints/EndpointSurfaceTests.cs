@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace GrumPlates.Test.Architecture.Endpoints;
 

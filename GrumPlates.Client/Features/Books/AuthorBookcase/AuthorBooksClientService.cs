@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.GetAuthorBook;
 using GrumPlates.Core.Features.Books.UseCases.GetAuthorBooks;

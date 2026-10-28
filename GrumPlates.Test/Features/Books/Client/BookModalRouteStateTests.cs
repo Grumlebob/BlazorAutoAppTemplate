@@ -1,5 +1,4 @@
 using GrumPlates.Client.Features.Books.BookModal;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Books.Client;
 

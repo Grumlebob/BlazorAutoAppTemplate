@@ -4,7 +4,6 @@ using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.DeleteBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.Logging;
 
 namespace GrumPlates.Client.Features.Books.UserBookcase;
 

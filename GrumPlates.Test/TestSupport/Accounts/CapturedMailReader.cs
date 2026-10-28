@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using MimeKit;
 
 namespace GrumPlates.Test.TestSupport.Accounts;

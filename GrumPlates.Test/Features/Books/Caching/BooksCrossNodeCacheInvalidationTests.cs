@@ -1,18 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
 using GrumPlates.Core.Features.Books.UseCases.CreateBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Books.Caching;
 

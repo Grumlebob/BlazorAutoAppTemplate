@@ -8,7 +8,6 @@ using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Books.Client;
 

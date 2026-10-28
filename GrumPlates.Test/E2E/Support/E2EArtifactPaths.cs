@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-
 namespace GrumPlates.Test.E2E.Support;
 
 internal static class E2EArtifactPaths

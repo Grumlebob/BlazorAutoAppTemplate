@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace GrumPlates.Test.TestSupport.Integration;
 
 public sealed class WebAppFactoryOptions

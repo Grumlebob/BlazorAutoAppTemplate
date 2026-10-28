@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text.Json;
 using DotNet.Testcontainers.Builders;
 using Npgsql;
-using Xunit;
 
 namespace GrumPlates.Test.TestSupport.Integration;
 

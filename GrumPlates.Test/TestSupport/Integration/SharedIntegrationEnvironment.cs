@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
-using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace GrumPlates.Test.TestSupport.Integration;
 

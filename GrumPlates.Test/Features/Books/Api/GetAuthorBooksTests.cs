@@ -1,14 +1,8 @@
-using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using GrumPlates.Core.Features.Books.Domain;
 using GrumPlates.Core.Features.Books.UseCases.GetAuthorBooks;
 using GrumPlates.Infrastructure.Persistence;
 using GrumPlates.Test.TestSupport.Integration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Books.Api;
 

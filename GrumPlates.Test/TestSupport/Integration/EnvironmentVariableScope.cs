@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace GrumPlates.Test.TestSupport.Integration;
 
 internal sealed class EnvironmentVariableScope : IDisposable

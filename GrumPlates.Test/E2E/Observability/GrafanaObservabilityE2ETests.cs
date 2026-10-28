@@ -1,9 +1,5 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using GrumPlates.Test.E2E.Support;
 using Microsoft.Playwright;
-using Xunit;
 using GrumPlates.Test.TestSupport.Integration;
 
 namespace GrumPlates.Test.E2E.Observability;

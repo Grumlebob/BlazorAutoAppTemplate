@@ -1,9 +1,7 @@
-using System.Net;
 using GrumPlates.Infrastructure.Hosting;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Http;
 using Serilog.Events;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

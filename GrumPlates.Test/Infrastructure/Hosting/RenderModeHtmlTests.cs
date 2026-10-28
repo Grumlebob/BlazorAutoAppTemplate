@@ -1,8 +1,4 @@
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 using GrumPlates.Test.TestSupport.Integration;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

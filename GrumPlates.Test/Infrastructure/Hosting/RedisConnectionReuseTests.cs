@@ -1,9 +1,6 @@
-using System;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
 using GrumPlates.Test.TestSupport.Integration;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

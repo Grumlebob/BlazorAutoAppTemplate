@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.Shared;
 

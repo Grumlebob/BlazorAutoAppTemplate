@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-using Xunit;
 using GrumPlates.Test.E2E.Support;
 using GrumPlates.Test.TestSupport.Integration;
 

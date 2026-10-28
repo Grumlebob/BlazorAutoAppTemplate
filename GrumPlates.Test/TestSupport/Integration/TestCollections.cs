@@ -1,5 +1,3 @@
-using Xunit;
-
 // Pure unit-test classes (no collection attribute) run in parallel. Every
 // collection below disables parallelization: those tests share Docker
 // containers, process environment variables or a WebApplicationFactory, and run

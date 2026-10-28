@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 using GrumPlates.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Playwright;
 
 namespace GrumPlates.Test.E2E.Support;
