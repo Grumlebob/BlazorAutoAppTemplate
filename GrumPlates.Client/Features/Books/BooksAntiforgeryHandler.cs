@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using System.Security.Claims;
-using GrumPlates.Core.Features.Login.UseCases.Shared;
+using GrumPlates.Core.Features.Accounts.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace GrumPlates.Client.Features.Books;

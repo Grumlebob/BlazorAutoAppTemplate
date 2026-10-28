@@ -1,4 +1,4 @@
-using GrumPlates.Features.Login.Account;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using GrumPlates.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 

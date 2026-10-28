@@ -96,16 +96,16 @@ if args[0] != "test":
 profile = next(value.split("=", 1)[1] for value in args if value.startswith("-p:FrontendProfile="))
 cases = json.loads(os.environ["DOTNET_CASES"])[profile]
 expression = args[args.index("--filter") + 1] if "--filter" in args else ""
-allowed = {"", "FrontendProfile!=BlazorAuto", "FullyQualifiedName!~Features.Login.Accounts",
-           "FullyQualifiedName~Features.Login.Accounts",
-           "FullyQualifiedName!~Features.Login.Accounts&FrontendProfile!=BlazorAuto",
-           "FullyQualifiedName~Features.Login.Accounts&FrontendProfile!=BlazorAuto"}
+allowed = {"", "FrontendProfile!=BlazorAuto", "FullyQualifiedName!~GrumPlates.Test.Features.Accounts",
+           "FullyQualifiedName~GrumPlates.Test.Features.Accounts",
+           "FullyQualifiedName!~GrumPlates.Test.Features.Accounts&FrontendProfile!=BlazorAuto",
+           "FullyQualifiedName~GrumPlates.Test.Features.Accounts&FrontendProfile!=BlazorAuto"}
 if expression not in allowed:
     sys.exit("Unexpected filter: " + expression)
 if "FullyQualifiedName!~" in expression:
-    cases = [case for case in cases if "Features.Login.Accounts" not in case[0]]
+    cases = [case for case in cases if "GrumPlates.Test.Features.Accounts" not in case[0]]
 elif "FullyQualifiedName~" in expression:
-    cases = [case for case in cases if "Features.Login.Accounts" in case[0]]
+    cases = [case for case in cases if "GrumPlates.Test.Features.Accounts" in case[0]]
 if "FrontendProfile!=BlazorAuto" in expression:
     cases = [case for case in cases if case[3] != "BlazorAuto"]
 root = ET.Element("TestRun")
@@ -120,7 +120,7 @@ name = args[args.index("--logger") + 1].split("LogFileName=", 1)[1]
 ET.ElementTree(root).write(destination / name, encoding="utf-8")
 '''
 
-ACCOUNT = "Template.Features.Login.Accounts.CookieTests.Login"
+ACCOUNT = "GrumPlates.Test.Features.Accounts.CookieTests.Login"
 NORMAL = "Template.Features.Example.Tests.Save"
 PROFILES = ("BlazorAuto", "React")
 
@@ -147,7 +147,7 @@ class FrontendValidationPartitionTests(unittest.TestCase):
     def good_cases(self):
         cases = [(NORMAL, "Passed", "", ""), (ACCOUNT + "(rememberMe: false)", "Passed", "", ""),
                  (ACCOUNT + "(rememberMe: true)", "Passed", "", ""),
-                 ("Template.BrowserTests.Smoke", "NotExecuted", OPT_IN, ""),
+                 ("GrumPlates.Test.E2E.Features.Accounts.IdentityE2ETests.Login", "NotExecuted", OPT_IN, ""),
                  (NORMAL + ".BlazorAssets", "Passed", "", "BlazorAuto"),
                  (ACCOUNT + ".BlazorAssets", "Passed", "", "BlazorAuto")]
         return {profile: list(cases) for profile in PROFILES}

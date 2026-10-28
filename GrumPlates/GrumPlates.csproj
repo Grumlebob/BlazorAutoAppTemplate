@@ -55,8 +55,8 @@
   <ItemGroup Condition="'$(FrontendProfile)' == 'React'">
     <Content Remove="**/*.razor" />
     <None Remove="**/*.razor.js" />
-    <Compile Remove="Features/Login/Account/IdentityComponentsEndpointRouteBuilderExtensions.cs" />
-    <Compile Remove="Features/Login/Account/BlazorIdentityServiceCollectionExtensions.cs" />
+    <Compile Remove="Features/Accounts/Blazor/IdentityComponentsEndpointRouteBuilderExtensions.cs" />
+    <Compile Remove="Features/Accounts/Blazor/BlazorIdentityServiceCollectionExtensions.cs" />
     <Content Remove="wwwroot/**/*" />
     <Content Include="wwwroot/favicon.png">
       <TargetPath>wwwroot/favicon.png</TargetPath>
@@ -79,8 +79,8 @@
     <RemoveDir Directories="$(_ReactPublishWebRoot)" Condition="Exists('$(_ReactPublishWebRoot)')" />
   </Target>
   <ItemGroup>
-    <EmbeddedResource Include="Features/Login/Accounts/Security/Resources/10k-most-common.txt" LogicalName="GrumPlates.Accounts.CommonPasswords" />
-    <Content Include="Features/Login/Accounts/Security/Resources/SecLists-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Features/Accounts/Security/Resources/10k-most-common.txt" LogicalName="GrumPlates.Accounts.CommonPasswords" />
+    <Content Include="Features/Accounts/Security/Resources/SecLists-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Enrichers.Environment" />

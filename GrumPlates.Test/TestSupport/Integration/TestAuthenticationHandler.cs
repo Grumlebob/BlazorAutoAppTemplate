@@ -1,6 +1,6 @@
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using GrumPlates.Features.Login.Account;
 using GrumPlates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;

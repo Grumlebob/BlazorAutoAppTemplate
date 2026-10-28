@@ -31,7 +31,7 @@ for profile in BlazorAuto React; do
     --logger "trx;LogFileName=non-accounts.trx"
     --results-directory "$profile_results"
   )
-  non_account_filter='FullyQualifiedName!~Features.Login.Accounts'
+  non_account_filter='FullyQualifiedName!~GrumPlates.Test.Features.Accounts'
   if [[ "$profile" == "React" ]]; then
     # These tests assert Blazor Auto assets and render modes; React has its own
     # host, public route, and browser coverage.
@@ -49,7 +49,7 @@ for profile in BlazorAuto React; do
   # Run shared account integration tests once and require every selected
   # test to execute, so an account test cannot silently become opt-in/skipped.
   account_results="$profile_results/accounts"
-  account_filter='FullyQualifiedName~Features.Login.Accounts'
+  account_filter='FullyQualifiedName~GrumPlates.Test.Features.Accounts'
   if [[ "$profile" == "React" ]]; then
     account_filter+='&FrontendProfile!=BlazorAuto'
   fi

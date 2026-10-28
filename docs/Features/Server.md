@@ -4,7 +4,7 @@ This page covers shared contracts, persistence, API behavior, and server wiring.
 
 ## Core contract and types
 
-Put shared domain types under `GrumPlates.Core/Features/{Feature}/Domain`, API interfaces under `Contracts`, and public request/response DTOs under `UseCases/{UseCase}`. Keep Core independent of EF Core, ASP.NET Core, and browser HTTP. Use simple serializable DTOs. Put deterministic validation in DTOs or Core rules; put database uniqueness and access checks in server behavior.
+Put shared domain types under `GrumPlates.Core/Features/{Feature}/Domain`, API interfaces under `Contracts`, and public request/response DTOs under `UseCases/{UseCase}`. Accounts keeps its shared request/response DTOs under `Features/Accounts/Contracts`. Keep Core independent of EF Core, ASP.NET Core, and browser HTTP. Use simple serializable DTOs. Put deterministic validation in DTOs or Core rules; put database uniqueness and access checks in server behavior.
 
 Async contract methods accept a `CancellationToken` and pass it through. Do not expose EF entities or Identity authorization logic in a response contract.
 

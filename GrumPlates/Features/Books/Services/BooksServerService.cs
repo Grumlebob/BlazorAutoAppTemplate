@@ -6,7 +6,7 @@ using GrumPlates.Core.Features.Books.UseCases.GetBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using GrumPlates.Features.Books.Caching;
-using GrumPlates.Features.Login;
+using GrumPlates.Features.Accounts.Identity;
 using GrumPlates.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;

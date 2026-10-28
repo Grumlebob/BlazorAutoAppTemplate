@@ -150,7 +150,7 @@ namespace GrumPlates.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("GrumPlates.Features.Login.Accounts.Persistence.AccountOutboxMessage", b =>
+            modelBuilder.Entity("GrumPlates.Features.Accounts.Persistence.AccountOutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -417,7 +417,7 @@ namespace GrumPlates.Infrastructure.Persistence.Migrations
                     b.Navigation("Book");
                 });
 
-            modelBuilder.Entity("GrumPlates.Features.Login.Accounts.Persistence.AccountOutboxMessage", b =>
+            modelBuilder.Entity("GrumPlates.Features.Accounts.Persistence.AccountOutboxMessage", b =>
                 {
                     b.HasOne("GrumPlates.Features.Login.Account.ApplicationUser", null)
                         .WithMany()

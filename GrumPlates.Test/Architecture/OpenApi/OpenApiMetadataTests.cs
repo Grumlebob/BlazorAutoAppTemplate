@@ -1,5 +1,5 @@
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Text.Json;
-using GrumPlates.Features.Login.Account;
 using GrumPlates.Frontend.OpenApi;
 using GrumPlates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;

@@ -1,5 +1,5 @@
-using GrumPlates.Features.Login;
-using GrumPlates.Features.Login.Account;
+using GrumPlates.Features.Accounts.Blazor;
+using GrumPlates.Features.Accounts.Identity;
 using GrumPlates.Frontend;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;

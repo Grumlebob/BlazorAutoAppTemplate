@@ -1,7 +1,7 @@
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GrumPlates.Features.Login.Account;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;

@@ -1,5 +1,5 @@
-using GrumPlates.Features.Login;
-using GrumPlates.Features.Login.Accounts.Email;
+using GrumPlates.Features.Accounts.Identity;
+using GrumPlates.Features.Accounts.Email;
 
 namespace GrumPlates.Frontend;
 
