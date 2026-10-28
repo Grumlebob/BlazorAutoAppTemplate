@@ -7,6 +7,7 @@ This task implements GP:A01 from Portfolio's CrossProjectArchitectureUpgrade pla
 ## Baseline and ownership
 
 - Source: `origin/main` and task input `9cb1961f8959b3e7bf7a8b30f37320ed2bb03cef`.
+- Before heavy validation, fetched and merged current main `96b5d8e1472ddd1b8733b6cbcecec854dce35fa8` into the owned branch. The incoming changes are deployment certificate generation compatible with OpenSSL 3.0 and the integrated Docker login action update; no account source or move-map entry changed. Its exact-main [CI run 40676228429](https://github.com/Grumlebob/GrumPlates/actions/runs/40676228429) succeeded. The refreshed branch's 114-file mechanical comparison passed, including exact registration/pipeline bodies, pinned resources and snapshot-only outbox metadata. The single intentional browser initialization assertion was reviewed separately. This source comparison does not replace the pending application gate.
 - Task branch: `task/architecture-a01-accounts-20261028`. Primary session: `01a181f1-01d8-70b3-8b14-5f4dba6503cf`.
 - Main was clean and had no other registered worktrees. The only open PR was unrelated dependency PR #390. The historical report-retention claim refers to an absent checkout and already integrated work; preserve its record.
 - Read current AGENTS.md, docs/Test.md, docs/Requirements.md, docs/Accounts.md, browser and infrastructure testing guidance, frontend composition, project profile wiring, migration snapshot and account behavior tests.
