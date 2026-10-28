@@ -142,11 +142,14 @@ done
 if [[ "$CERTIFICATE_SECRET_EXISTS" == "false" ]]; then
   openssl rand -hex 32 | tr -d '\n' > "$DATA_PROTECTION_TEMP_DIR/password"
   chmod 600 "$DATA_PROTECTION_TEMP_DIR/password"
-  openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 \
-    -keyout "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
+  # genpkey + req -key works on OpenSSL 3.0; `req -aes256` needs 3.2+.
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
+    -aes-256-cbc -pass "file:$DATA_PROTECTION_TEMP_DIR/password" \
+    -out "$DATA_PROTECTION_TEMP_DIR/private-key.pem" >/dev/null 2>&1
+  openssl req -x509 -sha256 -days 3650 \
+    -key "$DATA_PROTECTION_TEMP_DIR/private-key.pem" -passin "file:$DATA_PROTECTION_TEMP_DIR/password" \
     -out "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" \
-    -subj "/CN=GrumPlates Cloud Data Protection" \
-    -passout "file:$DATA_PROTECTION_TEMP_DIR/password" -aes256 >/dev/null 2>&1
+    -subj "/CN=GrumPlates Cloud Data Protection" >/dev/null 2>&1
   cat "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
     > "$DATA_PROTECTION_TEMP_DIR/certificate.pem"
   base64 < "$DATA_PROTECTION_TEMP_DIR/certificate.pem" | tr -d '\n' \
