@@ -93,6 +93,17 @@ function Get-ListeningProcessIds {
   }
 }
 
+function Get-ComposePort {
+  param([string]$Name, [string]$Default)
+
+  $value = [Environment]::GetEnvironmentVariable($Name, 'Process')
+  if ([string]::IsNullOrWhiteSpace($value)) {
+    return $Default
+  }
+
+  return $value
+}
+
 function Get-ComposeServiceState {
   param([string]$Service)
 
@@ -243,21 +254,25 @@ try {
   $env:FRONTEND_DOCKER_TARGET = $frontendDockerTarget
   Write-Host "Building the persisted frontend profile: $frontendProfile ($frontendDockerTarget)"
 
+  # Host ports come from the process environment, which holds the value Compose
+  # publishes: a variable set before this script runs overrides .env.
+  $appPort = Get-ComposePort -Name 'APP_HTTPS_HOST_PORT' -Default '7186'
+  $publishedAppUrl = "https://localhost:$appPort"
   $appUrl = $envValues['App__Url']
   if ([string]::IsNullOrWhiteSpace($appUrl)) {
-    $appPort = $envValues['APP_HTTPS_HOST_PORT']
-    if ([string]::IsNullOrWhiteSpace($appPort)) {
-      $appPort = '7186'
-    }
-    $appUrl = "https://localhost:$appPort"
+    $appUrl = $publishedAppUrl
+  }
+  elseif (([Uri]$appUrl).Port -ne [int]$appPort) {
+    Write-Warning "App__Url ($appUrl) does not use the published app port $appPort. Opening $publishedAppUrl instead."
+    $appUrl = $publishedAppUrl
   }
 
-  $healthUrl = "$($appUrl.TrimEnd('/'))/health/ready"
-  $grafanaUrl = "http://localhost:$($envValues['GRAFANA_HOST_PORT'] ?? '3000')"
-  $alertmanagerUrl = "http://localhost:$($envValues['ALERTMANAGER_HOST_PORT'] ?? '9093')"
-  $prometheusUrl = "http://localhost:$($envValues['PROMETHEUS_HOST_PORT'] ?? '9090')"
-  $lokiUrl = "http://localhost:$($envValues['LOKI_HOST_PORT'] ?? '3100')"
-  $tempoUrl = "http://localhost:$($envValues['TEMPO_HOST_PORT'] ?? '3200')"
+  $healthUrl = "$publishedAppUrl/health/ready"
+  $grafanaUrl = "http://localhost:$(Get-ComposePort -Name 'GRAFANA_HOST_PORT' -Default '3000')"
+  $alertmanagerUrl = "http://localhost:$(Get-ComposePort -Name 'ALERTMANAGER_HOST_PORT' -Default '9093')"
+  $prometheusUrl = "http://localhost:$(Get-ComposePort -Name 'PROMETHEUS_HOST_PORT' -Default '9090')"
+  $lokiUrl = "http://localhost:$(Get-ComposePort -Name 'LOKI_HOST_PORT' -Default '3100')"
+  $tempoUrl = "http://localhost:$(Get-ComposePort -Name 'TEMPO_HOST_PORT' -Default '3200')"
   $dotnetDevPids = Get-ListeningProcessIds -Port 5099
   if ($dotnetDevPids.Count -gt 0) {
     Write-Warning "A local dotnet app is already listening on 127.0.0.1:5099 (PID(s): $($dotnetDevPids -join ', ')). The Docker stack can still start on its configured app port; use E2E_BASE_URL intentionally when testing."
@@ -295,7 +310,8 @@ try {
   $composeArgs += $composeServices
 
   Write-Host "Starting local Docker stack..."
-  $logSince = (Get-Date).ToUniversalTime().AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ssZ')
+  # Invariant culture: some cultures use '.' as the time separator, which docker rejects.
+  $logSince = (Get-Date).ToUniversalTime().AddSeconds(-5).ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
   docker @composeArgs
 
   if ($LASTEXITCODE -ne 0) {
@@ -356,7 +372,7 @@ try {
   Write-Host "Runtime:      Docker Compose web container"
   Write-Host "App:          $appUrl"
   Write-Host "Health:       $healthUrl"
-  Write-Host "RedisInsight: http://localhost:$($envValues['REDIS_INSIGHT_HOST_PORT'] ?? '5540')"
+  Write-Host "RedisInsight: http://localhost:$(Get-ComposePort -Name 'REDIS_INSIGHT_HOST_PORT' -Default '5540')"
   if ($Observability) {
     Write-Host "Grafana:      $grafanaUrl"
     Write-Host "Alertmanager: $alertmanagerUrl"
