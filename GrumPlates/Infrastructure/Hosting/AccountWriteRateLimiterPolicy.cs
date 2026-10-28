@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
-using GrumPlates.Features.Login.Accounts;
+using GrumPlates.Features.Accounts;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 

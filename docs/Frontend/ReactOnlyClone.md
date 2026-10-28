@@ -17,7 +17,7 @@ Expect matches in these areas:
 | Area | Paths | Action |
 | --- | --- | --- |
 | Client | `GrumPlates.Client/`, its solution and project references | Delete |
-| Host UI | `GrumPlates/Components/`, Razor account pages under `GrumPlates/Features/Login/Account/`, `GrumPlates/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
+| Host UI | `GrumPlates/Components/`, Razor account pages under `GrumPlates/Features/Accounts/Blazor/`, `GrumPlates/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
 | React accounts | `GrumPlates.React/app/features/accounts/`, `app/routes/account.tsx`, `app/routes/auth-index.tsx`, `app/routes/my-books.tsx`, and the server account endpoints/storage | Keep the feature disabled for a public-only clone, or remove the full UI and server capability as a separate product change. Removing the UI alone does not protect the APIs or remove account data |
 | Styles | `GrumPlates/wwwroot/tailwind.css`, `app.css`, `GrumPlates.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
 | Build | `Directory.Build.targets`, `GrumPlates/GrumPlates.csproj`, `frontend-profile.txt` | Accept only `React`; fail clearly on `BlazorAuto`. The file holds `React` |

@@ -7,8 +7,8 @@ using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using GrumPlates.Features.Books;
 using GrumPlates.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
-using GrumPlates.Features.Login.Accounts;
-using GrumPlates.Features.Login.Accounts.Security;
+using GrumPlates.Features.Accounts;
+using GrumPlates.Features.Accounts.Security;
 
 namespace GrumPlates.Features.Books.Endpoints;
 
