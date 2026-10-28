@@ -132,7 +132,7 @@ public sealed class AccountPasswordTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Accounts:Enabled"] = "true" }).Build();
         var services = new ServiceCollection();
         services.AddIdentityBackend();
-        services.AddAccountFeature(configuration, new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
+        services.AddAccountFeature(configuration, new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
         Assert.Single(services, service => service.ServiceType == typeof(IPasswordValidator<ApplicationUser>));
         Assert.Equal(typeof(AccountPasswordValidator), services.Single(service => service.ServiceType == typeof(IPasswordValidator<ApplicationUser>)).ImplementationType);
         using var provider = services.BuildServiceProvider();
@@ -153,7 +153,7 @@ public sealed class AccountPasswordTests
             ["Accounts:AdminSeed:Password"] = "short"
         }).Build();
         var error = Assert.Throws<OptionsValidationException>(() => new ServiceCollection().AddAccountFeature(configuration,
-            new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
+            new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
         Assert.Contains("Accounts:AdminSeed:Password", error.Message);
         Assert.DoesNotContain("short", error.Message);
     }

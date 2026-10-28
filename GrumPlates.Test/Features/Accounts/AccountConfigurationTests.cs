@@ -18,7 +18,7 @@ public sealed class AccountOptionsTests
     {
         var configuration = Configuration(new() { ["Accounts:Enabled"] = "true" });
         var services = new ServiceCollection();
-        services.AddAccountFeature(configuration, new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
+        services.AddAccountFeature(configuration, new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
         using var provider = services.BuildServiceProvider();
         var snapshot = provider.GetRequiredService<AccountOptions>();
         configuration["Accounts:Enabled"] = "false";
@@ -48,7 +48,7 @@ public sealed class AccountOptionsTests
         var configuration = Configuration(new() { [key] = value });
         var services = new ServiceCollection();
         var error = Assert.Throws<OptionsValidationException>(() => services.AddAccountFeature(configuration,
-            new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
+            new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
         Assert.Contains("Accounts:", error.Message);
         if (value.StartsWith("private", StringComparison.Ordinal)) Assert.DoesNotContain(value, error.Message);
     }
@@ -66,7 +66,7 @@ public sealed class AccountOptionsTests
         var services = new ServiceCollection();
 
         var error = Assert.Throws<OptionsValidationException>(() => services.AddAccountFeature(configuration,
-            new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
+            new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
 
         Assert.Contains("Accounts:AdminSeed:Email and Accounts:AdminSeed:Password", error.Message);
         Assert.DoesNotContain(value, error.Message);
@@ -86,7 +86,7 @@ public sealed class AccountOptionsTests
     {
         Assert.Throws<OptionsValidationException>(() => new ServiceCollection().AddAccountFeature(
             Configuration(new() { ["Accounts:PublicOrigin"] = origin }),
-            new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
+            new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing")));
     }
 
     [Theory]
@@ -104,7 +104,7 @@ public sealed class AccountOptionsTests
             ["Accounts:PublicOrigin"] = origin,
             ["Accounts:Email:Host"] = "localhost",
             ["Accounts:Email:From"] = "sender@example.test"
-        }), new Account.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
+        }), new Blazor.LocalLoginAccountSeedingRulesTests.StubEnvironment("Testing"));
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<AccountOptions>();
         Assert.True(options.EmailEnabled);
