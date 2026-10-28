@@ -1,6 +1,6 @@
 # Rename the template to GrumPlates
 
-Status: **in progress** (started 2026-10-28; written against `main` at `eee8948f`).
+Status: **complete except Phase 8** (local folder rename; needs the operator to close programs using the folder). Executed 2026-10-28; see §11.
 
 Rename the GitHub repository `Grumlebob/BlazorAutoAppTemplate` to `Grumlebob/GrumPlates`, rename every `BlazorAutoApp*` project, folder, namespace and identifier to `GrumPlates*`, rename the local checkout folder, and clean up what the old name leaves behind. No backward compatibility is kept: old image labels, old release payloads and old recovery markers are retired, not aliased.
 
@@ -452,19 +452,31 @@ Each instance is deployed twice from `S1`. The first deploy replaces the current
 
 ## 11. Record
 
-Fill in while executing.
-
 | Item | Value |
 | --- | --- |
-| Deploy authorisation (who, when, scope) | Operator (grumlebob), 2026-10-28, chat: "yea. lets do it proper. full permissions" - covers all Phase 5 deploys |
-| Phase 0.4 baseline release-status runs | |
-| Workflows disabled at / re-enabled at | |
-| `T_RENAME` | |
-| Rename PR / merge SHA `S1` / main CI run | |
-| Node marker rewrite done (node, operator confirmation) | |
-| Deploy runs (LocalCluster ×2, primary ×2, additional ×2) | |
-| Phase 5.7 release-status runs and public health | |
-| GHCR versions deleted per package | |
-| Phase 6.7 retention/maintenance runs | |
-| Phase 7.4 PR / merge SHA | |
-| Deleted branches (full SHA) | |
+| Deploy authorisation (who, when, scope) | Operator (grumlebob), 2026-10-28, chat: "yea. lets do it proper. full permissions"; covers all Phase 5 deploys |
+| Phase 0.4 baseline release-status runs | All success: 40658161609 (localcluster), 40658169977 (primary), 40658178296 (additional) |
+| Workflows disabled at / re-enabled at | 2026-10-28T08:40:32Z / 2026-10-28T13:11:12Z |
+| `T_RENAME` | 2026-10-28T08:40:36Z |
+| Rename PR / merge SHA `S1` / main CI run | #389 / `9cb1961f8959b3e7bf7a8b30f37320ed2bb03cef` / 40663362881 (success) |
+| Node marker rewrite done (node, operator confirmation) | Agent, 2026-10-28, with sudo from the main PC: LocalCluster .52 (`books.env`, runner `.runner`), .7 and .59 (`books.env`, `release.json`, `previous.json`), .24 (`books.env`); node-demo (10 files incl. both apps' markers, `public.json`, runner `.runner`). Leftover scan empty. |
+| Deploy runs (LocalCluster ×2, primary ×2, additional ×2) | LocalCluster from `S1`: 40668876218, 40671622403. node-demo from `S4` (`fe457e0599022001e4c0faab5fa1c2c5567eb894`, after the fixes below), `run_migrations=true` then `false`: primary 40690860276, 40691512860; additional 40691183827, 40691836206. All success. |
+| Phase 5.7 release-status runs and public health | 40692158896, 40692168528, 40692177830 success; all 8 current/recovery markers name `https://github.com/Grumlebob/GrumPlates`; `demo.jacobgrum.com/health/ready` 200 |
+| GHCR versions deleted per package | `books` 626, `books-react` 327, `private-books-release-payload` 15, `private-books-react-release-payload` 15 (0 failures; bootstrap manifest kept); packages `books-release-payload` and `books-react-release-payload` deleted |
+| Phase 6.7 retention/maintenance runs | Retention 40694141788, LocalCluster Docker maintenance 40694165550, LocalSingleNode maintenance 40695174444 (after #394's unit fix was applied on node-demo): success |
+| Phase 7.4 PR / merge SHA | Folded into #389 (commit `4cce746a`): PR CI failed on the pruner's repository-bound manifest test after the GitHub rename |
+| Deleted branches (full SHA) | `chore/rename-grumplates` `4cce746ad54ca866ad963b3161ddaad1538394f5`; `fix/localsinglenode-openssl3-data-protection` `03f2e0b38428d60163db93902e7a1cb4b6ac6ac9`; `fix/localsinglenode-collision-compose-env` `6bc361d75fd4306ae98ee8a4d21b8a084f70599f`; `fix/localsinglenode-compose-env-helpers` `6320782d8f32ce781f785f5143a25463a594810c`; `fix/localsinglenode-backup-deploy-group` `d6c7789a0e9b7456b6f46f1b8b83d05f735d0677` |
+
+### Deviations and findings
+
+- The GitHub rename ran during the local gate (before the PR), so the marker rewrite could overlap. PR CI works after a rename.
+- The local gate's tools were stale (actionlint without `queue:` support, Node 24 for a Node 26.12.1 pin). `~/bin/repo-gate.sh` now uses `Scripts/CI/run-actionlint.sh` and the `engines.node` version.
+- node-demo had not been deployed since 2026-10-16, so the cutover exposed template defects that blocked every LocalSingleNode deploy, independent of the rename:
+  1. `secrets.yml` predated `vault_data_protection_certificate_password` (#320). The agent added a generated passphrase to `/etc/books{,-react}/secrets.yml`; #391 makes the deploy fail with a clear message instead.
+  2. `openssl req -aes256` is rejected by OpenSSL 3.0 (Ubuntu 24.04): fixed in #391.
+  3. The collision check and `backup.py`, `restart-app-check.py`, `verify-release-identity.sh` ran `docker compose` without `.compose.env`: fixed in #392 and #393. CarbonCalculator still lacks the collision-check part: Grumlebob/CarbonCalculator#412.
+  4. The backup unit's `Group=` dropped `deploy`, so nightly backups could not read the certificate: #394 (applied to node-demo's installed units).
+  Several of these were already fixed in CarbonCalculator and had not been ported back to the template.
+- CodeQL dismissals were re-applied to the renamed paths (alerts 16–22, same reasons).
+- Old-name orphans removed with `--cleanup-orphans` on node-demo and node-main. Old Sonar stack (containers, volumes, network, folder) removed. The `blazorautoapp_*` dev volumes are left for Phase 8.
+- Phase 8 (local folder rename) is pending; it needs the operator to close every program using the folder.
