@@ -1,7 +1,8 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ApiError } from "../../api/errors";
-import { apiResult, safeReturnPath } from "./account-api";
+import { apiResult } from "../../api/api-result";
+import { safeReturnPath } from "./account-api";
 import { useAccounts } from "./account-context";
 import { passwordPolicyError } from "./account-password-policy";
 import { accountActionHasEmailRequirement, emailActionSubmitLabels, type AccountAction, type EmailAction } from "./account-form-model";

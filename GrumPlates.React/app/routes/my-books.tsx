@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { apiResult } from "../features/accounts/account-api";
+import { apiResult } from "../api/api-result";
 import { useAccounts } from "../features/accounts/account-context";
 import { PrivateBookList } from "../features/books/private-book-list";
 

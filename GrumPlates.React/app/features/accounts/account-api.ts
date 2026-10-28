@@ -1,10 +1,8 @@
-import createClient from "openapi-fetch";
-import type { components, paths } from "../../api/generated/schema";
-import { ApiError, invalidApiResponse, normalizeTransportError, toHttpApiError } from "../../api/errors";
+import type { components } from "../../api/generated/schema";
+import { ApiError } from "../../api/errors";
 
 export type Session = components["schemas"]["AccountSession"];
 export type ClientConfiguration = components["schemas"]["ClientConfiguration"];
-export type AccountApi = Pick<ReturnType<typeof createClient<paths>>, "GET" | "POST" | "PUT" | "DELETE">;
 
 export const disabledSession: Session = {
   enabled: false,
@@ -13,25 +11,6 @@ export const disabledSession: Session = {
   csrfToken: "",
   user: null,
 };
-
-export function createAccountApi(baseUrl: string, fetcher: (request: Request) => Promise<Response>) {
-  return createClient<paths>({ baseUrl, credentials: "same-origin", fetch: fetcher });
-}
-
-export async function apiResult<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
-  try {
-    const result = await request;
-    if (!result.response.ok) {
-      throw toHttpApiError(result.response, result.error);
-    }
-    if (result.response.status !== 204 && result.data === undefined) {
-      throw invalidApiResponse(result.response.status);
-    }
-    return result.data as T;
-  } catch (error) {
-    throw normalizeTransportError(error);
-  }
-}
 
 export class AccountChangedError extends ApiError {
   constructor() {

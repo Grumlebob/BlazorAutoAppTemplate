@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
-import type { AccountApi, Session } from "./account-api";
+import type { ApiClient } from "../../api/api-client";
+import type { Session } from "./account-api";
 import type { AccountStatus } from "./account-session-controller";
 
 export interface AccountState {
@@ -9,7 +10,7 @@ export interface AccountState {
   checking: boolean;
   error: string | null;
   applicationId: string | null;
-  api: AccountApi;
+  api: ApiClient;
   refresh: () => Promise<Session>;
   changed: () => Promise<Session>;
 }

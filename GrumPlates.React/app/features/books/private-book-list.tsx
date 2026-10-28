@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { components } from "../../api/generated/schema";
-import { apiResult } from "../accounts/account-api";
+import { apiResult } from "../../api/api-result";
 import { useAccounts } from "../accounts/account-context";
 
 type Book = components["schemas"]["BookListItemResponse"];

@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { createApiClient, type ApiClient } from "../../api/api-client";
 import { ApiError, isAbortError, invalidApiResponse, isJsonContentType, toHttpApiError } from "../../api/errors";
-import { AccountChangedError, createAccountApi, disabledSession, type AccountApi, type ClientConfiguration, type Session } from "./account-api";
+import { AccountChangedError, disabledSession, type ClientConfiguration, type Session } from "./account-api";
 
 export type AccountStatus = "loading" | "disabled" | "anonymous" | "authenticated" | "unavailable";
 
@@ -46,7 +47,7 @@ const privateAccountPaths = new Set([
 ]);
 
 export class AccountSessionController {
-  readonly api: AccountApi;
+  readonly api: ApiClient;
 
   private readonly queryClient: QueryClient;
   private readonly baseUrl: string;
@@ -67,7 +68,11 @@ export class AccountSessionController {
     this.baseUrl = options.baseUrl ?? (typeof globalThis.location === "undefined" ? "http://localhost" : globalThis.location.origin);
     this.fetcher = options.fetcher ?? (request => globalThis.fetch(request));
     this.onAccountChange = options.onAccountChange;
-    const api = createAccountApi(this.baseUrl, request => this.sendApiRequest(request));
+    const api = createApiClient({
+      baseUrl: this.baseUrl,
+      credentials: "same-origin",
+      fetch: request => this.sendApiRequest(request),
+    });
     api.use({
       onRequest: ({ request }) => this.prepareApiRequest(request),
       onResponse: async ({ request, response }) => {
