@@ -1,6 +1,6 @@
 # Rename the template to GrumPlates
 
-Status: **complete except Phase 8** (local folder rename; needs the operator to close programs using the folder). Executed 2026-10-28; see §11.
+Status: **complete**. Executed 2026-10-28, Phase 8 (local folder rename) included; see §11.
 
 Rename the GitHub repository `Grumlebob/BlazorAutoAppTemplate` to `Grumlebob/GrumPlates`, rename every `BlazorAutoApp*` project, folder, namespace and identifier to `GrumPlates*`, rename the local checkout folder, and clean up what the old name leaves behind. No backward compatibility is kept: old image labels, old release payloads and old recovery markers are retired, not aliased.
 
@@ -479,4 +479,4 @@ Each instance is deployed twice from `S1`. The first deploy replaces the current
   Several of these were already fixed in CarbonCalculator and had not been ported back to the template.
 - CodeQL dismissals were re-applied to the renamed paths (alerts 16–22, same reasons).
 - Old-name orphans removed with `--cleanup-orphans` on node-demo and node-main. Old Sonar stack (containers, volumes, network, folder) removed. The `blazorautoapp_*` dev volumes are left for Phase 8.
-- Phase 8 (local folder rename) is pending; it needs the operator to close every program using the folder.
+- Phase 8 done 2026-10-28: folder moved to `...\Csharp\GrumPlates`, WSL clone to `~/src/GrumPlates`, `.env` `App__Name` updated, Codex trust and Claude memory moved, the 11 `blazorautoapp*` dev volumes removed. The smoke test ran under Compose project `grumplates` and `/health/ready` returned 200. It needed process-only overrides: host ports 5433 and 7186 were taken by other local projects, and machine-wide `POSTGRES_*`/`Database__*` variables override `.env`. Two `Scripts/RunLocal.ps1` defects were found: the health URL ignores an `APP_HTTPS_HOST_PORT` override, and `docker logs --since` gets a culture-formatted time (`14.48.39`), so failures print no logs.
