@@ -57,6 +57,7 @@ public sealed class IdentityE2ETests : BlazorE2ETestBase
             await Expect(Page.GetByText("No passkeys are registered.")).ToBeVisibleAsync();
             await Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add a new passkey" }))
                 .ToBeVisibleAsync();
+            await Page.WaitForFunctionAsync("() => customElements.get('passkey-submit') !== undefined");
 
             visibleLogoutButton = await MakeNavigationItemVisibleAsync(logoutButton);
             await visibleLogoutButton.ClickAsync();
