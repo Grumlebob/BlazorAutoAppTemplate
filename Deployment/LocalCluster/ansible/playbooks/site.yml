@@ -108,13 +108,13 @@
             and release_frontend_profile == 'BlazorAuto'
             and release_acceptance_profile == 'BlazorAutoV1'
             and staged_app_image_labels.get('org.opencontainers.image.revision', release_source_sha) == release_source_sha
-            and staged_app_image_labels.get('com.blazorautoapp.frontend-profile', 'BlazorAuto') == 'BlazorAuto'
-            and staged_app_image_labels.get('com.blazorautoapp.acceptance-profile', 'BlazorAutoV1') == 'BlazorAutoV1')
+            and staged_app_image_labels.get('com.grumplates.frontend-profile', 'BlazorAuto') == 'BlazorAuto'
+            and staged_app_image_labels.get('com.grumplates.acceptance-profile', 'BlazorAutoV1') == 'BlazorAutoV1')
             or
             (release_manifest_schema_version | string == '2'
             and staged_app_image_labels.get('org.opencontainers.image.revision') == release_source_sha
-            and staged_app_image_labels.get('com.blazorautoapp.frontend-profile') == release_frontend_profile
-            and staged_app_image_labels.get('com.blazorautoapp.acceptance-profile') == release_acceptance_profile)
+            and staged_app_image_labels.get('com.grumplates.frontend-profile') == release_frontend_profile
+            and staged_app_image_labels.get('com.grumplates.acceptance-profile') == release_acceptance_profile)
         fail_msg: "The staged image identity does not match the source SHA and frontend/acceptance contract."
 
 - name: Stop app containers before migration

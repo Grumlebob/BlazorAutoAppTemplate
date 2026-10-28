@@ -20,7 +20,7 @@
           "level": "warning",
           "message": {"text": "Add a nested comment explaining why this block is empty."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 12}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 12}}}
           ]
         },
         {
@@ -28,7 +28,7 @@
           "level": "warning",
           "message": {"text": "Add a nested comment explaining why this block is empty."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 12}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 12}}}
           ]
         },
         {
@@ -37,7 +37,7 @@
           "message": {"text": "Add a nested comment explaining why this block is empty."},
           "suppressions": [{"kind": "inSource", "justification": "reviewed"}],
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 30}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Core/Features/Books/UseCases/GetBook/GetBookRequest.cs"}, "region": {"startLine": 30}}}
           ]
         },
         {
@@ -45,7 +45,7 @@
           "level": "note",
           "message": {"text": "Convert to 'GeneratedRegexAttribute'."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"}, "region": {"startLine": 5}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"}, "region": {"startLine": 5}}}
           ]
         },
         {
@@ -53,7 +53,7 @@
           "level": "warning",
           "message": {"text": "Migration body is empty."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp/Infrastructure/Persistence/Migrations/20260525172002_InitialTemplateSchema.cs"}, "region": {"startLine": 9}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates/Infrastructure/Persistence/Migrations/20260525172002_InitialTemplateSchema.cs"}, "region": {"startLine": 9}}}
           ]
         },
         {
@@ -61,7 +61,7 @@
           "level": "note",
           "message": {"text": "Member 'Build' does not access instance data and can be marked as static."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp.Core/Features/Books/My%20Folder/Z.cs"}, "region": {"startLine": 3}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Core/Features/Books/My%20Folder/Z.cs"}, "region": {"startLine": 3}}}
           ]
         },
         {
@@ -69,7 +69,7 @@
           "level": "note",
           "message": {"text": "Using directive is unnecessary."},
           "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/BlazorAutoApp/Program.cs"}}}
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates/Program.cs"}}}
           ]
         }
       ]

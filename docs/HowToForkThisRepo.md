@@ -28,7 +28,7 @@ Choose these values once and use them consistently:
 | `PUBLIC_HOSTNAME` | The hostname configured for the selected target. |
 | `MIGRATION_BUNDLE_NAME` | Unique name for the fork's migration bundle. |
 
-Update the first README paragraph and the local settings in `.env.example`, `BlazorAutoApp/appsettings.json`, and `BlazorAutoApp/appsettings.Docker.json`. Keep internal project and namespace names unless you are doing a planned rebrand. See [running locally](HowToRunLocally.md) for creating the ignored `.env` file.
+Update the first README paragraph and the local settings in `.env.example`, `GrumPlates/appsettings.json`, and `GrumPlates/appsettings.Docker.json`. Keep internal project and namespace names unless you are doing a planned rebrand. See [running locally](HowToRunLocally.md) for creating the ignored `.env` file.
 
 ## Choose the frontend and sample feature
 

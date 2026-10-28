@@ -36,13 +36,13 @@ if ((ConvertTo-RepositoryIdentity 'https://user:secret@example.com/Owner/Repo.gi
 }
 
 $toolVersions = Get-QualityToolVersions -RepoRoot $repoRoot
-Assert-Equal $toolVersions.schema 'blazorautoapp.sonar-tools/1' 'tool manifest schema'
+Assert-Equal $toolVersions.schema 'grumplates.sonar-tools/1' 'tool manifest schema'
 Assert-Equal $toolVersions.node.version '24.21.0' 'pinned Node version'
 Assert-Equal $toolVersions.node.npmVersion '12.2.0' 'pinned npm version'
 if ($toolVersions.node.windowsArchiveSha256 -notmatch '^[0-9a-f]{64}$') { throw 'Node archive checksum must be 64 lowercase hex characters.' }
 
 $settings = Get-QualitySettingsDocument -Path (Join-Path $repoRoot 'Scripts/Quality/quality-settings.example.json')
-Assert-Equal $settings.schema 'blazorautoapp.sonar-settings/1' 'settings schema'
+Assert-Equal $settings.schema 'grumplates.sonar-settings/1' 'settings schema'
 Assert-Equal $settings.hostPort $null 'default host port'
 
 $sentinel = 'quality-secret-sentinel-123456789'
@@ -59,10 +59,10 @@ try {
     Assert-Throws { Assert-QualitySafeChildPath -Path (Join-Path $temporaryRoot 'CON.txt') -Root $temporaryRoot } 'reserved path'
 
     $validSettingsPath = Join-Path $temporaryRoot 'quality-settings.json'
-    Set-Content -LiteralPath $validSettingsPath -Value '{"schema":"blazorautoapp.sonar-settings/1","hostPort":9231,"nodeToolchainDirectory":null,"pythonExecutable":null}' -Encoding utf8
+    Set-Content -LiteralPath $validSettingsPath -Value '{"schema":"grumplates.sonar-settings/1","hostPort":9231,"nodeToolchainDirectory":null,"pythonExecutable":null}' -Encoding utf8
     $parsedSettings = Get-QualitySettingsDocument -Path $validSettingsPath
     Assert-Equal $parsedSettings.hostPort 9231 'configured numeric host port'
-    Set-Content -LiteralPath $validSettingsPath -Value '{"schema":"blazorautoapp.sonar-settings/1","hostPort":null,"nodeToolchainDirectory":null,"pythonExecutable":null,"serverUrl":"https://example.com"}' -Encoding utf8
+    Set-Content -LiteralPath $validSettingsPath -Value '{"schema":"grumplates.sonar-settings/1","hostPort":null,"nodeToolchainDirectory":null,"pythonExecutable":null,"serverUrl":"https://example.com"}' -Encoding utf8
     Assert-Throws { Get-QualitySettingsDocument -Path $validSettingsPath } 'unknown setting rejection'
 
     $privatePath = Join-Path $temporaryRoot 'settings.json'

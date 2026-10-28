@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
-$clientRoot = Join-Path $repoRoot "BlazorAutoApp.Client"
+$clientRoot = Join-Path $repoRoot "GrumPlates.Client"
 $outputRootPath = if ([IO.Path]::IsPathRooted($OutputRoot)) {
   [IO.Path]::GetFullPath($OutputRoot)
 } else {

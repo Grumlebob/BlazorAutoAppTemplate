@@ -16,7 +16,7 @@ cleanup = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cleanup)
 
 
-REPOSITORY = "Grumlebob/BlazorAutoAppTemplate"
+REPOSITORY = "Grumlebob/GrumPlates"
 SHA = "b" * 40
 ARTIFACT_SHA = "a" * 64
 
@@ -54,7 +54,7 @@ def manifest(entries: list[dict] | None = None) -> dict:
         "schema_version": 1,
         "repository": REPOSITORY,
         "archive": {
-            "name": "BlazorAutoAppTemplate-legacy-diagnostics-20261017.zip",
+            "name": "GrumPlates-legacy-diagnostics-20261017.zip",
             "sha256": "c" * 64,
             "artifact_count": len(entries),
             "verified_readback": True,

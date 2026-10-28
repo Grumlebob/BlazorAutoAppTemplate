@@ -1,0 +1,42 @@
+{
+  "App": {
+    "Name": "GrumPlates"
+  },
+  "Database": {
+    "Host": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Port": 5432,
+    "Name": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Username": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "Password": "INJECT_THIS_IN_ORDER_TO_RUN"
+  },
+  "Redis": {
+    "Configuration": "INJECT_THIS_IN_ORDER_TO_RUN",
+    "AllowMissing": false
+  },
+  "DataProtection": {
+    "KeyStoragePath": "../data/storage/DataProtection-Keys"
+  },
+  "ForwardedHeaders": {
+    "ForwardLimit": 1,
+    "KnownProxies": [],
+    "KnownNetworks": []
+  },
+  "RateLimiting": {
+    "Global": {
+      "PermitLimit": 600,
+      "WindowSeconds": 60,
+      "QueueLimit": 0
+    },
+    "Api": {
+      "PermitLimit": 60,
+      "WindowSeconds": 60,
+      "QueueLimit": 0
+    },
+    "Authentication": {
+      "PermitLimit": 120,
+      "WindowSeconds": 300,
+      "QueueLimit": 0
+    }
+  }
+}
+

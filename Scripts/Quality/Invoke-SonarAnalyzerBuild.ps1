@@ -77,7 +77,7 @@ try {
     New-Item -ItemType Directory -Force -Path $runDirectory | Out-Null
 
     $summary = [ordered]@{
-        schema = 'blazorautoapp.sonar-quick-audit/1'
+        schema = 'grumplates.sonar-quick-audit/1'
         mode = 'Quick'
         runId = $runId
         repositoryIdentity = $Context.RepositoryIdentity
@@ -127,7 +127,7 @@ try {
             }
             $optInRestoreAttempted = $true
             $restoreArgs = @(
-                'restore', (Join-Path $repoRoot 'BlazorAutoApp.sln'), '--verbosity', 'minimal',
+                'restore', (Join-Path $repoRoot 'GrumPlates.sln'), '--verbosity', 'minimal',
                 "-p:FrontendProfile=$profile", '-p:RunSonarAnalyzers=true', "-p:SonarErrorLogDirectory=$sarifArgument"
             )
             $restore = Invoke-QualityProcess -FilePath $Context.DotnetExecutable -ArgumentList $restoreArgs `
@@ -137,7 +137,7 @@ try {
             if ($restore.TimedOut -or $restore.ExitCode -ne 0) { throw "Analyzer restore failed (exit $($restore.ExitCode), timeout $($restore.TimedOut))." }
 
             $buildArgs = @(
-                'build', (Join-Path $repoRoot 'BlazorAutoApp.sln'), '--configuration', $Configuration,
+                'build', (Join-Path $repoRoot 'GrumPlates.sln'), '--configuration', $Configuration,
                 '--no-restore', '--no-incremental', '--disable-build-servers', '-nr:false',
                 "-p:FrontendProfile=$profile", '-p:RunSonarAnalyzers=true', "-p:SonarErrorLogDirectory=$sarifArgument"
             )
@@ -168,7 +168,7 @@ try {
                 throw "SARIF summary failed (exit $($summarize.ExitCode), timeout $($summarize.TimedOut))."
             }
             $profileSummary = Get-Content -LiteralPath $summaryJson -Raw | ConvertFrom-Json
-            if ($profileSummary.schema -ne 'blazorautoapp.sonar-quick-summary/1' -or
+            if ($profileSummary.schema -ne 'grumplates.sonar-quick-summary/1' -or
                 $profileSummary.sha -ne $sha -or $profileSummary.frontendProfile -ne $profile -or
                 $profileSummary.dirty -ne $dirty -or $profileSummary.configurationDigest -ne $record.configurationDigest) {
                 throw 'SARIF summary identity does not match the Quick run.'
@@ -198,7 +198,7 @@ catch {
     $message = Protect-QualityText -Text $_.Exception.Message
     if ($null -eq $summary) {
         $summary = [ordered]@{
-            schema = 'blazorautoapp.sonar-quick-audit/1'
+            schema = 'grumplates.sonar-quick-audit/1'
             mode = 'Quick'
             runId = $null
             repositoryIdentity = $Context.RepositoryIdentity
@@ -229,7 +229,7 @@ finally {
             $selectedProfile = (Get-Content -LiteralPath (Join-Path $repoRoot 'frontend-profile.txt') -Raw).Trim()
             if ($selectedProfile -notin @('BlazorAuto', 'React')) { throw "Invalid tracked frontend profile '$selectedProfile'." }
             $normalArgs = @(
-                'restore', (Join-Path $repoRoot 'BlazorAutoApp.sln'), '--verbosity', 'minimal',
+                'restore', (Join-Path $repoRoot 'GrumPlates.sln'), '--verbosity', 'minimal',
                 "-p:FrontendProfile=$selectedProfile", '-p:RunSonarAnalyzers=false'
             )
             $normalRestore = Invoke-QualityProcess -FilePath $Context.DotnetExecutable -ArgumentList $normalArgs `

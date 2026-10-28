@@ -9,28 +9,28 @@ Start only after the clone selects `React` as described in the [fork guide](../H
 List every match outside `Plans/` and classify it as remove, rewrite or keep:
 
 ```bash
-git grep -nIE "BlazorAuto|BlazorAutoApp\.Client|final-blazor|publish-blazor|\.razor|Blazor" -- ':!Plans'
+git grep -nIE "BlazorAuto|GrumPlates\.Client|final-blazor|publish-blazor|\.razor|Blazor" -- ':!Plans'
 ```
 
 Expect matches in these areas:
 
 | Area | Paths | Action |
 | --- | --- | --- |
-| Client | `BlazorAutoApp.Client/`, its solution and project references | Delete |
-| Host UI | `BlazorAutoApp/Components/`, Razor account pages under `BlazorAutoApp/Features/Login/Account/`, `BlazorAutoApp/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
-| React accounts | `BlazorAutoApp.React/app/features/accounts/`, `app/routes/account.tsx`, `app/routes/auth-index.tsx`, `app/routes/my-books.tsx`, and the server account endpoints/storage | Keep the feature disabled for a public-only clone, or remove the full UI and server capability as a separate product change. Removing the UI alone does not protect the APIs or remove account data |
-| Styles | `BlazorAutoApp/wwwroot/tailwind.css`, `app.css`, `BlazorAutoApp.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
-| Build | `Directory.Build.targets`, `BlazorAutoApp/BlazorAutoApp.csproj`, `frontend-profile.txt` | Accept only `React`; fail clearly on `BlazorAuto`. The file holds `React` |
-| Docker | `publish-blazor` and `final-blazor` stages in `BlazorAutoApp/Dockerfile` | Remove; keep `final-react` |
+| Client | `GrumPlates.Client/`, its solution and project references | Delete |
+| Host UI | `GrumPlates/Components/`, Razor account pages under `GrumPlates/Features/Login/Account/`, `GrumPlates/Frontend/FrontendComposition.BlazorAuto.cs` | Delete; keep one React composition |
+| React accounts | `GrumPlates.React/app/features/accounts/`, `app/routes/account.tsx`, `app/routes/auth-index.tsx`, `app/routes/my-books.tsx`, and the server account endpoints/storage | Keep the feature disabled for a public-only clone, or remove the full UI and server capability as a separate product change. Removing the UI alone does not protect the APIs or remove account data |
+| Styles | `GrumPlates/wwwroot/tailwind.css`, `app.css`, `GrumPlates.Client/Styles` | Delete when only Razor uses them; React builds its own stylesheet |
+| Build | `Directory.Build.targets`, `GrumPlates/GrumPlates.csproj`, `frontend-profile.txt` | Accept only `React`; fail clearly on `BlazorAuto`. The file holds `React` |
+| Docker | `publish-blazor` and `final-blazor` stages in `GrumPlates/Dockerfile` | Remove; keep `final-react` |
 | CI | `.github/workflows/ci.yml`, `Scripts/CI/validate-frontend-profiles.sh`, `Scripts/CI/publish_additional_frontend.sh`, `Scripts/CI/migration_staging_artifact.py`, `ADDITIONAL_FRONTEND_PROFILES` | Build, test and smoke React only; remove other-profile publication. Turn the profiles wrapper into one solution test script, as Portfolio did. Project paths follow the rename |
 | Additional app | `Deployment/LocalSingleNode/ApplicationInstances.md`, `.github/workflows/localsinglenode-app-setup.yml`, `prepare-additional-app.sh`, `verify-additional-app.py`, the `app_instance` inputs of CD and maintenance | It exists only to run the other profile; remove it with its tests. Keep the primary identity and ownership checks in `resolve-app-instance.py` |
 | Release tooling | `Scripts/Frontend/resolve_frontend_profile.py`, `Scripts/CI/write_release_manifest.py`, `Deployment/Common/Scripts/validate_release_manifest.py`, `Deployment/Common/ReleaseContract.md`, each kept target's `verify-release-identity.sh`, `Scripts/Test-DeployedSite.ps1`, `.github/workflows/cd-localsinglenode.yml`, `Deployment/LocalSingleNode/Scripts/lib/read_release_acceptance.py`, `Deployment/LocalSingleNode/ansible/roles/single_node_stack/` | Narrow to React profile and acceptance pairs, including the legacy manifest v1 notes, now or in a recorded follow-up |
 | Other targets | `Deployment/LocalCluster/`, `.github/workflows/cd-localcluster.yml` | Delete with the single-node-only clone. If kept, narrow them like the release tooling |
-| Local tooling | `docker-compose.yml`, `Scripts/RunLocal.ps1`, `Scripts/Testing/`, `BlazorAutoApp.React/scripts/`, `.env.example` | Default to `final-react`; drop the `BlazorAuto` case and `BlazorAutoApp.Client` roots. Names follow the rename |
+| Local tooling | `docker-compose.yml`, `Scripts/RunLocal.ps1`, `Scripts/Testing/`, `GrumPlates.React/scripts/`, `.env.example` | Default to `final-react`; drop the `BlazorAuto` case and `GrumPlates.Client` roots. Names follow the rename |
 | Repository config | `.gitattributes`, `.gitignore`, `.dockerignore`, `.qlty/qlty.toml`, `.github/dependabot.yml` | Drop the `*.razor` rule and the client Dependabot entries. Paths follow the rename |
 | Names | `Deployment/Common/observability/`, `Deployment/LocalSingleNode/Scripts/lib/readiness.py` | Dashboards and the readiness user agent carry the project name. Rename with the project |
-| Tests | `BlazorAutoApp.Test/E2E/Support/BlazorE2ETestBase.cs`, Blazor E2E, render-mode and head-asset hosting tests, architecture tests naming the client, and script fixtures under `Scripts/CI/tests/`, `Deployment/Common/Scripts/Tests/` and `Deployment/LocalSingleNode/Scripts/Tests/` | Delete Blazor-only tests; make architecture and composition tests assert the React-only host; turn fixtures that name the Blazor profile into React ones |
-| Browser tools | `axe-core` and `lighthouse` in `BlazorAutoApp.Client/package.json`, used by `Scripts/RunLighthouse.ps1` and the axe tests | Move them to a test-only package with its own lockfile and Dependabot entry **before** deleting the client |
+| Tests | `GrumPlates.Test/E2E/Support/BlazorE2ETestBase.cs`, Blazor E2E, render-mode and head-asset hosting tests, architecture tests naming the client, and script fixtures under `Scripts/CI/tests/`, `Deployment/Common/Scripts/Tests/` and `Deployment/LocalSingleNode/Scripts/Tests/` | Delete Blazor-only tests; make architecture and composition tests assert the React-only host; turn fixtures that name the Blazor profile into React ones |
+| Browser tools | `axe-core` and `lighthouse` in `GrumPlates.Client/package.json`, used by `Scripts/RunLighthouse.ps1` and the axe tests | Move them to a test-only package with its own lockfile and Dependabot entry **before** deleting the client |
 | Quality tools | `Scripts/Quality`, `docker/sonarqube` | Optional; remove with their docs when unused, as Portfolio did, and delete the CI step that runs their tests |
 | Docs and rules | `AGENTS.md` (Tailwind rebuild rule), `README.md`, and every page under `docs/` that names the profile, such as [FrontendProfiles](../FrontendProfiles.md), [Blazor features](../Features/Blazor.md), the [feature guide](../HowToAddANewFeature.md) and [running locally](../HowToRunLocally.md) | Describe one frontend; delete the Blazor guide |
 

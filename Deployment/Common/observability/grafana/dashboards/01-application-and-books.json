@@ -682,12 +682,12 @@
       {
         "current": {
           "selected": false,
-          "text": "BlazorAutoApp",
-          "value": "BlazorAutoApp"
+          "text": "GrumPlates",
+          "value": "GrumPlates"
         },
         "label": "Trace service",
         "name": "service_name",
-        "query": "BlazorAutoApp",
+        "query": "GrumPlates",
         "type": "textbox"
       }
     ]

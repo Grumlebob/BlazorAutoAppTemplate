@@ -25,7 +25,7 @@ The app exports metrics and traces to its local Alloy agent. Alloy reads contain
 
 | Concern | Source |
 | --- | --- |
-| App instrumentation and resource attributes | [`ObservabilityExtensions.cs`](../../BlazorAutoApp/Infrastructure/Hosting/ObservabilityExtensions.cs) and [`appsettings.json`](../../BlazorAutoApp/appsettings.json) |
+| App instrumentation and resource attributes | [`ObservabilityExtensions.cs`](../../GrumPlates/Infrastructure/Hosting/ObservabilityExtensions.cs) and [`appsettings.json`](../../GrumPlates/appsettings.json) |
 | Local Compose services and resource limits | [`docker-compose.yml`](../../docker-compose.yml), [`Alloy config`](../../docker/observability/alloy/config.alloy), and the [local backend configs](../../docker/observability) |
 | Shared dashboards, alert rules, routing, and runbooks | [Dashboard spec](../../Deployment/Common/observability/grafana/dashboard_spec.py), [Prometheus rules](../../Deployment/Common/observability/prometheus/rules), [Alertmanager config](../../Deployment/Common/observability/alertmanager/alertmanager.yml), and [runbooks](../../Deployment/Common/observability/runbooks) |
 | LocalCluster retention and telemetry settings | [Group vars](../../Deployment/LocalCluster/inventory/prod/group_vars/all.yml), [backend role](../../Deployment/LocalCluster/ansible/roles/observability_backend/tasks/main.yml), and [agent role](../../Deployment/LocalCluster/ansible/roles/observability_agent/tasks/main.yml) |
@@ -35,7 +35,7 @@ Common owns target-neutral dashboards, rules, runbooks, and checks. Each target 
 
 ## Correlation and bounded labels
 
-The app sets `service.version`, `deployment.target`, and `host.name` resource attributes; dashboards expose them as `service_version`, `deployment_target`, and `host_name` to distinguish releases and instances. App logs include a `TraceId` field; use it to open the related Tempo trace. The app adds these attributes and log correlation in [`ObservabilityExtensions.cs`](../../BlazorAutoApp/Infrastructure/Hosting/ObservabilityExtensions.cs).
+The app sets `service.version`, `deployment.target`, and `host.name` resource attributes; dashboards expose them as `service_version`, `deployment_target`, and `host_name` to distinguish releases and instances. App logs include a `TraceId` field; use it to open the related Tempo trace. The app adds these attributes and log correlation in [`ObservabilityExtensions.cs`](../../GrumPlates/Infrastructure/Hosting/ObservabilityExtensions.cs).
 
 Metric labels must stay bounded. Use stable dimensions such as target, environment, node, service, version, route, method, status, and operation. Never label by user or record IDs, email, full URL, query string, request or trace ID, IP address, user agent, or free-text exception. Loki labels identify the source; keep request and trace IDs as structured fields, not labels. Logs and trace attributes must not contain request bodies, credentials, cookies, tokens, connection strings, or raw user content. The shared [cardinality check](../../Deployment/Common/observability/scripts/check-telemetry-cardinality.sh) and [telemetry-cardinality runbook](../../Deployment/Common/observability/runbooks/telemetry-cardinality.md) cover the current guardrails.
 

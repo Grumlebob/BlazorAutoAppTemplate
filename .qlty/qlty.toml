@@ -1,4 +1,4 @@
 config_version = "0"
-# The OpenAPI types in BlazorAutoApp.React/app/api/generated are generated (npm run api:generate), not written by hand.
-exclude_patterns = ["**/Migrations/**", "**/node_modules/**", "**/obj/**", "**/bin/**", "**/wwwroot/lib/**", "Plans/**", "TestResults/**", "artifacts/**", "BlazorAutoApp.React/app/api/generated/**"]
-test_patterns = ["BlazorAutoApp.Test/**", "**/tests/**", "**/Tests/**"]
+# The OpenAPI types in GrumPlates.React/app/api/generated are generated (npm run api:generate), not written by hand.
+exclude_patterns = ["**/Migrations/**", "**/node_modules/**", "**/obj/**", "**/bin/**", "**/wwwroot/lib/**", "Plans/**", "TestResults/**", "artifacts/**", "GrumPlates.React/app/api/generated/**"]
+test_patterns = ["GrumPlates.Test/**", "**/tests/**", "**/Tests/**"]

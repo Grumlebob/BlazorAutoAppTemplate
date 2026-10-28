@@ -14,13 +14,13 @@ Portable rules for people and coding agents working in this repository. Machine-
 - Before merging a PR that other open PRs use as their base, retarget them with `gh pr edit <n> --base main`; `--delete-branch` otherwise closes them.
 - For changes that include code, configuration or other non-Markdown files, run the local gate before pushing; CI is not the first test run. The full list is in [docs/Test.md](docs/Test.md#local-gate). The short form:
   ```bash
-  dotnet format BlazorAutoApp.sln --verify-no-changes
+  dotnet format GrumPlates.sln --verify-no-changes
   bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
   bash Deployment/LocalCluster/Scripts/audit-deployment.sh
   ```
 - Keep `dotnet build` and `dotnet test` sequential in one checkout. Never run them at the same time against the same files.
 - When you change behaviour that the deployment audit (`Deployment/LocalCluster/Scripts/Component/lib/audit_deployment.py`) checks, update the audit in the same change: replace the old rule with a rule for the new behaviour, never just delete it.
-- Rebuild and commit `BlazorAutoApp/wwwroot/tailwind.css` when Razor classes or `BlazorAutoApp.Client/Styles` change.
+- Rebuild and commit `GrumPlates/wwwroot/tailwind.css` when Razor classes or `GrumPlates.Client/Styles` change.
 - Product requirements are in [docs/Requirements.md](docs/Requirements.md).
 - Keep durable docs focused on current template behavior. Link canonical rules and commands instead of duplicating them; keep execution history in plans or PRs and use generic examples unless project-specific details explain template behavior.
 

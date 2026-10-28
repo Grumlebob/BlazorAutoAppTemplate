@@ -91,8 +91,8 @@ class ReleaseFixture:
         self.labels = {
             "org.opencontainers.image.source": self.provenance["repository"],
             "org.opencontainers.image.revision": self.env["GITHUB_SHA"],
-            "com.blazorautoapp.frontend-profile": "React",
-            "com.blazorautoapp.acceptance-profile": "ReactPublicV1",
+            "com.grumplates.frontend-profile": "React",
+            "com.grumplates.acceptance-profile": "ReactPublicV1",
             "localcluster.ci.repository": "example/template", "localcluster.ci.owner": "ci-build",
             "localcluster.ci.run_id": "123", "localcluster.ci.run_attempt": "2",
         }
@@ -114,7 +114,7 @@ class ManifestTests(ReleaseFixture, unittest.TestCase):
 
     def test_primary_blazor_metadata_retains_original_names(self):
         self.env.update(FRONTEND_PROFILE="BlazorAuto", FRONTEND_ACCEPTANCE_PROFILE="BlazorAutoV1", APP_IMAGE=SETTINGS["app_image"])
-        self.labels.update({"com.blazorautoapp.frontend-profile": "BlazorAuto", "com.blazorautoapp.acceptance-profile": "BlazorAutoV1"})
+        self.labels.update({"com.grumplates.frontend-profile": "BlazorAuto", "com.grumplates.acceptance-profile": "BlazorAutoV1"})
         manifest = write_manifest(self.directory, [SETTINGS["app_image"] + "@sha256:" + "b" * 64], self.labels, self.env)
         self.assertEqual(manifest["frontend_profile"], "BlazorAuto")
         self.assertEqual(manifest["image_ref"], SETTINGS["app_image"] + ":" + "a" * 40)
@@ -184,7 +184,7 @@ class PublisherTests(ReleaseFixture, unittest.TestCase):
         artifacts.mkdir()
         shutil.copytree(self.directory, artifacts / "migrations")
         (artifacts / "migrations/release-manifest.json").write_text("primary manifest remains unchanged")
-        binary = self.repository / "BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1"
+        binary = self.repository / "GrumPlates.Test/bin/Release/net10.0/playwright.ps1"
         binary.parent.mkdir(parents=True)
         binary.write_text("fixture")
         self.log = self.repository / "commands.log"

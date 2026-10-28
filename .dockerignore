@@ -25,9 +25,9 @@
 **/*.jfm
 **/Dockerfile*
 **/docker-compose*
-!BlazorAutoApp/Dockerfile
+!GrumPlates/Dockerfile
 !docker-compose.yml
-!BlazorAutoApp/appsettings.Docker.json
+!GrumPlates/appsettings.Docker.json
 docker/https/*.pfx
 docker/https/*.p12
 docker/https/*.key
@@ -36,7 +36,7 @@ docker/https/*.crt
 .env.*
 !.env.example
 data/**
-BlazorAutoApp/Storage/**
+GrumPlates/Storage/**
 TestResults/**
 artifacts/**
 Tools/**

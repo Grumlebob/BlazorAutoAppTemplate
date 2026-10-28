@@ -1,11 +1,11 @@
 {
   "paging": {"pageIndex": 1, "pageSize": 500, "total": 4},
-  "baseComponent": {"key": "blazorautoapp-abc12345-BlazorAuto", "name": "BlazorAuto", "qualifier": "TRK", "measures": []},
+  "baseComponent": {"key": "grumplates-abc12345-BlazorAuto", "name": "BlazorAuto", "qualifier": "TRK", "measures": []},
   "components": [
     {
-      "key": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs",
+      "key": "grumplates-abc12345-BlazorAuto:GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
       "name": "BookCoverGeometry.cs", "qualifier": "FIL",
-      "path": "BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs", "language": "cs",
+      "path": "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs", "language": "cs",
       "measures": [
         {"metric": "ncloc", "value": "1813"}, {"metric": "cognitive_complexity", "value": "478"},
         {"metric": "coverage", "value": "58.5"}, {"metric": "lines_to_cover", "value": "900"},
@@ -14,21 +14,21 @@
       ]
     },
     {
-      "key": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Client/Features/Books/Shared/BookCoverRenderer.razor",
+      "key": "grumplates-abc12345-BlazorAuto:GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor",
       "name": "BookCoverRenderer.razor", "qualifier": "FIL",
-      "path": "BlazorAutoApp.Client/Features/Books/Shared/BookCoverRenderer.razor", "language": "cs",
+      "path": "GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor", "language": "cs",
       "measures": [{"metric": "ncloc", "value": "84"}, {"metric": "cognitive_complexity", "value": "14"}]
     },
     {
-      "key": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
+      "key": "grumplates-abc12345-BlazorAuto:GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
       "name": "GetBooksResponse.cs", "qualifier": "FIL",
-      "path": "BlazorAutoApp.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs", "language": "cs",
+      "path": "GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs", "language": "cs",
       "measures": [{"metric": "ncloc", "value": "42"}, {"metric": "cognitive_complexity", "value": "2"}]
     },
     {
-      "key": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Client/Styles/input.css",
+      "key": "grumplates-abc12345-BlazorAuto:GrumPlates.Client/Styles/input.css",
       "name": "input.css", "qualifier": "FIL",
-      "path": "BlazorAutoApp.Client/Styles/input.css", "language": "css",
+      "path": "GrumPlates.Client/Styles/input.css", "language": "css",
       "measures": [{"metric": "ncloc", "value": "120"}, {"metric": "cognitive_complexity", "value": "0"}]
     }
   ]

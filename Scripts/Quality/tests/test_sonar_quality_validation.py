@@ -55,7 +55,7 @@ class VitestValidationTests(unittest.TestCase):
     def test_validates_all_react_sources_when_none_is_fully_uncovered(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react_root = root / "BlazorAutoApp.React"
+            react_root = root / "GrumPlates.React"
             first = react_root / "app" / "routes.ts"
             second = react_root / "app" / "components" / "Card.tsx"
             first.parent.mkdir(parents=True)
@@ -67,7 +67,7 @@ class VitestValidationTests(unittest.TestCase):
                 json.dumps(
                     {
                         "app/routes.ts": {"lines": {"total": 3, "covered": 2}},
-                        "BlazorAutoApp.React/app/components/Card.tsx": {"lines": {"total": 2, "covered": 1}},
+                        "GrumPlates.React/app/components/Card.tsx": {"lines": {"total": 2, "covered": 1}},
                         "total": {"lines": {"total": 5, "covered": 3}},
                     }
                 ),
@@ -81,7 +81,7 @@ class VitestValidationTests(unittest.TestCase):
     def test_coverage_requires_every_react_application_source(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react_root = root / "BlazorAutoApp.React"
+            react_root = root / "GrumPlates.React"
             first = react_root / "app" / "routes.ts"
             second = react_root / "app" / "components" / "Card.tsx"
             first.parent.mkdir(parents=True)
@@ -99,7 +99,7 @@ class VitestValidationTests(unittest.TestCase):
     def test_coverage_requires_at_least_one_covered_react_line(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react_root = root / "BlazorAutoApp.React"
+            react_root = root / "GrumPlates.React"
             source = react_root / "app" / "routes.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export {}\n", encoding="utf-8")
@@ -114,7 +114,7 @@ class VitestValidationTests(unittest.TestCase):
     def test_coverage_rejects_boolean_line_counts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react_root = root / "BlazorAutoApp.React"
+            react_root = root / "GrumPlates.React"
             source = react_root / "app" / "routes.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export {}\n", encoding="utf-8")
@@ -131,30 +131,30 @@ class LcovNormalizationTests(unittest.TestCase):
     def test_normalizes_paths_with_spaces_and_windows_separators(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react = root / "BlazorAutoApp.React"
+            react = root / "GrumPlates.React"
             source = react / "app" / "space dir" / "file.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export const value = 1\n", encoding="utf-8")
             content = "TN:\nSF:app\\space%20dir\\file.ts\nDA:1,1\nend_of_record\n"
             self.assertEqual(
                 normalize(content, root, react),
-                "TN:\nSF:BlazorAutoApp.React/app/space dir/file.ts\nDA:1,1\nend_of_record\n",
+                "TN:\nSF:GrumPlates.React/app/space dir/file.ts\nDA:1,1\nend_of_record\n",
             )
 
     def test_keeps_repository_root_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react = root / "BlazorAutoApp.React"
+            react = root / "GrumPlates.React"
             source = react / "app" / "client.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export {}\n", encoding="utf-8")
             content = f"SF:{source.as_posix()}\nDA:1,1\nend_of_record\n"
-            self.assertIn("SF:BlazorAutoApp.React/app/client.ts", normalize(content, root, react))
+            self.assertIn("SF:GrumPlates.React/app/client.ts", normalize(content, root, react))
 
     def test_rejects_unresolved_and_outside_sources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react = root / "BlazorAutoApp.React"
+            react = root / "GrumPlates.React"
             react.mkdir()
             outside = root.parent / f"{root.name}-outside.ts"
             outside.write_text("export {}\n", encoding="utf-8")
@@ -169,7 +169,7 @@ class LcovNormalizationTests(unittest.TestCase):
     def test_rejects_duplicate_source_and_incomplete_records(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            react = root / "BlazorAutoApp.React"
+            react = root / "GrumPlates.React"
             source = react / "app" / "client.ts"
             source.parent.mkdir(parents=True)
             source.write_text("export {}\n", encoding="utf-8")

@@ -5,7 +5,7 @@ import urllib.error
 import urllib.request
 
 
-READINESS_USER_AGENT = "BlazorAutoApp-Deployment-Readiness/1.0"
+READINESS_USER_AGENT = "GrumPlates-Deployment-Readiness/1.0"
 
 
 def build_request(url):

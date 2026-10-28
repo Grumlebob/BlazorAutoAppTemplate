@@ -165,7 +165,7 @@ def create_staging_artifact(
     build_command = [
         "dotnet",
         "build",
-        "BlazorAutoApp/BlazorAutoApp.csproj",
+        "GrumPlates/GrumPlates.csproj",
         "--configuration",
         "Release",
         "--no-restore",
@@ -181,9 +181,9 @@ def create_staging_artifact(
         "--no-color",
         "--no-build",
         "--project",
-        "BlazorAutoApp/BlazorAutoApp.csproj",
+        "GrumPlates/GrumPlates.csproj",
         "--startup-project",
-        "BlazorAutoApp/BlazorAutoApp.csproj",
+        "GrumPlates/GrumPlates.csproj",
         "--configuration",
         "Release",
     ]

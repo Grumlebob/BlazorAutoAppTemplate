@@ -29,7 +29,7 @@ class CiPayloadReceiptTests(unittest.TestCase):
         self.bundle_sha = "b" * 64
         self.bundle_name = "books-migrate"
         self.identity = registry_payload.ReleasePayloadIdentity(
-            repository="https://github.com/grumlebob/BlazorAutoAppTemplate",
+            repository="https://github.com/grumlebob/GrumPlates",
             commit_sha="1" * 40,
             run_id="123",
             run_attempt="2",
@@ -408,7 +408,7 @@ class CiPayloadReceiptTests(unittest.TestCase):
         with patch.object(MODULE.urllib.request, "build_opener", return_value=opener), patch.object(
             MODULE.urllib.request, "urlopen", return_value=log_body
         ) as redirected:
-            text = MODULE.download_job_logs("grumlebob/BlazorAutoAppTemplate", 44, "task-token")
+            text = MODULE.download_job_logs("grumlebob/GrumPlates", 44, "task-token")
 
         self.assertEqual(text, "job logs\n")
         self.assertEqual(opener.request.get_header("Authorization"), "Bearer task-token")
@@ -424,7 +424,7 @@ class CiPayloadReceiptTests(unittest.TestCase):
 
         with patch.object(MODULE.urllib.request, "build_opener", return_value=FakeOpener()):
             with self.assertRaisesRegex(MODULE.ReceiptError, "HTTP 404"):
-                MODULE.download_job_logs("grumlebob/BlazorAutoAppTemplate", 44, "task-token")
+                MODULE.download_job_logs("grumlebob/GrumPlates", 44, "task-token")
 
 
 if __name__ == "__main__":

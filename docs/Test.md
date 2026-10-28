@@ -30,12 +30,12 @@ Run every command successfully before pushing non-Markdown changes. Use Linux or
 
 ```bash
 git diff --check
-dotnet restore BlazorAutoApp.sln
+dotnet restore GrumPlates.sln
 python3 -m unittest Scripts/CI/tests/test_frontend_profile.py Scripts/CI/tests/test_frontend_release.py Scripts/CI/tests/test_ci_report_store.py
 python3 -m unittest Scripts/CI/tests/test_runner_profiles.py Scripts/CI/tests/test_select_ci_runner.py Scripts/CI/tests/test_verify_ci_runner.py Scripts/CI/tests/test_ci_runner_routing_workflow.py Scripts/CI/tests/test_require_ci_results.py
 python3 -m unittest Scripts/CI/tests/test_workflow_policy.py
 python3 Scripts/CI/workflow_policy.py --repo-root .
-dotnet format BlazorAutoApp.sln --verify-no-changes --verbosity minimal --no-restore
+dotnet format GrumPlates.sln --verify-no-changes --verbosity minimal --no-restore
 bash Scripts/CI/validate-frontend-profiles.sh /tmp/frontend-profile-results # needs Docker
 bash Deployment/Common/Scripts/validate-common-release.sh
 bash Deployment/Cloud/Scripts/validate-cloud-settings.sh
@@ -49,7 +49,7 @@ find Deployment Scripts/CI -type f -name '*.sh' -print0 | xargs -0 shellcheck --
 bash Scripts/CI/run-actionlint.sh
 ```
 
-If `BlazorAutoApp.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit the generated `BlazorAutoApp/wwwroot/tailwind.css` when it changes. Changes to deployment scripts also require suites under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/`, `Deployment/LocalSingleNode/Scripts/Tests/`, and `Scripts/CI/tests/`; CI's validate job lists the current commands.
+If `GrumPlates.Client/Styles` or Razor classes change, run `npm ci && npm run css:build` from the client project and commit the generated `GrumPlates/wwwroot/tailwind.css` when it changes. Changes to deployment scripts also require suites under `Deployment/LocalCluster/Scripts/Tests/`, `Deployment/Common/Scripts/Tests/`, `Deployment/LocalSingleNode/Scripts/Tests/`, and `Scripts/CI/tests/`; CI's validate job lists the current commands.
 
 ## Lighthouse Performance
 

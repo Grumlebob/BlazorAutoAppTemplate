@@ -1,10 +1,10 @@
 # React frontend
 
-This page covers local React development and feature changes. React has public catalog routes and an optional cookie-based account experience; the server disables accounts by default and exposes capability before the client starts account requests. Public catalog calls stay credential-free. See the [Accounts runbook](../Accounts.md) for local Admin setup, mail configuration and recovery. Read [FrontendProfiles](../FrontendProfiles.md) when changing the persisted profile, static hosting, or release pairing. The package manifest and lockfile are the version authorities: [package.json](../../BlazorAutoApp.React/package.json), [package-lock.json](../../BlazorAutoApp.React/package-lock.json).
+This page covers local React development and feature changes. React has public catalog routes and an optional cookie-based account experience; the server disables accounts by default and exposes capability before the client starts account requests. Public catalog calls stay credential-free. See the [Accounts runbook](../Accounts.md) for local Admin setup, mail configuration and recovery. Read [FrontendProfiles](../FrontendProfiles.md) when changing the persisted profile, static hosting, or release pairing. The package manifest and lockfile are the version authorities: [package.json](../../GrumPlates.React/package.json), [package-lock.json](../../GrumPlates.React/package-lock.json).
 
 ## Install and develop
 
-Use the pinned Node and npm versions in the package manifest. From `BlazorAutoApp.React/`:
+Use the pinned Node and npm versions in the package manifest. From `GrumPlates.React/`:
 
 ```powershell
 npm ci
@@ -15,7 +15,7 @@ npm test
 npm run build
 ```
 
-For live development, start compatible PostgreSQL and Redis services as described in [local setup](../HowToRunLocally.md#run-without-docker). In separate terminals, run `npm run dev:api` and `npm run dev` from `BlazorAutoApp.React`. Open `https://localhost:5173`. Vite proxies `/api` to the C# host. If the API uses another HTTPS origin, set `REACT_API_ORIGIN` in both terminals. The dev scripts require a trusted ASP.NET Core HTTPS certificate; if needed, trust it with `dotnet dev-certs https --trust`. They do not build or change the production static root.
+For live development, start compatible PostgreSQL and Redis services as described in [local setup](../HowToRunLocally.md#run-without-docker). In separate terminals, run `npm run dev:api` and `npm run dev` from `GrumPlates.React`. Open `https://localhost:5173`. Vite proxies `/api` to the C# host. If the API uses another HTTPS origin, set `REACT_API_ORIGIN` in both terminals. The dev scripts require a trusted ASP.NET Core HTTPS certificate; if needed, trust it with `dotnet dev-certs https --trust`. They do not build or change the production static root.
 
 ## Change a typed public feature
 
@@ -35,6 +35,6 @@ Generation uses a metadata-only server host; it needs the .NET SDK and package t
 
 ## Runtime behavior
 
-Use the generated API client in [app/api/client.ts](../../BlazorAutoApp.React/app/api/client.ts), safe error parsing in [errors.ts](../../BlazorAutoApp.React/app/api/errors.ts), and shared query defaults in [query-client.ts](../../BlazorAutoApp.React/app/api/query-client.ts). The shared query client keeps results fresh for 60 seconds, removes unused entries after five minutes, and refetches on focus or reconnect. It retries once for network failures and 502/503/504, never for 4xx responses. Errors expose safe ProblemDetails, field errors, a Retry-After value capped at 60 seconds, and available correlation IDs; malformed or unexpected success bodies become invalid-response errors. Keep public links limited to safe HTTP or HTTPS URLs.
+Use the generated API client in [app/api/client.ts](../../GrumPlates.React/app/api/client.ts), safe error parsing in [errors.ts](../../GrumPlates.React/app/api/errors.ts), and shared query defaults in [query-client.ts](../../GrumPlates.React/app/api/query-client.ts). The shared query client keeps results fresh for 60 seconds, removes unused entries after five minutes, and refetches on focus or reconnect. It retries once for network failures and 502/503/504, never for 4xx responses. Errors expose safe ProblemDetails, field errors, a Retry-After value capped at 60 seconds, and available correlation IDs; malformed or unexpected success bodies become invalid-response errors. Keep public links limited to safe HTTP or HTTPS URLs.
 
-Routes live under `BlazorAutoApp.React/app/routes`; feature components live under `app/features`. Extend the generated contract rather than duplicating API types. Browser acceptance is in [Testing/Browser](../Testing/Browser.md).
+Routes live under `GrumPlates.React/app/routes`; feature components live under `app/features`. Extend the generated contract rather than duplicating API types. Browser acceptance is in [Testing/Browser](../Testing/Browser.md).

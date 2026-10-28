@@ -27,7 +27,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.digest = "sha256:" + "a" * 64
         self.manifest = {
             "schema_version": 2,
-            "repository": "https://github.com/grumlebob/BlazorAutoAppTemplate",
+            "repository": "https://github.com/grumlebob/GrumPlates",
             "commit_sha": "1" * 40,
             "frontend_profile": "BlazorAuto",
             "acceptance_profile": "BlazorAutoV1",
@@ -47,9 +47,9 @@ class ReleaseContractTests(unittest.TestCase):
         self.image_labels = {
             "org.opencontainers.image.source": self.manifest["repository"],
             "org.opencontainers.image.revision": self.manifest["commit_sha"],
-            "com.blazorautoapp.frontend-profile": self.manifest["frontend_profile"],
-            "com.blazorautoapp.acceptance-profile": self.manifest["acceptance_profile"],
-            "localcluster.ci.repository": "grumlebob/BlazorAutoAppTemplate",
+            "com.grumplates.frontend-profile": self.manifest["frontend_profile"],
+            "com.grumplates.acceptance-profile": self.manifest["acceptance_profile"],
+            "localcluster.ci.repository": "grumlebob/GrumPlates",
             "localcluster.ci.run_id": "123",
             "localcluster.ci.run_attempt": "1",
         }
@@ -60,7 +60,7 @@ class ReleaseContractTests(unittest.TestCase):
     def validate(self, frontend_profile: str = "BlazorAuto", acceptance_profile: str = "BlazorAutoV1") -> str:
         return MODULE.validate_manifest(
             self.manifest,
-            expected_repository="https://github.com/grumlebob/BlazorAutoAppTemplate",
+            expected_repository="https://github.com/grumlebob/GrumPlates",
             expected_sha="1" * 40,
             expected_ci_run_id="123",
             expected_ci_run_attempt="1",
@@ -91,16 +91,16 @@ class ReleaseContractTests(unittest.TestCase):
             self.validate("BlazorAuto", "ReactPublicV1")
 
     def test_rejects_baked_image_profile_or_source_mismatch(self) -> None:
-        self.image_labels["com.blazorautoapp.frontend-profile"] = "React"
+        self.image_labels["com.grumplates.frontend-profile"] = "React"
         with self.assertRaisesRegex(MODULE.ManifestError, "frontend-profile"):
             self.validate()
 
-        self.image_labels["com.blazorautoapp.frontend-profile"] = "BlazorAuto"
-        self.image_labels["com.blazorautoapp.acceptance-profile"] = "ReactPublicV1"
+        self.image_labels["com.grumplates.frontend-profile"] = "BlazorAuto"
+        self.image_labels["com.grumplates.acceptance-profile"] = "ReactPublicV1"
         with self.assertRaisesRegex(MODULE.ManifestError, "acceptance-profile"):
             self.validate()
 
-        self.image_labels["com.blazorautoapp.acceptance-profile"] = "BlazorAutoV1"
+        self.image_labels["com.grumplates.acceptance-profile"] = "BlazorAutoV1"
         self.image_labels["org.opencontainers.image.revision"] = "2" * 40
         with self.assertRaisesRegex(MODULE.ManifestError, "revision"):
             self.validate()
@@ -109,8 +109,8 @@ class ReleaseContractTests(unittest.TestCase):
         self.manifest["schema_version"] = 1
         del self.manifest["frontend_profile"]
         del self.manifest["acceptance_profile"]
-        del self.image_labels["com.blazorautoapp.frontend-profile"]
-        del self.image_labels["com.blazorautoapp.acceptance-profile"]
+        del self.image_labels["com.grumplates.frontend-profile"]
+        del self.image_labels["com.grumplates.acceptance-profile"]
         del self.image_labels["org.opencontainers.image.revision"]
 
         self.assertEqual(self.validate(), self.digest)
@@ -121,7 +121,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.manifest["schema_version"] = 1
         del self.manifest["frontend_profile"]
         del self.manifest["acceptance_profile"]
-        self.image_labels["com.blazorautoapp.frontend-profile"] = "React"
+        self.image_labels["com.grumplates.frontend-profile"] = "React"
 
         with self.assertRaisesRegex(MODULE.ManifestError, "conflicts with the Blazor release"):
             self.validate()
@@ -165,7 +165,7 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaises(MODULE.ManifestError):
             MODULE.validate_manifest(
                 self.manifest,
-                expected_repository="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                expected_repository="https://github.com/Grumlebob/GrumPlates",
                 expected_sha="1" * 40,
                 expected_ci_run_id="123",
                 expected_ci_run_attempt="2",

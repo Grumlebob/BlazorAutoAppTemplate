@@ -3,7 +3,7 @@
   <Property Name="sonar.sourceEncoding">UTF-8</Property>
   <Property Name="sonar.scanner.scanAll">true</Property>
   <Property Name="sonar.python.version">3.13</Property>
-  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,.git/**,.sonarqube/**,**/node_modules/**,artifacts/**,**/TestResults/**,Plans/**,Plans.local/**,BlazorAutoApp.React/build/**,BlazorAutoApp.React/.react-router/**,BlazorAutoApp.React/coverage/**,BlazorAutoApp.React/app/api/generated/**,BlazorAutoApp.React/api/openapi.json,BlazorAutoApp/wwwroot/tailwind.css,**/Migrations/**,**/*.Designer.cs,**/*.g.cs</Property>
+  <Property Name="sonar.exclusions">**/bin/**,**/obj/**,.git/**,.sonarqube/**,**/node_modules/**,artifacts/**,**/TestResults/**,Plans/**,Plans.local/**,GrumPlates.React/build/**,GrumPlates.React/.react-router/**,GrumPlates.React/coverage/**,GrumPlates.React/app/api/generated/**,GrumPlates.React/api/openapi.json,GrumPlates/wwwroot/tailwind.css,**/Migrations/**,**/*.Designer.cs,**/*.g.cs</Property>
   <Property Name="sonar.coverage.exclusions">Scripts/**,Deployment/**,docker/**</Property>
   <Property Name="sonar.cpd.exclusions">**/Migrations/**</Property>
 </SonarQubeAnalysisProperties>

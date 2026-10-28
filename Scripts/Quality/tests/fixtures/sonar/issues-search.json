@@ -7,8 +7,8 @@
   "issues": [
     {
       "key": "46372986-af72-42d0-aa65-47adfff3d9aa", "rule": "csharpsquid:S6709", "severity": "MAJOR",
-      "component": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs",
-      "project": "blazorautoapp-abc12345-BlazorAuto", "line": 33,
+      "component": "grumplates-abc12345-BlazorAuto:GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
+      "project": "grumplates-abc12345-BlazorAuto", "line": 33,
       "message": "Provide a deterministic fallback for the geometry calculation.", "effort": "5min",
       "author": "reviewer@example.invalid", "tags": ["geometry"], "type": "CODE_SMELL", "scope": "MAIN",
       "impacts": [
@@ -19,16 +19,16 @@
     },
     {
       "key": "7c1e5a10-0b7d-4a57-9d3e-2f0a6b1c9e11", "rule": "csharpsquid:S6966", "severity": "MAJOR",
-      "component": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
-      "project": "blazorautoapp-abc12345-BlazorAuto", "line": 120,
+      "component": "grumplates-abc12345-BlazorAuto:GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs",
+      "project": "grumplates-abc12345-BlazorAuto", "line": 120,
       "message": "Use an awaitable overload of this method.", "effort": "10min", "author": "reviewer@example.invalid",
       "tags": ["async"], "type": "BUG", "scope": "MAIN",
       "impacts": [{"softwareQuality": "RELIABILITY", "severity": "MEDIUM"}]
     },
     {
       "key": "b9d4f2c3-6e1a-4f08-8a2b-5c7d9e0f1a22", "rule": "csharpsquid:S3776", "severity": "CRITICAL",
-      "component": "blazorautoapp-abc12345-BlazorAuto:BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs",
-      "project": "blazorautoapp-abc12345-BlazorAuto", "status": "OPEN",
+      "component": "grumplates-abc12345-BlazorAuto:GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
+      "project": "grumplates-abc12345-BlazorAuto", "status": "OPEN",
       "message": "Refactor this method to reduce cognitive complexity.", "effort": "20min",
       "author": "reviewer@example.invalid", "tags": ["complexity"], "type": "CODE_SMELL", "scope": "MAIN",
       "impacts": [{"softwareQuality": "MAINTAINABILITY", "severity": "HIGH"}]

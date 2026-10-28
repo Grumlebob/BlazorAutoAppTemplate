@@ -381,10 +381,10 @@ jobs:
           package-manager-cache: false
 
       - name: Audit .NET packages for vulnerabilities
-        run: dotnet list BlazorAutoApp.sln package --vulnerable --include-transitive
+        run: dotnet list GrumPlates.sln package --vulnerable --include-transitive
 
       - name: Audit .NET packages for deprecations
-        run: dotnet list BlazorAutoApp.sln package --deprecated
+        run: dotnet list GrumPlates.sln package --deprecated
 
       - name: Docker preflight for integration tests
         run: |
@@ -410,19 +410,19 @@ jobs:
             --expected-skipped 0 --suite "Testcontainers lifecycle"
 
       - name: Install frontend dependencies
-        working-directory: BlazorAutoApp.Client
+        working-directory: GrumPlates.Client
         run: npm ci
 
       - name: Audit frontend dependencies
-        working-directory: BlazorAutoApp.Client
+        working-directory: GrumPlates.Client
         run: npm audit
 
       - name: Build Tailwind CSS
-        working-directory: BlazorAutoApp.Client
+        working-directory: GrumPlates.Client
         run: npm run css:build
 
       - name: Verify generated CSS is current
-        run: git diff --exit-code -- BlazorAutoApp/wwwroot/tailwind.css BlazorAutoApp.Client/package-lock.json
+        run: git diff --exit-code -- GrumPlates/wwwroot/tailwind.css GrumPlates.Client/package-lock.json
 
       - name: Install pinned npm for React frontend
         run: |
@@ -436,23 +436,23 @@ jobs:
           test "$(npm --version)" = "12.2.0"
 
       - name: Install React frontend dependencies
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: npm ci
 
       - name: Audit React frontend dependencies
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: npm audit
 
       - name: Check React OpenAPI contract
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: npm run api:check
 
       - name: Lint React frontend
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: npm run lint
 
       - name: Test React frontend
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: |
           react_report="$RUNNER_TEMP/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate/react/react-vitest-results.json"
           mkdir -p "$(dirname "$react_report")"
@@ -477,7 +477,7 @@ jobs:
           NODE
 
       - name: Build React frontend
-        working-directory: BlazorAutoApp.React
+        working-directory: GrumPlates.React
         run: npm run build
 
       - name: React public Chromium browser regression
@@ -509,7 +509,7 @@ jobs:
               --override "$profile" --acceptance-profile)"
             image_tag="${CI_IMAGE_TAG}-${profile}"
 
-            dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj \
+            dotnet build GrumPlates.Test/GrumPlates.Test.csproj \
               --configuration Release "-p:FrontendProfile=${profile}"
             docker build \
               --pull \
@@ -521,7 +521,7 @@ jobs:
               --label localcluster.ci.owner=ci-build \
               --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
               --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-              -f BlazorAutoApp/Dockerfile \
+              -f GrumPlates/Dockerfile \
               -t "${APP_IMAGE}:${image_tag}" \
               .
             FRONTEND_PROFILE="$profile" \
@@ -560,10 +560,10 @@ jobs:
         run: |
           report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/validate"
           mkdir -p "$report_source"
-          if [[ -e BlazorAutoApp.Test/TestResults/Playwright || -L BlazorAutoApp.Test/TestResults/Playwright ]]; then
+          if [[ -e GrumPlates.Test/TestResults/Playwright || -L GrumPlates.Test/TestResults/Playwright ]]; then
             test ! -e "$report_source/playwright"
             test ! -L "$report_source/playwright"
-            cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"
+            cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"
           fi
           python3 Scripts/CI/ci_report_store.py save \
             --source "$report_source" \
@@ -729,7 +729,7 @@ jobs:
       - name: Restore .NET projects for this publisher run
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
-        run: dotnet restore BlazorAutoApp.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+        run: dotnet restore GrumPlates.sln "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
 
       - name: Restore .NET tools
         run: dotnet tool restore
@@ -738,8 +738,8 @@ jobs:
         run: |
           mkdir -p artifacts/migrations
           dotnet ef migrations bundle \
-            --project BlazorAutoApp/BlazorAutoApp.csproj \
-            --startup-project BlazorAutoApp/BlazorAutoApp.csproj \
+            --project GrumPlates/GrumPlates.csproj \
+            --startup-project GrumPlates/GrumPlates.csproj \
             --configuration Release \
             --self-contained \
             --runtime "${MIGRATION_RUNTIME}" \
@@ -766,8 +766,8 @@ jobs:
         env:
           RESOLVED_FRONTEND_PROFILE: ${{ needs.validate.outputs.frontend_profile }}
         run: |
-          dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
-          test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
+          dotnet build GrumPlates.Test/GrumPlates.Test.csproj --configuration Release "-p:FrontendProfile=${RESOLVED_FRONTEND_PROFILE}"
+          test -s GrumPlates.Test/bin/Release/net10.0/playwright.ps1
 
       - name: Check registry deletion reservation before publication
         run: bash Deployment/Common/Scripts/with-deploy-lock.sh python3 Deployment/Common/Scripts/registry-retention.py --assert-clear
@@ -791,7 +791,7 @@ jobs:
             --label localcluster.ci.owner=ci-build \
             --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
             --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-            -f BlazorAutoApp/Dockerfile \
+            -f GrumPlates/Dockerfile \
             -t "${APP_IMAGE}:${CI_IMAGE_TAG}" \
             .
 
@@ -947,10 +947,10 @@ jobs:
         run: |
           report_source="${RUNNER_TEMP}/test-results/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/publish-main"
           mkdir -p "$report_source"
-          if [[ -e BlazorAutoApp.Test/TestResults/Playwright || -L BlazorAutoApp.Test/TestResults/Playwright ]]; then
+          if [[ -e GrumPlates.Test/TestResults/Playwright || -L GrumPlates.Test/TestResults/Playwright ]]; then
             test ! -e "$report_source/playwright"
             test ! -L "$report_source/playwright"
-            cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"
+            cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"
           fi
           python3 Scripts/CI/ci_report_store.py save \
             --source "$report_source" \

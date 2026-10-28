@@ -20,7 +20,7 @@ services:
     mem_limit: 512m
     restart: "no"
     labels:
-      com.blazorautoapp.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
+      com.grumplates.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
 
   sonarqube:
     image: sonarqube:26.9.0.129388-community
@@ -56,7 +56,7 @@ services:
     mem_limit: 4g
     restart: "no"
     labels:
-      com.blazorautoapp.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
+      com.grumplates.quality.identity: ${SONARQUBE_IDENTITY_HASH:?identity hash must be set}
 
 networks:
   default:

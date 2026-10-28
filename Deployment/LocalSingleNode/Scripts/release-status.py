@@ -60,7 +60,7 @@ def marker(path: Path) -> dict | None:
 
 def runtime_inputs() -> tuple[dict, Path, str, str, str]:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
-    if repository.casefold() != "Grumlebob/BlazorAutoAppTemplate".casefold():
+    if repository.casefold() != "Grumlebob/GrumPlates".casefold():
         raise ReleaseStatusError("status workflow is bound to the Template repository")
     expected_host = os.environ.get("LOCALSINGLENODE_HOST", "")
     if (not native() or os.geteuid() == 0 or getpass.getuser() != "deploy"

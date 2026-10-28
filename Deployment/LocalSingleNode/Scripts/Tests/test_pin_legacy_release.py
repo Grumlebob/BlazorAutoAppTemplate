@@ -27,7 +27,7 @@ class PinLegacyReleaseTests(TestCase):
         self.marker = {
             "sha": "a" * 40,
             "source_sha": "a" * 40,
-            "source_repo_url": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+            "source_repo_url": "https://github.com/Grumlebob/GrumPlates",
             "image": "ghcr.io/grumlebob/books",
             "digest": "sha256:" + "b" * 64,
             "frontend_profile": "React",
@@ -47,7 +47,7 @@ class PinLegacyReleaseTests(TestCase):
         return {
             "schema_version": 1,
             "transport": "actions-artifact",
-            "repository": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+            "repository": "https://github.com/Grumlebob/GrumPlates",
             "target_sha": self.marker["source_sha"],
             "run_id": self.marker["ci_run_id"],
             "run_attempt": self.marker["ci_run_attempt"],
@@ -71,7 +71,7 @@ class PinLegacyReleaseTests(TestCase):
             "outcome": "success",
             "selected": {"id": 12345, "run_attempt": 2, "head_sha": self.marker["source_sha"]},
             "payload_receipt": {
-                "repository": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                "repository": "https://github.com/Grumlebob/GrumPlates",
                 "sha": self.marker["source_sha"],
                 "run_id": "12345",
                 "run_attempt": "2",
@@ -93,8 +93,8 @@ class PinLegacyReleaseTests(TestCase):
                 slot="current",
                 app_instance="primary",
                 deploy_root=self.deploy_root,
-                repository="Grumlebob/BlazorAutoAppTemplate",
-                repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                repository="Grumlebob/GrumPlates",
+                repository_url="https://github.com/Grumlebob/GrumPlates",
                 app_image_base="ghcr.io/grumlebob/books",
                 migration_artifact_name="books-migrate-linux-x64",
                 migration_bundle_name="books-migrate",
@@ -119,8 +119,8 @@ class PinLegacyReleaseTests(TestCase):
             with self.assertRaisesRegex(operation.LegacyPinOperationError, "does not match"):
                 operation.pin_marker(
                     slot="current", app_instance="primary", deploy_root=self.deploy_root,
-                    repository="Grumlebob/BlazorAutoAppTemplate",
-                    repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                    repository="Grumlebob/GrumPlates",
+                    repository_url="https://github.com/Grumlebob/GrumPlates",
                     app_image_base="ghcr.io/grumlebob/books",
                     migration_artifact_name="books-migrate-linux-x64",
                     migration_bundle_name="books-migrate", payload_image_prefix="private-",
@@ -133,7 +133,7 @@ class PinLegacyReleaseTests(TestCase):
             "outcome": "success",
             "selected": {"id": 12345, "run_attempt": 2, "head_sha": self.marker["source_sha"]},
             "payload_receipt": {
-                "repository": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                "repository": "https://github.com/Grumlebob/GrumPlates",
                 "sha": self.marker["source_sha"],
                 "run_id": "12345",
                 "run_attempt": "2",
@@ -152,8 +152,8 @@ class PinLegacyReleaseTests(TestCase):
             with self.assertRaisesRegex(operation.LegacyPinOperationError, "receipt differs"):
                 operation.pin_marker(
                     slot="current", app_instance="primary", deploy_root=self.deploy_root,
-                    repository="Grumlebob/BlazorAutoAppTemplate",
-                    repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                    repository="Grumlebob/GrumPlates",
+                    repository_url="https://github.com/Grumlebob/GrumPlates",
                     app_image_base="ghcr.io/grumlebob/books",
                     migration_artifact_name="books-migrate-linux-x64",
                     migration_bundle_name="books-migrate", payload_image_prefix="private-",
@@ -185,7 +185,7 @@ class PinLegacyReleaseTests(TestCase):
                 ]):
             operation._verify_offline_restore(
                 pin_dir=pin_dir,
-                repository_url="https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                repository_url="https://github.com/Grumlebob/GrumPlates",
                 summary={
                     "source_sha": self.marker["source_sha"],
                     "frontend_profile": "React",

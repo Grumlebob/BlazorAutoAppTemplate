@@ -25,7 +25,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
-SCHEMA = "blazorautoapp.sonar-report/1"
+SCHEMA = "grumplates.sonar-report/1"
 TOKEN_ENV = "SONAR_REPORT_TOKEN"
 PAGE_SIZE = 500
 ISSUE_CAP = 10000
@@ -512,34 +512,34 @@ def build_scope_evidence(profile: str, tree: list[dict[str, Any]]) -> dict[str, 
     paths = set(by_path)
     if profile == "BlazorAuto":
         expected = {
-            "bookGeometry": "BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs",
-            "bookRazor": "BlazorAutoApp.Client/Features/Books/Shared/BookCoverRenderer.razor",
-            "sharedCore": next((path for path in sorted(paths) if path.startswith("BlazorAutoApp.Core/")), ""),
-            "handwrittenCss": "BlazorAutoApp.Client/Styles/input.css",
+            "bookGeometry": "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs",
+            "bookRazor": "GrumPlates.Client/Features/Books/Shared/BookCoverRenderer.razor",
+            "sharedCore": next((path for path in sorted(paths) if path.startswith("GrumPlates.Core/")), ""),
+            "handwrittenCss": "GrumPlates.Client/Styles/input.css",
         }
         evidence = {name: bool(path and path in paths) for name, path in expected.items()}
-        unexpected_excluded_paths = sorted(path for path in paths if path.startswith("BlazorAutoApp.React/"))
+        unexpected_excluded_paths = sorted(path for path in paths if path.startswith("GrumPlates.React/"))
         evidence["reactImplementationExcluded"] = not unexpected_excluded_paths
         evidence["details"] = {name: path or None for name, path in expected.items()}
         evidence["unexpectedReactFiles"] = unexpected_excluded_paths[:10]
         return evidence
 
-    catalog = "BlazorAutoApp.React/app/features/books/catalog-page.tsx"
-    api_client = "BlazorAutoApp.React/app/api/client.ts"
+    catalog = "GrumPlates.React/app/features/books/catalog-page.tsx"
+    api_client = "GrumPlates.React/app/api/client.ts"
     api_item = by_path.get(api_client, {})
     api_metrics = {measure.get("metric"): measure.get("value") for measure in api_item.get("measures", [])}
     coverage_value = api_metrics.get("coverage")
     covered_api_client = coverage_value is not None and float(coverage_value) > 0
     expected = {
-        "reactComposition": "BlazorAutoApp/Frontend/FrontendComposition.React.cs",
-        "openApiHosting": "BlazorAutoApp/Frontend/OpenApi/OpenApiMetadataHosting.cs",
+        "reactComposition": "GrumPlates/Frontend/FrontendComposition.React.cs",
+        "openApiHosting": "GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs",
         "catalogPage": catalog,
         "testedApiModule": api_client,
     }
     evidence = {name: path in paths for name, path in expected.items()}
     evidence["testedApiModuleHasCoverage"] = covered_api_client
-    unexpected_excluded_paths = sorted(path for path in paths if path.startswith("BlazorAutoApp.Client/") or
-                                       (path.startswith("BlazorAutoApp/") and path.lower().endswith((".razor", ".razor.js"))))
+    unexpected_excluded_paths = sorted(path for path in paths if path.startswith("GrumPlates.Client/") or
+                                       (path.startswith("GrumPlates/") and path.lower().endswith((".razor", ".razor.js"))))
     evidence["blazorImplementationExcluded"] = not unexpected_excluded_paths
     evidence["details"] = dict(expected)
     evidence["apiModuleCoverage"] = coverage_value

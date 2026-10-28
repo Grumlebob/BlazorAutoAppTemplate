@@ -1,5 +1,5 @@
 {
-  "schema": "blazorautoapp.sonar-settings/1",
+  "schema": "grumplates.sonar-settings/1",
   "hostPort": null,
   "nodeToolchainDirectory": null,
   "pythonExecutable": null

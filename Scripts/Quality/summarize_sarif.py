@@ -20,8 +20,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-SCHEMA = "blazorautoapp.sonar-quick-summary/1"
-TEST_SARIF_NAME = "BlazorAutoApp.Test.sarif"
+SCHEMA = "grumplates.sonar-quick-summary/1"
+TEST_SARIF_NAME = "GrumPlates.Test.sarif"
 HIGH_SIGNAL_RULES = frozenset(
     {
         "S108", "S1244", "S1854", "S2583", "S2589", "S6444", "S6580", "S3871", "S2259",
@@ -59,7 +59,7 @@ def to_repo_relative(uri: str, repo_root: str) -> str:
 
 
 def scope_of(path: str, sarif_name: str) -> str:
-    if sarif_name == TEST_SARIF_NAME or path.startswith("BlazorAutoApp.Test/"):
+    if sarif_name == TEST_SARIF_NAME or path.startswith("GrumPlates.Test/"):
         return "test"
     # Padding with "/" lets a root-level Migrations or obj folder match too.
     padded = "/" + path

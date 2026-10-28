@@ -5,9 +5,9 @@ Use this page to choose the implementation route. Read [Requirements](Requiremen
 ## Order
 
 1. Define the behavior, data scope, access rules, routes, and what is out of scope.
-2. For shared behavior, put domain types and API contracts in `BlazorAutoApp.Core/Features/{Feature}`. UI-only features keep their state and types in the selected client; add no unused server contract or DTOs.
-3. When server behavior is needed, add it in `BlazorAutoApp/Features/{Feature}`. Skip persistence when the feature does not store data. Follow [Server feature guidance](Features/Server.md).
-4. Implement the selected UI: Blazor under `BlazorAutoApp.Client/Features/{Feature}`, or React under `BlazorAutoApp.React/app`. Do not add both clients unless both profiles need the feature.
+2. For shared behavior, put domain types and API contracts in `GrumPlates.Core/Features/{Feature}`. UI-only features keep their state and types in the selected client; add no unused server contract or DTOs.
+3. When server behavior is needed, add it in `GrumPlates/Features/{Feature}`. Skip persistence when the feature does not store data. Follow [Server feature guidance](Features/Server.md).
+4. Implement the selected UI: Blazor under `GrumPlates.Client/Features/{Feature}`, or React under `GrumPlates.React/app`. Do not add both clients unless both profiles need the feature.
 5. Test behavior at its boundary: components/state for UI-only work, APIs for server behavior. Add browser coverage for important user workflows. Use [Infrastructure testing](Testing/Infrastructure.md) and [Browser testing](Testing/Browser.md).
 6. Update configuration, observability, or operator docs only when the feature changes those behaviors. Run the [local gate](Test.md#local-gate).
 

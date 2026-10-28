@@ -94,7 +94,7 @@ if [[ "$DP_STATE" == "generate" ]]; then
   openssl req -x509 -sha256 -days 3650 \
     -key "$KEY_DIRECTORY/private-key.pem" -passin "file:$KEY_DIRECTORY/password" \
     -out "$KEY_DIRECTORY/public-certificate.pem" \
-    -subj "/CN=BlazorAutoApp LocalCluster Data Protection" >/dev/null 2>&1
+    -subj "/CN=GrumPlates LocalCluster Data Protection" >/dev/null 2>&1
   cat "$KEY_DIRECTORY/public-certificate.pem" "$KEY_DIRECTORY/private-key.pem" > "$KEY_DIRECTORY/certificate.pem"
   base64 < "$KEY_DIRECTORY/certificate.pem" | tr -d '\n' > "$KEY_DIRECTORY/certificate.b64"
   python3 "$SCRIPT_DIR/Component/lib/data_protection_vault.py" update \

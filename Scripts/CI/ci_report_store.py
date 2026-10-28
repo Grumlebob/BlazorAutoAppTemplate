@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 
-DEFAULT_REPOSITORY = "Grumlebob/BlazorAutoAppTemplate"
+DEFAULT_REPOSITORY = "Grumlebob/GrumPlates"
 SCHEMA_VERSION = 1
 SUCCESS_RETENTION = timedelta(days=3)
 FAILURE_RETENTION = timedelta(days=7)

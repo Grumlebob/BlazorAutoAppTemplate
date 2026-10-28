@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 import maintenance  # noqa: E402
 
-SOURCE = "https://github.com/Grumlebob/BlazorAutoAppTemplate"
+SOURCE = "https://github.com/Grumlebob/GrumPlates"
 APP = "ghcr.io/grumlebob/books"
 PAYLOAD = "ghcr.io/grumlebob/books-release-payload"
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)

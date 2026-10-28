@@ -145,7 +145,7 @@ if [[ "$CERTIFICATE_SECRET_EXISTS" == "false" ]]; then
   openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 \
     -keyout "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
     -out "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" \
-    -subj "/CN=BlazorAutoApp Cloud Data Protection" \
+    -subj "/CN=GrumPlates Cloud Data Protection" \
     -passout "file:$DATA_PROTECTION_TEMP_DIR/password" -aes256 >/dev/null 2>&1
   cat "$DATA_PROTECTION_TEMP_DIR/public-certificate.pem" "$DATA_PROTECTION_TEMP_DIR/private-key.pem" \
     > "$DATA_PROTECTION_TEMP_DIR/certificate.pem"

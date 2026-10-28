@@ -18,8 +18,8 @@ from resolve_frontend_profile import acceptance_profile_for_frontend  # noqa: E4
 
 
 DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
-FRONTEND_PROFILE_LABEL = "com.blazorautoapp.frontend-profile"
-ACCEPTANCE_PROFILE_LABEL = "com.blazorautoapp.acceptance-profile"
+FRONTEND_PROFILE_LABEL = "com.grumplates.frontend-profile"
+ACCEPTANCE_PROFILE_LABEL = "com.grumplates.acceptance-profile"
 REVISION_LABEL = "org.opencontainers.image.revision"
 
 

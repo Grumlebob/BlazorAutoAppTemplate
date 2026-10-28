@@ -259,8 +259,8 @@ required_files = [
     "Deployment/Common/Scripts/Tests/test-with-deploy-lock.sh",
     ".github/workflows/auto-merge-dependabot.yml",
     ".github/workflows/cd-cloud.yml",
-    "BlazorAutoApp/Program.cs",
-    "BlazorAutoApp/BlazorAutoApp.csproj",
+    "GrumPlates/Program.cs",
+    "GrumPlates/GrumPlates.csproj",
 ]
 required_files.extend([
     "Deployment/Common/caddy/Caddyfile",
@@ -454,7 +454,7 @@ for needle, why, owner in [
     if error:
         fail(error)
 for document_path, document_text in cluster_guide_documents.items():
-    if "gh repo clone Grumlebob/BlazorAutoApp" in document_text:
+    if "gh repo clone Grumlebob/GrumPlates" in document_text:
         fail(f"{document_path}: clone commands must be fork-safe, not hardcoded to the original repository")
 
 for document_path, document_text in cluster_guide_documents.items():
@@ -861,23 +861,23 @@ for needle, why in [
 
 for path, needle, why in [
     (
-        "BlazorAutoApp/Infrastructure/Hosting/AppCachingExtensions.cs",
+        "GrumPlates/Infrastructure/Hosting/AppCachingExtensions.cs",
         "PersistKeysToStackExchangeRedis",
         "Redis-backed Data Protection",
     ),
-    ("BlazorAutoApp/Program.cs", "UseForwardedHeaders", "forwarded header middleware"),
+    ("GrumPlates/Program.cs", "UseForwardedHeaders", "forwarded header middleware"),
     (
-        "BlazorAutoApp/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
+        "GrumPlates/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
         "MapHealthChecks(\"/health/live\"",
         "liveness health endpoint",
     ),
     (
-        "BlazorAutoApp/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
+        "GrumPlates/Infrastructure/Hosting/HealthCheckEndpointExtensions.cs",
         "MapHealthChecks(\"/health/ready\"",
         "readiness health endpoint",
     ),
     (
-        "BlazorAutoApp/Infrastructure/Persistence/PersistenceExtensions.cs",
+        "GrumPlates/Infrastructure/Persistence/PersistenceExtensions.cs",
         "Database:RunMigrationsAtStartup",
         "migration startup guard",
     ),
@@ -885,7 +885,7 @@ for path, needle, why in [
     if needle not in read(path):
         fail(f"{path}: missing {why}")
 require_contains(
-    "BlazorAutoApp/BlazorAutoApp.csproj",
+    "GrumPlates/GrumPlates.csproj",
     "Microsoft.AspNetCore.DataProtection.StackExchangeRedis",
     "Redis Data Protection package",
 )
@@ -1093,13 +1093,13 @@ if any(pin in profile_gate for pin in ("expected_passed", "--expected-passed")) 
     fail("Scripts/CI/validate-frontend-profiles.sh: profile suites must not pin test counts; "
          "the validator rejects failures and skips that are not explicit opt-ins; only the account suite pins zero skips")
 
-dockerfile = read("BlazorAutoApp/Dockerfile")
+dockerfile = read("GrumPlates/Dockerfile")
 if not re.search(
     r"^FROM node:26\.\d+\.\d+-bookworm-slim AS react-dependencies$",
     dockerfile,
     re.MULTILINE,
 ):
-    fail("BlazorAutoApp/Dockerfile: pinned Node 26 toolchain is isolated in React dependency stage")
+    fail("GrumPlates/Dockerfile: pinned Node 26 toolchain is isolated in React dependency stage")
 for needle, why in [
     ("npm install --global npm@12.2.0 && npm ci", "pinned npm install from the React lockfile"),
     ("FROM react-dependencies AS react-assets", "React asset build reuses its isolated dependency stage"),
@@ -1110,15 +1110,15 @@ for needle, why in [
     ("FROM source AS publish-react", "React publish has its own selected asset stage"),
     ('test "$profile" = "BlazorAuto"', "Blazor target rejects a mismatched profile"),
     ('test "$profile" = "React"', "React target rejects a mismatched profile"),
-    ("rm -rf ./BlazorAutoApp/Frontend/React/wwwroot", "React publish starts from a clean selected asset root"),
+    ("rm -rf ./GrumPlates/Frontend/React/wwwroot", "React publish starts from a clean selected asset root"),
     ("test -s /tmp/react-client/index.html", "React publish fails when its bundle is missing"),
     ('"-p:FrontendProfile=$profile"', "same resolved profile passed to the selected Docker publish"),
     ("FROM base AS final-blazor", "Blazor final image target"),
     ("FROM base AS final-react", "React final image target"),
-    ('ENTRYPOINT ["dotnet", "BlazorAutoApp.dll"]', "final images run the ASP.NET Core host"),
+    ('ENTRYPOINT ["dotnet", "GrumPlates.dll"]', "final images run the ASP.NET Core host"),
 ]:
     if needle not in dockerfile:
-        fail(f"BlazorAutoApp/Dockerfile: missing {why}")
+        fail(f"GrumPlates/Dockerfile: missing {why}")
 
 blazor_publish_stage = dockerfile.split("FROM source AS publish-blazor", 1)[1].split("FROM source AS publish-react", 1)[0]
 if "react-assets" in blazor_publish_stage:
@@ -1467,10 +1467,10 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
 
     # Every terminal job retains browser diagnostics with its bounded local reports.
     _report_step = workflow_step('validate', 'Store CI reports on this runner')
-    if 'cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
+    if 'cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
         fail(".github/workflows/ci.yml: terminal report storage must include browser diagnostics")
     _report_step = workflow_step('publish-main', 'Store CI reports on this runner')
-    if 'cp -a -- BlazorAutoApp.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
+    if 'cp -a -- GrumPlates.Test/TestResults/Playwright "$report_source/playwright"' not in _report_step or '--source "$report_source"' not in _report_step:
         fail(".github/workflows/ci.yml: terminal report storage must include browser diagnostics")
     _smoke_reports = read("Deployment/LocalCluster/Scripts/ci-docker-smoke.sh")
     if _smoke_reports.count("/${GITHUB_JOB:-validate}/docker-smoke/") != 3:
@@ -1490,8 +1490,8 @@ if "validate" in ci_jobs and "publish-main" in ci_jobs:
         '"ordered_migration_ids"',
         '"bundle_sha256"',
         '"org.opencontainers.image.revision"',
-        '"com.blazorautoapp.frontend-profile"',
-        '"com.blazorautoapp.acceptance-profile"',
+        '"com.grumplates.frontend-profile"',
+        '"com.grumplates.acceptance-profile"',
     ):
         if needle not in manifest_writer:
             fail(f"Scripts/CI/write_release_manifest.py: release manifest writer is missing {needle}")
@@ -1789,8 +1789,8 @@ for needle, why in [
 
 for label in (
     "org.opencontainers.image.revision",
-    "com.blazorautoapp.frontend-profile",
-    "com.blazorautoapp.acceptance-profile",
+    "com.grumplates.frontend-profile",
+    "com.grumplates.acceptance-profile",
 ):
     if label not in release_validator:
         fail(f"release validator must require baked image label {label}")
@@ -1855,8 +1855,8 @@ if identity_assert_pos < 0 or identity_assert_pos > stop_pos:
     fail("Deployment/LocalCluster/ansible/playbooks/site.yml: check baked release identity before stopping apps or migrating")
 for label in (
     "org.opencontainers.image.revision",
-    "com.blazorautoapp.frontend-profile",
-    "com.blazorautoapp.acceptance-profile",
+    "com.grumplates.frontend-profile",
+    "com.grumplates.acceptance-profile",
 ):
     if label not in site:
         fail(f"Deployment/LocalCluster/ansible/playbooks/site.yml: staged image must match {label}")
@@ -2934,8 +2934,8 @@ require_file(single + "/Scripts/Tests/test_public_instance.py")
 
 single_release_identity = read(single + "/Scripts/verify-release-identity.sh")
 for needle, why in [
-    ("com.blazorautoapp.frontend-profile", "running frontend profile identity"),
-    ("com.blazorautoapp.acceptance-profile", "running acceptance profile identity"),
+    ("com.grumplates.frontend-profile", "running frontend profile identity"),
+    ("com.grumplates.acceptance-profile", "running acceptance profile identity"),
     ("org.opencontainers.image.revision", "running source revision identity"),
     ("schema v1 is supported only for BlazorAuto", "legacy Blazor-only identity rule"),
 ]:
@@ -2943,8 +2943,8 @@ for needle, why in [
         fail(f"{single}/Scripts/verify-release-identity.sh: missing {why}")
 for needle, why in [
     ("Require staged release identity before migration or replacement", "pre-migration image identity check"),
-    ("com.blazorautoapp.frontend-profile", "staged frontend profile identity"),
-    ("com.blazorautoapp.acceptance-profile", "staged acceptance profile identity"),
+    ("com.grumplates.frontend-profile", "staged frontend profile identity"),
+    ("com.grumplates.acceptance-profile", "staged acceptance profile identity"),
     ("org.opencontainers.image.revision", "staged source revision identity"),
 ]:
     if needle not in read(single + "/ansible/roles/single_node_stack/tasks/main.yml"):

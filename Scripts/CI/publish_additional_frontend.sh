@@ -43,9 +43,9 @@ python3 Scripts/CI/migration_staging_artifact.py validate \
   --directory artifacts/additional-migrations --bundle-filename "$MIGRATION_BUNDLE_NAME" --runtime "${MIGRATION_RUNTIME:?}"
 
 # Restore/build the additional composition before using its browser binaries.
-dotnet restore BlazorAutoApp.Test/BlazorAutoApp.Test.csproj "-p:FrontendProfile=${FRONTEND_PROFILE}"
-dotnet build BlazorAutoApp.Test/BlazorAutoApp.Test.csproj --configuration Release --no-restore "-p:FrontendProfile=${FRONTEND_PROFILE}"
-test -s BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1
+dotnet restore GrumPlates.Test/GrumPlates.Test.csproj "-p:FrontendProfile=${FRONTEND_PROFILE}"
+dotnet build GrumPlates.Test/GrumPlates.Test.csproj --configuration Release --no-restore "-p:FrontendProfile=${FRONTEND_PROFILE}"
+test -s GrumPlates.Test/bin/Release/net10.0/playwright.ps1
 docker build --pull --target "$docker_target" \
   --build-arg "FRONTEND_PROFILE_OVERRIDE=${FRONTEND_PROFILE}" \
   --label "localcluster.ci.repository=${GITHUB_REPOSITORY:?}" \
@@ -54,7 +54,7 @@ docker build --pull --target "$docker_target" \
   --label localcluster.ci.owner=ci-build \
   --label "localcluster.ci.run_id=${GITHUB_RUN_ID}" \
   --label "localcluster.ci.run_attempt=${GITHUB_RUN_ATTEMPT}" \
-  -f BlazorAutoApp/Dockerfile -t "${APP_IMAGE}:${CI_IMAGE_TAG}" .
+  -f GrumPlates/Dockerfile -t "${APP_IMAGE}:${CI_IMAGE_TAG}" .
 bash Deployment/LocalCluster/Scripts/ci-docker-smoke.sh
 docker tag "${APP_IMAGE}:${CI_IMAGE_TAG}" "${APP_IMAGE}:${GITHUB_SHA}"
 docker push "${APP_IMAGE}:${GITHUB_SHA}"
