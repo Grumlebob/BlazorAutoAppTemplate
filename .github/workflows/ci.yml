@@ -283,7 +283,6 @@ jobs:
             Deployment/Common/Scripts/Tests/test_registry_capacity_recovery.py \
             Deployment/Common/Scripts/Tests/test_registry_gc.py \
             Deployment/Common/Scripts/Tests/test_registry_lock_guard.py \
-            Deployment/Common/Scripts/Tests/test_prune_archived_diagnostic_artifacts.py \
             Deployment/Common/Scripts/Tests/test_ci_payload_receipt.py \
             Deployment/Common/Scripts/Tests/test_pull_release_payload.py \
             Deployment/Common/Scripts/Tests/test_pin_release_payload.py \

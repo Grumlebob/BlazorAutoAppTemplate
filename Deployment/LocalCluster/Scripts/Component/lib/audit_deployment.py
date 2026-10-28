@@ -2839,14 +2839,13 @@ for needle, why in [
     ("github.event.schedule == '27 3 * * *'", "additional-app schedule selects its protected environment"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
     ("verify-operation-source.py", "green CI source gate"),
-    ("prune_archived_diagnostics:", "off-by-default archived diagnostic cleanup input"),
-    ("inputs.prune_archived_diagnostics == true", "manual-only archived diagnostic deletion"),
-    ("prune-archived-diagnostic-artifacts.py", "manifest-bound diagnostic artifact cleanup"),
-    ("Plans/ZeroCostDiagnosticArchiveManifest-20261017.json", "exact preserved archive manifest"),
-    ("with-deploy-lock.sh", "archived diagnostic cleanup under shared deployment lock"),
 ]:
     if needle not in single_maintenance:
         fail(f".github/workflows/localsinglenode-maintenance.yml: missing {why}")
+# The one-off archived-diagnostic pruner finished its job and was retired with the GrumPlates rename.
+for needle in ("prune_archived_diagnostics", "prune-archived-diagnostic-artifacts.py"):
+    if needle in single_maintenance:
+        fail(f".github/workflows/localsinglenode-maintenance.yml: retired archived diagnostic cleanup must not return ({needle})")
 for needle, why in [
     ("Require main branch", "main-ref-only pruning"),
     ("Require green main CI for unchanged operation code", "verified operation source"),
