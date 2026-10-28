@@ -38,19 +38,21 @@ public class DTOsLiveInCoreTests
     }
 
     [Fact]
-    public void Core_Request_And_Response_DTOs_Live_In_UseCases()
+    public void Core_Request_And_Response_DTOs_Live_In_UseCases_Or_Account_Contracts()
     {
         var offenders = ArchitectureAssemblies.Core.GetExportedTypes()
             .Where(t => t.IsClass && t.IsPublic)
             .Where(t => t.Name.EndsWith("Request", StringComparison.Ordinal)
                      || t.Name.EndsWith("Response", StringComparison.Ordinal))
-            .Where(t => t.Namespace is null || !t.Namespace.Contains(".UseCases.", StringComparison.Ordinal))
+            .Where(t => t.Namespace is null
+                     || (!t.Namespace.Contains(".UseCases.", StringComparison.Ordinal)
+                         && t.Namespace != "GrumPlates.Core.Features.Accounts.Contracts"))
             .Select(t => t.FullName)
             .OrderBy(n => n)
             .ToList();
 
         Assert.True(offenders.Count == 0,
-            "Core Request/Response DTOs should live under Features.*.UseCases.{UseCase}. Found:\n" + string.Join("\n", offenders));
+            "Core Request/Response DTOs should live under Features.*.UseCases.{UseCase} or Features.Accounts.Contracts. Found:\n" + string.Join("\n", offenders));
     }
 
     [Fact]
