@@ -105,12 +105,17 @@ def _check_compose_conflicts(
     for path in opt.glob("*/docker-compose.yml"):
         if path.parent == deploy and owned:
             continue
+        # Deployed apps keep Compose interpolation values in .compose.env; without it,
+        # `config` fails on required variables such as DATA_PROTECTION_CERT_HOST_PATH.
+        compose_env = path.parent / ".compose.env"
+        env_file = ["--env-file", str(compose_env)] if compose_env.is_file() else []
         result = json.loads(
             command(
                 "docker",
                 "compose",
                 "--project-directory",
                 str(path.parent),
+                *env_file,
                 "-f",
                 str(path),
                 "config",

@@ -19,6 +19,13 @@ def run(*args, **options):
     return result.stdout
 
 
+def compose(root):
+    """`docker compose` for a deployed app; its .compose.env holds required interpolation values."""
+    env_file = Path(root) / ".compose.env"
+    return ["docker", "compose", "--project-directory", str(root),
+            *(["--env-file", str(env_file)] if env_file.is_file() else [])]
+
+
 def config(path):
     value = json.loads(path.read_text())
     app = value["app_name"]
@@ -78,7 +85,7 @@ def backup(value):
     certificate = validate_protected_source(
         value["data_protection_certificate_file"], 0o440, "Data Protection certificate")
     with temporary.open("xb") as output:
-        result = subprocess.run(["docker", "compose", "--project-directory", value["deploy_root"], "exec", "-T", "postgres", "pg_dump", "-U", db, "-d", db, "-Fc"], stdout=output, stderr=subprocess.PIPE, timeout=180)
+        result = subprocess.run([*compose(value["deploy_root"]), "exec", "-T", "postgres", "pg_dump", "-U", db, "-d", db, "-Fc"], stdout=output, stderr=subprocess.PIPE, timeout=180)
     if result.returncode or not temporary.stat().st_size:
         temporary.unlink(missing_ok=True)
         raise ValueError("pg_dump failed; no completed backup was published")
@@ -148,7 +155,7 @@ def restore_replacement(value, dump, target, confirmation):
     dump = dump.resolve(strict=True)
     if dump.parent != Path(value["backup_root"]).resolve(strict=True) or not dump.name.startswith(value["app_name"] + '-') or dump.suffix != '.dump':
         raise ValueError("Manual restore requires this app's protected backup")
-    prefix = ["docker", "compose", "--project-directory", value["deploy_root"], "exec", "-T", "postgres"]
+    prefix = [*compose(value["deploy_root"]), "exec", "-T", "postgres"]
     exists = run(*prefix, "psql", "-U", db, "-d", "postgres", "-Atc", f"SELECT count(*) FROM pg_database WHERE datname='{target}';").strip()
     if exists != b"0":
         raise ValueError("Replacement database already exists; no restore performed")

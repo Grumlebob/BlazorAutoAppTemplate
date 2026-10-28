@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_ROOT="$(bash "$SCRIPT_DIR/read-setting.sh" deploy_root)"
 exec python3 - "$APP_ROOT" "$@" <<'PY'
 import json
+import os
 import re
 import subprocess
 import sys
@@ -28,7 +29,9 @@ if not re.fullmatch(r'https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', sour
     raise SystemExit('Release source repository is malformed')
 def run(*args):
     return subprocess.check_output(args, text=True).strip()
-container = run('docker', 'compose', '--project-directory', root, 'ps', '-q', 'web')
+compose_env = os.path.join(root, '.compose.env')  # required interpolation values of a deployed app
+env_file = ['--env-file', compose_env] if os.path.isfile(compose_env) else []
+container = run('docker', 'compose', '--project-directory', root, *env_file, 'ps', '-q', 'web')
 if not container:
     raise SystemExit('No running web container')
 identity = json.loads(run('docker', 'inspect', container))[0]
