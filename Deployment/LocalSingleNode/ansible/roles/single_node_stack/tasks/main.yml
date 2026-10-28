@@ -31,6 +31,14 @@
       - vault_postgres_password is match('^[A-Za-z0-9]{32,}$')
       - vault_redis_password is match('^[A-Za-z0-9]{32,}$')
   no_log: true
+- name: Require the Data Protection passphrase in the app secrets
+  ansible.builtin.assert:
+    that:
+      - vault_data_protection_certificate_password is defined
+    fail_msg: >-
+      /etc/{{ app_name }}/secrets.yml has no vault_data_protection_certificate_password (nodes prepared
+      before 2026-10-16). Re-run the node's prepare step (PrepareSingleNode.yml, or prepare-additional-app.sh
+      for an additional app); it only adds missing secrets.
 - name: Validate account environment values before rendering dotenv
   ansible.builtin.assert:
     that:
@@ -75,26 +83,40 @@
     mode: "0600"
   no_log: true
   when: not data_protection_certificate.stat.exists
-- name: Generate app-owned encrypted Data Protection certificate once
+# genpkey + req -key works on OpenSSL 3.0 (Ubuntu 24.04); `req -aes256` needs 3.2+.
+- name: Generate app-owned encrypted Data Protection private key once
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - genpkey
+      - -algorithm
+      - RSA
+      - -pkeyopt
+      - rsa_keygen_bits:3072
+      - -aes-256-cbc
+      - -pass
+      - "file:/etc/{{ app_name }}/data-protection/.generation-password"
+      - -out
+      - "/etc/{{ app_name }}/data-protection/private-key.pem"
+  no_log: true
+  when: not data_protection_certificate.stat.exists
+- name: Generate app-owned Data Protection certificate once
   ansible.builtin.command:
     argv:
       - openssl
       - req
       - -x509
-      - -newkey
-      - rsa:3072
       - -sha256
       - -days
       - "3650"
-      - -keyout
+      - -key
       - "/etc/{{ app_name }}/data-protection/private-key.pem"
+      - -passin
+      - "file:/etc/{{ app_name }}/data-protection/.generation-password"
       - -out
       - "/etc/{{ app_name }}/data-protection/public-certificate.pem"
       - -subj
       - "/CN={{ app_name }} Data Protection"
-      - -passout
-      - "file:/etc/{{ app_name }}/data-protection/.generation-password"
-      - -aes256
   no_log: true
   when: not data_protection_certificate.stat.exists
 - name: Assemble and protect the app Data Protection PEM file
