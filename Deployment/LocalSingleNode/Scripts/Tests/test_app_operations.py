@@ -92,7 +92,8 @@ class AppOperationsTests(unittest.TestCase):
             with patch.dict(os.environ, {'APP_NAME': 'other-app'}), \
                     patch.object(restart, 'command', side_effect=['web\npostgres\nredis', json.dumps(fixture)]) as command:
                 result = restart.containers(config)
-                self.assertEqual(('docker', 'compose', '--project-directory', config['deploy_root'],
+                # compose() adds --env-file only when the root has one (a real node may).
+                self.assertEqual((*restart.compose(config['deploy_root']),
                                   '--project-name', config['app_name'], 'ps', '-q'), command.call_args_list[0].args)
                 return result
         self.assertEqual({'web', 'postgres', 'redis'}, set(inspect(values)))
@@ -122,7 +123,7 @@ class AppOperationsTests(unittest.TestCase):
                 patch.dict(os.environ, {'GITHUB_SERVER_URL':'https://github.com','GITHUB_REPOSITORY':'example/template'}), \
                 patch.object(restart, 'command') as command:
             self.assertEqual(0, restart.main())
-            command.assert_called_once_with('docker', 'compose', '--project-directory', '/opt/catalog', '--project-name', 'catalog', 'restart', '--no-deps', 'web', timeout=60)
+            command.assert_called_once_with(*restart.compose('/opt/catalog'), '--project-name', 'catalog', 'restart', '--no-deps', 'web', timeout=60)
 
     def test_failed_ownership_or_release_prevents_restart(self):
         for target in ('ownership', 'release', 'catalog'):
