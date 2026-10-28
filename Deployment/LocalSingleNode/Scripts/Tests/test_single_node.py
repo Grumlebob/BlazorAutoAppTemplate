@@ -208,6 +208,29 @@ class CollisionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unowned"):
                 self.check(folder, lambda *args: '')
 
+    def test_foreign_compose_reads_its_compose_env_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            foreign = folder / "opt/other/docker-compose.yml"
+            foreign.parent.mkdir(parents=True)
+            foreign.write_text("fixture")
+            calls = []
+
+            def script(*args):
+                calls.append(args)
+                return json.dumps({"services": {}}) if args[:2] == ("docker", "compose") else ""
+
+            self.check(folder, script)
+            compose = [call for call in calls if call[:2] == ("docker", "compose")]
+            self.assertEqual(1, len(compose))
+            self.assertNotIn("--env-file", compose[0])
+            (foreign.parent / ".compose.env").write_text("DATA_PROTECTION_CERT_HOST_PATH=/x\n")
+            calls.clear()
+            self.check(folder, script)
+            compose = [call for call in calls if call[:2] == ("docker", "compose")]
+            index = compose[0].index("--env-file")
+            self.assertEqual(str(foreign.parent / ".compose.env"), compose[0][index + 1])
+
     def test_foreign_compose_subnet_cannot_overlap_deployment(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
