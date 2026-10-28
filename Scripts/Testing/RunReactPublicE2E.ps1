@@ -83,11 +83,11 @@ function Write-AppLogTail {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $npmCommand = if ($IsWindows) { 'npm.cmd' } else { 'npm' }
 $npxCommand = if ($IsWindows) { 'npx.cmd' } else { 'npx' }
-$reactRoot = Join-Path $repoRoot 'BlazorAutoApp.React'
-$clientRoot = Join-Path $repoRoot 'BlazorAutoApp.Client'
-$testProject = Join-Path $repoRoot 'BlazorAutoApp.Test\BlazorAutoApp.Test.csproj'
-$playwrightScript = Join-Path $repoRoot "BlazorAutoApp.Test\bin\$Configuration\net10.0\playwright.ps1"
-$appDll = Join-Path $repoRoot "BlazorAutoApp\bin\$Configuration\net10.0\BlazorAutoApp.dll"
+$reactRoot = Join-Path $repoRoot 'GrumPlates.React'
+$clientRoot = Join-Path $repoRoot 'GrumPlates.Client'
+$testProject = Join-Path $repoRoot 'GrumPlates.Test\GrumPlates.Test.csproj'
+$playwrightScript = Join-Path $repoRoot "GrumPlates.Test\bin\$Configuration\net10.0\playwright.ps1"
+$appDll = Join-Path $repoRoot "GrumPlates\bin\$Configuration\net10.0\GrumPlates.dll"
 $staticRoot = Join-Path $reactRoot 'build\client'
 $suffix = [Guid]::NewGuid().ToString('N')
 $postgresName = "react-public-e2e-pg-$suffix"
@@ -249,7 +249,7 @@ try {
     $startProcessOptions = @{
         FilePath = 'dotnet'
         ArgumentList = @($quotedAppDll, '--urls', $baseUrl)
-        WorkingDirectory = (Join-Path $repoRoot 'BlazorAutoApp')
+        WorkingDirectory = (Join-Path $repoRoot 'GrumPlates')
         RedirectStandardOutput = $appOutputPath
         RedirectStandardError = $appErrorPath
         PassThru = $true

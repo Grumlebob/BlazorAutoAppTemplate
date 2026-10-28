@@ -49,8 +49,8 @@ for key, expected in {
         raise SystemExit('Running web image does not match verified CI label ' + key)
 profile_labels = {
     'org.opencontainers.image.revision': source_sha,
-    'com.blazorautoapp.frontend-profile': frontend,
-    'com.blazorautoapp.acceptance-profile': acceptance,
+    'com.grumplates.frontend-profile': frontend,
+    'com.grumplates.acceptance-profile': acceptance,
 }
 if schema == '2':
     for key, expected in profile_labels.items():

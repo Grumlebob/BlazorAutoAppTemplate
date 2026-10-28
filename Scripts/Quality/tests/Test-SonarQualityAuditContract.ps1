@@ -42,7 +42,7 @@ try {
     New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
     $git = (Get-Command git.exe, git -CommandType Application | Select-Object -First 1).Source
     $powershell = (Get-Command pwsh.exe, pwsh -CommandType Application | Select-Object -First 1).Source
-    foreach ($relative in @('BlazorAutoApp.sln', 'Directory.Build.props', 'Directory.Build.targets',
+    foreach ($relative in @('GrumPlates.sln', 'Directory.Build.props', 'Directory.Build.targets',
             'Directory.Packages.props', 'frontend-profile.txt', 'Scripts/Quality/tool-versions.json')) {
         $path = Join-Path $temporaryRoot $relative
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null

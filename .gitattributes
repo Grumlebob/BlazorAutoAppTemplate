@@ -40,4 +40,4 @@ Dockerfile text eol=lf
 *.pfx binary
 
 # Keep the pinned resource byte-identical on every checkout platform.
-BlazorAutoApp/Features/Login/Accounts/Security/Resources/10k-most-common.txt -text
+GrumPlates/Features/Login/Accounts/Security/Resources/10k-most-common.txt -text

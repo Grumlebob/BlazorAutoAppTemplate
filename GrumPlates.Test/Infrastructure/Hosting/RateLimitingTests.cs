@@ -1,0 +1,119 @@
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using GrumPlates.Infrastructure.Hosting;
+using GrumPlates.Test.TestSupport.Integration;
+using Xunit;
+
+namespace GrumPlates.Test.Infrastructure.Hosting;
+
+[Collection(TestCollectionNames.StartupIntegration)]
+public sealed class RateLimitingTests(RateLimitingWebAppFixture fixture) : IClassFixture<RateLimitingWebAppFixture>
+{
+    internal const int ApiPermitLimit = 60;
+    internal const int AuthenticationPermitLimit = 20;
+
+    private readonly WebAppFactory _factory = fixture.Factory;
+    private readonly HttpClient _client = fixture.Factory.HttpClient;
+
+    [Fact]
+    public async Task BooksApi_ReturnsTooManyRequests_WhenApiLimitIsExceeded()
+    {
+        var forwardedIp = $"203.0.113.{Random.Shared.Next(1, 255)}";
+        using var client = _factory.CreateAuthenticatedClient($"rate-{Guid.NewGuid():N}@example.test");
+        var lastStatusCode = HttpStatusCode.OK;
+        var lastResponseHadRetryAfter = false;
+
+        for (var requestNumber = 1; requestNumber <= ApiPermitLimit + 1; requestNumber++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/books");
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedIp);
+
+            using var response = await client.SendAsync(request);
+            lastStatusCode = response.StatusCode;
+            lastResponseHadRetryAfter = response.Headers.RetryAfter is not null;
+
+            if (requestNumber <= ApiPermitLimit)
+            {
+                Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+            }
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastStatusCode);
+        Assert.True(lastResponseHadRetryAfter);
+    }
+
+    [Fact]
+    public async Task AccountPost_ReturnsTooManyRequests_WhenAuthenticationLimitIsExceeded()
+    {
+        var forwardedIp = $"203.0.113.{Random.Shared.Next(1, 255)}";
+        var lastStatusCode = HttpStatusCode.OK;
+        var lastResponseHadRetryAfter = false;
+
+        for (var requestNumber = 1; requestNumber <= AuthenticationPermitLimit + 1; requestNumber++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/Account/Login");
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedIp);
+            request.Content = new FormUrlEncodedContent([]);
+
+            using var response = await _client.SendAsync(request);
+            lastStatusCode = response.StatusCode;
+            lastResponseHadRetryAfter = response.Headers.RetryAfter is not null;
+
+            if (requestNumber <= AuthenticationPermitLimit)
+            {
+                Assert.NotEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+            }
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastStatusCode);
+        Assert.True(lastResponseHadRetryAfter);
+    }
+}
+
+public sealed class StaticAssetRateLimitPathTests
+{
+    [Theory]
+    [InlineData("/_framework/blazor.web.js")]
+    [InlineData("/_framework/dotnet.wasm")]
+    [InlineData("/_content/library.css")]
+    [InlineData("/assets/images/cover.webp")]
+    [InlineData("/app.css")]
+    [InlineData("/favicon.png")]
+    public void StaticAssetPaths_AreExcludedFromGlobalRateLimit(string path)
+    {
+        Assert.True(AppRateLimiting.IsStaticAssetRequest(path));
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/books")]
+    [InlineData("/api/books")]
+    [InlineData("/api/author-books/1")]
+    [InlineData("/Account/Login")]
+    public void ApplicationPaths_AreNotExcludedFromGlobalRateLimit(string path)
+    {
+        Assert.False(AppRateLimiting.IsStaticAssetRequest(path));
+    }
+}
+
+public sealed class RateLimitingWebAppFixture : IAsyncLifetime
+{
+    public WebAppFactory Factory { get; } = new(new WebAppFactoryOptions
+    {
+        ApiRateLimitPermitLimit = RateLimitingTests.ApiPermitLimit,
+        AuthenticationRateLimitPermitLimit = RateLimitingTests.AuthenticationPermitLimit,
+        InitializeDatabaseRespawner = false
+    });
+
+    public async ValueTask InitializeAsync()
+    {
+        await Factory.InitializeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Factory.DisposeAsync();
+    }
+}

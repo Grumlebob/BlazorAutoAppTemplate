@@ -10,7 +10,7 @@ function Get-QualityToolVersions {
         throw "Pinned quality tool manifest is missing: $path"
     }
     $versions = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable
-    if ($versions.schema -ne 'blazorautoapp.sonar-tools/1') {
+    if ($versions.schema -ne 'grumplates.sonar-tools/1') {
         throw "Unsupported quality tool manifest schema '$($versions.schema)'."
     }
     return $versions
@@ -102,7 +102,7 @@ function Get-QualityBaseDirectory {
         if ([string]::IsNullOrWhiteSpace($HOME)) { throw 'No per-user data directory is available.' }
         $root = Join-Path $HOME '.local/share'
     }
-    return [IO.Path]::GetFullPath((Join-Path $root "BlazorAutoAppQuality/SonarQube/$RepositorySlug-$IdentityHash8"))
+    return [IO.Path]::GetFullPath((Join-Path $root "GrumPlatesQuality/SonarQube/$RepositorySlug-$IdentityHash8"))
 }
 
 function Get-QualitySettingsDocument {
@@ -115,7 +115,7 @@ function Get-QualitySettingsDocument {
     $allowed = @('schema', 'hostPort', 'nodeToolchainDirectory', 'pythonExecutable')
     $unknown = @($settings.Keys | Where-Object { $_ -notin $allowed })
     if ($unknown.Count -gt 0) { throw "Unknown quality setting(s): $($unknown -join ', ')" }
-    if ($settings.schema -ne 'blazorautoapp.sonar-settings/1') {
+    if ($settings.schema -ne 'grumplates.sonar-settings/1') {
         throw "Unsupported settings schema '$($settings.schema)'."
     }
     if ($null -ne $settings.hostPort) {
@@ -146,7 +146,7 @@ function Get-QualityPrivateSettings {
     $allowed = @('schema', 'repositoryIdentity', 'identityHash', 'hostPort', 'createdUtc')
     $unknown = @($settings.Keys | Where-Object { $_ -notin $allowed })
     if ($unknown.Count -gt 0) { throw "Unknown private quality setting(s): $($unknown -join ', ')" }
-    if ($settings.schema -ne 'blazorautoapp.sonar-private-settings/1' -or
+    if ($settings.schema -ne 'grumplates.sonar-private-settings/1' -or
         $settings.repositoryIdentity -ne $RepositoryIdentity -or $settings.identityHash -ne $IdentityHash) {
         throw 'Private quality settings identity does not match this Git origin; refusing to reuse the namespace.'
     }
@@ -333,7 +333,7 @@ function Get-QualityContext {
     if (-not $gitCommand -or -not $gitCommand.Source) { throw 'Git executable was not found.' }
     $dockerCommand = Get-Command docker.exe, docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     $effectiveSettings = [ordered]@{
-        schema = 'blazorautoapp.sonar-settings/1'
+        schema = 'grumplates.sonar-settings/1'
         hostPort = $hostPort
         nodeToolchainConfigured = [bool]$settingValues.nodeToolchainDirectory
         pythonExecutableConfigured = [bool]$settingValues.pythonExecutable
@@ -434,7 +434,7 @@ function Save-QualityPrivateSettings {
         return
     }
     $document = [ordered]@{
-        schema = 'blazorautoapp.sonar-private-settings/1'
+        schema = 'grumplates.sonar-private-settings/1'
         repositoryIdentity = $Context.RepositoryIdentity
         identityHash = $Context.IdentityHash
         hostPort = $Context.HostPort

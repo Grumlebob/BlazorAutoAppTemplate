@@ -266,7 +266,7 @@ def _call_read_only_tools(client: StdioMcpClient, project_key: str) -> tuple[str
         {
             "protocolVersion": "2025-06-18",
             "capabilities": {},
-            "clientInfo": {"name": "blazorautoapp-sonar-probe", "version": "1.0"},
+            "clientInfo": {"name": "grumplates-sonar-probe", "version": "1.0"},
         },
     )
     protocol_version = initialized.get("protocolVersion")

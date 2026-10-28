@@ -22,7 +22,7 @@ def source_path(value: str, repo_root: Path, source_root: Path) -> str:
     source = source_root.resolve()
     if re.match(r"^[A-Za-z]:/", decoded) or decoded.startswith("/"):
         candidate = Path(decoded)
-    elif decoded.startswith("BlazorAutoApp.React/"):
+    elif decoded.startswith("GrumPlates.React/"):
         candidate = repo / Path(decoded)
     else:
         candidate = source / Path(decoded)

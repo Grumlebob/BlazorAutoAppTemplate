@@ -35,8 +35,8 @@ if args[:2] == ["image", "inspect"]:
     if os.environ.get("FAIL_ACCEPTANCE_LABEL") == "1":
         acceptance = "ReactPublicV1" if acceptance == "BlazorAutoV1" else "BlazorAutoV1"
     print(json.dumps({
-        "com.blazorautoapp.frontend-profile": profile,
-        "com.blazorautoapp.acceptance-profile": acceptance,
+        "com.grumplates.frontend-profile": profile,
+        "com.grumplates.acceptance-profile": acceptance,
         "org.opencontainers.image.revision": os.environ["GITHUB_SHA"],
     }))
 elif args[:2] == ["network", "create"] or args[0] == "run":

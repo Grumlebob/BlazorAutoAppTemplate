@@ -12,7 +12,7 @@ The on-demand audits below produce reports for review and do not block merges. T
 | [sitespeed.io](https://www.sitespeed.io/documentation/sitespeed.io/docker/) | Collects three Chrome timing samples and request waterfalls. Compare runs under the same conditions. |
 | [scc](https://github.com/boyter/scc) | Counts code and estimates lexical complexity. Use counts for planning, not as quality or productivity scores. |
 
-The React public Chromium suite includes axe assertions and runs in CI; it is separate from this audit runner. For local browser setup, see [React public browser checks](../Testing/Browser.md#react-public-browser-checks). Install the client lockfile with `npm --prefix BlazorAutoApp.Client ci` so axe is available.
+The React public Chromium suite includes axe assertions and runs in CI; it is separate from this audit runner. For local browser setup, see [React public browser checks](../Testing/Browser.md#react-public-browser-checks). Install the client lockfile with `npm --prefix GrumPlates.Client ci` so axe is available.
 
 ## Run an audit
 

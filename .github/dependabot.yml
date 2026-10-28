@@ -36,7 +36,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "docker"
-    directory: "/BlazorAutoApp"
+    directory: "/GrumPlates"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -100,7 +100,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "npm"
-    directory: "/BlazorAutoApp.Client"
+    directory: "/GrumPlates.Client"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -116,7 +116,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "npm"
-    directory: "/BlazorAutoApp.React"
+    directory: "/GrumPlates.React"
     schedule:
       interval: "weekly"
       day: "sunday"

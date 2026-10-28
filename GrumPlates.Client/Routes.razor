@@ -1,0 +1,14 @@
+@using GrumPlates.Client.Features.AppShell.Layout
+@using GrumPlates.Client.Features.AppShell.Routes
+@using GrumPlates.Client.Features.Login.Components
+
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

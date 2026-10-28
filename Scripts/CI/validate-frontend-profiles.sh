@@ -18,12 +18,12 @@ for profile in BlazorAuto React; do
   mkdir -p "$profile_results"
 
   echo "Restore, build and test frontend profile: $profile/$acceptance_profile"
-  dotnet restore "$REPO_ROOT/BlazorAutoApp.sln" "-p:FrontendProfile=$profile"
-  dotnet build "$REPO_ROOT/BlazorAutoApp.sln" \
+  dotnet restore "$REPO_ROOT/GrumPlates.sln" "-p:FrontendProfile=$profile"
+  dotnet build "$REPO_ROOT/GrumPlates.sln" \
     --configuration Release --no-restore "-p:FrontendProfile=$profile"
 
   test_arguments=(
-    test "$REPO_ROOT/BlazorAutoApp.sln"
+    test "$REPO_ROOT/GrumPlates.sln"
     --configuration Release
     --no-build
     --no-restore
@@ -54,7 +54,7 @@ for profile in BlazorAuto React; do
     account_filter+='&FrontendProfile!=BlazorAuto'
   fi
   mkdir -p "$account_results"
-  dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
+  dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
     --configuration Release --no-build --no-restore "-p:FrontendProfile=$profile" \
     --filter "$account_filter" \
     --logger 'trx;LogFileName=accounts.trx' --results-directory "$account_results"

@@ -118,8 +118,8 @@ labels = json.loads(labels_json)
 if not isinstance(labels, dict):
     raise SystemExit("final image labels are missing")
 expected = {
-    "com.blazorautoapp.frontend-profile": frontend_profile,
-    "com.blazorautoapp.acceptance-profile": acceptance_profile,
+    "com.grumplates.frontend-profile": frontend_profile,
+    "com.grumplates.acceptance-profile": acceptance_profile,
 }
 if source_sha:
     expected["org.opencontainers.image.revision"] = source_sha
@@ -316,7 +316,7 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
   postgres_host_port="$(docker port "$postgres" 5432/tcp | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
   [[ -n "$postgres_host_port" ]] || { echo "postgres did not publish port 5432" >&2; exit 1; }
   cd "$REPO_ROOT"
-  pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
+  pwsh "$REPO_ROOT/GrumPlates.Test/bin/Release/net10.0/playwright.ps1" install chromium
   react_disabled_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/React-disabled"
   mkdir -p "$react_disabled_results_dir"
   cd "$REPO_ROOT"
@@ -325,7 +325,7 @@ print(str(payload["accountsEnabled"]).lower())' <<< "$client_config_response")"
   E2E_BASE_URL="$base_url" \
   E2E_HEADLESS=1 \
   E2E_SLOW_MO_MS=0 \
-    dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
+    dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
       --configuration Release --no-build --no-restore \
       --filter "$REACT_DISABLED_BROWSER_FILTER" \
       --logger "trx;LogFileName=react-disabled-browser.trx" \
@@ -464,7 +464,7 @@ EOF
   E2E_BASE_URL="$enabled_base_url" \
   E2E_HEADLESS=1 \
   E2E_SLOW_MO_MS=0 \
-    dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
+    dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
       --configuration Release --no-build --no-restore \
       --filter "$REACT_ENABLED_BROWSER_FILTER" \
       --logger "trx;LogFileName=react-enabled-browser.trx" \
@@ -501,7 +501,7 @@ else
   [[ -n "$postgres_host_port" ]] || { echo "web container did not publish port 5432" >&2; exit 1; }
 
   cd "$REPO_ROOT"
-  pwsh "$REPO_ROOT/BlazorAutoApp.Test/bin/Release/net10.0/playwright.ps1" install chromium
+  pwsh "$REPO_ROOT/GrumPlates.Test/bin/Release/net10.0/playwright.ps1" install chromium
   browser_results_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/test-results/${expected_run_id}-${expected_run_attempt}/${GITHUB_JOB:-validate}/docker-smoke/BlazorAuto"
   mkdir -p "$browser_results_dir"
   cd "$REPO_ROOT"
@@ -510,7 +510,7 @@ else
   E2E_BASE_URL="$base_url" \
   E2E_HEADLESS=1 \
   E2E_SLOW_MO_MS=0 \
-    dotnet test "$REPO_ROOT/BlazorAutoApp.Test/BlazorAutoApp.Test.csproj" \
+    dotnet test "$REPO_ROOT/GrumPlates.Test/GrumPlates.Test.csproj" \
       --configuration Release --no-build --no-restore \
       --filter "$BROWSER_SMOKE_FILTER" \
       --logger "trx;LogFileName=blazor-browser-smoke.trx" \

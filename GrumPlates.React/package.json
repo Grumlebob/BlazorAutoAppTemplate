@@ -1,0 +1,56 @@
+{
+  "name": "grumplates-react",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@12.2.0",
+  "engines": {
+    "node": "26.12.1",
+    "npm": "12.2.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:vite": "vite --host localhost",
+    "dev:api": "node scripts/dev-api.mjs",
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "lint": "eslint app scripts vite.config.ts vitest.config.ts react-router.config.ts eslint.config.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=coverage/test-results.json",
+    "build": "npm run typecheck && react-router build",
+    "api:generate": "node scripts/openapi-contract.mjs generate",
+    "api:check": "node scripts/openapi-contract.mjs check",
+    "api:typegen": "openapi-typescript"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.105.0",
+    "openapi-fetch": "0.17.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router": "8.5.0",
+    "isbot": "5.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@react-router/dev": "8.5.0",
+    "@react-router/node": "8.5.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "jsdom": "30.1.3",
+    "openapi-typescript": "7.13.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

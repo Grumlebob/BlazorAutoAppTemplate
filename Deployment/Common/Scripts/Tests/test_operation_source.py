@@ -69,7 +69,7 @@ class OperationSourceTests(unittest.TestCase):
                 self.assertTrue(module.ordinary_documentation(path))
         for path in ('Scripts/source.md','.github/workflows/source.md','Deployment/LocalSingleNode/ansible/template.md',
                      'Deployment/LocalSingleNode/Scripts/Tests/fixture.md','docs/../build.md','/docs/Guide.md',
-                     'docs\\Guide.md','docs/config.yml','BlazorAutoApp/source.md','config.md'):
+                     'docs\\Guide.md','docs/config.yml','GrumPlates/source.md','config.md'):
             with self.subTest(path=path):
                 self.assertFalse(module.ordinary_documentation(path))
 

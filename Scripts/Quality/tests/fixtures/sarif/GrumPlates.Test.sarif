@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Microsoft.CodeAnalysis.CSharp",
+          "rules": [
+            {"id": "S2699", "shortDescription": {"text": "Tests should include assertions"}}
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "S2699",
+          "level": "warning",
+          "message": {"text": "Add at least one assertion to this test case."},
+          "locations": [
+            {"physicalLocation": {"artifactLocation": {"uri": "file:///C:/fake/repo/GrumPlates.Test/Infrastructure/Hosting/RenderModeHtmlTests.cs"}, "region": {"startLine": 10}}}
+          ]
+        }
+      ]
+    }
+  ]
+}

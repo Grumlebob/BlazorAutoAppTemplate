@@ -118,7 +118,7 @@ class LocalClusterReleaseStatusTests(TestCase):
             value = {
                 "sha": sha,
                 "source_sha": sha,
-                "source_repo_url": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+                "source_repo_url": "https://github.com/Grumlebob/GrumPlates",
                 "image": "ghcr.io/grumlebob/books",
                 "digest": "sha256:" + run_id[-1] * 64,
                 "frontend_profile": "BlazorAuto",
@@ -177,7 +177,7 @@ class LocalClusterReleaseStatusTests(TestCase):
                     },
                 ) as restore, \
                 patch.dict(os.environ, {
-                    "GITHUB_REPOSITORY": "Grumlebob/BlazorAutoAppTemplate",
+                    "GITHUB_REPOSITORY": "Grumlebob/GrumPlates",
                     "GITHUB_SERVER_URL": "https://github.com",
                     "VERIFY_OFFLINE_PINS": "true",
                     "RUNNER_TEMP": directory,
@@ -248,7 +248,7 @@ class LocalClusterReleaseStatusTests(TestCase):
 
     def test_reads_one_consistent_marker_from_every_app_server(self):
         marker = {
-            "source_repo_url": "https://github.com/Grumlebob/BlazorAutoAppTemplate",
+            "source_repo_url": "https://github.com/Grumlebob/GrumPlates",
             "source_sha": "a" * 40,
             "ci_run_id": "12345",
         }

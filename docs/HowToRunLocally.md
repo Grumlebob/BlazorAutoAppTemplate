@@ -27,7 +27,7 @@ Use `-NoBrowser` to keep the browser closed, `-Observability` to start the optio
 
 The app is normally at `https://localhost:7186`. Docker exposes ports on loopback only. Postgres uses host port `5432`, Redis `6379`, and Redis Insight `5540` by default. Change a busy host port in `.env`, then rerun the wrapper. Keep container-to-container ports (Postgres `5432` and Redis `6379`) unchanged. The optional observability URLs and ports are defined in `.env.example`; usage is in [Observability](ObservabilityGuide.md).
 
-Development can seed a local User account. Values are in [appsettings.Development.json](../BlazorAutoApp/appsettings.Development.json); use them only for local development. Startup migrations run in the Docker profile.
+Development can seed a local User account. Values are in [appsettings.Development.json](../GrumPlates/appsettings.Development.json); use them only for local development. Startup migrations run in the Docker profile.
 
 ## Reset local data
 
@@ -45,7 +45,7 @@ Use this only when compatible local PostgreSQL and Redis services already run:
 $env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5432;Database=app;Username=postgres;Password=postgres"
 $env:Redis__Configuration = "localhost:6379"
 $env:Database__RunMigrationsAtStartup = "true"
-dotnet run --project .\BlazorAutoApp\BlazorAutoApp.csproj -- --urls https://localhost:7186
+dotnet run --project .\GrumPlates\GrumPlates.csproj -- --urls https://localhost:7186
 ```
 
 If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_URL` to the same URL for browser tests. React's Vite proxy and API setup are described in [Frontend/React](Frontend/React.md).
@@ -55,12 +55,12 @@ If the HTTPS port is busy, choose another URL with `--urls` and set `E2E_BASE_UR
 Use the client lockfile for repeatable installs:
 
 ```powershell
-Set-Location .\BlazorAutoApp.Client
+Set-Location .\GrumPlates.Client
 npm ci
 npm run css:build
 ```
 
-During active CSS work, use `npm run css:watch`. Generated output is `BlazorAutoApp/wwwroot/tailwind.css`; commit it when Razor classes or `BlazorAutoApp.Client/Styles` change.
+During active CSS work, use `npm run css:watch`. Generated output is `GrumPlates/wwwroot/tailwind.css`; commit it when Razor classes or `GrumPlates.Client/Styles` change.
 
 ## Migrations
 
@@ -68,8 +68,8 @@ Create and apply a local schema migration with:
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations add <MigrationName> --project BlazorAutoApp --startup-project BlazorAutoApp --output-dir Infrastructure\Persistence\Migrations
-dotnet ef database update --project BlazorAutoApp --startup-project BlazorAutoApp
+dotnet ef migrations add <MigrationName> --project GrumPlates --startup-project GrumPlates --output-dir Infrastructure\Persistence\Migrations
+dotnet ef database update --project GrumPlates --startup-project GrumPlates
 ```
 
 Production uses the release workflow's verified migration bundle; follow the relevant [deployment guide](../Deployment/README.md). Do not import another system's data from application startup.

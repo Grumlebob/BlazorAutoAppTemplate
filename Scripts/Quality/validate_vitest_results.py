@@ -86,7 +86,7 @@ def _resolve_coverage_source(source: str, react_root: Path) -> Path:
     if candidate.is_absolute():
         return candidate.resolve()
     normalized = source.replace("\\", "/")
-    base = react_root.parent if normalized.startswith("BlazorAutoApp.React/") else react_root
+    base = react_root.parent if normalized.startswith("GrumPlates.React/") else react_root
     return (base / normalized).resolve()
 
 

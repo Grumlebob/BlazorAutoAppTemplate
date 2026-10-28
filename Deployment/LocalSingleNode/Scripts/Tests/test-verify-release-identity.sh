@@ -28,13 +28,13 @@ elif args[:2] == ["image", "inspect"]:
     if os.environ.get("FAKE_LEGACY_IMAGE") != "1":
         labels.update({
             "org.opencontainers.image.revision": os.environ["EXPECTED_SOURCE_SHA"],
-            "com.blazorautoapp.frontend-profile": os.environ["EXPECTED_FRONTEND_PROFILE"],
-            "com.blazorautoapp.acceptance-profile": os.environ["EXPECTED_ACCEPTANCE_PROFILE"],
+            "com.grumplates.frontend-profile": os.environ["EXPECTED_FRONTEND_PROFILE"],
+            "com.grumplates.acceptance-profile": os.environ["EXPECTED_ACCEPTANCE_PROFILE"],
         })
     if os.environ.get("FAKE_WRONG_PROFILE") == "1":
-        labels["com.blazorautoapp.frontend-profile"] = "React"
+        labels["com.grumplates.frontend-profile"] = "React"
     if os.environ.get("FAKE_WRONG_ACCEPTANCE") == "1":
-        labels["com.blazorautoapp.acceptance-profile"] = "ReactPublicV1"
+        labels["com.grumplates.acceptance-profile"] = "ReactPublicV1"
     if os.environ.get("FAKE_WRONG_REVISION") == "1":
         labels["org.opencontainers.image.revision"] = "2" * 40
     print(json.dumps([{"RepoDigests": ["example.io/owner/app@" + digest], "Config": {"Labels": labels}}]))

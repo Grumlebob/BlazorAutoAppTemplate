@@ -33,10 +33,10 @@ Each step is its own pull request with the [local gate](Test.md#local-gate) and 
 
    | Template name | Product name |
    | --- | --- |
-   | `BlazorAutoApp.sln`, `BlazorAutoApp`, `.Core` and `.Test` projects, folders and root namespaces | `<Product>.sln`, `<Product>`, `<Product>.Core`, `<Product>.Test` |
-   | `BlazorAutoApp.React`, npm package `blazor-auto-app-react` | `<Product>.React`, `<product>-react` |
-   | Image labels `com.blazorautoapp.*` | A product label namespace. Change the Dockerfile, manifest writer and validator, release verifiers, smoke test, tests and deployment audit together |
-   | Alloy container filter `blazorautoapp` in `docker/observability/alloy/config.alloy` | The product's Compose project name |
+   | `GrumPlates.sln`, `GrumPlates`, `.Core` and `.Test` projects, folders and root namespaces | `<Product>.sln`, `<Product>`, `<Product>.Core`, `<Product>.Test` |
+   | `GrumPlates.React`, npm package `grumplates-react` | `<Product>.React`, `<product>-react` |
+   | Image labels `com.grumplates.*` | A product label namespace. Change the Dockerfile, manifest writer and validator, release verifiers, smoke test, tests and deployment audit together |
+   | Alloy container filter `grumplates` in `docker/observability/alloy/config.alloy` | The product's Compose project name |
 
    Keep shared host names unchanged: the deployment lock `/tmp/localcluster-deploy.lockdir` and the CI resource labels are shared with other apps on the same machine. Run `api:check` afterwards; the generated contract should not change.
 5. **Remove template material** (next section).
@@ -58,7 +58,7 @@ Each step is its own pull request with the [local gate](Test.md#local-gate) and 
 Finish with a search and classify every match:
 
 ```bash
-git grep -nIiE "BlazorAutoApp|blazor-auto-app|blazorautoapp|Books" -- ':!Plans'
+git grep -nIiE "GrumPlates|Books" -- ':!Plans'
 ```
 
 Keep only provenance links, intentional shared names and recorded follow-ups.

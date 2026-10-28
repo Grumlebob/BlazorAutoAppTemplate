@@ -1,6 +1,6 @@
-# BlazorAutoApp
+# GrumPlates
 
-BlazorAutoApp is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional React SPA with public catalog pages and an account feature that is disabled by default. Both use the same ASP.NET Core backend. PostgreSQL stores app data; Redis supports distributed caching and Data Protection.
+GrumPlates is a .NET 10 application template with two frontend profiles: `BlazorAuto`, the default Interactive Auto Blazor app, and an optional React SPA with public catalog pages and an account feature that is disabled by default. Both use the same ASP.NET Core backend. PostgreSQL stores app data; Redis supports distributed caching and Data Protection.
 
 Run the local Docker stack:
 
@@ -28,10 +28,10 @@ Read only the guides needed for your task. The contributor rules point to requir
 
 ## Repository map
 
-- `BlazorAutoApp.Core/Features/` contains shared feature contracts and domain types.
-- `BlazorAutoApp/Features/` contains server behavior and endpoint mappings.
-- `BlazorAutoApp.Client/Features/` contains Blazor client behavior and UI.
-- `BlazorAutoApp.React/` contains the optional React client.
-- `BlazorAutoApp.Test/` contains integration, architecture and browser tests.
+- `GrumPlates.Core/Features/` contains shared feature contracts and domain types.
+- `GrumPlates/Features/` contains server behavior and endpoint mappings.
+- `GrumPlates.Client/Features/` contains Blazor client behavior and UI.
+- `GrumPlates.React/` contains the optional React client.
+- `GrumPlates.Test/` contains integration, architecture and browser tests.
 - `Deployment/` contains the three deployment targets and shared release tooling.
 - `Plans/` contains tracked plans; `Plans.local/` is ignored scratch space.

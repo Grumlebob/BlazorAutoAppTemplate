@@ -224,7 +224,7 @@ function New-ArchiveManifest {
         $entries.Add([ordered]@{ path = $relative; sha256 = $digest })
     }
     Write-AuditJson -Path (Join-Path $Directory 'manifest.json') -Value ([ordered]@{
-        schema = 'blazorautoapp.sonar-archive/1'
+        schema = 'grumplates.sonar-archive/1'
         runId = $batch.runId
         files = @($entries)
     })
@@ -234,7 +234,7 @@ function Verify-ArchiveManifest {
     param([Parameter(Mandatory)][string]$Directory)
     $manifestPath = Join-Path $Directory 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.schema -ne 'blazorautoapp.sonar-archive/1' -or $manifest.runId -ne $batch.runId) { throw 'Archive manifest identity does not match the audit.' }
+    if ($manifest.schema -ne 'grumplates.sonar-archive/1' -or $manifest.runId -ne $batch.runId) { throw 'Archive manifest identity does not match the audit.' }
     foreach ($entry in $manifest.files) {
         $path = Join-Path $Directory ($entry.path.Replace('/', [IO.Path]::DirectorySeparatorChar))
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Archived file is missing: $($entry.path)" }
@@ -335,8 +335,8 @@ try {
         'Scripts/Quality/validate_vitest_results.py', 'Scripts/Quality/normalize_lcov_paths.py',
         'Scripts/Quality/tool-versions.json', 'Scripts/Quality/quality-settings.example.json',
         'Scripts/Quality/SonarQube/SonarQube.Analysis.xml', 'Scripts/Quality/SonarQube/profile-overrides.json',
-        'BlazorAutoApp.React/package.json', 'BlazorAutoApp.React/package-lock.json',
-        'BlazorAutoApp.React/vitest.config.ts', 'docker/sonarqube/compose.yaml'
+        'GrumPlates.React/package.json', 'GrumPlates.React/package-lock.json',
+        'GrumPlates.React/vitest.config.ts', 'docker/sonarqube/compose.yaml'
     )
     foreach ($relative in $requiredFiles) {
         $check = Invoke-QualityProcess -FilePath $git -ArgumentList @('-C', $invokingRoot, 'cat-file', '-e', "$($sourceSha):$relative") `
@@ -349,7 +349,7 @@ try {
     $runDirectory = Join-Path $context.RunsDirectory $runId
     New-Item -ItemType Directory -Force -Path (Join-Path $runDirectory 'worktrees') | Out-Null
     $batch = [ordered]@{
-        schema = 'blazorautoapp.sonar-audit/1'
+        schema = 'grumplates.sonar-audit/1'
         mode = 'Full'
         runId = $runId
         repositoryIdentity = $context.RepositoryIdentity

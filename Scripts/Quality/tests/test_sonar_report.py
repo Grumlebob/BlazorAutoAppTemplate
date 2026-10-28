@@ -14,15 +14,15 @@ from Scripts.Quality import sonar_report as sr
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "sonar"
-PROJECT = "blazorautoapp-abc12345-BlazorAuto"
-IDENTITY = "github.com/grumlebob/blazorautoapptemplate"
+PROJECT = "grumplates-abc12345-BlazorAuto"
+IDENTITY = "github.com/grumlebob/grumplates"
 SHA = "ed87fedcaf09ab7e3c8b62303ae8b64325b30aea"
 ANALYSIS_ID = "7d5ec4c9-f501-46e1-91fd-44f653016317"
 PROJECT_VERSION = "20261008-ed87fedcaf09"
 SETTINGS_DIGEST = "a" * 64
 REPO_ROOT = "C:/fake/repo"
-GEOMETRY = "BlazorAutoApp.Client/Features/Books/Shared/BookCoverGeometry.cs"
-CORE = "BlazorAutoApp.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"
+GEOMETRY = "GrumPlates.Client/Features/Books/Shared/BookCoverGeometry.cs"
+CORE = "GrumPlates.Core/Features/Books/UseCases/GetBooks/GetBooksResponse.cs"
 
 
 def load(name: str) -> dict:
@@ -206,10 +206,10 @@ class PaginationTests(unittest.TestCase):
         self.assertTrue(any(params.get("facets") == "rules" for _, params in client.calls))
 
     def test_oversized_rule_splits_by_component_and_checks_counts(self) -> None:
-        issue_a = {**ISSUES[0], "key": "a", "component": f"{PROJECT}:BlazorAutoApp.Client/A.cs"}
-        issue_b = {**ISSUES[0], "key": "b", "component": f"{PROJECT}:BlazorAutoApp.Client/B.cs"}
+        issue_a = {**ISSUES[0], "key": "a", "component": f"{PROJECT}:GrumPlates.Client/A.cs"}
+        issue_b = {**ISSUES[0], "key": "b", "component": f"{PROJECT}:GrumPlates.Client/B.cs"}
         items = [issue_a, issue_b]
-        file_tree = [{"key": f"{PROJECT}:BlazorAutoApp.Client/A.cs"}, {"key": f"{PROJECT}:BlazorAutoApp.Client/B.cs"}]
+        file_tree = [{"key": f"{PROJECT}:GrumPlates.Client/A.cs"}, {"key": f"{PROJECT}:GrumPlates.Client/B.cs"}]
 
         def issue_route(params: dict) -> dict:
             quality = params.get("impactSoftwareQualities")
@@ -244,7 +244,7 @@ class ReportCompletenessTests(unittest.TestCase):
             path_exists=lambda path: True,
         )
         self.assertTrue(report["complete"])
-        self.assertEqual(report["schema"], "blazorautoapp.sonar-report/1")
+        self.assertEqual(report["schema"], "grumplates.sonar-report/1")
         self.assertEqual(report["repositoryIdentity"], IDENTITY)
         self.assertEqual(report["frontendProfile"], "BlazorAuto")
         self.assertEqual(report["analysisId"], ANALYSIS_ID)
@@ -281,10 +281,10 @@ class ReportCompletenessTests(unittest.TestCase):
 
     def test_react_scope_and_lcov_evidence(self) -> None:
         react_tree = [
-            {"key": f"{PROJECT}:BlazorAutoApp/Frontend/FrontendComposition.React.cs", "path": "BlazorAutoApp/Frontend/FrontendComposition.React.cs", "measures": []},
-            {"key": f"{PROJECT}:BlazorAutoApp/Frontend/OpenApi/OpenApiMetadataHosting.cs", "path": "BlazorAutoApp/Frontend/OpenApi/OpenApiMetadataHosting.cs", "measures": []},
-            {"key": f"{PROJECT}:BlazorAutoApp.React/app/features/books/catalog-page.tsx", "path": "BlazorAutoApp.React/app/features/books/catalog-page.tsx", "measures": []},
-            {"key": f"{PROJECT}:BlazorAutoApp.React/app/api/client.ts", "path": "BlazorAutoApp.React/app/api/client.ts", "measures": [{"metric": "coverage", "value": "75.0"}]},
+            {"key": f"{PROJECT}:GrumPlates/Frontend/FrontendComposition.React.cs", "path": "GrumPlates/Frontend/FrontendComposition.React.cs", "measures": []},
+            {"key": f"{PROJECT}:GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs", "path": "GrumPlates/Frontend/OpenApi/OpenApiMetadataHosting.cs", "measures": []},
+            {"key": f"{PROJECT}:GrumPlates.React/app/features/books/catalog-page.tsx", "path": "GrumPlates.React/app/features/books/catalog-page.tsx", "measures": []},
+            {"key": f"{PROJECT}:GrumPlates.React/app/api/client.ts", "path": "GrumPlates.React/app/api/client.ts", "measures": [{"metric": "coverage", "value": "75.0"}]},
         ]
         report = build_standard_report(standard_routes(tree=lambda params: paged(react_tree, params, "components")), profile="React")
         self.assertTrue(report["complete"])

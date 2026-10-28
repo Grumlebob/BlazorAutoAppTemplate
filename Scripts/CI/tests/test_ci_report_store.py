@@ -200,7 +200,7 @@ class CiReportStoreTests(unittest.TestCase):
         with patch.dict("os.environ", {"CI_REPORT_ROOT": str(base)}):
             template_root = store.default_root(store.DEFAULT_REPOSITORY)
             portfolio_root = store.default_root("Grumlebob/Portfolio")
-        self.assertEqual(template_root, base / "grumlebob" / "blazorautoapptemplate")
+        self.assertEqual(template_root, base / "grumlebob" / "grumplates")
         self.assertEqual(portfolio_root, base / "grumlebob" / "portfolio")
 
     def test_prune_cli_removes_only_expired_reports_for_selected_repository(self) -> None:
@@ -281,7 +281,7 @@ class WorkflowReportCollectionTests(unittest.TestCase):
 
         repository_root = SCRIPT.parents[2]
         workflow = yaml.safe_load((repository_root / ".github/workflows/ci.yml").read_text())
-        project = 'BlazorAutoApp.Test'
+        project = 'GrumPlates.Test'
         for job in ("validate", "publish-main"):
             steps = workflow["jobs"][job]["steps"]
             step = next(item for item in steps if "ci_report_store.py save" in item.get("run", ""))
@@ -315,7 +315,7 @@ class WorkflowReportCollectionTests(unittest.TestCase):
                         quality.mkdir(parents=True)
                         (quality / "trivy.json").write_bytes(b'{"Results":[]}')
                     env = dict(os.environ, RUNNER_TEMP=str(root / "runner"), GITHUB_RUN_ID="123",
-                               GITHUB_RUN_ATTEMPT="2", GITHUB_JOB=job, GITHUB_REPOSITORY='Grumlebob/BlazorAutoAppTemplate',
+                               GITHUB_RUN_ATTEMPT="2", GITHUB_JOB=job, GITHUB_REPOSITORY='Grumlebob/GrumPlates',
                                CI_REPORT_ROOT=str(root / "store"), GITHUB_STEP_SUMMARY=str(root / "summary"),
                                REPORT_STATUS="failure", RUNNER_NAME="fixture-runner")
                     completed = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step["run"]],
@@ -333,7 +333,7 @@ class WorkflowReportCollectionTests(unittest.TestCase):
                     self.assertEqual(metadata["status"], "failure")
                     self.assertEqual(metadata["trx_counts"]["failed"], 1)
                     destination = root / "retrieved"
-                    kwargs = {} if False else {"repository": 'Grumlebob/BlazorAutoAppTemplate'}
+                    kwargs = {} if False else {"repository": 'Grumlebob/GrumPlates'}
                     store.restore_report(manifests[0].parent.parent, "123", "2", job, destination, **kwargs)
                     self.assertEqual((destination / "docker-smoke/smoke.trx").read_bytes(), trx)
                     self.assertEqual((destination / "playwright/failure.png").read_bytes(), b"fixture screenshot")

@@ -74,7 +74,7 @@ function Get-QualityFreshMarker {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
     try { $marker = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
     catch { throw 'The private fresh-stack recovery marker is invalid; preserve it and inspect the owned server state.' }
-    if ($marker.schema -ne 'blazorautoapp.sonar-fresh-stack/1' -or
+    if ($marker.schema -ne 'grumplates.sonar-fresh-stack/1' -or
         $marker.repositoryIdentity -ne $Context.RepositoryIdentity -or
         $marker.identityHash -ne $Context.IdentityHash) {
         throw 'The private fresh-stack marker belongs to another repository identity; refusing credential recovery.'
@@ -158,7 +158,7 @@ function Ensure-QualityDatabasePassword {
     $marker = Get-QualityFreshMarker
     if (-not $marker) {
         $marker = [ordered]@{
-            schema = 'blazorautoapp.sonar-fresh-stack/1'
+            schema = 'grumplates.sonar-fresh-stack/1'
             repositoryIdentity = $Context.RepositoryIdentity
             identityHash = $Context.IdentityHash
             createdUtc = [DateTime]::UtcNow.ToString('o')
@@ -594,7 +594,7 @@ function Ensure-QualityProjectResources {
 function Apply-QualityProfileOverrides {
     $path = Join-Path $repoRoot 'Scripts/Quality/SonarQube/profile-overrides.json'
     $config = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-    if ($config.schema -ne 'blazorautoapp.sonar-profile-overrides/1') { throw 'Unsupported profile override schema.' }
+    if ($config.schema -ne 'grumplates.sonar-profile-overrides/1') { throw 'Unsupported profile override schema.' }
     foreach ($profile in $config.profiles) {
         foreach ($entry in $profile.deactivate) {
             if ([string]::IsNullOrWhiteSpace([string]$entry.reason)) { throw "Rule '$($entry.rule)' has no reviewed reason." }

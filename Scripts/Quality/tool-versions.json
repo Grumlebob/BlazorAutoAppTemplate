@@ -1,5 +1,5 @@
 {
-  "schema": "blazorautoapp.sonar-tools/1",
+  "schema": "grumplates.sonar-tools/1",
   "sonarqubeImage": "sonarqube:26.9.0.129388-community",
   "databaseImage": "postgres:17.11-alpine3.23",
   "mcpImage": "sonarsource/sonarqube-mcp:1.28.0.4397",

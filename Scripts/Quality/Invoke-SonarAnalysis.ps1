@@ -31,7 +31,7 @@ $failure = $null
 $analysisToken = $null
 $readerToken = $null
 $summary = [ordered]@{
-    schema = 'blazorautoapp.sonar-analysis/1'
+    schema = 'grumplates.sonar-analysis/1'
     repositoryIdentity = $Context.RepositoryIdentity
     frontendProfile = $FrontendProfile
     projectKey = $ProjectKey
@@ -188,21 +188,21 @@ function Get-ProfileExclusions {
         if (-not [string]::IsNullOrWhiteSpace($item)) { $exclusions.Add($item.Trim()) }
     }
     if ($FrontendProfile -eq 'BlazorAuto') {
-        $exclusions.Add('BlazorAutoApp.React/**')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.test.ts')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.test.tsx')
+        $exclusions.Add('GrumPlates.React/**')
+        $exclusions.Add('GrumPlates.React/app/**/*.test.ts')
+        $exclusions.Add('GrumPlates.React/app/**/*.test.tsx')
     }
     else {
-        $exclusions.Add('BlazorAutoApp.Client/**')
-        $exclusions.Add('BlazorAutoApp/**/*.razor')
-        $exclusions.Add('BlazorAutoApp/**/*.razor.js')
-        $exclusions.Add('BlazorAutoApp/Features/Login/Account/Pages/Register.razor')
-        $exclusions.Add('BlazorAutoApp/Features/Login/Account/Pages/RegisterConfirmation.razor')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.test.ts')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.test.tsx')
-        $exclusions.Add('BlazorAutoApp.React/app/test/**')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.typecheck.ts')
-        $exclusions.Add('BlazorAutoApp.React/app/**/*.d.ts')
+        $exclusions.Add('GrumPlates.Client/**')
+        $exclusions.Add('GrumPlates/**/*.razor')
+        $exclusions.Add('GrumPlates/**/*.razor.js')
+        $exclusions.Add('GrumPlates/Features/Login/Account/Pages/Register.razor')
+        $exclusions.Add('GrumPlates/Features/Login/Account/Pages/RegisterConfirmation.razor')
+        $exclusions.Add('GrumPlates.React/app/**/*.test.ts')
+        $exclusions.Add('GrumPlates.React/app/**/*.test.tsx')
+        $exclusions.Add('GrumPlates.React/app/test/**')
+        $exclusions.Add('GrumPlates.React/app/**/*.typecheck.ts')
+        $exclusions.Add('GrumPlates.React/app/**/*.d.ts')
     }
     return ($exclusions | Select-Object -Unique) -join ','
 }
@@ -318,7 +318,7 @@ try {
     $analysisSettingsPath = Join-Path $repoRoot 'Scripts/Quality/SonarQube/SonarQube.Analysis.xml'
     $profileOverridesPath = Join-Path $repoRoot 'Scripts/Quality/SonarQube/profile-overrides.json'
     $effectiveSettings = [ordered]@{
-        schema = 'blazorautoapp.sonar-effective-settings/1'
+        schema = 'grumplates.sonar-effective-settings/1'
         repositoryIdentity = $Context.RepositoryIdentity
         frontendProfile = $FrontendProfile
         projectKey = $ProjectKey
@@ -344,7 +344,7 @@ try {
     $scanner = Get-ScannerExecutable
     $testsDirectory = Join-Path $runDirectory 'tests'
     New-Item -ItemType Directory -Force -Path $testsDirectory | Out-Null
-    $reactRoot = Join-Path $repoRoot 'BlazorAutoApp.React'
+    $reactRoot = Join-Path $repoRoot 'GrumPlates.React'
     $reactLcov = ''
     if ($FrontendProfile -eq 'React') {
         $reactCoverage = Join-Path $runDirectory 'react-coverage'
@@ -376,7 +376,7 @@ try {
             -Arguments @($normalizer, '--input', $rawLcov, '--output', $reactLcov, '--repo-root', $repoRoot, '--source-root', $reactRoot) `
             -WorkingDirectory $repoRoot -MaximumSeconds 60
         $lcov = [IO.File]::ReadAllText($reactLcov)
-        if ($lcov -notmatch '(?m)^SF:BlazorAutoApp\.React/app/.*\.(ts|tsx)$') { throw 'Normalized React LCOV contains no app source path.' }
+        if ($lcov -notmatch '(?m)^SF:GrumPlates\.React/app/.*\.(ts|tsx)$') { throw 'Normalized React LCOV contains no app source path.' }
         $coverageDocument = Get-Content -LiteralPath $coverageSummary -Raw | ConvertFrom-Json
         $frontendCounts = $validateReactTests.Stdout.Trim() | ConvertFrom-Json -AsHashtable
         $summary.tests.frontendTests = [ordered]@{
@@ -409,16 +409,16 @@ try {
     $null = Invoke-QualityStep -Name 'scanner-begin' -Executable $scanner -Arguments $beginArguments `
         -WorkingDirectory $repoRoot -Environment $environment -Secrets @($analysisToken) -MaximumSeconds 1200
 
-    $restoreArgs = @('restore', (Join-Path $repoRoot 'BlazorAutoApp.sln'), '--verbosity', 'minimal',
+    $restoreArgs = @('restore', (Join-Path $repoRoot 'GrumPlates.sln'), '--verbosity', 'minimal',
         "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false')
     $null = Invoke-QualityStep -Name 'dotnet-restore' -Executable $Context.DotnetExecutable -Arguments $restoreArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
-    $buildArgs = @('build', (Join-Path $repoRoot 'BlazorAutoApp.sln'), '--configuration', 'Release', '--no-restore',
+    $buildArgs = @('build', (Join-Path $repoRoot 'GrumPlates.sln'), '--configuration', 'Release', '--no-restore',
         '--no-incremental', '--disable-build-servers', '-nr:false', "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false')
     $null = Invoke-QualityStep -Name 'dotnet-build' -Executable $Context.DotnetExecutable -Arguments $buildArgs `
         -WorkingDirectory $repoRoot -Environment $environment -MaximumSeconds 1200
 
-    $testArgs = @('test', (Join-Path $repoRoot 'BlazorAutoApp.Test/BlazorAutoApp.Test.csproj'),
+    $testArgs = @('test', (Join-Path $repoRoot 'GrumPlates.Test/GrumPlates.Test.csproj'),
         '--configuration', 'Release', '--no-build', '--no-restore', '--disable-build-servers', '-nr:false',
         "-p:FrontendProfile=$FrontendProfile", '-p:RunSonarAnalyzers=false',
         '--collect', 'Code Coverage;Format=Xml', '--logger', 'trx;LogFileName=suite.trx', '--results-directory', $testsDirectory)
@@ -532,7 +532,7 @@ try {
     $reportPath = Join-Path $runDirectory 'report.json'
     if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw 'Sonar report exporter did not write report.json.' }
     $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
-    if ($report.schema -ne 'blazorautoapp.sonar-report/1' -or
+    if ($report.schema -ne 'grumplates.sonar-report/1' -or
         $report.repositoryIdentity -ne $Context.RepositoryIdentity -or
         $report.frontendProfile -ne $FrontendProfile -or $report.projectKey -ne $ProjectKey -or
         $report.analysisId -ne $summary.analysisId -or $report.sha -ne $AnalyzedSha -or

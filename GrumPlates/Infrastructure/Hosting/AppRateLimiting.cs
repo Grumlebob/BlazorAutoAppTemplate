@@ -1,0 +1,186 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Net.Http.Headers;
+
+namespace GrumPlates.Infrastructure.Hosting;
+
+internal static class AppRateLimiting
+{
+    public const string ApiPolicyName = "api";
+    public const string AuthenticationPolicyName = "authentication";
+    public const string AccountWritePolicyName = "account-writes";
+
+    // A WebAssembly boot downloads dozens of framework files. Counting them
+    // against the per-client global limit makes ordinary page loads hit 429.
+    private static readonly HashSet<string> StaticAssetExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".avif",
+        ".br",
+        ".css",
+        ".dat",
+        ".dll",
+        ".gif",
+        ".gz",
+        ".ico",
+        ".jpeg",
+        ".jpg",
+        ".js",
+        ".json",
+        ".map",
+        ".otf",
+        ".png",
+        ".pdb",
+        ".svg",
+        ".ttf",
+        ".wasm",
+        ".webp",
+        ".woff",
+        ".woff2"
+    };
+
+    public static IServiceCollection AddAppRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var configuredOptions = new AppRateLimitingOptions();
+        configuration.GetSection(AppRateLimitingOptions.SectionName).Bind(configuredOptions);
+        var accountsEnabled = configuration.GetValue<bool>("Accounts:Enabled");
+
+        services.AddOptions<AppRateLimitingOptions>()
+            .Bind(configuration.GetSection(AppRateLimitingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(options => options.AllRulesAreValid(), "Rate limiting windows and permit limits must be greater than zero.")
+            .ValidateOnStart();
+        services.AddSingleton<AccountWriteRateLimiterPolicy>();
+
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = WriteTooManyRequestsResponseAsync;
+
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            {
+                if (IsStaticAssetRequest(context.Request.Path))
+                {
+                    return RateLimitPartition.GetNoLimiter("static-assets");
+                }
+
+                // Enabled accounts have an independent named write policy. Keep the legacy
+                // authentication bucket only for the disabled template's existing /Account flow.
+                var isLegacyAccountWrite = !accountsEnabled
+                    && IsAccountWriteRequest(context);
+                var policy = isLegacyAccountWrite ? AuthenticationPolicyName : "global";
+                var rule = isLegacyAccountWrite ? configuredOptions.Authentication : configuredOptions.Global;
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    GetPartitionKey(context, policy),
+                    _ => ToFixedWindow(rule));
+            });
+
+            options.AddPolicy(ApiPolicyName, context =>
+                RateLimitPartition.GetSlidingWindowLimiter(
+                    GetPartitionKey(context, ApiPolicyName),
+                    _ => ToSlidingWindow(configuredOptions.Api)));
+
+            options.AddPolicy<AccountWriteLimiterPartition, AccountWriteRateLimiterPolicy>(AccountWritePolicyName);
+
+        });
+
+        return services;
+    }
+
+    public static IApplicationBuilder UseAppRateLimiting(this IApplicationBuilder app)
+    {
+        return app.UseRateLimiter();
+    }
+
+    private static ValueTask WriteTooManyRequestsResponseAsync(
+        OnRejectedContext context,
+        CancellationToken cancellationToken)
+    {
+        var response = context.HttpContext.Response;
+        var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+            ? Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+            : 1;
+
+        response.Headers[HeaderNames.RetryAfter] = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+
+        response.ContentType = "application/problem+json";
+        return new ValueTask(Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            title: "Too many requests",
+            detail: "The request rate limit was exceeded. Try again later.",
+            extensions: new Dictionary<string, object?> { ["code"] = "RateLimited" })
+            .ExecuteAsync(context.HttpContext));
+    }
+
+    internal static string GetPartitionKey(HttpContext context, string policy)
+    {
+        var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            return $"{policy}:user:{userId}";
+        }
+
+        return $"{policy}:ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+    }
+
+    private static bool IsAccountWriteRequest(HttpContext context)
+    {
+        return (context.Request.Path.StartsWithSegments("/Account", StringComparison.OrdinalIgnoreCase)
+            || context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase))
+            && !HttpMethods.IsGet(context.Request.Method)
+            && !HttpMethods.IsHead(context.Request.Method);
+    }
+
+    internal static bool IsStaticAssetRequest(PathString path)
+    {
+        if (path.StartsWithSegments("/_framework") ||
+            path.StartsWithSegments("/_content") ||
+            path.StartsWithSegments("/assets"))
+        {
+            return true;
+        }
+
+        var value = path.Value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var fileNameStart = value.LastIndexOf('/');
+        var extensionStart = value.LastIndexOf('.');
+        if (extensionStart <= fileNameStart)
+        {
+            return false;
+        }
+
+        return StaticAssetExtensions.Contains(value[extensionStart..]);
+    }
+
+    private static FixedWindowRateLimiterOptions ToFixedWindow(RateLimitRuleOptions rule)
+    {
+        return new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = rule.PermitLimit,
+            QueueLimit = rule.QueueLimit,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            Window = TimeSpan.FromSeconds(rule.WindowSeconds)
+        };
+    }
+
+    private static SlidingWindowRateLimiterOptions ToSlidingWindow(RateLimitRuleOptions rule)
+    {
+        return new SlidingWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = rule.PermitLimit,
+            QueueLimit = rule.QueueLimit,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            SegmentsPerWindow = Math.Max(1, Math.Min(6, rule.WindowSeconds)),
+            Window = TimeSpan.FromSeconds(rule.WindowSeconds)
+        };
+    }
+}

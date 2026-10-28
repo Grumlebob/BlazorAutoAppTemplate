@@ -46,8 +46,8 @@ for host in ("node-app1", "node-app2"):
     if not legacy:
         labels.update({
             "org.opencontainers.image.revision": selected_revision,
-            "com.blazorautoapp.frontend-profile": selected_profile,
-            "com.blazorautoapp.acceptance-profile": selected_acceptance,
+            "com.grumplates.frontend-profile": selected_profile,
+            "com.grumplates.acceptance-profile": selected_acceptance,
         })
     result = {
         "rc": 1 if host == failed_host else 0,

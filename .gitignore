@@ -35,9 +35,9 @@ artifacts/
 node_modules/
 **/node_modules/
 npm-debug.log*
-/BlazorAutoApp.React/build/
-/BlazorAutoApp.React/.react-router/
-/BlazorAutoApp.React/coverage/
+/GrumPlates.React/build/
+/GrumPlates.React/.react-router/
+/GrumPlates.React/coverage/
 .sonarqube/
 Scripts/Quality/quality-settings.local.json
 

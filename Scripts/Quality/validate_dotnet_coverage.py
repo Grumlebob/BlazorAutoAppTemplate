@@ -158,7 +158,7 @@ def validate_reports(tests_directory: Path, repo_root: Path, profile: str) -> di
     if not any(counts["coveredLines"] > 0 for counts in production.values()):
         raise ValueError("Coverage report has no covered production source lines.")
 
-    expected_root = "BlazorAutoApp.Client/" if profile == "BlazorAuto" else "BlazorAutoApp/"
+    expected_root = "GrumPlates.Client/" if profile == "BlazorAuto" else "GrumPlates/"
     expected_sources = sorted(source for source in covered_sources if source.startswith(expected_root))
     if not expected_sources:
         raise ValueError(f"Coverage contains no covered source in the {profile} production composition.")

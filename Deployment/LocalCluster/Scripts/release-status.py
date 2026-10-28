@@ -178,7 +178,7 @@ def write_marker(path: Path, value: dict | None) -> Path | None:
 
 def verified_marker_snapshot() -> dict[str, Any]:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
-    if repository.casefold() != "Grumlebob/BlazorAutoAppTemplate".casefold():
+    if repository.casefold() != "Grumlebob/GrumPlates".casefold():
         raise ReleaseStatusError("status workflow is bound to the Template repository")
     repository_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/") + "/" + repository
     try:

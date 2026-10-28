@@ -99,8 +99,8 @@ for name in files:
             raise SystemExit(f"release identity verification failed: {host} label {key!r} differs")
     profile_labels = {
         "org.opencontainers.image.revision": source_sha,
-        "com.blazorautoapp.frontend-profile": frontend,
-        "com.blazorautoapp.acceptance-profile": acceptance,
+        "com.grumplates.frontend-profile": frontend,
+        "com.grumplates.acceptance-profile": acceptance,
     }
     for key, value in profile_labels.items():
         if schema == "2" and image_labels.get(key) != value:
