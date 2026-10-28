@@ -23,6 +23,16 @@ spec.loader.exec_module(restart)
 
 
 class AppOperationsTests(unittest.TestCase):
+    def test_compose_uses_the_deployed_compose_env_file(self):
+        import backup
+        with tempfile.TemporaryDirectory() as temporary:
+            for build in (restart.compose, backup.compose):
+                self.assertNotIn('--env-file', build(temporary))
+            (Path(temporary) / '.compose.env').write_text('DATA_PROTECTION_CERT_GID=1\n')
+            for build in (restart.compose, backup.compose):
+                command = build(temporary)
+                self.assertEqual(str(Path(temporary) / '.compose.env'), command[command.index('--env-file') + 1])
+
     def test_real_compose_project_selection_overrides_foreign_app_environment(self):
         # config does not contact Docker or create resources.
         with tempfile.TemporaryDirectory() as temporary:

@@ -29,11 +29,18 @@ def guards():
         raise ValueError('Require the held shared deployment lock')
 
 
+def compose(root):
+    """`docker compose` for a deployed app; its .compose.env holds required interpolation values."""
+    env_file = Path(root) / '.compose.env'
+    return ['docker', 'compose', '--project-directory', root,
+            *(['--env-file', str(env_file)] if env_file.is_file() else [])]
+
+
 def containers(config):
     root, app = config['deploy_root'], config['app_name']
     # APP_NAME belongs to the selected app and overrides another root's .env.
     # Pin the project independently when inspecting the primary sibling.
-    identifiers = command('docker', 'compose', '--project-directory', root, '--project-name', app, 'ps', '-q').splitlines()
+    identifiers = command(*compose(root), '--project-name', app, 'ps', '-q').splitlines()
     values = json.loads(command('docker', 'inspect', *identifiers)) if identifiers else []
     result = {}
     for value in values:
@@ -109,7 +116,7 @@ def main():
     sibling = containers(primary) if primary['app_name'] != config['app_name'] else None
     CHECK_PHASE = 'web restart'
     print('Preflight passed; restarting only the explicitly selected web project.', flush=True)
-    command('docker', 'compose', '--project-directory', config['deploy_root'], '--project-name', config['app_name'], 'restart', '--no-deps', 'web', timeout=60)
+    command(*compose(config['deploy_root']), '--project-name', config['app_name'], 'restart', '--no-deps', 'web', timeout=60)
     CHECK_PHASE = 'catalog recovery'
     deadline = time.monotonic() + 180
     while True:
