@@ -2,12 +2,10 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
-using GrumPlates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.DataProtection.StackExchangeRedis;
 using Microsoft.AspNetCore.DataProtection.XmlEncryption;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 

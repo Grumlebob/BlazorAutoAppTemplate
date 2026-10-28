@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using GrumPlates.Test.Architecture.Support;
-using Xunit;
 
 namespace GrumPlates.Test.Architecture;
 

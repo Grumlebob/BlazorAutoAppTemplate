@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using GrumPlates.Test.TestSupport.Integration;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using GrumPlates.Test.Architecture.Support;
 
 namespace GrumPlates.Test.Architecture.Composition;

@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using Xunit;
 using GrumPlates.Test.Architecture.Support;
 
 namespace GrumPlates.Test.Architecture.Boundaries;

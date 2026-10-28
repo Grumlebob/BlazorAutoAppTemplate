@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Net;
 using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.CreateBook;

@@ -1,5 +1,3 @@
-using System;
-
 namespace GrumPlates.Test.E2E.Support;
 
 public static class E2ETestGuard

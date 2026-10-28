@@ -1,10 +1,4 @@
-using System;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
 using GrumPlates.Core.Features.Books.UseCases.CreateBook;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using GrumPlates.Infrastructure.Persistence;
@@ -13,9 +7,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

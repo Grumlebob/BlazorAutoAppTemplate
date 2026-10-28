@@ -1,7 +1,6 @@
 using GrumPlates.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting.CacheInvalidation;
 

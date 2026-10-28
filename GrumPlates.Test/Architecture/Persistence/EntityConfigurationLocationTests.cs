@@ -1,10 +1,6 @@
-using System;
-using System.Linq;
 using System.Reflection;
 using GrumPlates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using Xunit;
 using GrumPlates.Test.Architecture.Support;
 
 namespace GrumPlates.Test.Architecture.Persistence;

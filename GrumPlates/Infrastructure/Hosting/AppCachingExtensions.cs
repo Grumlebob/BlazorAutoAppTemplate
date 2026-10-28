@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.DataProtection;
-using GrumPlates.Infrastructure.Persistence;
 using GrumPlates.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;

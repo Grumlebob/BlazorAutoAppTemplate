@@ -1,7 +1,6 @@
 using GrumPlates.Client.Features.Books.Shared;
 using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.GetAuthorBooks;
-using Microsoft.Extensions.Logging;
 
 namespace GrumPlates.Client.Features.Books.AuthorBookcase;
 
