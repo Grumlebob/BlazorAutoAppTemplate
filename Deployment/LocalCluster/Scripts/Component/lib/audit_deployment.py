@@ -2692,6 +2692,7 @@ require_contains(single + "/compose/docker-compose.yml", 'LocalAccounts__Enabled
 require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__KeyEncryptionCertificatePath=/run/secrets/data-protection.pem", "single-node app certificate path")
 require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__KeyEncryptionCertificatePassword={{ vault_data_protection_certificate_password }}", "single-node protected certificate passphrase")
 require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__LegacyKeyStore={{ data_protection_legacy_key_store | default('None') }}", "single-node legacy Data Protection source selection")
+require_contains(single + "/ansible/templates/backup.service.j2", "SupplementaryGroups=deploy", "backup service can read the root:deploy Data Protection certificate")
 require_contains(single + "/ansible/templates/app.env.j2", "DataProtection__LegacyRedisKey={{ data_protection_legacy_redis_key | default('') }}", "single-node legacy Redis key")
 require_contains(single + "/ansible/templates/compose.env.j2", "DATA_PROTECTION_CERT_GID={{ data_protection_certificate_gid }}", "single-node certificate reader group")
 require_contains(single + "/ansible/templates/compose.env.j2", "DATA_PROTECTION_LEGACY_HOST_PATH=/etc/{{ app_name }}/data-protection/legacy", "single-node legacy source bind path")
