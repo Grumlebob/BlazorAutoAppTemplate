@@ -14,6 +14,8 @@ The new architecture overview links the existing feature, frontend, account and 
 
 The three production managed assemblies remain Core, Server and Client; no extraction added another managed project. The server's Client reference is conditional on BlazorAuto. React generation remains metadata-only and uses the same server endpoint contract. Existing architecture and behavior suites must continue to cover those owners and both compositions.
 
+The bounded L4 review verified all 11 changed local links and the project/profile description. It identified an overbroad draft claim about the outbox mapping. Primary review confirmed that the entity and operations belong to Accounts while its EF mapping remains inline in shared `AppDbContext`; the current documentation now states that distinction. No mapping or model change is needed for this reconciliation.
+
 Retain `ApplicationUser`'s existing CLR namespace `GrumPlates.Features.Login.Account`, with source under `Features/Accounts/Identity`, to avoid an unnecessary Identity/EF compatibility change. Retain historical migration designer strings and existing schema/history. Books' current-user and protected-endpoint integrations with Accounts are deliberate feature dependencies; neutral React transport does not absorb session decoration or private state. Keep middleware order, cache/owner/CSRF semantics and Data Protection/cookie identities unchanged.
 
 ## Verification and completion
