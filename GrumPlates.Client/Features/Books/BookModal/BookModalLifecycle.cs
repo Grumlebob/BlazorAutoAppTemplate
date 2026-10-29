@@ -4,6 +4,7 @@ using GrumPlates.Core.Features.Books.Contracts;
 using GrumPlates.Core.Features.Books.UseCases.CreateBook;
 using GrumPlates.Core.Features.Books.UseCases.GetAuthorBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBook;
+using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using Microsoft.AspNetCore.Components.Authorization;
 
