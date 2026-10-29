@@ -6,7 +6,7 @@
 @inject UserBookcaseState UserBooks
 @inject Microsoft.Extensions.Logging.ILogger<BookModalHost> Logger
 
-@if (_request is not null)
+@if (_lifecycle.Request is not null)
 {
     <div @ref="_dialog"
          class="fixed inset-0 z-50 overflow-y-auto bg-transparent px-4 py-6 outline-none"
@@ -17,34 +17,34 @@
          data-testid="book-modal"
          @onkeydown="HandleKeyDown">
         <div class="mx-auto flex min-h-full w-[min(calc(100vw-2rem),37rem)] flex-col items-center justify-start">
-            @if (_loading)
+            @if (_lifecycle.Loading)
             {
                 <div class="w-full rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm">
                     Loading book...
                 </div>
             }
-            else if (_request.Mode is BookModalMode.View && _viewModel is not null)
+            else if (_lifecycle.Request.Mode is BookModalMode.View && _lifecycle.ViewModel is not null)
             {
-                <h1 id="book-modal-title" class="sr-only">@_viewModel.Title</h1>
-                <BookPageView Title="@_viewModel.Title"
-                              Author="@_viewModel.Author"
-                              Url="@_viewModel.Url"
+                <h1 id="book-modal-title" class="sr-only">@_lifecycle.ViewModel.Title</h1>
+                <BookPageView Title="@_lifecycle.ViewModel.Title"
+                              Author="@_lifecycle.ViewModel.Author"
+                              Url="@_lifecycle.ViewModel.Url"
                               EditHref="@UserEditHref"
                               CloseHref="/books"
-                              CanDelete="@CanDelete"
-                              IsDeleteConfirming="@_confirmingDelete"
-                              IsDeleteBusy="@_deleting"
+                              CanDelete="@_lifecycle.CanDelete"
+                              IsDeleteConfirming="@_lifecycle.ConfirmingDelete"
+                              IsDeleteBusy="@_lifecycle.Deleting"
                               OnDeleteRequest="RequestDelete"
                               OnDeleteConfirm="DeleteAsync"
                               OnDeleteCancel="CancelDelete" />
-                @if (_error is not null)
+                @if (_lifecycle.Error is not null)
                 {
                     <p data-testid="book-operation-error"
                        class="mt-4 w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm"
-                       role="alert">@_error</p>
+                       role="alert">@_lifecycle.Error</p>
                 }
             }
-            else if (_error is not null)
+            else if (_lifecycle.Error is not null)
             {
                 <div class="w-full rounded-md border border-red-200 bg-white px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
                     <div class="mb-2 flex justify-end">
@@ -53,19 +53,19 @@
                            href="/books">Close</a>
                     </div>
                     <h1 id="book-modal-title" class="mb-1 text-lg font-bold text-red-700">Book not found.</h1>
-                    <p>@_error</p>
+                    <p>@_lifecycle.Error</p>
                 </div>
             }
-            else if (_request.Mode is BookModalMode.Create or BookModalMode.Edit)
+            else if (_lifecycle.Request.Mode is BookModalMode.Create or BookModalMode.Edit)
             {
                 <h1 id="book-modal-title" class="sr-only">@EditorHeading</h1>
-                <BookPageEditor Model="_editorModel"
+                <BookPageEditor Model="_lifecycle.EditorModel"
                                 Heading="@EditorHeading"
                                 SubmitLabel="Close and save"
                                 CancelLabel="Close"
                                 CancelHref="/books"
-                                Error="@_saveError"
-                                IsBusy="@_saving"
+                                Error="@_lifecycle.SaveError"
+                                IsBusy="@_lifecycle.Saving"
                                 OnValidSubmit="SaveAsync" />
             }
         </div>
@@ -74,464 +74,67 @@
 
 @code {
     private ElementReference _dialog;
-    private BookModalRouteState? _request;
-    private BookModalViewModel? _viewModel;
-    private BookPageEditorModel _editorModel = new();
-    private bool _loading;
-    private bool _saving;
-    private bool _deleting;
+    private BookModalLifecycle _lifecycle = default!;
     private bool _focusPending;
-    private bool _confirmingDelete;
-    private int _loadVersion;
-    private CancellationTokenSource? _loadCancellation;
-    private CancellationTokenSource? _operationCancellation;
-    private string? _editorModelRequestKey;
-    private string? _error;
-    private string? _saveError;
 
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
     private string? UserEditHref =>
-        _request is { Source: BookModalSource.User, Mode: BookModalMode.View, UserBookId: not null }
-            ? $"/books?bookId={_request.UserBookId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit"
+        _lifecycle.Request is { Source: BookModalSource.User, Mode: BookModalMode.View, UserBookId: not null }
+            ? $"/books?bookId={_lifecycle.Request.UserBookId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&bookMode=edit"
             : null;
 
-    private string EditorHeading => _request?.Mode is BookModalMode.Create ? "Add Book" : "Edit Book";
-
-    private bool CanDelete => _request is { Source: BookModalSource.User, UserBookId: not null };
+    private string EditorHeading => _lifecycle.Request?.Mode is BookModalMode.Create ? "Add Book" : "Edit Book";
 
     protected override async Task OnInitializedAsync()
     {
+        _lifecycle = new BookModalLifecycle(Books, AuthorBooks, UserBooks, Logger,
+            (uri, forceLoad) => Nav.NavigateTo(uri, forceLoad));
+        _lifecycle.Changed += HandleLifecycleChanged;
         Nav.LocationChanged += HandleLocationChanged;
         await LoadFromUriAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_focusPending && _request is not null)
+        if (_focusPending && _lifecycle.Request is not null)
         {
             _focusPending = false;
             await _dialog.FocusAsync();
         }
     }
 
+    private void HandleLifecycleChanged() => _ = InvokeAsync(StateHasChanged);
+
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs args) =>
         _ = InvokeAsync(LoadFromUriAsync);
 
-    private async Task LoadFromUriAsync()
+    private Task LoadFromUriAsync()
     {
-        var loadCancellation = StartLoad(out var version);
-        CancelActiveOperation();
-        var cancellationToken = loadCancellation.Token;
-        var request = BookModalRouteState.Parse(Nav.Uri);
-        _request = request;
-        _viewModel = null;
-        _error = null;
-        _saveError = null;
-        _saving = false;
-        _deleting = false;
-        _confirmingDelete = false;
-
-        if (request is null)
-        {
-            _loading = false;
-            _editorModelRequestKey = null;
-            StateHasChanged();
-            CompleteLoad(loadCancellation);
-            return;
-        }
-
-        _loading = true;
-        _focusPending = true;
-        StateHasChanged();
-
-        try
-        {
-            if (request.Mode is BookModalMode.Create or BookModalMode.Edit)
-            {
-                var authState = await AuthenticationStateTask;
-                if (!IsCurrentLoad(version, cancellationToken))
-                {
-                    return;
-                }
-
-                if (authState.User.Identity?.IsAuthenticated != true)
-                {
-                    var returnUrl = Uri.EscapeDataString(Nav.Uri);
-                    Nav.NavigateTo($"Account/Login?returnUrl={returnUrl}", forceLoad: true);
-                    return;
-                }
-            }
-
-            switch (request)
-            {
-                case { Source: BookModalSource.Author, AuthorBookId: not null }:
-                    _editorModelRequestKey = null;
-                    await LoadAuthorBookAsync(request.AuthorBookId.Value, version, cancellationToken);
-                    break;
-                case { Source: BookModalSource.User, Mode: BookModalMode.Create }:
-                    EnsureCreateEditorModel(request);
-                    break;
-                case { Source: BookModalSource.User, UserBookId: not null }:
-                    await LoadUserBookAsync(request.UserBookId.Value, request, version, cancellationToken);
-                    break;
-                default:
-                    _error = "This book link is invalid.";
-                    break;
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Navigation or disposal canceled a stale load; the current route owns modal errors.
-        }
-        catch (Exception ex)
-        {
-            if (IsCurrentLoad(version, cancellationToken))
-            {
-                Logger.LogWarning(ex, "Book modal load failed for {BookModalUri}", Nav.Uri);
-                _error = "Book details could not be loaded.";
-            }
-        }
-        finally
-        {
-            if (IsCurrentLoad(version, cancellationToken))
-            {
-                _loading = false;
-                StateHasChanged();
-            }
-
-            CompleteLoad(loadCancellation);
-        }
+        var uri = Nav.Uri;
+        var request = BookModalRouteState.Parse(uri);
+        if (request is not null) _focusPending = true;
+        return _lifecycle.LoadAsync(request, AuthenticationStateTask, uri);
     }
 
-    private async Task LoadAuthorBookAsync(int authorBookId, int version, CancellationToken cancellationToken)
-    {
-        if (_request?.Mode is not BookModalMode.View)
-        {
-            _error = "Author books can only be viewed.";
-            return;
-        }
+    private Task SaveAsync(BookPageEditorModel model) => _lifecycle.SaveAsync(model);
 
-        var book = await AuthorBooks.GetByIdAsync(new GetAuthorBookRequest { Id = authorBookId }, cancellationToken);
-        if (!IsCurrentLoad(version, cancellationToken))
-        {
-            return;
-        }
+    private Task DeleteAsync() => _lifecycle.DeleteAsync();
 
-        if (book is null)
-        {
-            _error = "This book could not be found.";
-            return;
-        }
+    private void RequestDelete() => _lifecycle.RequestDelete();
 
-        _viewModel = new BookModalViewModel(book.Title, book.Author, book.Url);
-    }
-
-    private async Task LoadUserBookAsync(
-        int id,
-        BookModalRouteState request,
-        int version,
-        CancellationToken cancellationToken)
-    {
-        var response = await Books.GetByIdAsync(new GetBookRequest { Id = id }, cancellationToken);
-        if (!IsCurrentLoad(version, cancellationToken))
-        {
-            return;
-        }
-
-        if (response is null)
-        {
-            _error = "This book could not be found.";
-            return;
-        }
-
-        if (request.Mode is BookModalMode.Edit)
-        {
-            var key = request.EditorRequestKey;
-            if (!string.Equals(_editorModelRequestKey, key, StringComparison.Ordinal))
-            {
-                _editorModel = new BookPageEditorModel
-                {
-                    Title = response.Title,
-                    Author = response.Author,
-                    Url = response.Url
-                };
-                _editorModelRequestKey = key;
-            }
-
-            return;
-        }
-
-        _editorModelRequestKey = null;
-        _viewModel = new BookModalViewModel(response.Title, response.Author, response.Url);
-    }
-
-    private async Task SaveAsync(BookPageEditorModel model)
-    {
-        if (_saving)
-        {
-            return;
-        }
-
-        var request = _request;
-        if (request is null)
-        {
-            return;
-        }
-
-        var operation = StartOperation();
-        var cancellationToken = operation.Token;
-        _saving = true;
-        _saveError = null;
-        StateHasChanged();
-
-        try
-        {
-            if (request.Mode is BookModalMode.Create)
-            {
-                var created = await Books.CreateAsync(new CreateBookRequest
-                {
-                    Title = model.Title,
-                    Author = NormalizeOptional(model.Author),
-                    Url = NormalizeOptional(model.Url)
-                }, cancellationToken);
-                if (!IsCurrentOperation(operation))
-                {
-                    return;
-                }
-
-                UserBooks.ApplySavedBook(ToBookListItem(created));
-            }
-            else if (request is { Mode: BookModalMode.Edit, UserBookId: not null })
-            {
-                var title = model.Title.Trim();
-                var author = NormalizeOptional(model.Author);
-                var url = NormalizeOptional(model.Url);
-                var success = await Books.UpdateAsync(new UpdateBookRequest
-                {
-                    Id = request.UserBookId.Value,
-                    Title = title,
-                    Author = author,
-                    Url = url
-                }, cancellationToken);
-                if (!IsCurrentOperation(operation))
-                {
-                    return;
-                }
-
-                if (!success)
-                {
-                    _saveError = "Book not found.";
-                    return;
-                }
-
-                UserBooks.ApplySavedBook(new BookListItemResponse
-                {
-                    Id = request.UserBookId.Value,
-                    Title = title,
-                    Author = author,
-                    Url = url
-                });
-            }
-
-            Nav.NavigateTo("/books");
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Navigation canceled this operation; do not show its result on a later route.
-        }
-        catch (Exception ex)
-        {
-            if (IsCurrentOperation(operation))
-            {
-                Logger.LogWarning(ex, "Book save failed for {BookModalUri}", Nav.Uri);
-                _saveError = "Book could not be saved.";
-            }
-        }
-        finally
-        {
-            if (IsCurrentOperation(operation))
-            {
-                _saving = false;
-            }
-
-            CompleteOperation(operation);
-        }
-    }
-
-    private void RequestDelete()
-    {
-        if (CanDelete)
-        {
-            _confirmingDelete = true;
-        }
-    }
-
-    private void CancelDelete() => _confirmingDelete = false;
-
-    private async Task DeleteAsync()
-    {
-        if (_deleting)
-        {
-            return;
-        }
-
-        var request = _request;
-        if (request is not { Source: BookModalSource.User, UserBookId: not null })
-        {
-            return;
-        }
-
-        var operation = StartOperation();
-        var cancellationToken = operation.Token;
-        _deleting = true;
-        _error = null;
-        StateHasChanged();
-
-        try
-        {
-            var deleted = await UserBooks.DeleteAsync(request.UserBookId.Value, cancellationToken);
-            if (!IsCurrentOperation(operation))
-            {
-                return;
-            }
-
-            if (deleted)
-            {
-                Nav.NavigateTo("/books");
-                return;
-            }
-
-            _error = "Book could not be deleted.";
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Navigation canceled this operation; do not show its result on a later route.
-        }
-        catch (Exception ex)
-        {
-            if (IsCurrentOperation(operation))
-            {
-                Logger.LogWarning(ex, "Book delete failed for {BookModalUri}", Nav.Uri);
-                _error = "Book could not be deleted.";
-            }
-        }
-        finally
-        {
-            if (IsCurrentOperation(operation))
-            {
-                _deleting = false;
-            }
-
-            CompleteOperation(operation);
-        }
-    }
+    private void CancelDelete() => _lifecycle.CancelDelete();
 
     private void HandleKeyDown(KeyboardEventArgs args)
     {
-        if (args.Key == "Escape")
-        {
-            Nav.NavigateTo("/books");
-        }
-    }
-
-    private void EnsureCreateEditorModel(BookModalRouteState request)
-    {
-        var key = request.EditorRequestKey;
-        if (string.Equals(_editorModelRequestKey, key, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _editorModel = new BookPageEditorModel();
-        _editorModelRequestKey = key;
-    }
-
-    private static string? NormalizeOptional(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static BookListItemResponse ToBookListItem(CreateBookResponse response) => new()
-    {
-        Id = response.Id,
-        Title = response.Title,
-        Author = response.Author,
-        Url = response.Url
-    };
-
-    private CancellationTokenSource StartLoad(out int version)
-    {
-        CancelActiveLoad();
-        var cancellation = new CancellationTokenSource();
-        _loadCancellation = cancellation;
-        version = Interlocked.Increment(ref _loadVersion);
-        return cancellation;
-    }
-
-    private bool IsCurrentLoad(int version, CancellationToken cancellationToken) =>
-        !cancellationToken.IsCancellationRequested && version == Volatile.Read(ref _loadVersion);
-
-    private void CompleteLoad(CancellationTokenSource loadCancellation)
-    {
-        if (ReferenceEquals(_loadCancellation, loadCancellation))
-        {
-            _loadCancellation = null;
-        }
-
-        loadCancellation.Dispose();
-    }
-
-    private void CancelActiveLoad()
-    {
-        var cancellation = _loadCancellation;
-        if (cancellation is null)
-        {
-            return;
-        }
-
-        _loadCancellation = null;
-        cancellation.Cancel();
-    }
-
-    private CancellationTokenSource StartOperation()
-    {
-        CancelActiveOperation();
-        var cancellation = new CancellationTokenSource();
-        _operationCancellation = cancellation;
-        return cancellation;
-    }
-
-    private bool IsCurrentOperation(CancellationTokenSource operation) =>
-        !operation.IsCancellationRequested && ReferenceEquals(_operationCancellation, operation);
-
-    private void CompleteOperation(CancellationTokenSource operation)
-    {
-        if (ReferenceEquals(_operationCancellation, operation))
-        {
-            _operationCancellation = null;
-        }
-
-        operation.Dispose();
-    }
-
-    private void CancelActiveOperation()
-    {
-        var cancellation = _operationCancellation;
-        if (cancellation is null)
-        {
-            return;
-        }
-
-        _operationCancellation = null;
-        cancellation.Cancel();
+        if (args.Key == "Escape") Nav.NavigateTo("/books");
     }
 
     public void Dispose()
     {
         Nav.LocationChanged -= HandleLocationChanged;
-        CancelActiveLoad();
-        CancelActiveOperation();
+        _lifecycle.Changed -= HandleLifecycleChanged;
+        _lifecycle.Dispose();
     }
-
-    private sealed record BookModalViewModel(string Title, string? Author, string? Url);
 }
