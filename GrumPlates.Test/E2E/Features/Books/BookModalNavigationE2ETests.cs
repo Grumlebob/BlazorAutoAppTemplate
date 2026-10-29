@@ -32,7 +32,9 @@ public sealed class BookModalNavigationE2ETests : BlazorE2ETestBase
             for (var index = 0; index < 4; index++)
             {
                 var finishOnSecond = index % 2 == 0;
-                var routes = finishOnSecond ? new[] { firstHref, secondHref } : new[] { secondHref, firstHref };
+                var routes = finishOnSecond
+                    ? new[] { secondHref, firstHref, secondHref }
+                    : new[] { firstHref, secondHref, firstHref };
                 await Page.EvaluateAsync("paths => { for (const path of paths) Blazor.navigateTo(path); }", routes);
                 await Expect(Page.Locator("#book-modal-title"))
                     .ToHaveTextAsync(finishOnSecond ? secondTitle : firstTitle);
