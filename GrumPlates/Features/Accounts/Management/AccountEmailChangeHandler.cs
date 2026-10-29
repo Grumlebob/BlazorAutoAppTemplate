@@ -1,4 +1,3 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Security.Claims;
 using GrumPlates.Core.Features.Accounts.Contracts;
 using GrumPlates.Features.Accounts.Email;
@@ -6,6 +5,7 @@ using GrumPlates.Features.Accounts.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using static GrumPlates.Features.Accounts.Security.AccountResults;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Management;
 

@@ -2,9 +2,8 @@ using GrumPlates.Client.Features.Books.AuthorBookcase;
 using GrumPlates.Client.Features.Books.UserBookcase;
 using GrumPlates.Components;
 using GrumPlates.Features.Accounts.Blazor;
-using GrumPlates.Features.Books.AuthorBookcase.Seed;
-using GrumPlates.Features.Accounts.Email;
 using GrumPlates.Features.Accounts.Blazor.Seed;
+using GrumPlates.Features.Accounts.Email;
 using GrumPlates.Infrastructure.Hosting;
 using ClientImports = GrumPlates.Client._Imports;
 

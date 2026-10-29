@@ -1,8 +1,8 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Security.Claims;
+using GrumPlates.Features.Accounts.Identity;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using GrumPlates.Features.Accounts.Identity;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Blazor;
 

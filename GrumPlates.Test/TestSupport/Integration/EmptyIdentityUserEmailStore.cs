@@ -1,5 +1,5 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using Microsoft.AspNetCore.Identity;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.TestSupport.Integration;
 

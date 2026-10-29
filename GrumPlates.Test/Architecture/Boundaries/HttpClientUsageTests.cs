@@ -1,6 +1,6 @@
 using System.Reflection;
-using Microsoft.AspNetCore.Components;
 using GrumPlates.Test.Architecture.Support;
+using Microsoft.AspNetCore.Components;
 
 namespace GrumPlates.Test.Architecture.Boundaries;
 

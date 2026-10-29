@@ -1,12 +1,10 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using GrumPlates.Features.Accounts.Persistence;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Email;
 

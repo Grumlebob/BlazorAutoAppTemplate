@@ -1,24 +1,20 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Diagnostics;
 using System.Xml.Linq;
 using GrumPlates.Features.Accounts.Email;
-using GrumPlates.Features.Accounts.Persistence;
 using GrumPlates.Infrastructure.Persistence;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.DataProtection.StackExchangeRedis;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.AspNetCore.DataProtection.StackExchangeRedis;
 using StackExchange.Redis;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts;
 

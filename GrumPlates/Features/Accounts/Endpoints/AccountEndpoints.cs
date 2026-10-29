@@ -1,7 +1,7 @@
 using GrumPlates.Core.Features.Accounts.Contracts;
-using GrumPlates.Infrastructure.Hosting;
-using GrumPlates.Features.Accounts.Session;
 using GrumPlates.Features.Accounts.Security;
+using GrumPlates.Features.Accounts.Session;
+using GrumPlates.Infrastructure.Hosting;
 
 namespace GrumPlates.Features.Accounts.Endpoints;
 

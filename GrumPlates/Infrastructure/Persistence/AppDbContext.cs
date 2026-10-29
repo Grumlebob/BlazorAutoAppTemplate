@@ -1,11 +1,10 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using GrumPlates.Core.Features.Books.Domain;
+using GrumPlates.Features.Accounts.Persistence;
 using GrumPlates.Features.Books.Persistence;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using GrumPlates.Features.Accounts.Persistence;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Infrastructure.Persistence;
 

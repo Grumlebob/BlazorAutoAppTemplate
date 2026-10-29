@@ -1,7 +1,6 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts;
 

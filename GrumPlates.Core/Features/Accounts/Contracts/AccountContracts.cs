@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace GrumPlates.Core.Features.Accounts.Contracts;
 
 public sealed record ClientConfiguration(int SchemaVersion, bool AccountsEnabled, string ApplicationId);

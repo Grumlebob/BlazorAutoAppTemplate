@@ -1,12 +1,11 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Security.Claims;
 using GrumPlates.Features.Accounts.Persistence;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using static GrumPlates.Features.Accounts.Security.AccountResults;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Security;
 

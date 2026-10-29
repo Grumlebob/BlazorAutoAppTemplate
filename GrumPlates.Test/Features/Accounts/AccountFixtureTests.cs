@@ -1,4 +1,3 @@
-using System.Net;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using MailKit.Net.Smtp;
@@ -6,9 +5,7 @@ using MailKit.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using MimeKit;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

@@ -1,7 +1,7 @@
 using System.Reflection;
 using GrumPlates.Infrastructure.Persistence;
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using GrumPlates.Test.Architecture.Support;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 
 namespace GrumPlates.Test.Architecture.Persistence;
 

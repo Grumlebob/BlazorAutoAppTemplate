@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using GrumPlates.Features.Books;
-using Serilog;
-using Serilog.Core;
-using Serilog.Debugging;
-using Serilog.Events;
+using Npgsql;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Npgsql;
+using Serilog;
+using Serilog.Core;
+using Serilog.Debugging;
+using Serilog.Events;
 
 namespace GrumPlates.Infrastructure.Hosting;
 

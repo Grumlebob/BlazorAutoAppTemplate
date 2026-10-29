@@ -1,6 +1,6 @@
-using Microsoft.Playwright;
 using GrumPlates.Test.E2E.Support;
 using GrumPlates.Test.TestSupport.Integration;
+using Microsoft.Playwright;
 
 namespace GrumPlates.Test.E2E.VisualRegression;
 

@@ -4,12 +4,8 @@ using GrumPlates.Features.Accounts.Email;
 using GrumPlates.Infrastructure.Persistence;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

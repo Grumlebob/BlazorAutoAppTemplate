@@ -1,5 +1,4 @@
 using System.Reflection;
-using GrumPlates;
 using GrumPlates.Client;
 using GrumPlates.Core;
 using GrumPlates.Test.TestSupport.Integration;

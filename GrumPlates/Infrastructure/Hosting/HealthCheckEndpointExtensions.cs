@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Text.Json;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace GrumPlates.Infrastructure.Hosting;
 

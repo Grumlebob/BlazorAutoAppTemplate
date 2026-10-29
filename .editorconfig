@@ -9,6 +9,13 @@ trim_trailing_whitespace = true
 [*.{cs,razor}]
 indent_style = space
 indent_size = 4
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+dotnet_diagnostic.IDE0005.severity = warning
+
+# Preserve generated migration history, including files without generated headers.
+[GrumPlates/Infrastructure/Persistence/Migrations/*.cs]
+dotnet_diagnostic.IDE0005.severity = none
 
 [*.{json,yml,yaml,csproj,props,targets}]
 indent_style = space

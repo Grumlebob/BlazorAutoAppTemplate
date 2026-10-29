@@ -1,15 +1,10 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using GrumPlates.Features.Accounts.Email;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts;
 

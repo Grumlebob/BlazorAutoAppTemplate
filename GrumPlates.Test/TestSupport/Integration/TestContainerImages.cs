@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
-using DotNet.Testcontainers.Builders;
 using Docker.DotNet.Models;
+using DotNet.Testcontainers.Builders;
 using Testcontainers.PostgreSql;
 
 namespace GrumPlates.Test.TestSupport.Integration;

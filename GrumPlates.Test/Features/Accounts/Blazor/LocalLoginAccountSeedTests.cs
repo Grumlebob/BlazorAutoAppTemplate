@@ -1,14 +1,12 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using GrumPlates.Features.Accounts.Blazor.Seed;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts.Blazor;
 

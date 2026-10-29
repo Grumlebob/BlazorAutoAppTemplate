@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using GrumPlates.Features.Accounts.Identity;
 using Microsoft.AspNetCore.Http;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts.Identity;
 

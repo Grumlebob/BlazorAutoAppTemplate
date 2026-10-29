@@ -1,7 +1,7 @@
 using GrumPlates.Core.Features.Books.Contracts;
+using GrumPlates.Features.Books.AuthorBookcase.Seed;
 using GrumPlates.Features.Books.Caching;
 using GrumPlates.Features.Books.Endpoints;
-using GrumPlates.Features.Books.AuthorBookcase.Seed;
 using GrumPlates.Features.Books.Services;
 
 namespace GrumPlates.Features.Books;

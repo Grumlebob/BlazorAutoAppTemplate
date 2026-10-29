@@ -1,14 +1,11 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using GrumPlates.Features.Accounts;
 using GrumPlates.Infrastructure.Persistence;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts;
 

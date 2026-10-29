@@ -1,6 +1,6 @@
 using GrumPlates.Test.E2E.Support;
-using Microsoft.Playwright;
 using GrumPlates.Test.TestSupport.Integration;
+using Microsoft.Playwright;
 
 namespace GrumPlates.Test.E2E.Observability;
 

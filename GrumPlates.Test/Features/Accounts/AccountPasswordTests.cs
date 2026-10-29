@@ -1,16 +1,14 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using GrumPlates.Features.Accounts.Blazor;
-using GrumPlates.Features.Accounts.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using GrumPlates.Core.Features.Accounts.Contracts;
 using GrumPlates.Features.Accounts;
+using GrumPlates.Features.Accounts.Blazor;
+using GrumPlates.Features.Accounts.Identity;
 using GrumPlates.Features.Accounts.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts;
 
