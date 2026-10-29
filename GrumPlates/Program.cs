@@ -7,7 +7,6 @@ using GrumPlates.Features.Books.AuthorBookcase.Seed;
 using GrumPlates.Frontend;
 using GrumPlates.Frontend.OpenApi;
 using GrumPlates.Infrastructure.Hosting;
-using GrumPlates.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 if (OpenApiMetadataHosting.IsOpenApiGenerationProcess())

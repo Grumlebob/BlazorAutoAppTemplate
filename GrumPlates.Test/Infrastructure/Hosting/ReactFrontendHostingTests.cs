@@ -1,18 +1,14 @@
 using System.IO.Compression;
-using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using GrumPlates.Features.Accounts.Identity;
 using GrumPlates.Frontend;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using Xunit;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

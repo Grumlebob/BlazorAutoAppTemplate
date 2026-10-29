@@ -1,7 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using GrumPlates.Infrastructure.Hosting.CacheInvalidation;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using StackExchange.Redis;
 

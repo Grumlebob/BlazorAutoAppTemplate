@@ -1,13 +1,11 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Text.Json;
 using GrumPlates.Frontend.OpenApi;
 using GrumPlates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using StackExchange.Redis;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Architecture.OpenApi;
 

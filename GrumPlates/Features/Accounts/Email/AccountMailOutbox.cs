@@ -1,9 +1,8 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Data.Common;
 using GrumPlates.Features.Accounts.Persistence;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Email;
 

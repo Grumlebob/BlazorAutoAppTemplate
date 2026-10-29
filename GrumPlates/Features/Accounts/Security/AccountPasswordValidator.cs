@@ -1,9 +1,9 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Security;
 

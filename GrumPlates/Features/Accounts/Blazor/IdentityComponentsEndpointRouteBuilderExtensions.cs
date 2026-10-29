@@ -1,16 +1,15 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using System.Text.Json;
+using GrumPlates.Core.Features.Accounts.Contracts;
+using GrumPlates.Features.Accounts.Blazor.Pages;
+using GrumPlates.Features.Accounts.Blazor.Pages.Manage;
+using GrumPlates.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using GrumPlates.Core.Features.Accounts.Contracts;
-using GrumPlates.Features.Accounts.Blazor.Pages;
-using GrumPlates.Features.Accounts.Blazor.Pages.Manage;
-using GrumPlates.Features.Accounts;
-using GrumPlates.Infrastructure.Hosting;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts.Blazor;
 

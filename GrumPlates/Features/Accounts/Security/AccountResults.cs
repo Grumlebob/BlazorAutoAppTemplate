@@ -1,7 +1,6 @@
 using System.Data.Common;
 using GrumPlates.Core.Features.Accounts.Contracts;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GrumPlates.Features.Accounts.Security;

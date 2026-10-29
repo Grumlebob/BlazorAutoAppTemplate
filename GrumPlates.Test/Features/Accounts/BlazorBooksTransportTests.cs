@@ -1,9 +1,6 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Security.Claims;
 using GrumPlates.Client.Features.Books;
 using Microsoft.AspNetCore.Components.Authorization;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

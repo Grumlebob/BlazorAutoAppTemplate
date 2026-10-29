@@ -1,7 +1,4 @@
-using GrumPlates.Core.Features.Books.Contracts;
-using GrumPlates.Core.Features.Books.Domain;
 using GrumPlates.Core.Features.Books.UseCases.CreateBook;
-using GrumPlates.Core.Features.Books.UseCases.DeleteBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;

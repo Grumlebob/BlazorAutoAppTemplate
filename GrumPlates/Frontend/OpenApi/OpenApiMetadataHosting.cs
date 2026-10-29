@@ -8,7 +8,6 @@ using GrumPlates.Features.Accounts.Session;
 using GrumPlates.Features.Books;
 using GrumPlates.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
 namespace GrumPlates.Frontend.OpenApi;
