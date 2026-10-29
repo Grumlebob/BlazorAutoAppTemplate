@@ -1,5 +1,5 @@
-import createClient from "openapi-fetch";
-import type { components, paths } from "./generated/schema";
+import { createApiClient } from "./api-client";
+import type { components } from "./generated/schema";
 import { invalidApiResponse, isJsonSuccessContentType, normalizeTransportError, toHttpApiError } from "./errors";
 
 export interface PublicApiClientOptions {
@@ -17,7 +17,7 @@ type TextResult =
   | { data?: never; error: unknown; response: Response };
 
 export function createPublicApi(options: PublicApiClientOptions = {}) {
-  const client = createClient<paths>({
+  const client = createApiClient({
     baseUrl: options.baseUrl ?? "",
     credentials: "omit",
     fetch: options.fetch ?? ((request) => globalThis.fetch(request)),

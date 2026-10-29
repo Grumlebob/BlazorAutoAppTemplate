@@ -19,7 +19,7 @@ For live development, start compatible PostgreSQL and Redis services as describe
 
 ## Change a typed public feature
 
-The React client uses the existing C# API. Keep public API contracts in Core/server and generated request/response types in the React package. The public catalog client omits credentials. The separate account client reads `/api/client-config`, then uses same-origin cookies and the session's antiforgery token when the server reports accounts enabled. Protected APIs must continue to deny anonymous access.
+The React client uses the existing C# API. Keep public API contracts in Core/server and generated request/response types in the React package. The neutral generated-client factory and result helper live in `app/api/api-client.ts` and `app/api/api-result.ts`. Each factory caller explicitly selects credentials. The public catalog client omits credentials. Accounts owns the private client's session decoration: it reads `/api/client-config`, then uses same-origin cookies, captured-owner checks, cancellation and the session's antiforgery token when the server reports accounts enabled. Private features use that decorated provider client. Protected APIs must continue to deny anonymous access.
 
 UI-only changes stay in React and need no new API contract or generation. Run the package checks above and the repository local gate.
 

@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiResult, disabledSession } from "./account-api";
+import { apiResult } from "../../api/api-result";
+import { disabledSession } from "./account-api";
 import { AccountSessionController } from "./account-session-controller";
 
 const controllers: AccountSessionController[] = [];

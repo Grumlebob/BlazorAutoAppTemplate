@@ -1,8 +1,9 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApiClient } from "../../api/api-client";
 import { AccountContext, type AccountState } from "./account-context";
-import { createAccountApi, type Session } from "./account-api";
+import type { Session } from "./account-api";
 import { EmailActionForm, RegistrationForm } from "./account-form-parts";
 
 afterEach(() => {
@@ -108,7 +109,7 @@ function renderWithAccount(
     checking: false,
     error: null,
     applicationId: "a".repeat(32),
-    api: createAccountApi("https://app.example.test", fetcher),
+    api: createApiClient({ baseUrl: "https://app.example.test", credentials: "same-origin", fetch: fetcher }),
     refresh: async () => session,
     changed: async () => session,
   };
