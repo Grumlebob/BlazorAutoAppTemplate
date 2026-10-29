@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace GrumPlates.Infrastructure.Hosting;
 

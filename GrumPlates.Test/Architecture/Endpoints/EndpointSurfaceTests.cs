@@ -1,6 +1,5 @@
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace GrumPlates.Test.Architecture.Endpoints;
 

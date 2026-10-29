@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 
 namespace GrumPlates.Infrastructure.Persistence;

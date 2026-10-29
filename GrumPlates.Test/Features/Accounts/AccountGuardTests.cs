@@ -1,9 +1,6 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

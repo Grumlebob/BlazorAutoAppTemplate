@@ -1,14 +1,11 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using GrumPlates.Core.Features.Accounts.Contracts;
-using GrumPlates.Features.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.TestSupport.Accounts;
 

@@ -1,19 +1,14 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
-using GrumPlates.Test.TestSupport.Integration;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

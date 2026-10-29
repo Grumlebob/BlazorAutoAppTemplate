@@ -1,18 +1,18 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using GrumPlates.Features.Accounts.Management;
-using GrumPlates.Features.Accounts.Recovery;
-using GrumPlates.Features.Accounts.Registration;
 using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using GrumPlates.Features.Accounts.Email;
+using GrumPlates.Features.Accounts.Management;
+using GrumPlates.Features.Accounts.Recovery;
+using GrumPlates.Features.Accounts.Registration;
 using GrumPlates.Features.Accounts.Security;
 using GrumPlates.Features.Accounts.Session;
-using GrumPlates.Features.Accounts.Email;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Features.Accounts;
 

@@ -1,6 +1,5 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 using GrumPlates.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Books.TestData;
 

@@ -1,6 +1,3 @@
-using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.RegularExpressions;
 using GrumPlates.Core.Features.Accounts.Contracts;
@@ -9,9 +6,7 @@ using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using ApplicationUser = GrumPlates.Features.Login.Account.ApplicationUser;
 
 namespace GrumPlates.Test.Features.Accounts;
 

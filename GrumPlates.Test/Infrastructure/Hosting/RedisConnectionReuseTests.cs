@@ -1,6 +1,6 @@
+using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
-using GrumPlates.Test.TestSupport.Integration;
 
 namespace GrumPlates.Test.Infrastructure.Hosting;
 

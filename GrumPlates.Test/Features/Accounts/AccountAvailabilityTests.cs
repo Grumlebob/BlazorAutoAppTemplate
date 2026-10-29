@@ -1,14 +1,10 @@
 using System.Data.Common;
-using System.Net;
-using System.Net.Http.Json;
 using GrumPlates.Features.Accounts.Email;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

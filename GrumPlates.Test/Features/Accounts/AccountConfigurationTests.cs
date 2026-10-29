@@ -1,13 +1,9 @@
-using System.Net;
-using System.Net.Http.Json;
 using GrumPlates.Core.Features.Accounts.Contracts;
 using GrumPlates.Features.Accounts;
 using GrumPlates.Test.TestSupport.Accounts;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace GrumPlates.Test.Features.Accounts;
 

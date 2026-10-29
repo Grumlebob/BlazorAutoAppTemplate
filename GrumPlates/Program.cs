@@ -1,14 +1,13 @@
+using GrumPlates.Features.Accounts;
 using GrumPlates.Features.Accounts.Endpoints;
 using GrumPlates.Features.Accounts.Identity;
+using GrumPlates.Features.Accounts.Security;
+using GrumPlates.Features.Books;
+using GrumPlates.Features.Books.AuthorBookcase.Seed;
 using GrumPlates.Frontend;
 using GrumPlates.Frontend.OpenApi;
 using GrumPlates.Infrastructure.Hosting;
-using GrumPlates.Features.Books;
-using GrumPlates.Features.Books.AuthorBookcase.Seed;
-using GrumPlates.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using GrumPlates.Features.Accounts;
-using GrumPlates.Features.Accounts.Security;
 
 if (OpenApiMetadataHosting.IsOpenApiGenerationProcess())
 {
