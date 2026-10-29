@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Antiforgery;
 using GrumPlates.Features.Accounts;
+using Microsoft.AspNetCore.Antiforgery;
 
 namespace GrumPlates.Features.Accounts.Security;
 

@@ -4,11 +4,11 @@ using GrumPlates.Core.Features.Books.UseCases.DeleteBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
+using GrumPlates.Features.Accounts;
+using GrumPlates.Features.Accounts.Security;
 using GrumPlates.Features.Books;
 using GrumPlates.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
-using GrumPlates.Features.Accounts;
-using GrumPlates.Features.Accounts.Security;
 
 namespace GrumPlates.Features.Books.Endpoints;
 

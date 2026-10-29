@@ -1,15 +1,15 @@
-using GrumPlates.Features.Accounts.Endpoints;
 using System.Reflection;
 using System.Threading.RateLimiting;
 using GrumPlates.Core.Features.Books.Contracts;
+using GrumPlates.Features.Accounts;
+using GrumPlates.Features.Accounts.Endpoints;
+using GrumPlates.Features.Accounts.Security;
+using GrumPlates.Features.Accounts.Session;
 using GrumPlates.Features.Books;
 using GrumPlates.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
-using GrumPlates.Features.Accounts;
-using GrumPlates.Features.Accounts.Session;
-using GrumPlates.Features.Accounts.Security;
 
 namespace GrumPlates.Frontend.OpenApi;
 

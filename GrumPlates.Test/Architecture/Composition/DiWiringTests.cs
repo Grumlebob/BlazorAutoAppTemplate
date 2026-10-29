@@ -1,5 +1,5 @@
-using GrumPlates.Test.TestSupport.Integration;
 using GrumPlates.Test.Architecture.Support;
+using GrumPlates.Test.TestSupport.Integration;
 
 namespace GrumPlates.Test.Architecture.Composition;
 

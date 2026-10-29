@@ -1,6 +1,6 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
-using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using GrumPlates.Features.Accounts.Identity;

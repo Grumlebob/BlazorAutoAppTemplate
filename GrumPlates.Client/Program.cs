@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using GrumPlates.Client.Features.Books;
 using GrumPlates.Client.Features.Books.AuthorBookcase;
 using GrumPlates.Client.Features.Books.UserBookcase;
 using GrumPlates.Core.Features.Books.Contracts;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 

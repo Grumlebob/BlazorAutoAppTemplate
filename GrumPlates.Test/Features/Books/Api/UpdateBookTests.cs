@@ -6,9 +6,9 @@ using GrumPlates.Core.Features.Books.UseCases.GetBook;
 using GrumPlates.Core.Features.Books.UseCases.GetBooks;
 using GrumPlates.Core.Features.Books.UseCases.UpdateBook;
 using GrumPlates.Infrastructure.Persistence;
+using GrumPlates.Test.Features.Books.TestData;
 using GrumPlates.Test.TestSupport.Integration;
 using Microsoft.AspNetCore.Http;
-using GrumPlates.Test.Features.Books.TestData;
 
 namespace GrumPlates.Test.Features.Books.Api;
 
